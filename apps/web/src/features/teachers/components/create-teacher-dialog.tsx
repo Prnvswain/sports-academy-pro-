@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -104,7 +104,13 @@ export function CreateTeacherDialog({
   useEffect(() => {
     if (!selectedSubjectId) return;
     if (!selectedClassIds || selectedClassIds.length === 0) return; // when no classes selected, keep subject
-    const selectedStillValid = subjectsWithClass.some((s) => s.id === selectedSubjectId && (s.class?.id ? selectedClassIds.includes(s.class.id) : selectedClassIds.includes(s.classId ?? '')));
+    const selectedStillValid = subjectsWithClass.some(
+      (s) =>
+        s.id === selectedSubjectId &&
+        (s.class?.id
+          ? selectedClassIds.includes(s.class.id)
+          : selectedClassIds.includes(s.classId ?? '')),
+    );
     if (!selectedStillValid) {
       setValue('subjectId', '' as any, { shouldValidate: true });
     }
@@ -133,27 +139,55 @@ export function CreateTeacherDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add teacher</DialogTitle>
-          <DialogDescription>One subject per teacher. Credentials will be emailed.</DialogDescription>
+          <DialogDescription>
+            One subject per teacher. Credentials will be emailed.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label>Name</Label>
             <Input {...register('name')} />
-            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
             <Input type="email" {...register('email')} />
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">
             <Label>Phone</Label>
             <Input {...register('phone')} />
           </div>
           <div className="space-y-2">
+            <Label>Classes</Label>
+
+            <div className="flex flex-wrap gap-2">
+              {classes.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleClass(c.id)}
+                  className={`rounded-md border px-3 py-1 text-sm transition-colors ${
+                    selectedClassIds.includes(c.id)
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'hover:border-muted-foreground'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+
+            {errors.classIds && (
+              <p className="text-destructive text-sm">{errors.classIds.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
             <Label>Subject</Label>
             <div className="flex flex-wrap gap-2">
-              {filteredSubjects.length === 0 && <p className="text-sm text-muted-foreground">No subjects available</p>}
+              {filteredSubjects.length === 0 && (
+                <p className="text-muted-foreground text-sm">No subjects available</p>
+              )}
               {filteredSubjects.map((s) => {
                 const clsName = s.class?.name ?? classes.find((c) => c.id === s.classId)?.name;
                 return (
@@ -164,34 +198,24 @@ export function CreateTeacherDialog({
                       setValue('subjectId', s.id, { shouldValidate: true });
                     }}
                     className={`rounded-md border px-3 py-1 text-sm transition-colors ${
-                      selectedSubjectId === s.id ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-muted-foreground'
+                      selectedSubjectId === s.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'hover:border-muted-foreground'
                     }`}
                   >
-                    {s.name} {clsName ? <span className="ml-2 text-xs text-muted-foreground">· {clsName}</span> : null}
+                    {s.name}{' '}
+                    {clsName ? (
+                      <span className="text-muted-foreground ml-2 text-xs">· {clsName}</span>
+                    ) : null}
                   </button>
                 );
               })}
             </div>
-            {errors.subjectId && <p className="text-sm text-destructive">{errors.subjectId.message}</p>}
+            {errors.subjectId && (
+              <p className="text-destructive text-sm">{errors.subjectId.message}</p>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label>Classes</Label>
-            <div className="flex flex-wrap gap-2">
-              {classes.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggleClass(c.id)}
-                  className={`rounded-md border px-3 py-1 text-sm transition-colors ${
-                    selectedClassIds.includes(c.id) ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-muted-foreground'
-                  }`}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-            {errors.classIds && <p className="text-sm text-destructive">{errors.classIds.message}</p>}
-          </div>
+
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create teacher
