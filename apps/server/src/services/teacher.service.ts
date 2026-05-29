@@ -91,7 +91,8 @@ export const teacherService = {
       where: withTenant(schoolId, { id: { in: classIds }, ...softDeleteFilter() }),
       select: { id: true },
     });
-    if (classes.length !== classIds.length) throw new AppError('One or more classes not found', 404);
+    if (classes.length !== classIds.length)
+      throw new AppError('One or more classes not found', 404);
 
     let fallbackSubjectId: string | null = null;
 
@@ -101,7 +102,8 @@ export const teacherService = {
         where: withTenant(schoolId, { id: { in: subjectIds }, ...softDeleteFilter() }),
         select: { id: true, classId: true },
       });
-      if (subjects.length !== subjectIds.length) throw new AppError('One or more subjects not found', 404);
+      if (subjects.length !== subjectIds.length)
+        throw new AppError('One or more subjects not found', 404);
 
       const subjectById = new Map(subjects.map((s) => [s.id, s]));
       for (const a of assignments) {
@@ -111,7 +113,6 @@ export const teacherService = {
           throw new AppError('Subject does not belong to selected class', 422);
         }
       }
-
       fallbackSubjectId = assignments[0]!.subjectId;
     } else if (hasLegacy) {
       const fallbackSubject = await prisma.subject.findFirst({
@@ -146,11 +147,7 @@ export const teacherService = {
       });
 
       const teacher = await tx.teacher.create({
-        data: {
-          schoolId,
-          userId: user.id,
-          subjectId: fallbackSubjectId,
-        },
+        data: { schoolId, userId: user.id, subjectId: fallbackSubjectId },
       });
 
       if (hasMatrix) {
@@ -218,12 +215,7 @@ export const teacherService = {
 
     try {
       return await prisma.teacherClass.create({
-        data: {
-          schoolId,
-          teacherId,
-          classId: data.classId,
-          subjectId: data.subjectId,
-        },
+        data: { schoolId, teacherId, classId: data.classId, subjectId: data.subjectId },
         include: {
           class: { select: { id: true, name: true } },
           subject: { select: { id: true, name: true } },
@@ -236,7 +228,6 @@ export const teacherService = {
   },
 
   async deleteAssignment(schoolId: string, teacherId: string, assignmentId: string) {
-    // 1. Find the assignment and get subjectId + classId for cascade cleanup
     const assignment = await prisma.teacherClass.findFirst({
       where: withTenant(schoolId, { id: assignmentId, teacherId }),
       select: { id: true, subjectId: true, classId: true },
@@ -244,7 +235,6 @@ export const teacherService = {
     if (!assignment) throw new AppError('Assignment not found', 404);
 
     await prisma.$transaction(async (tx) => {
-      // 2. Find all chapters in this subject that belong to this teacher
       const chapters = await tx.chapter.findMany({
         where: {
           schoolId,
@@ -256,27 +246,23 @@ export const teacherService = {
       const chapterIds = chapters.map((c) => c.id);
 
       if (chapterIds.length > 0) {
-        // 3. Find all topics in those chapters
         const topics = await tx.topic.findMany({
           where: { schoolId, chapterId: { in: chapterIds } },
           select: { id: true },
         });
         const topicIds = topics.map((t) => t.id);
 
-        // 4. Delete topicProgress for this teacher in those topics
         if (topicIds.length > 0) {
           await tx.topicProgress.deleteMany({
             where: { teacherId, topicId: { in: topicIds } },
           });
         }
 
-        // 5. Delete chapterProgress for this teacher in those chapters
         await tx.chapterProgress.deleteMany({
           where: { teacherId, chapterId: { in: chapterIds } },
         });
       }
 
-      // 6. Finally delete the assignment itself
       await tx.teacherClass.delete({ where: { id: assignmentId } });
     });
   },
@@ -293,11 +279,49 @@ export const teacherService = {
           },
           orderBy: { createdAt: 'desc' },
         },
-        chapterProgress: { include: { chapter: { select: { id: true, title: true } } } },
       },
     });
     if (!teacher) throw new AppError('Teacher not found', 404);
-    return teacher;
+
+    // All subject IDs assigned to this teacher
+    const assignedSubjectIds = teacher.teacherClasses
+      .map((tc) => tc.subject?.id)
+      .filter((s): s is string => Boolean(s));
+
+    // Total chapters across ALL assigned subjects
+    const totalChapters =
+      assignedSubjectIds.length > 0
+        ? await prisma.chapter.count({
+            where: { schoolId, subjectId: { in: assignedSubjectIds }, deletedAt: null },
+          })
+        : 0;
+
+    // Progress records only for chapters in assigned subjects
+    const chapterProgress =
+      assignedSubjectIds.length > 0
+        ? await prisma.chapterProgress.findMany({
+            where: {
+              schoolId,
+              teacherId: id,
+              chapter: { subjectId: { in: assignedSubjectIds } },
+            },
+            include: { chapter: { select: { id: true, title: true } } },
+          })
+        : [];
+
+    const completedChapters = chapterProgress.filter((p) => p.chapterStatus === 'COMPLETED').length;
+
+    // e.g. 2 subjects x 5 chapters = 10 total; 1 completed = 10%
+    const progressPercentage =
+      totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
+
+    return {
+      ...teacher,
+      chapterProgress,
+      totalChapters,
+      completedChapters,
+      progressPercentage,
+    };
   },
 
   async update(

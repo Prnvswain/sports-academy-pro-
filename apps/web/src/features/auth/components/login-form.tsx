@@ -39,9 +39,17 @@ export function LoginForm() {
     try {
       const result = await api.post<LoginResponse>('/auth/login', data);
       setAuth(result.user as AuthUser, result.accessToken);
+
+      // Cookie set karo taaki middleware bhi happy rahe
+      document.cookie = `access_token=${result.accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+
       toast.success('Welcome back!');
       const redirect = searchParams.get('redirect');
-      router.push(redirect && redirect.startsWith('/') ? redirect : roleRedirects[result.user.role as UserRole] ?? '/');
+      router.push(
+        redirect && redirect.startsWith('/')
+          ? redirect
+          : (roleRedirects[result.user.role as UserRole] ?? '/'),
+      );
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Login failed');
     }
@@ -52,7 +60,7 @@ export function LoginForm() {
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input id="email" type="email" placeholder="you@school.edu" {...register('email')} />
-        {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+        {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -67,12 +75,12 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            className="text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+        {errors.password && <p className="text-destructive text-sm">{errors.password.message}</p>}
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>

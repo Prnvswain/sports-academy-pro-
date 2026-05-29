@@ -21,8 +21,23 @@ import { api, ApiError } from '@/services/api-client';
 import { formatPercent } from '@/lib/utils';
 import { toast } from 'sonner';
 import { syllabusKeys } from '@/features/syllabus/query-keys';
-import { invalidateSyllabusStructure } from '@/features/syllabus/invalidate-syllabus';
 import { useSchoolId } from '@/features/syllabus/hooks/use-school-id';
+
+// ✅ Type updated to include server-computed progress fields
+interface TeacherProfile {
+  id: string;
+  user: { name: string; email: string; phone: string | null };
+  teacherClasses: {
+    id: string;
+    class: { id: string; name: string };
+    subject: { id: string; name: string } | null;
+  }[];
+  chapterProgress: { chapterStatus: string; chapter: { title: string } }[];
+  // ✅ Server-computed — based on assigned subjects only
+  totalChapters: number;
+  completedChapters: number;
+  progressPercentage: number;
+}
 
 export default function TeacherProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -34,17 +49,13 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
 
   const { data: teacher, isLoading } = useQuery({
     queryKey: ['teacher', id],
-    queryFn: () => api.get<{
-      id: string;
-      user: { name: string; email: string; phone: string | null };
-      teacherClasses: { id: string; class: { id: string; name: string }; subject: { id: string; name: string } | null }[];
-      chapterProgress: { chapterStatus: string; chapter: { title: string } }[];
-    }>(`/teachers/${id}`),
+    queryFn: () => api.get<TeacherProfile>(`/teachers/${id}`),
   });
 
-  const completed = teacher?.chapterProgress.filter((p) => p.chapterStatus === 'COMPLETED').length ?? 0;
-  const total = teacher?.chapterProgress.length ?? 0;
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // ✅ Use server-computed values — accurate across all assigned subjects
+  const completed = teacher?.completedChapters ?? 0;
+  const total = teacher?.totalChapters ?? 0;
+  const progress = teacher?.progressPercentage ?? 0;
 
   const {
     data: classesData,
@@ -53,8 +64,11 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
     error: classesQueryError,
   } = useQuery({
     queryKey: syllabusKeys.classesList(schoolId),
-    // API pagination max is 100 (see common.validator paginationSchema)
-    queryFn: () => api.getPaginated<{ id: string; name: string }>('/syllabus/classes', { page: 1, pageSize: 100 }),
+    queryFn: () =>
+      api.getPaginated<{ id: string; name: string }>('/syllabus/classes', {
+        page: 1,
+        pageSize: 100,
+      }),
     enabled: assignOpen,
   });
 
@@ -86,7 +100,10 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
 
   const addAssignment = useMutation({
     mutationFn: () =>
-      api.post(`/teachers/${id}/assignments`, { classId: selectedClassId, subjectId: selectedSubjectId }),
+      api.post(`/teachers/${id}/assignments`, {
+        classId: selectedClassId,
+        subjectId: selectedSubjectId,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['teacher', id] });
       toast.success('Assignment added');
@@ -124,6 +141,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
   return (
     <DashboardShell title={teacher.user.name}>
       <div className="grid gap-6 lg:grid-cols-3">
+        {/* Profile */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>Profile</CardTitle>
@@ -135,6 +153,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
 
+        {/* Progress */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Progress</CardTitle>
@@ -147,22 +166,31 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
               </div>
               <Progress value={progress} />
             </div>
-            <p className="text-sm text-muted-foreground">
-              {completed} completed · {total - completed} pending
+            <p className="text-muted-foreground text-sm">
+              {completed} of {total} chapters completed · {total - completed} pending
             </p>
-            <ul className="space-y-2">
-              {teacher.chapterProgress.map((p, i) => (
-                <li key={i} className="flex justify-between rounded border p-2 text-sm">
-                  <span>{p.chapter.title}</span>
-                  <Badge variant={p.chapterStatus === 'COMPLETED' ? 'success' : 'warning'}>
-                    {p.chapterStatus}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
+
+            {/* Only show completed chapters */}
+            {teacher.chapterProgress.filter((p) => p.chapterStatus === 'COMPLETED').length > 0 && (
+              <ul className="space-y-2">
+                {teacher.chapterProgress
+                  .filter((p) => p.chapterStatus === 'COMPLETED')
+                  .map((p, i) => (
+                    <li key={i} className="flex justify-between rounded border p-2 text-sm">
+                      <span>{p.chapter.title}</span>
+                      <Badge variant="success">COMPLETED</Badge>
+                    </li>
+                  ))}
+              </ul>
+            )}
+
+            {teacher.chapterProgress.length === 0 && (
+              <p className="text-muted-foreground text-sm">No chapters completed yet.</p>
+            )}
           </CardContent>
         </Card>
 
+        {/* Subject assignments */}
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Subject assignments</CardTitle>
@@ -173,13 +201,16 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           </CardHeader>
           <CardContent>
             {assignmentCards.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 No subject assignments yet. Add a class + subject pairing.
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {assignmentCards.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <span className="text-sm font-medium">{a.label}</span>
                     <Button
                       variant="ghost"
@@ -188,7 +219,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                       disabled={deleteAssignment.isPending}
                       aria-label="Remove assignment"
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="text-destructive h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -198,6 +229,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
         </Card>
       </div>
 
+      {/* Add assignment dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -208,18 +240,16 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm font-medium">Class</p>
-              {classesLoading && (
-                <p className="text-sm text-muted-foreground">Loading classes…</p>
-              )}
+              {classesLoading && <p className="text-muted-foreground text-sm">Loading classes…</p>}
               {classesError && (
-                <p className="text-sm text-destructive">
+                <p className="text-destructive text-sm">
                   {classesQueryError instanceof ApiError
                     ? classesQueryError.message
                     : 'Failed to load classes'}
                 </p>
               )}
               {!classesLoading && !classesError && classes.length === 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   No classes found. Create classes under Admin → Classes first.
                 </p>
               )}
@@ -233,7 +263,9 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                       setSelectedSubjectId('');
                     }}
                     className={`rounded-md border px-3 py-1 text-sm transition-colors ${
-                      selectedClassId === c.id ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-muted-foreground'
+                      selectedClassId === c.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'hover:border-muted-foreground'
                     }`}
                   >
                     {c.name}
@@ -245,16 +277,16 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
             <div className="space-y-2">
               <p className="text-sm font-medium">Subject</p>
               {subjectsLoading && selectedClassId && (
-                <p className="text-sm text-muted-foreground">Loading subjects…</p>
+                <p className="text-muted-foreground text-sm">Loading subjects…</p>
               )}
               {subjectsError && (
-                <p className="text-sm text-destructive">Failed to load subjects for this class.</p>
+                <p className="text-destructive text-sm">Failed to load subjects for this class.</p>
               )}
               <div className="flex flex-wrap gap-2">
                 {!subjectsLoading && subjects.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     {selectedClassId
-                      ? 'No subjects linked to this class. Assign subjects on the class page or create them with this class.'
+                      ? 'No subjects linked to this class.'
                       : 'Select a class to see subjects.'}
                   </p>
                 )}
@@ -264,7 +296,9 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                     type="button"
                     onClick={() => setSelectedSubjectId(s.id)}
                     className={`rounded-md border px-3 py-1 text-sm transition-colors ${
-                      selectedSubjectId === s.id ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-muted-foreground'
+                      selectedSubjectId === s.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'hover:border-muted-foreground'
                     }`}
                   >
                     {s.name}

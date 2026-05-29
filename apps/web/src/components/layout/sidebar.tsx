@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -8,6 +9,7 @@ import {
   Bookmark,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   School,
   Settings,
   Users,
@@ -25,27 +27,35 @@ const navByRole: Record<UserRole, { href: string; label: string; icon: React.Ele
     { href: '/super-admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/super-admin/schools', label: 'Schools', icon: School },
     { href: '/super-admin/plans', label: 'Plans', icon: CreditCard },
-    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/super-admin/settings', label: 'Settings', icon: Settings },
   ],
   [UserRole.SCHOOL_ADMIN]: [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/teachers', label: 'Teachers', icon: Users },
     { href: '/admin/classes', label: 'Classes', icon: GraduationCap },
     { href: '/admin/subjects', label: 'Subjects', icon: Bookmark },
+    { href: '/admin/teachers', label: 'Teachers', icon: Users },
     { href: '/admin/syllabus', label: 'Syllabus', icon: BookOpen },
-    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/admin/settings', label: 'Settings', icon: Settings },
   ],
   [UserRole.TEACHER]: [
     { href: '/teacher', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/teacher/classes', label: 'Classes', icon: BookOpen },
-    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/teacher/settings', label: 'Settings', icon: Settings },
   ],
 };
 
 export function Sidebar() {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const { sidebarOpen, toggleSidebar } = useUiStore();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    clearAuth();
+    document.cookie = 'access_token=; path=/; max-age=0';
+    router.push('/login');
+  };
 
   if (!user) return null;
 
@@ -54,28 +64,33 @@ export function Sidebar() {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: sidebarOpen ? 260 : 72 }}
-      className={cn(
-        'sticky top-0 z-40 flex h-screen flex-col',
-        'border-r border-white/10 bg-white/[0.02]',
-        'backdrop-blur-xl',
-      )}
+      animate={{ width: sidebarOpen ? 240 : 68 }}
+      className="sticky top-0 z-40 flex h-screen flex-col border-r border-gray-200 bg-white"
     >
-      <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+      {/* Logo row */}
+      <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
         {sidebarOpen && (
-          <Link href="/" className="font-semibold tracking-tight">
-            <span className="bg-gradient-to-r from-indigo-200 via-slate-100 to-emerald-200 bg-clip-text text-transparent">
-              Syllabus
-            </span>
-            <span className="text-slate-400">Tracker</span>
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#1a73e8] to-[#1558b0]">
+              <GraduationCap className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-bold text-[#1a73e8]">SyllabusTracker</span>
           </Link>
         )}
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="shrink-0">
-          <ChevronLeft className={cn('h-4 w-4 transition-transform', !sidebarOpen && 'rotate-180')} />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="shrink-0 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        >
+          <ChevronLeft
+            className={cn('h-4 w-4 transition-transform', !sidebarOpen && 'rotate-180')}
+          />
         </Button>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      {/* Nav items */}
+      <nav className="flex-1 space-y-0.5 p-3">
         {navItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
@@ -84,44 +99,44 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a73e8]/30',
                 active
-                  ? 'text-slate-50'
-                  : 'text-slate-400 hover:text-slate-200',
+                  ? 'bg-[#E8EEFF] text-[#1a73e8]'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700',
               )}
             >
-              <span
-                aria-hidden
-                className={cn(
-                  'absolute inset-0 rounded-xl opacity-0 transition-opacity',
-                  'bg-[linear-gradient(135deg,rgba(99,102,241,0.22),rgba(16,185,129,0.12),rgba(168,85,247,0.16))]',
-                  'group-hover:opacity-70',
-                  active && 'opacity-90',
-                )}
-              />
-              <span
-                aria-hidden
-                className={cn(
-                  'absolute inset-0 rounded-xl opacity-0 transition-opacity',
-                  'ring-1 ring-white/10',
-                  'group-hover:opacity-100',
-                  active && 'opacity-100 ring-white/15',
-                )}
-              />
-              <span className="relative flex items-center gap-3">
               <Icon className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>{item.label}</span>}
-              </span>
             </Link>
           );
         })}
       </nav>
 
-      {sidebarOpen && user && (
-        <div className="border-t border-white/10 p-4">
-          <p className="truncate text-sm font-medium text-slate-100">{user.name}</p>
-          <p className="truncate text-xs text-slate-400">{user.role.replace('_', ' ')}</p>
+      {/* User footer */}
+      {user && (
+        <div className="border-t border-gray-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a73e8] text-xs font-bold text-white">
+                {user.name?.charAt(0).toUpperCase()}
+              </div>
+              {sidebarOpen && (
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-800">{user.name}</p>
+                  <p className="truncate text-xs text-gray-400">{user.role.replace('_', ' ')}</p>
+                </div>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="shrink-0 text-gray-400 hover:bg-red-50 hover:text-red-500"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
     </motion.aside>

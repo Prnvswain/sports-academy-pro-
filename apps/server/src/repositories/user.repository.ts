@@ -8,11 +8,22 @@ export const userRepository = {
       include: { school: true, teacher: true },
     });
   },
-
   findById(id: string) {
     return prisma.user.findFirst({
       where: { id, ...softDeleteFilter() },
-      include: { school: true, teacher: { include: { subject: true, teacherClasses: { include: { class: true } } } } },
+      include: {
+        school: true,
+        teacher: {
+          include: {
+            teacherClasses: {
+              include: {
+                class: true,
+                subject: true, //
+              },
+            },
+          },
+        },
+      },
     });
   },
 

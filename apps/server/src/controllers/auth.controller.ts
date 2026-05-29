@@ -3,6 +3,18 @@ import { COOKIE_NAMES } from '../constants/index.js';
 import { authService } from '../services/auth.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { userRepository } from '../repositories/user.repository.js';
+import { prisma } from '@school-syllabus/database';
+import { AppError } from '../middleware/error-handler.js';
+import bcrypt from 'bcryptjs';
+import { sendOtpEmail } from '../emails/send-otp-email.js';
+
+// In-memory OTP store: userId → { otp, expiresAt }
+// For production use Redis, but this works for single-server setups
+const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export const authController = {
   async login(req: Request, res: Response, next: NextFunction) {
@@ -71,6 +83,97 @@ export const authController = {
         school: user.school,
         teacher: user.teacher,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Update profile (name, phone only — no password here)
+  async updateMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.sub;
+      const { name, phone } = req.body as { name?: string; phone?: string };
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new AppError('User not found', 404);
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(name && { name }),
+          ...(phone !== undefined && { phone }),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          schoolId: true,
+          avatar: true,
+        },
+      });
+
+      sendSuccess(res, updatedUser);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Step 1 — Send OTP to user's email
+  async sendPasswordOtp(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.sub;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new AppError('User not found', 404);
+
+      const otp = generateOtp();
+      const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+      otpStore.set(userId, { otp, expiresAt });
+
+      await sendOtpEmail({
+        to: user.email,
+        name: user.name ?? 'User',
+        otp,
+      });
+
+      sendSuccess(res, { message: `Verification code sent to ${user.email}` });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // Step 2 — Verify OTP + set new password
+  async verifyOtpAndChangePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.sub;
+      const { otp, newPassword } = req.body as { otp: string; newPassword: string };
+
+      const stored = otpStore.get(userId);
+
+      if (!stored) {
+        throw new AppError('No OTP requested. Please request a new code.', 400);
+      }
+      if (Date.now() > stored.expiresAt) {
+        otpStore.delete(userId);
+        throw new AppError('OTP has expired. Please request a new code.', 400);
+      }
+      if (stored.otp !== otp) {
+        throw new AppError('Invalid verification code.', 401);
+      }
+
+      // OTP valid — update password
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      });
+
+      // Clear OTP after use
+      otpStore.delete(userId);
+
+      sendSuccess(res, { message: 'Password changed successfully' });
     } catch (err) {
       next(err);
     }
