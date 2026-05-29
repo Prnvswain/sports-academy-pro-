@@ -1,0 +1,43 @@
+{
+  "name": "school-syllabus-saas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise Multi-Tenant School Syllabus Tracker SaaS",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @school-syllabus/database db:generate",
+    "db:push": "pnpm --filter @school-syllabus/database db:push",
+    "db:migrate": "pnpm --filter @school-syllabus/database db:migrate",
+    "db:seed": "pnpm --filter @school-syllabus/database db:seed",
+    "db:studio": "pnpm --filter @school-syllabus/database db:studio",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@school-syllabus/eslint-config": "workspace:*",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.5.3",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  }
+}

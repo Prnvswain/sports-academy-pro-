@@ -1,0 +1,65 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: school-syllabus-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: aryan2006@mysql
+      MYSQL_DATABASE: school_syllabus_saas
+
+    ports:
+      - '3307:3306'
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+
+    container_name: school-syllabus-server
+    restart: unless-stopped
+
+    ports:
+      - '4000:4000'
+
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: mysql://root:aryan2006@mysql@mysql:3306/school_syllabus_saas
+      JWT_SECRET: change-this-to-a-secure-32-char-secret-key
+      JWT_REFRESH_SECRET: change-this-refresh-secret-32-chars
+      CORS_ORIGIN: http://localhost:3000
+      APP_URL: http://localhost:3000
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+
+    container_name: school-syllabus-web
+    restart: unless-stopped
+
+    ports:
+      - '3000:3000'
+
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+    depends_on:
+      - server
+
+volumes:
+  mysql-data:

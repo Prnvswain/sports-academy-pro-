@@ -1,0 +1,10 @@
+{
+  "name": "School Syllabus Tracker",
+  "short_name": "SyllabusTracker",
+  "description": "Enterprise school syllabus tracking platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary"
+}
