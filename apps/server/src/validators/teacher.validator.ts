@@ -19,20 +19,9 @@ export const createTeacherSchema = z
     assignments: z.array(assignmentSchema).optional(),
   })
   .superRefine((val, ctx) => {
-    const hasLegacy = Array.isArray(val.classIds) && val.classIds.length > 0;
-    const hasMatrix = Array.isArray(val.assignments) && val.assignments.length > 0;
-
-    if (!hasLegacy && !hasMatrix) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Provide either classIds[] or assignments[]',
-        path: ['assignments'],
-      });
-    }
-
-    if (hasMatrix) {
+    if (val.assignments && val.assignments.length > 0) {
       const keys = new Set<string>();
-      for (const a of val.assignments!) {
+      for (const a of val.assignments) {
         const key = `${a.classId}:${a.subjectId}`;
         if (keys.has(key)) {
           ctx.addIssue({
@@ -60,4 +49,3 @@ export const createAssignmentSchema = z.object({
   classId: z.string().uuid(),
   subjectId: z.string().uuid(),
 });
-

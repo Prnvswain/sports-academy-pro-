@@ -81,22 +81,11 @@ export const teacherService = {
     const hasMatrix = Array.isArray(data.assignments) && data.assignments.length > 0;
     const hasLegacy = Array.isArray(data.classIds) && data.classIds.length > 0;
 
-    const assignments = hasMatrix
-      ? data.assignments!
-      : (data.classIds ?? []).map((classId) => ({ classId, subjectId: '' }));
-
-    const classIds = Array.from(new Set(assignments.map((a) => a.classId)));
-
-    const classes = await prisma.class.findMany({
-      where: withTenant(schoolId, { id: { in: classIds }, ...softDeleteFilter() }),
-      select: { id: true },
-    });
-    if (classes.length !== classIds.length)
-      throw new AppError('One or more classes not found', 404);
-
-    let fallbackSubjectId: string | null = null;
+    let assignments: { classId: string; subjectId: string }[] = [];
 
     if (hasMatrix) {
+      assignments = data.assignments!;
+
       const subjectIds = Array.from(new Set(assignments.map((a) => a.subjectId)));
       const subjects = await prisma.subject.findMany({
         where: withTenant(schoolId, { id: { in: subjectIds }, ...softDeleteFilter() }),
@@ -109,26 +98,43 @@ export const teacherService = {
       for (const a of assignments) {
         const s = subjectById.get(a.subjectId);
         if (!s) throw new AppError('One or more subjects not found', 404);
-        if (s.classId && s.classId !== a.classId) {
+        if (s.classId && s.classId !== a.classId)
           throw new AppError('Subject does not belong to selected class', 422);
-        }
       }
-      fallbackSubjectId = assignments[0]!.subjectId;
+
+      const classIds = Array.from(new Set(assignments.map((a) => a.classId)));
+      const classes = await prisma.class.findMany({
+        where: withTenant(schoolId, { id: { in: classIds }, ...softDeleteFilter() }),
+        select: { id: true },
+      });
+      if (classes.length !== classIds.length)
+        throw new AppError('One or more classes not found', 404);
     } else if (hasLegacy) {
+      const classIds = Array.from(new Set(data.classIds!));
+
+      const classes = await prisma.class.findMany({
+        where: withTenant(schoolId, { id: { in: classIds }, ...softDeleteFilter() }),
+        select: { id: true },
+      });
+      if (classes.length !== classIds.length)
+        throw new AppError('One or more classes not found', 404);
+
       const fallbackSubject = await prisma.subject.findFirst({
         where: withTenant(schoolId, { classId: { in: classIds }, ...softDeleteFilter() }),
         select: { id: true },
       });
-      if (!fallbackSubject) {
+      if (!fallbackSubject)
         throw new AppError(
           'No subjects are configured for the selected classes. Configure a subject first.',
           422,
         );
-      }
-      fallbackSubjectId = fallbackSubject.id;
-    } else {
-      throw new AppError('Invalid teacher payload', 422);
+
+      assignments = classIds.map((classId) => ({
+        classId,
+        subjectId: fallbackSubject.id,
+      }));
     }
+    // else: no assignments — teacher created without class/subject, can be assigned later
 
     const tempPassword = authService.generateSecurePassword();
     const passwordHash = await hashPassword(tempPassword);
@@ -149,23 +155,13 @@ export const teacherService = {
         data: { schoolId, userId: user.id },
       });
 
-      if (hasMatrix) {
+      if (assignments.length > 0) {
         await tx.teacherClass.createMany({
           data: assignments.map((a) => ({
             schoolId,
             teacherId: teacher.id,
             classId: a.classId,
             subjectId: a.subjectId,
-          })),
-          skipDuplicates: true,
-        });
-      } else if (hasLegacy) {
-        await tx.teacherClass.createMany({
-          data: classIds.map((classId) => ({
-            schoolId,
-            teacherId: teacher.id,
-            classId,
-            subjectId: fallbackSubjectId,
           })),
           skipDuplicates: true,
         });
@@ -208,9 +204,8 @@ export const teacherService = {
       select: { id: true, classId: true },
     });
     if (!subject) throw new AppError('Subject not found', 404);
-    if (subject.classId && subject.classId !== data.classId) {
+    if (subject.classId && subject.classId !== data.classId)
       throw new AppError('Subject does not belong to selected class', 422);
-    }
 
     try {
       return await prisma.teacherClass.create({
@@ -282,12 +277,10 @@ export const teacherService = {
     });
     if (!teacher) throw new AppError('Teacher not found', 404);
 
-    // All subject IDs assigned to this teacher
     const assignedSubjectIds = teacher.teacherClasses
       .map((tc) => tc.subject?.id)
       .filter((s): s is string => Boolean(s));
 
-    // Total chapters across ALL assigned subjects
     const totalChapters =
       assignedSubjectIds.length > 0
         ? await prisma.chapter.count({
@@ -295,7 +288,6 @@ export const teacherService = {
           })
         : 0;
 
-    // Progress records only for chapters in assigned subjects
     const chapterProgress =
       assignedSubjectIds.length > 0
         ? await prisma.chapterProgress.findMany({
@@ -310,7 +302,6 @@ export const teacherService = {
 
     const completedChapters = chapterProgress.filter((p) => p.chapterStatus === 'COMPLETED').length;
 
-    // e.g. 2 subjects x 5 chapters = 10 total; 1 completed = 10%
     const progressPercentage =
       totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
 

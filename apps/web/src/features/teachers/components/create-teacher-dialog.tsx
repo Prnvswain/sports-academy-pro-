@@ -26,8 +26,8 @@ const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
-  subjectIds: z.array(z.string()).min(1, 'Select at least one subject'),
-  classIds: z.array(z.string()).min(1, 'Select at least one class'),
+  subjectIds: z.array(z.string()).optional().default([]),
+  classIds: z.array(z.string()).optional().default([]),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -80,8 +80,8 @@ export function CreateTeacherDialog({
     defaultValues: { classIds: [], subjectIds: [] },
   });
 
-  const selectedClassIds = watch('classIds');
-  const selectedSubjectIds = watch('subjectIds');
+  const selectedClassIds = watch('classIds') ?? [];
+  const selectedSubjectIds = watch('subjectIds') ?? [];
 
   const subjectsWithClass = useMemo(() => {
     return subjects.map((s) => {
@@ -99,7 +99,6 @@ export function CreateTeacherDialog({
     });
   }, [subjectsWithClass, selectedClassIds]);
 
-  // Remove selected subjects that no longer belong to selected classes
   useEffect(() => {
     if (!selectedSubjectIds?.length) return;
     if (!selectedClassIds?.length) return;
@@ -133,14 +132,9 @@ export function CreateTeacherDialog({
   };
 
   const onSubmit = async (data: FormData) => {
-    if (!data.subjectIds?.length) {
-      toast.error('Please select at least one subject');
-      return;
-    }
-
-    // Build assignments: each subject paired with its own classId (not classIds[0])
     const assignments: { subjectId: string; classId: string }[] = [];
-    for (const subjectId of data.subjectIds) {
+
+    for (const subjectId of data.subjectIds ?? []) {
       const subject = subjectsWithClass.find((s) => s.id === subjectId);
       const classId = subject?.class?.id ?? subject?.classId;
       if (!classId) {
@@ -156,7 +150,7 @@ export function CreateTeacherDialog({
       name: data.name,
       email: data.email,
       phone: data.phone,
-      classIds: data.classIds,
+      classIds: data.classIds ?? [],
       assignments,
     });
     reset();
@@ -193,7 +187,10 @@ export function CreateTeacherDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Classes</Label>
+              <Label>
+                Classes{' '}
+                <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {classes.map((c) => (
                   <button
@@ -210,13 +207,13 @@ export function CreateTeacherDialog({
                   </button>
                 ))}
               </div>
-              {errors.classIds && (
-                <p className="text-destructive text-sm">{errors.classIds.message}</p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label>Subject</Label>
+              <Label>
+                Subject{' '}
+                <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {filteredSubjects.length === 0 && (
                   <p className="text-muted-foreground text-sm">
@@ -246,9 +243,6 @@ export function CreateTeacherDialog({
                   );
                 })}
               </div>
-              {errors.subjectIds && (
-                <p className="text-destructive text-sm">{errors.subjectIds.message}</p>
-              )}
             </div>
           </div>
 
