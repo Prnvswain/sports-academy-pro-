@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Trash2, Users } from 'lucide-react';
+import { Plus, Search, Trash2, Upload, Users } from 'lucide-react';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +11,13 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/shared/empty-state';
 import { CreateTeacherDialog } from '@/features/teachers/components/create-teacher-dialog';
+import { BulkImportTeachersDialog } from '@/features/teachers/components/bulk-import-dialog';
 import { useTeachers, useDeleteTeacher } from '@/features/teachers/hooks/use-teachers';
 
 export default function AdminTeachersPage() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const { data, isLoading } = useTeachers({ search: search || undefined });
   const deleteTeacher = useDeleteTeacher();
 
@@ -26,7 +28,7 @@ export default function AdminTeachersPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative max-w-sm flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             <Input
               placeholder="Search teachers..."
               className="pl-9"
@@ -34,10 +36,14 @@ export default function AdminTeachersPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add teacher
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBulkOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Bulk import
+            </Button>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Add teacher
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -57,16 +63,26 @@ export default function AdminTeachersPage() {
           <Card>
             <div className="divide-y">
               {teachers.map((teacher) => (
-                <div key={teacher.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={teacher.id}
+                  className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div>
-                    <Link href={`/admin/teachers/${teacher.id}`} className="font-semibold hover:underline">
+                    <Link
+                      href={`/admin/teachers/${teacher.id}`}
+                      className="font-semibold hover:underline"
+                    >
                       {teacher.user.name}
                     </Link>
-                    <p className="text-sm text-muted-foreground">{teacher.user.email}</p>
+                    <p className="text-muted-foreground text-sm">{teacher.user.email}</p>
+                    {teacher.user.phone && (
+                      <p className="text-muted-foreground text-sm">{teacher.user.phone}</p>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge variant="secondary">{teacher.subject?.name ?? 'No subject'}</Badge>
+                      {teacher.teacherClasses.length === 0 && (
+                        <Badge variant="secondary">No subject</Badge>
+                      )}
                       {teacher.teacherClasses.map((tc) => (
-                        // FIXED: Uses structural compound keys to gracefully prevent React runtime duplicates 
                         <Badge key={`${tc.classId}-${tc.subjectId || 'all'}`} variant="outline">
                           {tc.class.name}
                           {tc.subject?.name ? ` (${tc.subject.name})` : ''}
@@ -81,7 +97,7 @@ export default function AdminTeachersPage() {
                       if (confirm('Delete this teacher?')) deleteTeacher.mutate(teacher.id);
                     }}
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Trash2 className="text-destructive h-4 w-4" />
                   </Button>
                 </div>
               ))}
@@ -89,7 +105,9 @@ export default function AdminTeachersPage() {
           </Card>
         )}
       </div>
+
       <CreateTeacherDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <BulkImportTeachersDialog open={bulkOpen} onOpenChange={setBulkOpen} />
     </DashboardShell>
   );
 }

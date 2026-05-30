@@ -54,6 +54,80 @@ export const teacherService = {
     return { items, total, page, pageSize };
   },
 
+  async bulkCreate(
+    schoolId: string,
+    teachers: Array<{ name: string; email: string; phone?: string }>,
+  ) {
+    const results: { success: boolean; name: string; email: string; error?: string }[] = [];
+
+    for (const data of teachers) {
+      try {
+        if (!data.name || !data.email) {
+          results.push({
+            success: false,
+            name: data.name || '',
+            email: data.email || '',
+            error: 'Name and email are required',
+          });
+          continue;
+        }
+
+        const email = data.email.toLowerCase();
+        const existingUser = await prisma.user.findFirst({
+          where: { email, schoolId, deletedAt: null },
+          include: { teacher: true },
+        });
+
+        if (existingUser?.teacher && existingUser.teacher.deletedAt === null) {
+          results.push({ success: false, name: data.name, email, error: 'Teacher already exists' });
+          continue;
+        }
+        if (existingUser && !existingUser.teacher) {
+          results.push({ success: false, name: data.name, email, error: 'Email already in use' });
+          continue;
+        }
+
+        const tempPassword = authService.generateSecurePassword();
+        const passwordHash = await hashPassword(tempPassword);
+        const school = await prisma.school.findUnique({ where: { id: schoolId } });
+
+        await prisma.$transaction(async (tx) => {
+          const user = await tx.user.create({
+            data: {
+              email,
+              passwordHash,
+              name: data.name,
+              role: 'TEACHER',
+              schoolId,
+              phone: data.phone,
+            },
+          });
+          await tx.teacher.create({ data: { schoolId, userId: user.id } });
+        });
+
+        if (school) {
+          await sendTeacherCredentialsEmail({
+            to: email,
+            teacherName: data.name,
+            schoolName: school.name,
+            email,
+            tempPassword,
+          });
+        }
+
+        results.push({ success: true, name: data.name, email });
+      } catch (error: any) {
+        results.push({
+          success: false,
+          name: data.name || '',
+          email: data.email || '',
+          error: error.message || 'Failed',
+        });
+      }
+    }
+
+    return results;
+  },
   async create(
     schoolId: string,
     data: {

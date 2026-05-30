@@ -22,8 +22,9 @@ teacherRoutes.use(
 );
 
 teacherRoutes.get('/', validateQuery(paginationSchema), teacherController.list);
-teacherRoutes.get('/:id', validateParams(teacherIdParamSchema), teacherController.getById);
+teacherRoutes.post('/bulk', teacherController.bulkCreate);
 teacherRoutes.post('/', validateBody(createTeacherSchema), teacherController.create);
+teacherRoutes.get('/:id', validateParams(teacherIdParamSchema), teacherController.getById);
 teacherRoutes.post(
   '/:id/assignments',
   validateParams(teacherIdParamSchema),

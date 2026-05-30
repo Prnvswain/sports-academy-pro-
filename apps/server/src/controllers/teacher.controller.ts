@@ -4,6 +4,23 @@ import { getTenantId } from '../middleware/tenant.js';
 import { sendPaginated, sendSuccess } from '../utils/api-response.js';
 
 export const teacherController = {
+  async bulkCreate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { teachers } = req.body;
+      if (!Array.isArray(teachers) || teachers.length === 0) {
+        return res.status(400).json({ success: false, error: 'Teachers array is required' });
+      }
+      if (teachers.length > 100) {
+        return res.status(400).json({ success: false, error: 'Maximum 100 teachers per import' });
+      }
+      const results = await teacherService.bulkCreate(getTenantId(req), teachers);
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+      sendSuccess(res, { results, succeeded, failed }, 201);
+    } catch (err) {
+      next(err);
+    }
+  },
   async list(req: Request, res: Response, next: NextFunction) {
     try {
       const schoolId = getTenantId(req);

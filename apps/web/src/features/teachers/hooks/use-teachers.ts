@@ -7,9 +7,25 @@ export interface TeacherRow {
   user: { id: string; name: string; email: string; phone: string | null; status: string };
   subject: { id: string; name: string };
   teacherClasses: {
+    classId: string;
+    subjectId?: string;
     class: { id: string; name: string; grade: string | null; section: string | null };
+    subject?: { id: string; name: string } | null;
   }[];
   status: string;
+}
+
+export interface BulkTeacherRow {
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+export interface BulkResult {
+  success: boolean;
+  name: string;
+  email: string;
+  error?: string;
 }
 
 export function useTeachers(params: { page?: number; search?: string }) {
@@ -37,6 +53,24 @@ export function useCreateTeacher() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['teachers'] });
       toast.success('Teacher created. You can now assign more subjects from their profile.');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useBulkCreateTeachers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (teachers: BulkTeacherRow[]) =>
+      api.post<{ results: BulkResult[]; succeeded: number; failed: number }>('/teachers/bulk', {
+        teachers,
+      }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['teachers'] });
+      if (data.succeeded > 0)
+        toast.success(`${data.succeeded} teacher${data.succeeded > 1 ? 's' : ''} imported`);
+      if (data.failed > 0)
+        toast.error(`${data.failed} teacher${data.failed > 1 ? 's' : ''} failed`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
