@@ -145,9 +145,8 @@ export const teacherService = {
           phone: data.phone,
         },
       });
-
       const teacher = await tx.teacher.create({
-        data: { schoolId, userId: user.id, subjectId: fallbackSubjectId },
+        data: { schoolId, userId: user.id },
       });
 
       if (hasMatrix) {

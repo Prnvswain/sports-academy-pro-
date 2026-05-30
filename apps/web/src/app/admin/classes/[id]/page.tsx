@@ -12,7 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/shared/empty-state';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { api, ApiError } from '@/services/api-client';
 import { formatPercent } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -70,7 +77,7 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
 
   const { data: allSubjects = [] } = useQuery({
     queryKey: syllabusKeys.subjectsForAssignment(schoolId, id),
-    queryFn: () => api.get<SubjectForAssignment[]>('/syllabus/subjects'),
+    queryFn: () => api.get<SubjectForAssignment[]>('/syllabus/subjects', { classId: id }),
     enabled: Boolean(schoolId && addSubjectDialogOpen),
   });
 
@@ -150,9 +157,9 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Class overview</p>
+            <p className="text-muted-foreground text-sm">Class overview</p>
             <h2 className="text-2xl font-semibold">{data.name}</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
               Grade {data.grade ?? '—'} · Section {data.section ?? '—'}
             </p>
           </div>
@@ -167,13 +174,15 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
               <CardTitle>Overall progress</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center justify-between text-sm">
                 <span>Completion</span>
                 <span>{formatPercent(data.overallProgress)}</span>
               </div>
               <Progress value={data.overallProgress} />
-              <div className="rounded-lg bg-secondary/50 p-4 text-sm text-muted-foreground">
-                <p>{data.completedChapters} of {data.totalChapters} chapters completed</p>
+              <div className="bg-secondary/50 text-muted-foreground rounded-lg p-4 text-sm">
+                <p>
+                  {data.completedChapters} of {data.totalChapters} chapters completed
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -188,13 +197,15 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
                   {data.assignedTeachers.map((teacher) => (
                     <div key={teacher.id} className="rounded-lg border p-4">
                       <p className="font-semibold">{teacher.name}</p>
-                      <p className="text-sm text-muted-foreground">{teacher.email}</p>
+                      <p className="text-muted-foreground text-sm">{teacher.email}</p>
                       {teacher.subject && <Badge>{teacher.subject}</Badge>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No teachers have been assigned to this class yet.</p>
+                <p className="text-muted-foreground text-sm">
+                  No teachers have been assigned to this class yet.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -204,7 +215,9 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold">Subjects</h3>
-              <p className="text-sm text-muted-foreground">Review progress, chapter counts and assigned subject teachers.</p>
+              <p className="text-muted-foreground text-sm">
+                Review progress, chapter counts and assigned subject teachers.
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge>{data.subjects.length} subjects</Badge>
@@ -232,8 +245,9 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <CardTitle className="text-base">{subject.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {subject._count.chapters} chapters · {subject.teachers.length} teachers assigned
+                        <p className="text-muted-foreground text-sm">
+                          {subject._count.chapters} chapters · {subject.teachers.length} teachers
+                          assigned
                         </p>
                       </div>
                       {subject.teachers.length > 0 && (
@@ -242,12 +256,12 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="text-muted-foreground flex items-center justify-between text-sm">
                       <span>Subject completion</span>
                       <span>{formatPercent(subject.progressPercentage)}</span>
                     </div>
                     <Progress value={subject.progressPercentage} />
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                       {subject.completedChapters} of {subject.totalChapters} chapters completed
                     </p>
                   </CardContent>
@@ -258,15 +272,16 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <Dialog open={addSubjectDialogOpen} onOpenChange={setAddSubjectDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="flex max-h-[80vh] flex-col gap-0 p-0">
+            <DialogHeader className="shrink-0 px-6 pb-4 pt-6">
               <DialogTitle>Add subject to {data.name}</DialogTitle>
               <DialogDescription>Select a subject to assign it to this class.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-6">
               <div className="flex flex-wrap gap-2">
                 {allSubjects.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No subjects available</p>
+                  <p className="text-muted-foreground text-sm">No subjects available</p>
                 )}
                 {allSubjects.map((subject) => (
                   <button
@@ -280,12 +295,15 @@ export default function AdminClassDetailPage({ params }: { params: Promise<{ id:
                     }`}
                   >
                     {subject.name}
-                    {subject.code && <span className="ml-2 text-xs opacity-75">({subject.code})</span>}
+                    {subject.code && (
+                      <span className="ml-2 text-xs opacity-75">({subject.code})</span>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
-            <DialogFooter>
+
+            <DialogFooter className="shrink-0 border-t px-6 py-4">
               <Button variant="secondary" onClick={() => setAddSubjectDialogOpen(false)}>
                 Cancel
               </Button>

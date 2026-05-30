@@ -32,6 +32,11 @@ interface Subject {
   class?: { id: string; name: string } | null;
 }
 
+interface ClassOption {
+  id: string;
+  name: string;
+}
+
 export default function AdminSubjectsPage() {
   const queryClient = useQueryClient();
   const schoolId = useSchoolId();
@@ -39,6 +44,7 @@ export default function AdminSubjectsPage() {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
+  const [classId, setClassId] = useState('');
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: syllabusKeys.subjects(schoolId),
@@ -46,6 +52,13 @@ export default function AdminSubjectsPage() {
     enabled: Boolean(schoolId),
   });
 
+  const { data: classesData } = useQuery({
+    queryKey: syllabusKeys.classesList(schoolId),
+    queryFn: () => api.getPaginated<ClassOption>('/syllabus/classes', { page: 1, pageSize: 100 }),
+    enabled: open && Boolean(schoolId),
+  });
+
+  const classes = classesData?.items ?? [];
   const subjects = data ?? [];
 
   const createMutation = useMutation({
@@ -54,6 +67,7 @@ export default function AdminSubjectsPage() {
         name: name.trim(),
         code: code.trim() || undefined,
         description: description.trim() || undefined,
+        classId: classId || undefined,
       }),
     onSuccess: async (created) => {
       queryClient.setQueryData<Subject[]>(syllabusKeys.subjects(schoolId), (old) =>
@@ -65,6 +79,7 @@ export default function AdminSubjectsPage() {
       setName('');
       setCode('');
       setDescription('');
+      setClassId('');
     },
     onError: () => toast.error('Failed to create subject'),
   });
@@ -83,7 +98,7 @@ export default function AdminSubjectsPage() {
 
   return (
     <DashboardShell title="Subjects">
-      <p className="mb-6 max-w-2xl text-sm text-muted-foreground">
+      <p className="text-muted-foreground mb-6 max-w-2xl text-sm">
         Create and manage subjects used in the syllabus and teacher assignments.
       </p>
 
@@ -118,7 +133,7 @@ export default function AdminSubjectsPage() {
                     {s.class && <Badge>{s.class.name}</Badge>}
                   </div>
                   {s.description && (
-                    <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>
+                    <p className="text-muted-foreground mt-1 text-sm">{s.description}</p>
                   )}
                 </div>
                 <Button
@@ -140,15 +155,15 @@ export default function AdminSubjectsPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[80vh] flex-col gap-0 p-0">
+          <DialogHeader className="shrink-0 px-6 pb-4 pt-6">
             <DialogTitle>Add subject</DialogTitle>
             <DialogDescription>
-              Provide a name for the new subject.
+              Provide a name and optionally assign this subject to a class.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Name</label>
               <Input
@@ -157,6 +172,7 @@ export default function AdminSubjectsPage() {
                 placeholder="e.g. Mathematics"
               />
             </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">
                 Code <span className="text-muted-foreground">(optional)</span>
@@ -167,6 +183,7 @@ export default function AdminSubjectsPage() {
                 placeholder="e.g. MATH-10"
               />
             </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">
                 Description <span className="text-muted-foreground">(optional)</span>
@@ -177,15 +194,42 @@ export default function AdminSubjectsPage() {
                 placeholder="Optional description"
               />
             </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Class</label>
+              {classes.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No classes found. Create classes first.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {classes.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setClassId(classId === c.id ? '' : c.id)}
+                      className={`rounded-md border px-3 py-1 text-sm transition-colors ${
+                        classId === c.id
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'hover:border-muted-foreground'
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <DialogFooter className="space-x-2">
+          <DialogFooter className="shrink-0 border-t px-6 py-4">
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button
               onClick={() => {
                 if (!name.trim()) return toast.error('Name is required');
+                if (!classId) return toast.error('Please select a class');
                 createMutation.mutate();
               }}
               disabled={createMutation.isPending}

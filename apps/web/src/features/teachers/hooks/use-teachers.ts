@@ -6,7 +6,9 @@ export interface TeacherRow {
   id: string;
   user: { id: string; name: string; email: string; phone: string | null; status: string };
   subject: { id: string; name: string };
-  teacherClasses: { class: { id: string; name: string; grade: string | null; section: string | null } }[];
+  teacherClasses: {
+    class: { id: string; name: string; grade: string | null; section: string | null };
+  }[];
   status: string;
 }
 
@@ -30,10 +32,11 @@ export function useCreateTeacher() {
       email: string;
       phone?: string;
       classIds: string[];
+      assignments: { classId: string; subjectId: string }[];
     }) => api.post('/teachers', body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['teachers'] });
-      toast.success('Teacher created. You can now assign subjects from their profile.');
+      toast.success('Teacher created. You can now assign more subjects from their profile.');
     },
     onError: (e: Error) => toast.error(e.message),
   });

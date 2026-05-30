@@ -25,9 +25,11 @@ export const teacherController = {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log('[CREATE TEACHER] body:', JSON.stringify(req.body, null, 2));
       const teacher = await teacherService.create(getTenantId(req), req.body);
       sendSuccess(res, teacher, 201);
     } catch (err) {
+      console.error('[CREATE TEACHER ERROR]', err);
       next(err);
     }
   },
@@ -60,7 +62,11 @@ export const teacherController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacher = await teacherService.update(getTenantId(req), String(req.params.id), req.body);
+      const teacher = await teacherService.update(
+        getTenantId(req),
+        String(req.params.id),
+        req.body,
+      );
       sendSuccess(res, teacher);
     } catch (err) {
       next(err);
