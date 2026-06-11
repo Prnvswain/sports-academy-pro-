@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+:root[data-theme='light'] {
+  --color-bg: #f2fbf5;            /* Off-white mint tint for the main page background */
+  --color-bg-secondary: #e1f7e9;  /* Very subtle green hue for sidebars or subtle panels */
+  --color-text: #062f19;          /* Deep obsidian forest green - makes headings highly readable */
+  --color-text-muted: #1e5937;    /* Slate-green - clearly visible on white cards */
+  --color-border: #cbeed6;        /* Soft mint border divider */
+  --color-card: #ffffff;          /* Clean, crisp white for dashboard cards */
+  --color-input: #f9fdfa;         /* Clean white/mint tint for form inputs */
+  
+  /* Sports Emerald/Green Theme Maps (RGB format) */
+  --color-accent-primary: 5, 150, 105; /* Emerald 600 */
+  --color-accent-hover: 4, 120, 87;    /* Emerald 700 */
+  --color-accent-light: 209, 250, 229; /* Emerald 100 */
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #031e17;            /* Deep midnight emerald core background */
+  --color-bg-secondary: #072e24;  /* Slightly lighter pine green for layout sections */
+  --color-text: #f0fdf4;          /* Bright mint-white for effortless text reading */
+  --color-text-muted: #a7f3d0;    /* Soft sage green for secondary info labels */
+  --color-border: #115e4a;        /* Balanced forest border line contrast */
+  --color-card: #072e24;          /* Rich green surfaces for cards */
+  --color-input: #031e17;         /* Sunk-in input valleys */
+  
+  /* Sports Emerald/Green Dark Theme Maps (RGB format) */
+  --color-accent-primary: 16, 185, 129; /* Emerald 500 */
+  --color-accent-hover: 5, 150, 105;    /* Emerald 600 */
+  --color-accent-light: 2, 44, 34;      /* Emerald 950 */
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface text-foreground font-sans antialiased min-h-screen transition-colors duration-200;
+    margin: 0;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover shadow-accent-glow;
+  }
+
+  .btn-secondary {
+    @apply btn border border-border bg-surface-secondary text-foreground hover:bg-surface hover:border-muted;
+  }
+
+  .btn-success {
+    @apply btn bg-success text-white hover:opacity-90;
+  }
+
+  .btn-danger {
+    @apply btn border border-danger text-danger hover:bg-danger hover:text-white;
+  }
+
+  .btn-ghost {
+    @apply btn border border-border bg-transparent text-foreground hover:bg-surface-secondary;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs rounded-lg;
+  }
+
+  .card {
+    @apply rounded-2xl border border-border bg-[var(--color-card)] p-6 shadow-card transition-all duration-200;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-border bg-[var(--color-input)] px-4 py-3 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-success transition-all;
+  }
+
+  .label {
+    @apply mb-2 block text-xs font-bold uppercase tracking-wider text-muted;
+  }
+
+  .alert {
+    @apply mt-4 rounded-xl border px-4 py-3 text-sm font-medium;
+  }
+
+  /* Success Alert: Vibrant Green */
+  .alert-success {
+    @apply alert border-success/40 bg-success/10 text-success;
+  }
+
+  /* Error Alert: Subtle Crimson (kept distinct for functional errors) */
+  .alert-error {
+    @apply alert border-danger/40 bg-danger/10 text-danger;
+  }
+
+  /* Fixed Alert Info: Clean Emerald Variant using explicit RGB rules to avoid PostCSS errors */
+  .alert-info {
+    @apply alert;
+    color: rgb(var(--color-accent-primary));
+    border-color: rgba(var(--color-accent-primary), 0.4);
+    background-color: rgba(var(--color-accent-primary), 0.1);
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .data-table th {
+    @apply border-b border-border bg-surface-secondary px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-muted;
+  }
+
+  .data-table td {
+    @apply border-b border-border px-4 py-3;
+  }
+
+  .sidebar-link {
+    @apply flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold text-muted transition-all hover:bg-surface-secondary hover:text-foreground;
+  }
+
+  .sidebar-link-active {
+    @apply sidebar-link bg-accent text-white hover:bg-accent hover:text-white shadow-card;
+  }
+
+  .kpi-card {
+    @apply card flex flex-col gap-1;
+  }
+
+  .kpi-label {
+    @apply text-xs font-bold uppercase tracking-wider text-muted;
+  }
+
+  .kpi-value {
+    @apply text-3xl font-black text-accent tracking-tight;
+  }
+
+  /* Premium Modal Animations */
+  @keyframes premiumFadeIn {
+    from { opacity: 0; transform: scale(0.97) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .animate-premiumModal {
+    animation: premiumFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}

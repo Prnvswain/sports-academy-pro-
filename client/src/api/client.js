@@ -1,0 +1,210 @@
+import axios from 'axios';
+
+export const ADMIN_TOKEN_KEY = 'sams_admin_token';
+export const COACH_TOKEN_KEY = 'sams_coach_token';
+export const SUPER_ADMIN_TOKEN_KEY = 'sams_super_admin_token';
+export const SIDEBAR_COLLAPSED_KEY = 'sams_sidebar_collapsed';
+
+const api = axios.create({
+  baseURL: '/api/v1',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.message || error.message || 'Request failed';
+    const wrapped = new Error(message);
+    wrapped.status = error.response?.status;
+    wrapped.payload = error.response?.data;
+    return Promise.reject(wrapped);
+  }
+);
+
+function unwrap(response) {
+  return response.data;
+}
+
+export function getAdminToken() {
+  return localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+export function setAdminToken(token) {
+  localStorage.setItem(ADMIN_TOKEN_KEY, token);
+}
+
+export function clearAdminToken() {
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+export function getCoachToken() {
+  return localStorage.getItem(COACH_TOKEN_KEY);
+}
+
+export function setCoachToken(token) {
+  localStorage.setItem(COACH_TOKEN_KEY, token);
+}
+
+export function clearCoachToken() {
+  localStorage.removeItem(COACH_TOKEN_KEY);
+}
+
+export function getSuperAdminToken() {
+  return localStorage.getItem(SUPER_ADMIN_TOKEN_KEY);
+}
+
+export function setSuperAdminToken(token) {
+  localStorage.setItem(SUPER_ADMIN_TOKEN_KEY, token);
+}
+
+export function clearSuperAdminToken() {
+  localStorage.removeItem(SUPER_ADMIN_TOKEN_KEY);
+}
+
+export async function signup(body) {
+  const data = await api.post('/auth/signup', body).then(unwrap);
+  if (data.data?.token) {
+    setAdminToken(data.data.token);
+  }
+  return data;
+}
+
+export async function adminLogin(body) {
+  const data = await api.post('/auth/login', body).then(unwrap);
+  if (data.data?.token) {
+    setAdminToken(data.data.token);
+  }
+  return data;
+}
+
+export async function coachLogin(body) {
+  const data = await api.post('/auth/coach/login', body).then(unwrap);
+  if (data.data?.token) {
+    setCoachToken(data.data.token);
+  }
+  return data;
+}
+
+export async function forgotPassword(body) {
+  return api.post('/auth/forgot-password', body).then(unwrap);
+}
+
+export async function resetPassword(body) {
+  return api.post('/auth/reset-password', body).then(unwrap);
+}
+
+export async function adminGet(path) {
+  return api
+    .get(path, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function adminPost(path, body) {
+  return api
+    .post(path, body, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function adminPatch(path, body) {
+  return api
+    .patch(path, body, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function adminDelete(path) {
+  return api
+    .delete(path, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function coachGet(path) {
+  return api
+    .get(path, {
+      headers: { Authorization: `Bearer ${getCoachToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function coachPost(path, body) {
+  return api
+    .post(path, body, {
+      headers: { Authorization: `Bearer ${getCoachToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function superAdminLogin(body) {
+  const data = await api.post('/super-admin/login', body).then(unwrap);
+  if (data.data?.token) {
+    setSuperAdminToken(data.data.token);
+  }
+  return data;
+}
+
+export async function superAdminGet(path) {
+  return api
+    .get(path, {
+      headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function superAdminPatch(path, body) {
+  return api
+    .patch(path, body, {
+      headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function publicPost(path, body) {
+  return api.post(path, body).then(unwrap);
+}
+
+export const TIMING_OPTIONS = [
+  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
+  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  '18:00', '18:30', '19:00', '19:30', '20:00'
+];
+
+/* Refactored Pricing Plan Data Schemas - Aligned with Emerald Green Layouts */
+export const PRICING_PLANS = [
+  {
+    id: 'free',
+    name: 'Free Grassroots Pack',
+    price: 0,
+    coaches: 3,
+    students: 30,
+    featured: false,
+    features: ['Smart batch scheduling tracking', 'Automated email notification systems', 'Standard portal access support']
+  },
+  {
+    id: 'pro',
+    name: 'Pro Academy Track',
+    price: 79,
+    coaches: 6,
+    students: 80,
+    featured: true,
+    features: ['Advanced analytic dashboard data', 'Pending fee transaction metrics', 'Priority live support channels']
+  },
+  {
+    id: 'plus',
+    name: 'Plus Enterprise Level',
+    price: 199,
+    coaches: 'Unlimited',
+    students: 'Unlimited',
+    featured: false,
+    features: ['Multi-branch sports architecture', 'Custom system API mappings', 'Dedicated customer success manager']
+  }
+];

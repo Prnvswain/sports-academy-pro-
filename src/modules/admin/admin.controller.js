@@ -1,0 +1,325 @@
+import * as adminService from './admin.service.js';
+import { successResponse } from '../../utils/response.js';
+
+export const getSportsCatalog = async (req, res, next) => {
+  try {
+    const sports = await adminService.getSportsCatalog(req.user.academy_id);
+    res.json(successResponse('Sports catalog retrieved successfully', sports));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getDurationPlans = async (req, res, next) => {
+  try {
+    const plans = await adminService.getDurationPlans(req.user.academy_id);
+    res.json(successResponse('Duration plans retrieved successfully', plans));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createDurationPlan = async (req, res, next) => {
+  try {
+    const plan = await adminService.createDurationPlan(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Duration plan created successfully', plan));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteDurationPlan = async (req, res, next) => {
+  try {
+    const plan = await adminService.deleteDurationPlan(req.user.academy_id, req.params.plan_id);
+    res.json(successResponse('Duration plan deleted successfully', plan));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getStudentDetails = async (req, res, next) => {
+  try {
+    const details = await adminService.getStudentDetails(req.user.academy_id, req.params.student_id);
+    res.json(successResponse('Student details retrieved successfully', details));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkUploadStudents = async (req, res, next) => {
+  try {
+    const result = await adminService.bulkUploadStudents(req.user.academy_id, req.body.students);
+    res.status(201).json(successResponse('Bulk upload completed', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createSport = async (req, res, next) => {
+  try {
+    const sport = await adminService.createSport(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Sport created successfully', sport));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAllCoaches = async (req, res, next) => {
+  try {
+    const coaches = await adminService.getAllCoaches(req.user.academy_id);
+    res.json(successResponse('Coaches retrieved successfully', coaches));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createCoach = async (req, res, next) => {
+  try {
+    const coach = await adminService.createCoach(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Coach created and onboarding email sent', coach));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateCoach = async (req, res, next) => {
+  try {
+    const coach = await adminService.updateCoach(
+      req.user.academy_id,
+      req.params.coach_id,
+      req.body
+    );
+    res.json(successResponse('Coach updated successfully', coach));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteCoach = async (req, res, next) => {
+  try {
+    await adminService.deleteCoach(req.user.academy_id, req.params.coach_id);
+    res.json(successResponse('Coach archived successfully', {}));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAllStudents = async (req, res, next) => {
+  try {
+    const students = await adminService.getAllStudents(req.user.academy_id);
+    res.json(successResponse('Students retrieved successfully', students));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createStudent = async (req, res, next) => {
+  try {
+    const student = await adminService.createStudent(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Student created successfully', student));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateStudent = async (req, res, next) => {
+  try {
+    const student = await adminService.updateStudent(
+      req.user.academy_id,
+      req.params.student_id,
+      req.body
+    );
+    res.json(successResponse('Student updated successfully', student));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const exitStudent = async (req, res, next) => {
+  try {
+    const student = await adminService.exitStudent(
+      req.user.academy_id,
+      req.params.student_id,
+      req.body,
+      req.user.user_id
+    );
+    res.json(successResponse('Student exit recorded', student));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteStudent = async (req, res, next) => {
+  try {
+    await adminService.deleteStudent(req.user.academy_id, req.params.student_id);
+    res.json(successResponse('Student archived successfully', {}));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAllBatches = async (req, res, next) => {
+  try {
+    const batches = await adminService.getAllBatches(req.user.academy_id);
+    res.json(successResponse('Batches retrieved successfully', batches));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createBatch = async (req, res, next) => {
+  try {
+    const batch = await adminService.createBatch(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Batch created successfully', batch));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateBatch = async (req, res, next) => {
+  try {
+    const batch = await adminService.updateBatch(
+      req.user.academy_id,
+      req.params.batch_id,
+      req.body
+    );
+    res.json(successResponse('Batch updated successfully', batch));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAvailableBatches = async (req, res, next) => {
+  try {
+    const batches = await adminService.getAvailableBatches(
+      req.user.academy_id,
+      req.query.sport_id
+    );
+    res.json(successResponse('Available batches retrieved', batches));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteBatch = async (req, res, next) => {
+  try {
+    await adminService.deleteBatch(req.user.academy_id, req.params.batch_id);
+    res.json(successResponse('Batch deactivated successfully', {}));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markCoachAttendance = async (req, res, next) => {
+  try {
+    const attendance = await adminService.markCoachAttendance(
+      req.user.academy_id,
+      req.user.user_id,
+      req.body
+    );
+    res.status(201).json(successResponse('Attendance marked successfully', attendance));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCoachAttendance = async (req, res, next) => {
+  try {
+    const attendance = await adminService.getCoachAttendance(
+      req.user.academy_id,
+      req.params.coach_id
+    );
+    res.json(successResponse('Attendance retrieved successfully', attendance));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAllPayments = async (req, res, next) => {
+  try {
+    const payments = await adminService.getAllPayments(req.user.academy_id);
+    res.json(successResponse('Payments retrieved successfully', payments));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getStudentLedger = async (req, res, next) => {
+  try {
+    const ledger = await adminService.getStudentLedger(req.user.academy_id, req.params.student_id);
+    res.json(successResponse('Student ledger retrieved successfully', ledger));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getReceipts = async (req, res, next) => {
+  try {
+    const receipts = await adminService.getReceipts(req.user.academy_id);
+    res.json(successResponse('Receipts retrieved successfully', receipts));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createReceipt = async (req, res, next) => {
+  try {
+    const receipt = await adminService.createReceipt(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Receipt created successfully', receipt));
+  } catch (err) {
+    next(err)
+  }
+};
+
+export const getPendingDues = async (req, res, next) => {
+  try {
+    const pendingDues = await adminService.getPendingDues(req.user.academy_id);
+    res.json(successResponse('Pending dues retrieved successfully', pendingDues));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getRevenueSummary = async (req, res, next) => {
+  try {
+    const summary = await adminService.getRevenueSummary(req.user.academy_id);
+    res.json(successResponse('Revenue summary retrieved successfully', summary));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createPayment = async (req, res, next) => {
+  try {
+    const payment = await adminService.createPayment(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Payment created successfully', payment));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePaymentStatus = async (req, res, next) => {
+  try {
+    const payment = await adminService.updatePaymentStatus(
+      req.user.academy_id,
+      req.params.payment_id,
+      {
+        status: req.body.status,
+        rejected_reason: req.body.rejected_reason
+      },
+      req.user.user_id
+    );
+    res.json(successResponse('Payment updated successfully', payment));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAcademyReport = async (req, res, next) => {
+  try {
+    const report = await adminService.getAcademyReport(req.user.academy_id);
+    res.json(successResponse('Academy analytics retrieved successfully', report));
+  } catch (err) {
+    next(err);
+  }
+};

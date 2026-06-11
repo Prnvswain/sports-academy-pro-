@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Dependencies
 node_modules
 .pnpm-store
@@ -49,3 +50,10 @@ mysql-data
 
 # Misc
 *.pem
+
+node_modules
+# Keep environment variables out of version control
+.env
+
+/src/generated/prisma
+
