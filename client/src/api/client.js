@@ -63,6 +63,14 @@ export function clearSuperAdminToken() {
   localStorage.removeItem(SUPER_ADMIN_TOKEN_KEY);
 }
 
+// Add this exact export block to your src/api/client.js file
+export async function adminPut(path, body) {
+  return api
+    .put(path, body, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
+    .then(unwrap);
+}
 export async function signup(body) {
   const data = await api.post('/auth/signup', body).then(unwrap);
   if (data.data?.token) {

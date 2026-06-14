@@ -128,7 +128,12 @@
   }
 
   .sidebar-link-active {
-    @apply sidebar-link bg-accent text-white hover:bg-accent hover:text-white shadow-card;
+    @apply sidebar-link bg-accent hover:bg-accent shadow-card transition-all duration-200;
+    color: rgb(var(--color-accent-hover));
+  }
+  
+  :root[data-theme='dark'] .sidebar-link-active {
+    color: #09090b;
   }
 
   .kpi-card {

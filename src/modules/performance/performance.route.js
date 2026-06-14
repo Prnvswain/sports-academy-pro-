@@ -1,0 +1,38 @@
+import express from 'express';
+import * as performanceController from './performance.controller.js';
+import { authenticate } from '../../middlewares/auth.middleware.js';
+import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
+
+const router = express.Router();
+
+// All routes require authentication
+router.use(authenticate);
+
+// Get performance attributes (with optional filters)
+router.get('/attributes', performanceController.getAttributes);
+
+// Create new performance attribute
+router.post('/attributes', validationErrorHandler, performanceController.createAttribute);
+
+// Approve performance attribute (Admin only)
+router.put('/attributes/:attributeId/approve', performanceController.approveAttribute);
+
+// Reject performance attribute (Admin only)
+router.put('/attributes/:attributeId/reject', performanceController.rejectAttribute);
+
+// Get approval queue (Admin only)
+router.get('/approval-queue', performanceController.getApprovalQueue);
+
+// Get performance scores (with optional filters)
+router.get('/scores', performanceController.getScores);
+
+// Create new performance score
+router.post('/scores', validationErrorHandler, performanceController.createScore);
+
+// Get student performance
+router.get('/students/:studentId', performanceController.getStudentPerformance);
+
+// Get batch performance
+router.get('/batches/:batchId', performanceController.getBatchPerformance);
+
+export default router;

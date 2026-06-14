@@ -267,7 +267,7 @@ export const createReceipt = async (req, res, next) => {
     const receipt = await adminService.createReceipt(req.user.academy_id, req.body);
     res.status(201).json(successResponse('Receipt created successfully', receipt));
   } catch (err) {
-    next(err)
+    next(err);
   }
 };
 
@@ -319,6 +319,63 @@ export const getAcademyReport = async (req, res, next) => {
   try {
     const report = await adminService.getAcademyReport(req.user.academy_id);
     res.json(successResponse('Academy analytics retrieved successfully', report));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getEnquiries = async (req, res, next) => {
+  try {
+    const enquiries = await adminService.getEnquiries(req.user.academy_id);
+    res.status(200).json({ success: true, data: enquiries });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateEnquiry = async (req, res, next) => {
+  try {
+    const enquiry = await adminService.updateEnquiry(
+      req.user.academy_id,
+      req.params.id,
+      req.body
+    );
+    res.status(200).json({ success: true, data: enquiry });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getPerformanceApprovalQueue = async (req, res, next) => {
+  try {
+    // PASS REQ.QUERY HERE: This links the incoming frontend sport selection query strings to your Prisma query maps!
+    const queue = await adminService.getPerformanceApprovalQueue(req.user.academy_id, req.query);
+    res.status(200).json({ success: true, data: queue });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const approvePerformanceAttribute = async (req, res, next) => {
+  try {
+    const result = await adminService.approvePerformanceAttribute(
+      req.user.academy_id,
+      req.params.id,
+      req.body
+    );
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createPerformanceAttribute = async (req, res, next) => {
+  try {
+    const result = await adminService.createPerformanceAttribute(
+      req.user.academy_id,
+      req.body
+    );
+    res.status(201).json({ success: true, message: 'Performance attribute added cleanly', data: result });
   } catch (err) {
     next(err);
   }

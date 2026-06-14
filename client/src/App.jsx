@@ -16,12 +16,16 @@ import BatchesPanel from './pages/admin/BatchesPanel';
 import PlansPanel from './pages/admin/PlansPanel';
 import PaymentsPanel from './pages/admin/PaymentsPanel';
 import ReportsPanel from './pages/admin/ReportsPanel';
+import PerformancePanel from './pages/admin/PerformancePanel';
+import EnquiriesPanel from './pages/admin/EnquiriesPanel';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
 import CoachNotesPage from './pages/coach/CoachNotesPage';
 import CoachFeesPage from './pages/coach/CoachFeesPage';
 import CoachMyAttendancePage from './pages/coach/CoachMyAttendancePage';
+import CoachPerformancePage from './pages/coach/CoachPerformancePage';
+import IntakeForm from './pages/public/IntakeForm';
 
 export default function App() {
   return (
@@ -33,6 +37,7 @@ export default function App() {
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/signup" element={<LandingPage />} />
+          <Route path="/public/intake-form" element={<IntakeForm />} />
 
           {/* Legacy Administrative Internal Path Auto Redirection Handlers */}
           <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
@@ -57,6 +62,8 @@ export default function App() {
             <Route path="accounts" element={<PaymentsPanel />} />
             <Route path="payments" element={<Navigate to="/admin/accounts" replace />} />
             <Route path="reports" element={<ReportsPanel />} />
+            <Route path="performance" element={<PerformancePanel />} />
+            <Route path="enquiries" element={<EnquiriesPanel />} />
             <Route path="import" element={<Navigate to="/admin/students" replace />} />
             <Route path="analytics" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
@@ -77,6 +84,7 @@ export default function App() {
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="my-attendance" element={<CoachMyAttendancePage />} />
+            <Route path="performance" element={<CoachPerformancePage />} />
           </Route>
 
           {/* Hidden Gateways (Intentionally Omitted From Direct Public References) */}

@@ -17,8 +17,8 @@ export default defineConfig({
         short_name: 'SAMS',
         description:
           'Multi-tenant sports academy operations, coaching, attendance, and analytics platform.',
-        theme_color: '#2563eb',
-        background_color: '#ffffff',
+        theme_color: '#059669', // UPDATED: Reconfigured to match your Emerald/Mint Green sports token
+        background_color: '#f8fafc', // UPDATED: Linked to your light-mode background color variable
         display: 'standalone',
         orientation: 'portrait-primary',
         scope: '/',
@@ -45,7 +45,6 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // FIX: Point this to your real build directory so the glob pattern doesn't scan an empty folder
         globDirectory: '../public', 
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
@@ -90,10 +89,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: true,
+    strictPort: false, // FIXED: Allows Vite to dynamically grab port 5174 or 5175 if port 5173 stays locked by a dead window node
     proxy: {
       '/api/v1': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:5000', // Forwards frontend dashboard API communication lines natively to Express
         changeOrigin: true,
         secure: false
       }

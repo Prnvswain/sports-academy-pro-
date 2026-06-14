@@ -634,22 +634,29 @@ export const updateStudent = async (academy_id, student_id, data) => {
     throw error;
   }
 
-  const nextSportId =
-    data.sport_id !== undefined ? parseInt(data.sport_id, 10) : student.sport_id;
-  const nextBatchId =
-    data.batch_id !== undefined ? parseInt(data.batch_id, 10) : student.batch_id;
+  const parsedAcademyId = parseInt(academy_id, 10);
+  const parsedStudentId = parseInt(student_id, 10);
 
-  if (nextSportId && nextBatchId) {
-    await assertStudentSportBatch(academy_id, nextSportId, nextBatchId);
+  // Handle multi-sport updates via sport_ids array
+  const sportIds = data.sport_ids ? data.sport_ids.map(id => parseInt(id, 10)) : [];
+  const durationPlanId = data.duration_plan_id ? parseInt(data.duration_plan_id, 10) : null;
+
+  // Sync backward-compatible primary sport_id field using first element of sport_ids array
+  const primarySportId = sportIds.length > 0 ? sportIds[0] : student.sport_id;
+  const nextBatchId = data.batch_id !== undefined ? parseInt(data.batch_id, 10) : student.batch_id;
+
+  if (primarySportId && nextBatchId) {
+    await assertStudentSportBatch(parsedAcademyId, primarySportId, nextBatchId);
   }
 
-  return prisma.student.update({
-    where: { student_id: student.student_id },
+  // Update core student details
+  const updatedStudent = await prisma.student.update({
+    where: { student_id: parsedStudentId },
     data: {
       name: data.name ?? student.name,
       age: data.age ?? student.age,
       gender: data.gender ?? student.gender,
-      sport_id: nextSportId,
+      sport_id: primarySportId,
       batch_id: nextBatchId,
       blood_group: data.blood_group ?? student.blood_group,
       parent_name: data.parent_name ?? student.parent_name,
@@ -659,6 +666,71 @@ export const updateStudent = async (academy_id, student_id, data) => {
     },
     include: { batch: true, sport: true, receipts: true }
   });
+
+  // Manage active enrollment records if sport_ids or duration_plan_id provided
+  if (sportIds.length > 0 || durationPlanId) {
+    // Deactivate old enrollment assignments
+    await prisma.studentEnrollment.updateMany({
+      where: {
+        academy_id: parsedAcademyId,
+        student_id: parsedStudentId,
+        is_active: true
+      },
+      data: {
+        is_active: false
+      }
+    });
+
+    // Create fresh StudentEnrollment rows for each selected sport
+    if (sportIds.length > 0) {
+      for (const sportId of sportIds) {
+        // Calculate final_fee dynamically using duration_plan_id multiplier if provided
+        let finalFee = 0;
+        if (durationPlanId) {
+          const durationPlan = await prisma.durationPlan.findUnique({
+            where: { plan_id: durationPlanId },
+            select: { multiplier: true }
+          });
+          if (durationPlan) {
+            const sport = await prisma.sport.findUnique({
+              where: { sport_id: sportId },
+              select: { sports_fee: true }
+            });
+            if (sport) {
+              finalFee = sport.sports_fee * durationPlan.multiplier;
+            }
+          }
+        }
+
+        await prisma.studentEnrollment.create({
+          data: {
+            academy_id: parsedAcademyId,
+            student_id: parsedStudentId,
+            sport_id: sportId,
+            duration_plan_id: durationPlanId,
+            registration_fee: 0,
+            sports_fee: 0,
+            additional_charges: 0,
+            discount: 0,
+            final_fee: finalFee,
+            paid_amount: 0,
+            is_active: true,
+            coach_id: null,
+            batch_id: nextBatchId
+          }
+        });
+      }
+    }
+  }
+
+  logger.info('Student updated successfully', {
+    student_id: parsedStudentId,
+    academy_id: parsedAcademyId,
+    sport_ids: sportIds,
+    duration_plan_id: durationPlanId
+  });
+
+  return updatedStudent;
 };
 
 export const exitStudent = async (academy_id, student_id, data, admin_user_id) => {
@@ -1331,5 +1403,169 @@ export const getAcademyReport = async (academy_id) => {
       paid_students: paidStudents,
       unpaid_students: unpaidStudents
     }
+  };
+};
+
+export const getEnquiries = async (academyId) => {
+  const enquiries = await prisma.enquiry.findMany({
+    where: {
+      academy_id: parseInt(academyId)
+    },
+    orderBy: {
+      created_at: 'desc'
+    }
+  });
+
+  // Map enquiry_id to id for frontend compatibility
+  return enquiries.map(enq => ({
+    ...enq,
+    id: enq.enquiry_id
+  }));
+};
+
+export const updateEnquiry = async (academyId, enquiryId, data) => {
+  const { status, remarks } = data;
+
+  const enquiry = await prisma.enquiry.findFirst({
+    where: {
+      enquiry_id: parseInt(enquiryId),
+      academy_id: parseInt(academyId)
+    }
+  });
+
+  if (!enquiry) {
+    const error = new Error('Enquiry not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updateData = {};
+  if (status) {
+    updateData.status = status;
+  }
+  if (remarks !== undefined) {
+    updateData.remarks = remarks;
+  }
+
+  const updated = await prisma.enquiry.update({
+    where: { enquiry_id: parseInt(enquiryId) },
+    data: updateData
+  });
+
+  logger.info('Enquiry updated', {
+    enquiry_id: enquiryId,
+    academy_id: academyId,
+    status: updated.status
+  });
+
+  // Return with id field for frontend compatibility
+  return {
+    ...updated,
+    id: updated.enquiry_id
+  };
+};
+
+// ==================== PERFORMANCE TRACKER ====================
+
+/**
+ * Enhanced Query-Aware Performance Fetch Handler
+ * Resolves both the Pending Approval Queue and the Approved Sport Attributes list seamlessly.
+ */
+export const getPerformanceApprovalQueue = async (academyId, queryParams = {}) => {
+  const parsedAcademyId = parseInt(academyId, 10);
+  const parsedSportId = queryParams.sport_id ? parseInt(queryParams.sport_id, 10) : undefined;
+  
+  // Natively align incoming query string filter values with your Prisma Enum parameters
+  const statusFilter = queryParams.status || 'PENDING'; 
+
+  const whereClause = {
+    academy_id: parsedAcademyId,
+    status: statusFilter
+  };
+
+  // Dynamically inject sport_id scoping if passed by the frontend component
+  if (parsedSportId && !isNaN(parsedSportId)) {
+    whereClause.sport_id = parsedSportId;
+  }
+
+  const queue = await prisma.performanceAttribute.findMany({
+    where: whereClause,
+    include: {
+      sport: {
+        select: { name: true }
+      },
+      requested_by: {
+        select: { name: true, specialization: true }
+      }
+    },
+    orderBy: {
+      created_at: 'desc'
+    }
+  });
+
+  // Map attribute_id to id for seamless frontend dataset parsing compatibility
+  return queue.map(attr => ({
+    ...attr,
+    id: attr.attribute_id
+  }));
+};
+
+export const createPerformanceAttribute = async (academy_id, body) => {
+  const { sport_id, name } = body;
+  const academyId = parseInt(academy_id, 10);
+
+  const attribute = await prisma.performanceAttribute.create({
+    data: {
+      academy_id: academyId,
+      sport_id: parseInt(sport_id, 10),
+      name: name.trim(),
+      status: 'APPROVED',
+      reviewed_at: new Date()
+    }
+  });
+
+  logger.info('Performance attribute created successfully', { attribute_id: attribute.attribute_id, academy_id: academyId });
+  return attribute;
+};
+
+export const approvePerformanceAttribute = async (academyId, attributeId, data) => {
+  const { action } = data;
+
+  if (!action || !['APPROVED', 'REJECTED'].includes(action)) {
+    const error = new Error('Invalid action condition status transition parameters');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const attribute = await prisma.performanceAttribute.findFirst({
+    where: {
+      attribute_id: parseInt(attributeId, 10),
+      academy_id: parseInt(academyId, 10)
+    }
+  });
+
+  if (!attribute) {
+    const error = new Error('Performance attribute node could not be located');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updated = await prisma.performanceAttribute.update({
+    where: { attribute_id: parseInt(attributeId, 10) },
+    data: {
+      status: action,
+      reviewed_at: new Date()
+    }
+  });
+
+  logger.info('Performance attribute checked and modified cleanly', {
+    attribute_id: attributeId,
+    academy_id: academyId,
+    action: action
+  });
+
+  return {
+    ...updated,
+    id: updated.attribute_id
   };
 };

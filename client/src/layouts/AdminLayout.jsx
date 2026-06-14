@@ -6,11 +6,13 @@ import { clearAdminToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
 export const ADMIN_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: '📊' },
   { path: 'sports', label: 'Sports', icon: '⚽' },
-  { path: 'coaches', label: 'Coaches', icon: '�' },
-  { path: 'batches', label: 'Training Batches', icon: '�' },
-  { path: 'plans', label: 'Duration Plans', icon: '�' },
+  { path: 'coaches', label: 'Coaches', icon: '👥' },
+  { path: 'batches', label: 'Training Batches', icon: '🏋️‍♂️' },
+  { path: 'plans', label: 'Duration Plans', icon: '📅' },
   { path: 'students', label: 'Students', icon: '🎓' },
   { path: 'accounts', label: 'Accounts', icon: '💳' },
+  { path: 'performance', label: 'Performance Tracker', icon: '📈' },
+  { path: 'enquiries', label: 'Enquiries Desk', icon: '✉️' },
   { path: 'reports', label: 'Reports', icon: '📄' }
 ];
 

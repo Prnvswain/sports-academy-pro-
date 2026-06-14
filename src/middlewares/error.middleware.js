@@ -13,8 +13,11 @@ const errorMiddleware = (err, req, res, next) => {
     stack: err.stack
   });
 
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const responseData = isDevelopment && err.details ? { details: err.details } : {};
+
   return res.status(err.statusCode || 500).json(
-    errorResponse(err.message || 'Internal Server Error')
+    errorResponse(err.message || 'Internal Server Error', responseData)
   );
 };
 

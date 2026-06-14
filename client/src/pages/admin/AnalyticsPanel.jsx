@@ -54,33 +54,33 @@ export default function AnalyticsPanel() {
         </button>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Total Revenue</span>
-          <span className="kpi-value text-success">{formatCurrency(metrics.total_revenue)}</span>
+          <span className="kpi-value">{formatCurrency(metrics.total_revenue)}</span>
         </div>
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Active Coaches</span>
           <span className="kpi-value">{metrics.active_coach_count ?? 0}</span>
         </div>
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Active Students</span>
           <span className="kpi-value">{metrics.active_student_count ?? 0}</span>
         </div>
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Total Batches</span>
           <span className="kpi-value">{metrics.total_batches ?? 0}</span>
         </div>
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Paid Students</span>
-          <span className="kpi-value text-success">{summary.paid_students ?? 0}</span>
+          <span className="kpi-value">{summary.paid_students ?? 0}</span>
         </div>
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Unpaid Students</span>
-          <span className="kpi-value text-warning">{summary.unpaid_students ?? 0}</span>
+          <span className="kpi-value">{summary.unpaid_students ?? 0}</span>
         </div>
-        <div className="kpi-card">
+        <div className="card bg-surface-secondary">
           <span className="kpi-label">Attendance % (30d)</span>
-          <span className="kpi-value text-accent">{metrics.attendance_percent ?? 0}%</span>
+          <span className="kpi-value">{metrics.attendance_percent ?? 0}%</span>
         </div>
       </div>
       <div className="card">

@@ -6,6 +6,7 @@ import { CoachBatchesProvider } from '../context/CoachBatchesContext';
 const COACH_NAV = [
   { path: 'dashboard', label: 'Dashboard' },
   { path: 'attendance', label: 'Attendance' },
+  { path: 'performance', label: 'Performance Tracker' },
   { path: 'notes', label: 'Daily Notes' },
   { path: 'fees', label: 'Fees' },
   { path: 'my-attendance', label: 'My Attendance' }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Loader from '../../components/Loader';
 import { useFormDraft } from '../../hooks/useFormDraft';
-import { adminDelete, adminGet, adminPost } from '../../api/client';
+import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
 
 const emptyForm = {
   firstName: '',
@@ -48,6 +48,9 @@ export default function StudentsPanel() {
   const [bulkUploadFile, setBulkUploadFile] = useState(null);
   const [bulkUploadResults, setBulkUploadResults] = useState(null);
   const [selectedStudentForView, setSelectedStudentForView] = useState(null);
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [editStudentForm, setEditStudentForm] = useState({});
+  const [editSelectedSports, setEditSelectedSports] = useState([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -215,14 +218,62 @@ export default function StudentsPanel() {
     setSelectedStudent(student);
     setShowStudentModal(true);
     setModalTab('profile');
+    setIsEditingStudent(false);
     setLoadingDetails(true);
     try {
       const detailsRes = await adminGet(`/admin/students/${student.student_id}/details`);
       setStudentDetails(detailsRes.data);
+      // Initialize edit form with student data
+      setEditStudentForm({
+        name: detailsRes.data.student.name,
+        phone: detailsRes.data.student.phone || '',
+        age: detailsRes.data.student.age,
+        gender: detailsRes.data.student.gender,
+        blood_group: detailsRes.data.student.blood_group || '',
+        parent_name: detailsRes.data.student.parent_name || '',
+        parent_email: detailsRes.data.student.parent_email || '',
+        parent_phone: detailsRes.data.student.parent_phone || '',
+        fees_status: detailsRes.data.student.fees_status || 'unpaid',
+        batch_id: detailsRes.data.student.batch_id || ''
+      });
+      // Initialize selected sports from enrollments
+      const activeSportIds = detailsRes.data.enrollments
+        ?.filter(e => e.is_active)
+        ?.map(e => e.sport_id) || [];
+      setEditSelectedSports(activeSportIds);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleUpdateStudent = async (event) => {
+    event.preventDefault();
+    setMessage({ text: '', type: '' });
+    try {
+      const result = await adminPut(`/admin/students/${selectedStudent.student_id}`, {
+        name: editStudentForm.name,
+        phone: editStudentForm.phone,
+        age: parseInt(editStudentForm.age, 10),
+        gender: editStudentForm.gender,
+        blood_group: editStudentForm.blood_group,
+        parent_name: editStudentForm.parent_name,
+        parent_email: editStudentForm.parent_email,
+        parent_phone: editStudentForm.parent_phone,
+        fees_status: editStudentForm.fees_status,
+        sport_ids: editSelectedSports,
+        duration_plan_id: editStudentForm.duration_plan_id ? parseInt(editStudentForm.duration_plan_id, 10) : undefined,
+        batch_id: editStudentForm.batch_id ? parseInt(editStudentForm.batch_id, 10) : undefined
+      });
+      setMessage({ text: result.message || 'Student updated successfully', type: 'success' });
+      setIsEditingStudent(false);
+      // Reload student details
+      const detailsRes = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
+      setStudentDetails(detailsRes.data);
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
     }
   };
 
@@ -874,9 +925,20 @@ export default function StudentsPanel() {
           <div className="card max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-premiumModal">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-bold">Student Details</h3>
-              <button type="button" className="text-muted hover:text-foreground" onClick={() => setShowStudentModal(false)}>
-                ✕
-              </button>
+              <div className="flex gap-2">
+                {!isEditingStudent && (
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm"
+                    onClick={() => setIsEditingStudent(true)}
+                  >
+                    Edit
+                  </button>
+                )}
+                <button type="button" className="text-muted hover:text-foreground" onClick={() => setShowStudentModal(false)}>
+                  ✕
+                </button>
+              </div>
             </div>
             
             {/* Tab Navigation */}
@@ -900,40 +962,251 @@ export default function StudentsPanel() {
                 {/* Profile Tab */}
                 {modalTab === 'profile' && (
                   <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Full Name</label>
-                        <p className="text-lg">{studentDetails.student.name}</p>
+                    {isEditingStudent ? (
+                      <form onSubmit={handleUpdateStudent} className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="label" htmlFor="editName">Full Name</label>
+                            <input
+                              id="editName"
+                              type="text"
+                              className="input-field"
+                              value={editStudentForm.name}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, name: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editEmail">Parent Email</label>
+                            <input
+                              id="editEmail"
+                              type="email"
+                              className="input-field"
+                              value={editStudentForm.parent_email}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, parent_email: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editPhone">Phone</label>
+                            <input
+                              id="editPhone"
+                              type="tel"
+                              className="input-field"
+                              value={editStudentForm.phone}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, phone: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editAge">Age</label>
+                            <input
+                              id="editAge"
+                              type="number"
+                              min={1}
+                              max={100}
+                              className="input-field"
+                              value={editStudentForm.age}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, age: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editGender">Gender</label>
+                            <select
+                              id="editGender"
+                              className="input-field"
+                              value={editStudentForm.gender}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, gender: e.target.value })}
+                              required
+                            >
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editBloodGroup">Blood Group</label>
+                            <select
+                              id="editBloodGroup"
+                              className="input-field"
+                              value={editStudentForm.blood_group}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, blood_group: e.target.value })}
+                            >
+                              <option value="">Select…</option>
+                              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+                                <option key={bg} value={bg}>{bg}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editParentName">Parent Name</label>
+                            <input
+                              id="editParentName"
+                              type="text"
+                              className="input-field"
+                              value={editStudentForm.parent_name}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, parent_name: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editParentPhone">Parent Phone</label>
+                            <input
+                              id="editParentPhone"
+                              type="tel"
+                              className="input-field"
+                              value={editStudentForm.parent_phone}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, parent_phone: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editFeesStatus">Fees Status</label>
+                            <select
+                              id="editFeesStatus"
+                              className="input-field"
+                              value={editStudentForm.fees_status}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, fees_status: e.target.value })}
+                            >
+                              <option value="paid">Paid</option>
+                              <option value="unpaid">Unpaid</option>
+                              <option value="partial">Partial</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <label className="label">Sports Selection (Multi-Select)</label>
+                          <button
+                            type="button"
+                            className="input-field flex justify-between items-center text-left w-full bg-background border"
+                            onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
+                          >
+                            <span className="truncate text-sm">
+                              {editSelectedSports.length === 0
+                                ? "Select sports..."
+                                : sports
+                                    ?.filter((s) => editSelectedSports.includes(s.id || s.sport_id))
+                                    ?.map((s) => s.name)
+                                    ?.join(", ")}
+                            </span>
+                            <span className="ml-2 text-xs text-muted-foreground">▼</span>
+                          </button>
+                          {isSportsDropdownOpen && (
+                            <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border p-2 shadow-lg bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                              {sports && sports.length > 0 ? (
+                                sports.map((sport) => {
+                                  const sportId = sport.id || sport.sport_id;
+                                  const isChecked = editSelectedSports.includes(sportId);
+                                  return (
+                                    <label
+                                      key={sportId}
+                                      className="flex items-center space-x-3 p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer text-sm w-full"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="rounded border-zinc-300 dark:border-zinc-700 text-primary h-4 w-4"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          if (isChecked) {
+                                            setEditSelectedSports(editSelectedSports.filter((id) => id !== sportId));
+                                          } else {
+                                            setEditSelectedSports([...editSelectedSports, sportId]);
+                                          }
+                                        }}
+                                      />
+                                      <span className="font-medium text-foreground">{sport.name}</span>
+                                    </label>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-xs p-2 text-muted-foreground text-center">No sports configured.</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="label" htmlFor="editDurationPlan">Duration Plan</label>
+                            <select
+                              id="editDurationPlan"
+                              className="input-field"
+                              value={editStudentForm.duration_plan_id || ''}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, duration_plan_id: e.target.value })}
+                            >
+                              <option value="">Select plan…</option>
+                              {durationPlans.map((p) => (
+                                <option key={p.plan_id} value={p.plan_id}>
+                                  {p.name} ({p.duration_months} months) - {p.multiplier}x
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editBatch">Batch</label>
+                            <select
+                              id="editBatch"
+                              className="input-field"
+                              value={editStudentForm.batch_id || ''}
+                              onChange={(e) => setEditStudentForm({ ...editStudentForm, batch_id: e.target.value })}
+                            >
+                              <option value="">Select batch…</option>
+                              {availableBatches.map((b) => (
+                                <option key={b.batch_id} value={b.batch_id}>
+                                  {b.name}
+                                  {b.timing ? ` · ${b.timing}` : ''}
+                                  {b.max_capacity != null
+                                    ? ` · ${b.available_seats ?? 0}/${b.max_capacity} seats`
+                                    : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="submit" className="btn-primary flex-1">Save Changes</button>
+                          <button
+                            type="button"
+                            className="btn-secondary flex-1"
+                            onClick={() => setIsEditingStudent(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Full Name</label>
+                          <p className="text-lg">{studentDetails.student.name}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Email</label>
+                          <p>{studentDetails.student.parent_email || '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Phone</label>
+                          <p>{studentDetails.student.phone || studentDetails.student.parent_phone || '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Age</label>
+                          <p>{studentDetails.student.age || '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Gender</label>
+                          <p>{studentDetails.student.gender || '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Blood Group</label>
+                          <p>{studentDetails.student.blood_group || '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Joining Date</label>
+                          <p>{studentDetails.student.joining_date ? new Date(studentDetails.student.joining_date).toLocaleDateString() : '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-muted">Parent Name</label>
+                          <p>{studentDetails.student.parent_name || '—'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Email</label>
-                        <p>{studentDetails.student.parent_email || '—'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Phone</label>
-                        <p>{studentDetails.student.phone || studentDetails.student.parent_phone || '—'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Age</label>
-                        <p>{studentDetails.student.age || '—'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Gender</label>
-                        <p>{studentDetails.student.gender || '—'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Blood Group</label>
-                        <p>{studentDetails.student.blood_group || '—'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Joining Date</label>
-                        <p>{studentDetails.student.joining_date ? new Date(studentDetails.student.joining_date).toLocaleDateString() : '—'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-muted">Parent Name</label>
-                        <p>{studentDetails.student.parent_name || '—'}</p>
-                      </div>
-                    </div>
+                    )}
                     {studentDetails.enrollments && studentDetails.enrollments.length > 0 && (
                       <div className="mt-4">
                         <h4 className="mb-2 font-semibold">Enrollments</h4>

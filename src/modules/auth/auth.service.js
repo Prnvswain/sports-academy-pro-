@@ -29,6 +29,13 @@ export const signupAcademy = async ({
   phone_number,
   subscription_plan
 }) => {
+  // Validate password length before hashing
+  if (!password || password.length < 6) {
+    const error = new Error('Password must be at least 6 characters long');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const existingUser = await prisma.user.findFirst({
     where: { email, ...NOT_DELETED }
   });
@@ -56,6 +63,17 @@ export const signupAcademy = async ({
   const planLimits = getPlanLimits(subscription_plan);
   const subscription_expires_at = addDays(new Date(), planLimits.trialDays);
 
+  // Convert empty phone_number to null for optional field
+  const normalizedPhone = phone_number && phone_number.trim() ? phone_number.trim() : null;
+
+  // Map lowercase plan keys to uppercase enum values for subscription_tier
+  const tierMapping = {
+    'free': 'FREE',
+    'pro': 'PRO',
+    'plus': 'PLUS'
+  };
+  const subscriptionTier = tierMapping[planKey] || 'FREE';
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const academy = await tx.academy.create({
@@ -63,10 +81,11 @@ export const signupAcademy = async ({
           name: academy_name,
           owner_name: name,
           email,
-          phone_number,
+          phone_number: normalizedPhone,
           subscription_plan: planKey,
+          subscription_tier: subscriptionTier,
           subscription_expires_at,
-          status: 'active'
+          status: 'ACTIVE'
         }
       });
 
@@ -76,20 +95,18 @@ export const signupAcademy = async ({
           name,
           email,
           password_hash,
-          role: 'ADMIN'
+          role: 'ACADEMY_ADMIN'
         }
       });
 
-      if (tx.durationPlan) {
-        await tx.durationPlan.createMany({
-          data: [
-            { academy_id: academy.academy_id, name: '1 Month', duration_months: 1, multiplier: 1 },
-            { academy_id: academy.academy_id, name: '3 Months', duration_months: 3, multiplier: 0.95 },
-            { academy_id: academy.academy_id, name: '6 Months', duration_months: 6, multiplier: 0.9 },
-            { academy_id: academy.academy_id, name: '12 Months', duration_months: 12, multiplier: 0.85 }
-          ]
-        });
-      }
+      await tx.durationPlan.createMany({
+        data: [
+          { academy_id: academy.academy_id, name: '1 Month', duration_months: 1, multiplier: 1 },
+          { academy_id: academy.academy_id, name: '3 Months', duration_months: 3, multiplier: 0.95 },
+          { academy_id: academy.academy_id, name: '6 Months', duration_months: 6, multiplier: 0.9 },
+          { academy_id: academy.academy_id, name: '12 Months', duration_months: 12, multiplier: 0.85 }
+        ]
+      });
 
       return { academy, user };
     });
@@ -145,9 +162,15 @@ export const signupAcademy = async ({
     };
   } catch (error) {
     if (error.statusCode) throw error;
-    logger.error('Academy signup transaction failed', { message: error.message });
-    const txError = new Error('Failed to complete academy registration');
+    logger.error('Academy signup transaction failed', { message: error.message, stack: error.stack });
+    // Expose true error context in development mode for debugging
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const txError = new Error(isDevelopment ? error.message : 'Failed to complete academy registration');
     txError.statusCode = 500;
+    if (isDevelopment) {
+      txError.details = error.message;
+      txError.originalError = error;
+    }
     throw txError;
   }
 };
