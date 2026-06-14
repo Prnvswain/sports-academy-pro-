@@ -51,6 +51,7 @@ export default function StudentsPanel() {
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [editStudentForm, setEditStudentForm] = useState({});
   const [editSelectedSports, setEditSelectedSports] = useState([]);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -179,6 +180,7 @@ export default function StudentsPanel() {
       setMessage({ text: result.message, type: 'success' });
       clearDraft();
       setSelectedSports([]);
+      setShowAddStudentModal(false);
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -350,23 +352,74 @@ export default function StudentsPanel() {
   });
 
   return (
-    <div className="space-y-6 bg-slate-50 min-h-screen p-6">
+    <div className="space-y-6 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Students Registration</h2>
-          <p className="text-slate-600">
-            Enroll students with multi-sport support, duration plans, and fee management.
+          <h2 className="text-2xl font-bold">Students</h2>
+          <p className="text-muted">
+            Manage student enrollments, sports, batches, and fee records.
           </p>
         </div>
-        <button
-          type="button"
-          className="px-4 py-2 border border-slate-200 rounded-md text-slate-700 bg-white hover:bg-slate-100 hover:text-emerald-700 transition-all duration-300"
-          onClick={() => setShowBulkUpload(true)}
-        >
-          Bulk Import (CSV)
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => setShowAddStudentModal(true)}
+          >
+            + Add Student
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setShowBulkUpload(true)}
+          >
+            Bulk Import (CSV)
+          </button>
+        </div>
       </div>
-      <div className="grid gap-6 xl:grid-cols-2">
+
+      {/* Filter Section */}
+      <div className="card">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              placeholder="Search students..."
+              className="input-field w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="min-w-[180px]">
+            <select
+              className="input-field w-full"
+              value={filterSport}
+              onChange={(e) => setFilterSport(e.target.value)}
+            >
+              <option value="">All Sports</option>
+              {sports.map((s) => (
+                <option key={s.sport_id} value={s.sport_id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[180px]">
+            <select
+              className="input-field w-full"
+              value={filterBatch}
+              onChange={(e) => setFilterBatch(e.target.value)}
+            >
+              <option value="">All Batches</option>
+              {availableBatches.map((b) => (
+                <option key={b.batch_id} value={b.batch_id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Active Students Table - Full Page Width */}
+      <div className="card overflow-x-auto">
         {selectedStudent ? (
           <div className="card">
             <div className="mb-4 flex items-center justify-between">
@@ -452,8 +505,8 @@ export default function StudentsPanel() {
                     </div>
                   </div>
                 )}
-                <div className="mt-4 p-4 rounded-lg border bg-emerald-50 border-emerald-100">
-                  <h4 className="mb-3 font-bold text-emerald-800">Financial Accounts Matrix</h4>
+                <div className="mt-4 p-4 rounded-lg border bg-accent/10 border-accent/20">
+                  <h4 className="mb-3 font-bold text-accent">Financial Accounts Matrix</h4>
                   {studentDetails?.enrollments && studentDetails.enrollments.length > 0 ? (
                     <div className="space-y-2 text-sm">
                       {studentDetails.enrollments.map((enrollment) => {
@@ -470,7 +523,7 @@ export default function StudentsPanel() {
                               <span>Registration: ${regFee.toFixed(2)}</span>
                               <span>Additional: ${addCharges.toFixed(2)}</span>
                               <span>Discount: -${discount.toFixed(2)}</span>
-                              <span className="font-bold text-emerald-700">Net Due: ${netDue.toFixed(2)}</span>
+                              <span className="font-bold text-success">Net Due: ${netDue.toFixed(2)}</span>
                             </div>
                           </div>
                         );
@@ -486,360 +539,344 @@ export default function StudentsPanel() {
             )}
           </div>
         ) : (
-          <form className="card hover:-translate-y-[1px] hover:shadow-md transition-all duration-300" onSubmit={handleSubmit}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold">Add New Student</h3>
-              {draftSavedAt && (
-                <span className="text-xs text-muted">Draft saved</span>
-              )}
-            </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="label" htmlFor="firstName">First Name</label>
-              <input
-                id="firstName"
-                type="text"
-                className="input-field"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="middleName">Middle Name (Optional)</label>
-              <input
-                id="middleName"
-                type="text"
-                className="input-field"
-                value={form.middleName}
-                onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="lastName">Last Name</label>
-              <input
-                id="lastName"
-                type="text"
-                className="input-field"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="studentAge">Age</label>
-              <input id="studentAge" name="age" type="number" min={1} max={100} className="input-field" value={form.age} onChange={updateField} required />
-            </div>
-            <div>
-              <label className="label" htmlFor="studentGender">Gender</label>
-              <select id="studentGender" name="gender" className="input-field" value={form.gender} onChange={updateField} required>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="studentPhone">Phone</label>
-              <input id="studentPhone" name="phone" type="tel" className="input-field" value={form.phone} onChange={updateField} />
-            </div>
-            <div>
-              <label className="label" htmlFor="joiningDate">Joining Date</label>
-              <input id="joiningDate" name="joining_date" type="date" className="input-field" value={form.joining_date} onChange={updateField} />
-            </div>
-          </div>
-          <div className="mb-4 mt-4">
-            <label className="label" htmlFor="studentBlood">Blood Group</label>
-            <select id="studentBlood" name="blood_group" className="input-field" value={form.blood_group} onChange={updateField}>
-              <option value="">Select…</option>
-              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
-                <option key={bg} value={bg}>{bg}</option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-4">
-            <label className="label" htmlFor="parentName">Parent Name</label>
-            <input id="parentName" name="parent_name" className="input-field" value={form.parent_name} onChange={updateField} />
-          </div>
-          <div className="mb-4">
-            <label className="label" htmlFor="parentEmail">Parent Email</label>
-            <input id="parentEmail" name="parent_email" type="email" className="input-field" value={form.parent_email} onChange={updateField} required />
-          </div>
-          <div className="mb-4">
-            <label className="label" htmlFor="parentPhone">Parent Phone</label>
-            <input id="parentPhone" name="parent_phone" type="tel" className="input-field" value={form.parent_phone} onChange={updateField} />
-          </div>
-          <div className="relative">
-            <label className="label">Sports Selection</label>
-            <button
-              type="button"
-              className="input-field flex justify-between items-center text-left w-full bg-background border"
-              onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
-            >
-              <span className="truncate text-sm">
-                {selectedSports.length === 0
-                  ? "Select sports..."
-                  : sports
-                      ?.filter((s) => selectedSports.includes(s.id || s.sport_id))
-                      ?.map((s) => s.name)
-                      ?.join(", ")}
-              </span>
-              <span className="ml-2 text-xs text-muted-foreground">▼</span>
-            </button>
+          <div>
+            <h3 className="mb-4 font-bold">Active Students</h3>
+            {loading ? (
+              <Loader />
+            ) : (
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted text-xs uppercase font-bold tracking-wider">
+                    <th className="pb-3">Name</th>
+                    <th className="pb-3 px-2">Sports</th>
+                    <th className="pb-3 px-2">Batch</th>
+                    <th className="pb-3 px-2">Fees</th>
+                    <th className="pb-3 px-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-muted text-xs">No active students found.</td>
+                    </tr>
+                  ) : (
+                    filteredStudents.map((student) => {
+                      const regFee = parseFloat(student?.registration_fee || student?.registrationFee || 0);
+                      const addFee = parseFloat(student?.additional_charges || student?.additionalCharges || 0);
+                      const disc = parseFloat(student?.discount || 0);
+                      const totalOutstanding = Math.max(0, (regFee + addFee) - disc);
+                      const feeStatusLabel = totalOutstanding > 0 ? 'Unpaid' : 'Paid';
 
-            {isSportsDropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border p-2 shadow-lg bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
-                {sports && sports.length > 0 ? (
-                  sports.map((sport) => {
-                    const sportId = sport.id || sport.sport_id;
-                    const isChecked = selectedSports.includes(sportId);
-                    return (
-                      <label
-                        key={sportId}
-                        className="flex items-center space-x-3 p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer text-sm w-full"
-                      >
-                        <input
-                          type="checkbox"
-                          className="rounded border-zinc-300 dark:border-zinc-700 text-primary h-4 w-4"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setSelectedSports(selectedSports.filter((id) => id !== sportId));
-                            } else {
-                              setSelectedSports([...selectedSports, sportId]);
-                            }
-                          }}
-                        />
-                        <span className="font-medium text-foreground">{sport.name}</span>
-                      </label>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs p-2 text-muted-foreground text-center">No sports configured.</p>
-                )}
-              </div>
+                      return (
+                        <tr
+                          key={student.student_id}
+                          className="text-foreground"
+                          onClick={() => handleStudentClick(student)}
+                        >
+                          <td>
+                            <div
+                              className="cursor-pointer hover:text-accent hover:underline transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedStudentForView(student);
+                              }}
+                            >
+                              <p className="font-semibold">{student.name}</p>
+                              {student.parent_email && (
+                                <p className="text-xs text-muted">{student.parent_email}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            {student.enrollments && student.enrollments.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {student.enrollments.map((enrollment) => (
+                                  <span key={enrollment.enrollment_id} className="rounded bg-success/10 px-2 py-0.5 text-xs text-success border border-success/20">
+                                    {enrollment.sport?.name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span>{student.sport?.name || '—'}</span>
+                            )}
+                          </td>
+                          <td className="text-muted">{student.batch?.name || '—'}</td>
+                          <td>
+                            <span className={`rounded px-2 py-0.5 text-xs font-bold ${feeStatusLabel === 'Paid' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'}`}>
+                              {feeStatusLabel}
+                            </span>
+                          </td>
+                        <td className="space-x-1" onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleExit(student.student_id)}>
+                            Exit
+                          </button>
+                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemove(student.student_id)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             )}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="durationPlan">Duration Plan</label>
-              <select id="durationPlan" name="duration_plan_id" className="input-field" value={form.duration_plan_id} onChange={updateField}>
-                <option value="">Select plan…</option>
-                {durationPlans.map((p) => (
-                  <option key={p.plan_id} value={p.plan_id}>
-                    {p.name} ({p.duration_months} months) - {p.multiplier}x
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="studentBatch">Batch (sport · active · seats)</label>
-              <select
-                id="studentBatch"
-                name="batch_id"
-                className="input-field"
-                value={form.batch_id}
-                onChange={updateField}
-                disabled={!selectedSports || selectedSports.length === 0}
-              >
-                <option value="">
-                  {!selectedSports || selectedSports.length === 0 ? 'Select sport first…' : availableBatches.length ? 'Select batch…' : 'No batches with seats'}
-                </option>
-                {availableBatches.map((b) => (
-                  <option key={b.batch_id} value={b.batch_id}>
-                    {b.name}
-                    {b.timing ? ` · ${b.timing}` : ''}
-                    {b.max_capacity != null
-                      ? ` · ${b.available_seats ?? 0}/${b.max_capacity} seats`
-                      : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="label" htmlFor="registrationFee">Registration Fee</label>
-              <input id="registrationFee" name="registration_fee" type="number" min={0} step={0.01} className="input-field" value={form.registration_fee} onChange={updateField} placeholder="0" />
-            </div>
-            <div>
-              <label className="label" htmlFor="additionalCharges">Additional Charges</label>
-              <input id="additionalCharges" name="additional_charges" type="number" min={0} step={0.01} className="input-field" value={form.additional_charges} onChange={updateField} placeholder="0" />
-            </div>
-            <div>
-              <label className="label" htmlFor="discount">Discount</label>
-              <input id="discount" name="discount" type="number" min={0} step={0.01} className="input-field" value={form.discount} onChange={updateField} placeholder="0" />
-            </div>
-          </div>
-          
-          {/* Live Fee Preview Card */}
-          <div className="mt-4 rounded-lg border-2 border-emerald-200 bg-emerald-50 p-4">
-            <h4 className="mb-3 font-bold text-emerald-800">Live Fee Preview</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Sports Base Fee:</span>
-                <span className="font-semibold">${calculateLiveFee().totalSportsFee.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Plan Multiplier:</span>
-                <span className="font-semibold">{calculateLiveFee().multiplier}x</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Sports Fee (with multiplier):</span>
-                <span className="font-semibold">${calculateLiveFee().sportsFeeWithMultiplier.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Registration Fee:</span>
-                <span className="font-semibold">${calculateLiveFee().registrationFee.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Additional Charges:</span>
-                <span className="font-semibold">${calculateLiveFee().additionalCharges.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Discount:</span>
-                <span className="font-semibold text-red-600">-${calculateLiveFee().discount.toFixed(2)}</span>
-              </div>
-              <div className="mt-2 flex justify-between border-t border-emerald-200 pt-2">
-                <span className="font-bold">Final Fee:</span>
-                <span className="font-bold text-emerald-700 text-lg">${calculateLiveFee().finalFee.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="submit" className="btn-primary flex-1">Enroll Student</button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setShowClearConfirm(true)}
-            >
-              Clear Form
-            </button>
-          </div>
-        </form>
         )}
-        <div className="card overflow-x-auto hover:-translate-y-[1px] hover:shadow-md transition-all duration-300">
-          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-bold">Active Students</h3>
-            <div className="flex flex-wrap gap-2">
-              <input
-                type="text"
-                placeholder="Search students..."
-                className="input-field sm:w-48"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <select
-                className="input-field sm:w-40"
-                value={filterSport}
-                onChange={(e) => setFilterSport(e.target.value)}
-              >
-                <option value="">All Sports</option>
-                {sports.map((s) => (
-                  <option key={s.sport_id} value={s.sport_id}>{s.name}</option>
-                ))}
-              </select>
-              <select
-                className="input-field sm:w-40"
-                value={filterBatch}
-                onChange={(e) => setFilterBatch(e.target.value)}
-              >
-                <option value="">All Batches</option>
-                {availableBatches.map((b) => (
-                  <option key={b.batch_id} value={b.batch_id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {loading ? (
-            <Loader />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Sports</th>
-                  <th>Batch</th>
-                  <th>Fees</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted">No active students found.</td>
-                  </tr>
-                ) : (
-                  filteredStudents.map((student) => {
-                    const regFee = parseFloat(student?.registration_fee || student?.registrationFee || 0);
-                    const addFee = parseFloat(student?.additional_charges || student?.additionalCharges || 0);
-                    const disc = parseFloat(student?.discount || 0);
-                    const totalOutstanding = Math.max(0, (regFee + addFee) - disc);
-                    const feeStatusLabel = totalOutstanding > 0 ? 'Unpaid' : 'Paid';
-
-                    return (
-                      <tr
-                        key={student.student_id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleStudentClick(student)}
-                      >
-                        <td>
-                          <div
-                            className="cursor-pointer hover:text-emerald-600 hover:underline transition-all"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedStudentForView(student);
-                            }}
-                          >
-                            <p className="font-semibold">{student.name}</p>
-                            {student.parent_email && (
-                              <p className="text-xs text-gray-500">{student.parent_email}</p>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          {student.enrollments && student.enrollments.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {student.enrollments.map((enrollment) => (
-                                <span key={enrollment.enrollment_id} className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
-                                  {enrollment.sport?.name}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span>{student.sport?.name || '—'}</span>
-                          )}
-                        </td>
-                        <td>{student.batch?.name || '—'}</td>
-                        <td>
-                          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${feeStatusLabel === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                            {feeStatusLabel}
-                          </span>
-                        </td>
-                      <td className="space-x-1" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="btn-secondary btn-sm" onClick={() => handleExit(student.student_id)}>
-                          Exit
-                        </button>
-                        <button type="button" className="btn-danger btn-sm" onClick={() => handleRemove(student.student_id)}>
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
       </div>
+
       {message.text && (
         <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>{message.text}</p>
       )}
+
+      {/* Add Student Modal */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-slate-900/40 p-4">
+          <div className="card max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-premiumModal">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-bold">Add New Student</h3>
+              <div className="flex gap-2">
+                {draftSavedAt && (
+                  <span className="text-xs text-muted">Draft saved</span>
+                )}
+                <button type="button" className="text-muted hover:text-foreground" onClick={() => setShowAddStudentModal(false)}>
+                  ✕
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="label" htmlFor="firstName">First Name</label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    className="input-field"
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="middleName">Middle Name (Optional)</label>
+                  <input
+                    id="middleName"
+                    type="text"
+                    className="input-field"
+                    value={form.middleName}
+                    onChange={(e) => setForm({ ...form, middleName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="lastName">Last Name</label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    className="input-field"
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="studentAge">Age</label>
+                  <input id="studentAge" name="age" type="number" min={1} max={100} className="input-field" value={form.age} onChange={updateField} required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="studentGender">Gender</label>
+                  <select id="studentGender" name="gender" className="input-field" value={form.gender} onChange={updateField} required>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="studentPhone">Phone</label>
+                  <input id="studentPhone" name="phone" type="tel" className="input-field" value={form.phone} onChange={updateField} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="joiningDate">Joining Date</label>
+                  <input id="joiningDate" name="joining_date" type="date" className="input-field" value={form.joining_date} onChange={updateField} />
+                </div>
+              </div>
+              <div className="mb-4 mt-4">
+                <label className="label" htmlFor="studentBlood">Blood Group</label>
+                <select id="studentBlood" name="blood_group" className="input-field" value={form.blood_group} onChange={updateField}>
+                  <option value="">Select…</option>
+                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+                    <option key={bg} value={bg}>{bg}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="label" htmlFor="parentName">Parent Name</label>
+                <input id="parentName" name="parent_name" className="input-field" value={form.parent_name} onChange={updateField} />
+              </div>
+              <div className="mb-4">
+                <label className="label" htmlFor="parentEmail">Parent Email</label>
+                <input id="parentEmail" name="parent_email" type="email" className="input-field" value={form.parent_email} onChange={updateField} required />
+              </div>
+              <div className="mb-4">
+                <label className="label" htmlFor="parentPhone">Parent Phone</label>
+                <input id="parentPhone" name="parent_phone" type="tel" className="input-field" value={form.parent_phone} onChange={updateField} />
+              </div>
+              <div className="relative">
+                <label className="label">Sports Selection</label>
+                <button
+                  type="button"
+                  className="input-field flex justify-between items-center text-left w-full bg-background border"
+                  onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
+                >
+                  <span className="truncate text-sm">
+                    {selectedSports.length === 0
+                      ? "Select sports..."
+                      : sports
+                          ?.filter((s) => selectedSports.includes(s.id || s.sport_id))
+                          ?.map((s) => s.name)
+                          ?.join(", ")}
+                  </span>
+                  <span className="ml-2 text-xs text-muted-foreground">▼</span>
+                </button>
+
+                {isSportsDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border p-2 shadow-lg bg-surface border-border">
+                    {sports && sports.length > 0 ? (
+                      sports.map((sport) => {
+                        const sportId = sport.id || sport.sport_id;
+                        const isChecked = selectedSports.includes(sportId);
+                        return (
+                          <label
+                            key={sportId}
+                            className="flex items-center space-x-3 p-2 rounded-md hover:bg-surface-secondary cursor-pointer text-sm w-full"
+                          >
+                            <input
+                              type="checkbox"
+                              className="rounded border-border text-primary h-4 w-4"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setSelectedSports(selectedSports.filter((id) => id !== sportId));
+                                } else {
+                                  setSelectedSports([...selectedSports, sportId]);
+                                }
+                              }}
+                            />
+                            <span className="font-medium text-foreground">{sport.name}</span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs p-2 text-muted-foreground text-center">No sports configured.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="durationPlan">Duration Plan</label>
+                  <select id="durationPlan" name="duration_plan_id" className="input-field" value={form.duration_plan_id} onChange={updateField}>
+                    <option value="">Select plan…</option>
+                    {durationPlans.map((p) => (
+                      <option key={p.plan_id} value={p.plan_id}>
+                        {p.name} ({p.duration_months} months) - {p.multiplier}x
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="studentBatch">Batch (sport · active · seats)</label>
+                  <select
+                    id="studentBatch"
+                    name="batch_id"
+                    className="input-field"
+                    value={form.batch_id}
+                    onChange={updateField}
+                    disabled={!selectedSports || selectedSports.length === 0}
+                  >
+                    <option value="">
+                      {!selectedSports || selectedSports.length === 0 ? 'Select sport first…' : availableBatches.length ? 'Select batch…' : 'No batches with seats'}
+                    </option>
+                    {availableBatches.map((b) => (
+                      <option key={b.batch_id} value={b.batch_id}>
+                        {b.name}
+                        {b.timing ? ` · ${b.timing}` : ''}
+                        {b.max_capacity != null
+                          ? ` · ${b.available_seats ?? 0}/${b.max_capacity} seats`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="label" htmlFor="registrationFee">Registration Fee</label>
+                  <input id="registrationFee" name="registration_fee" type="number" min={0} step={0.01} className="input-field" value={form.registration_fee} onChange={updateField} placeholder="0" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="additionalCharges">Additional Charges</label>
+                  <input id="additionalCharges" name="additional_charges" type="number" min={0} step={0.01} className="input-field" value={form.additional_charges} onChange={updateField} placeholder="0" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="discount">Discount</label>
+                  <input id="discount" name="discount" type="number" min={0} step={0.01} className="input-field" value={form.discount} onChange={updateField} placeholder="0" />
+                </div>
+              </div>
+
+              {/* Live Fee Preview Card */}
+              <div className="mt-4 rounded-lg border-2 border-accent/20 bg-accent/10 p-4">
+                <h4 className="mb-3 font-bold text-accent">Live Fee Preview</h4>
+                <div className="space-y-2 text-sm text-foreground">
+                  <div className="flex justify-between">
+                    <span>Sports Base Fee:</span>
+                    <span className="font-semibold">${calculateLiveFee().totalSportsFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Plan Multiplier:</span>
+                    <span className="font-semibold">{calculateLiveFee().multiplier}x</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Sports Fee (with multiplier):</span>
+                    <span className="font-semibold">${calculateLiveFee().sportsFeeWithMultiplier.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Registration Fee:</span>
+                    <span className="font-semibold">${calculateLiveFee().registrationFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Additional Charges:</span>
+                    <span className="font-semibold">${calculateLiveFee().additionalCharges.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Discount:</span>
+                    <span className="font-semibold text-danger">-${calculateLiveFee().discount.toFixed(2)}</span>
+                  </div>
+                  <div className="mt-2 flex justify-between border-t border-accent/20 pt-2">
+                    <span className="font-bold">Final Fee:</span>
+                    <span className="font-bold text-success text-lg">${calculateLiveFee().finalFee.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="submit" className="btn-primary flex-1">Enroll Student</button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowClearConfirm(true)}
+                >
+                  Clear Form
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showClearConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-slate-900/40 p-4">
           <div className="card max-w-md animate-premiumModal">
@@ -1090,7 +1127,7 @@ export default function StudentsPanel() {
                             <span className="ml-2 text-xs text-muted-foreground">▼</span>
                           </button>
                           {isSportsDropdownOpen && (
-                            <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border p-2 shadow-lg bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                            <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border p-2 shadow-lg bg-surface border-border">
                               {sports && sports.length > 0 ? (
                                 sports.map((sport) => {
                                   const sportId = sport.id || sport.sport_id;
@@ -1330,8 +1367,8 @@ export default function StudentsPanel() {
       {/* Student Profile Detail Modal */}
       {selectedStudentForView && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-xl overflow-hidden border border-gray-100 animate-fadeIn">
-            <div className="bg-blue-600 px-6 py-4 flex justify-between items-center text-white">
+          <div className="bg-surface w-full max-w-xl rounded-xl shadow-xl overflow-hidden border border-border animate-fadeIn">
+            <div className="bg-accent px-6 py-4 flex justify-between items-center text-white">
               <h3 className="text-lg font-bold">Detailed Student Profile</h3>
               <button
                 onClick={() => setSelectedStudentForView(null)}
@@ -1342,36 +1379,44 @@ export default function StudentsPanel() {
             </div>
             <div className="p-6 grid grid-cols-2 gap-4 text-sm max-h-[75vh] overflow-y-auto">
               <div className="col-span-2 border-b pb-2 mb-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600">Personal Information</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-accent">Personal Information</h4>
               </div>
-              <div><span className="font-semibold text-gray-500 block">Full Name:</span> {selectedStudentForView?.name || `${selectedStudentForView?.firstName || ''} ${selectedStudentForView?.middleName || ''} ${selectedStudentForView?.lastName || ''}`}</div>
-              <div><span className="font-semibold text-gray-500 block">Age / Gender:</span> {selectedStudentForView?.age || '—'} years / {selectedStudentForView?.gender || '—'}</div>
-              <div><span className="font-semibold text-gray-500 block">Blood Group:</span> {selectedStudentForView?.blood_group || selectedStudentForView?.bloodGroup || 'Not Provided'}</div>
-              <div><span className="font-semibold text-gray-500 block">Joining Date:</span> {selectedStudentForView?.joining_date ? new Date(selectedStudentForView.joining_date).toLocaleDateString() : '—'}</div>
+              <div><span className="font-semibold text-muted block">Full Name:</span> {selectedStudentForView?.name || `${selectedStudentForView?.firstName || ''} ${selectedStudentForView?.middleName || ''} ${selectedStudentForView?.lastName || ''}`}</div>
+              <div><span className="font-semibold text-muted block">Age / Gender:</span> {selectedStudentForView?.age || '—'} years / {selectedStudentForView?.gender || '—'}</div>
+              <div><span className="font-semibold text-muted block">Blood Group:</span> {selectedStudentForView?.blood_group || selectedStudentForView?.bloodGroup || 'Not Provided'}</div>
+              <div><span className="font-semibold text-muted block">Joining Date:</span> {selectedStudentForView?.joining_date ? new Date(selectedStudentForView.joining_date).toLocaleDateString() : '—'}</div>
 
               <div className="col-span-2 border-b pb-2 mt-4 mb-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600">Parent / Guardian Details</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-accent">Parent / Guardian Details</h4>
               </div>
-              <div><span className="font-semibold text-gray-500 block">Parent Name:</span> {selectedStudentForView?.parent_name || '—'}</div>
-              <div><span className="font-semibold text-gray-500 block">Parent Phone:</span> {selectedStudentForView?.parent_phone || '—'}</div>
-              <div className="col-span-2"><span className="font-semibold text-gray-500 block">Parent Email:</span> {selectedStudentForView?.parent_email || '—'}</div>
+              <div><span className="font-semibold text-muted block">Parent Name:</span> {selectedStudentForView?.parent_name || '—'}</div>
+              <div><span className="font-semibold text-muted block">Parent Phone:</span> {selectedStudentForView?.parent_phone || '—'}</div>
+              <div className="col-span-2"><span className="font-semibold text-muted block">Parent Email:</span> {selectedStudentForView?.parent_email || '—'}</div>
 
               <div className="col-span-2 border-b pb-2 mt-4 mb-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600">Academy Enrollment Settings</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-accent">Academy Enrollment Settings</h4>
               </div>
-              <div><span className="font-semibold text-gray-500 block">Assigned Sport:</span> {selectedStudentForView?.sport?.name || selectedStudentForView?.sports || '—'}</div>
-              <div><span className="font-semibold text-gray-500 block">Batch Schedule:</span> {selectedStudentForView?.batch?.name || 'Unassigned'}</div>
-              <div><span className="font-semibold text-gray-500 block">Fees Milestone Status:</span> <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${selectedStudentForView?.fees_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{selectedStudentForView?.fees_status || '—'}</span></div>
+              <div><span className="font-semibold text-muted block">Assigned Sport:</span> {selectedStudentForView?.sport?.name || selectedStudentForView?.sports || '—'}</div>
+              <div><span className="font-semibold text-muted block">Batch Schedule:</span> {selectedStudentForView?.batch?.name || 'Unassigned'}</div>
+              <div><span className="font-semibold text-muted block">Fees Milestone Status:</span> <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${selectedStudentForView?.fees_status === 'paid' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'}`}>{selectedStudentForView?.fees_status || '—'}</span></div>
 
               {(() => {
                 console.log("Selected Student Data Object:", selectedStudentForView);
                 const activeEnrollments = selectedStudentForView?.enrollments?.filter(e => e.is_active) || [];
                 const latestEnrollment = activeEnrollments.length > 0 ? activeEnrollments[0] : null;
 
-                const baseSportsFee = parseFloat(latestEnrollment?.sports_base_fee || latestEnrollment?.sportsBaseFee || latestEnrollment?.sports_fee || 0);
-                const planMultiplierValue = parseFloat(latestEnrollment?.plan_multiplier || latestEnrollment?.planMultiplier || 1);
-
-                const calculatedSportsFeeWithMultiplier = parseFloat(latestEnrollment?.sports_fee_calculated || latestEnrollment?.sportsFeeCalculated || (baseSportsFee * planMultiplierValue));
+                // Dynamic multiplier sync with duration plans
+                const globalDurationPlans = durationPlans || [];
+                const currentStudentPlan = latestEnrollment?.duration_plan?.name || selectedStudentForView?.duration_plan || selectedStudentForView?.durationPlan || "";
+                
+                // Relational array matching
+                const exactPlanMatch = globalDurationPlans.find(p => p.name === currentStudentPlan || p._id === currentStudentPlan || p.id === currentStudentPlan || p.plan_id === currentStudentPlan);
+                
+                // Resolve dynamic multiplier coefficient
+                const dynamicMultiplier = exactPlanMatch ? parseFloat(exactPlanMatch.multiplier) : parseFloat(latestEnrollment?.duration_plan?.multiplier || latestEnrollment?.plan_multiplier || latestEnrollment?.planMultiplier || 1);
+                
+                const rawBaseSportsFee = parseFloat(latestEnrollment?.sports_base_fee || latestEnrollment?.sportsBaseFee || latestEnrollment?.sports_fee || 0);
+                const totalMultipliedSportsFee = rawBaseSportsFee * dynamicMultiplier;
 
                 const regFeeAmount = parseFloat(latestEnrollment?.registration_fee || 0);
                 const additionalSurchargesAmount = parseFloat(latestEnrollment?.additional_charges || 0);
@@ -1386,18 +1431,18 @@ export default function StudentsPanel() {
                 const durationPlanName = latestEnrollment?.duration_plan?.name || selectedStudentForView?.duration_plan || selectedStudentForView?.durationPlan || 'Standard';
 
                 return (
-                  <div className="col-span-2 border-t pt-3 mt-2 bg-zinc-50 p-3 rounded-lg border text-xs space-y-1">
-                    <span className="font-bold text-zinc-500 uppercase tracking-wider block mb-1">Financial Ledger Summary</span>
-                    <div className="space-y-2 border-t pt-3 mt-2 text-sm text-gray-700">
+                  <div className="col-span-2 border-t pt-3 mt-2 bg-surface-secondary p-3 rounded-lg border border-border text-xs space-y-1">
+                    <span className="font-bold text-muted uppercase tracking-wider block mb-1">Financial Ledger Summary</span>
+                    <div className="space-y-2 border-t pt-3 mt-2 text-sm text-foreground">
                       <div className="flex justify-between">
                         <span>Sports Base Fee:</span>
-                        <span className="font-medium">${baseSportsFee.toFixed(2)}</span>
+                        <span className="font-medium">${rawBaseSportsFee.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-400 pl-2">
+                      <div className="flex justify-between text-xs text-muted pl-2">
                         <span>Plan Multiplier / Duration:</span>
-                        <span className="font-medium">{planMultiplierValue.toFixed(1)}x ({durationPlanName})</span>
+                        <span className="font-medium">{dynamicMultiplier.toFixed(1)}x ({durationPlanName})</span>
                       </div>
-                      <div className="flex justify-between font-medium text-gray-800 bg-gray-50/50 p-1 rounded">
+                      <div className="flex justify-between font-medium text-foreground bg-surface-secondary p-1 rounded transition-all duration-300 ease-in-out">
                         <span>Sports Fee (with multiplier):</span>
                         <span>${calculatedSportsFeeWithMultiplier.toFixed(2)}</span>
                       </div>
@@ -1409,22 +1454,22 @@ export default function StudentsPanel() {
                         <span>Additional Surcharges:</span>
                         <span>${additionalSurchargesAmount.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-red-500">
+                      <div className="flex justify-between text-danger">
                         <span>Applied Discount:</span>
                         <span>-${appliedDiscountAmount.toFixed(2)}</span>
                       </div>
 
-                      <div className="flex justify-between border-t pt-2 mt-2 font-semibold text-gray-900 bg-gray-50 p-1.5 rounded">
+                      <div className="flex justify-between border-t pt-2 mt-2 font-semibold text-foreground bg-surface-secondary p-1.5 rounded transition-all duration-300 ease-in-out">
                         <span>Total Computed Fee (Decided):</span>
                         <span>${accurateTotalComputedFee.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-blue-600 font-medium">
+                      <div className="flex justify-between text-success font-medium transition-all duration-300 ease-in-out">
                         <span>Amount Paid (Accounts Section):</span>
                         <span>-${dynamicAmountPaidFromLedger.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between border-t pt-2 text-base font-bold">
                         <span>Total Balance Due:</span>
-                        <span className={finalOutstandingDuesBalance > 0 ? "text-red-600" : "text-green-600"}>
+                        <span className={finalOutstandingDuesBalance > 0 ? "text-danger" : "text-success"}>
                           ${finalOutstandingDuesBalance.toFixed(2)} ({conditionalFeeStatusString})
                         </span>
                       </div>

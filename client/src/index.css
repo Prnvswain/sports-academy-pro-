@@ -131,9 +131,9 @@
     @apply sidebar-link bg-accent hover:bg-accent shadow-card transition-all duration-200;
     color: rgb(var(--color-accent-hover));
   }
-  
+
   :root[data-theme='dark'] .sidebar-link-active {
-    color: #09090b;
+    color: #ffffff;
   }
 
   .kpi-card {

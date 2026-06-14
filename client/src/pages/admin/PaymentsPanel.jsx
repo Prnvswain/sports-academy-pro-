@@ -143,12 +143,12 @@ export default function PaymentsPanel() {
       <div className="grid gap-6 xl:grid-cols-2">
         
         {/* RECORD PAYMENT CARD */}
-        <form className="card bg-white border p-6 rounded-xl shadow-sm space-y-4" onSubmit={handleSubmit}>
-          <h3 className="font-bold text-base tracking-tight text-zinc-900">Record Payment</h3>
+        <form className="card space-y-4" onSubmit={handleSubmit}>
+          <h3 className="font-bold text-base tracking-tight">Record Payment</h3>
           
           <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1" htmlFor="payStudent">Student</label>
-            <select id="payStudent" name="student_id" className="w-full border rounded-lg p-2 text-sm bg-transparent" value={form.student_id} onChange={handleStudentChange} required>
+            <label className="label" htmlFor="payStudent">Student</label>
+            <select id="payStudent" name="student_id" className="input-field bg-[var(--color-input)] text-foreground" value={form.student_id} onChange={handleStudentChange} required>
               <option value="">Select student…</option>
               {students.map((s) => (
                 <option key={s.id || s.student_id} value={s.id || s.student_id}>
@@ -160,26 +160,26 @@ export default function PaymentsPanel() {
 
           {/* NEW: PENDING AMOUNT DISPLAY READONLY BOX */}
           {form.student_id && (
-            <div className="bg-zinc-50 border border-dashed rounded-lg p-3 flex justify-between items-center text-sm">
-              <span className="text-zinc-500 font-medium">Pending Dues Outstanding:</span>
-              <span className="text-red-600 font-bold text-base">${form.pending_amount.toFixed(2)}</span>
+            <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 flex justify-between items-center text-sm">
+              <span className="text-muted font-medium">Pending Dues Outstanding:</span>
+              <span className="text-danger font-bold text-base">${form.pending_amount.toFixed(2)}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1" htmlFor="payAmount">Amount to Pay</label>
-            <input id="payAmount" name="amount" type="number" min="0" step="0.01" className="w-full border rounded-lg p-2 text-sm bg-transparent" value={form.amount} onChange={handleChange} required />
+            <label className="label" htmlFor="payAmount">Amount to Pay</label>
+            <input id="payAmount" name="amount" type="number" min="0" step="0.01" className="input-field" value={form.amount} onChange={handleChange} required />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1" htmlFor="payDate">Payment Date</label>
-            <input id="payDate" name="payment_date" type="date" className="w-full border rounded-lg p-2 text-sm bg-transparent" value={form.payment_date} onChange={handleChange} required />
+            <label className="label" htmlFor="payDate">Payment Date</label>
+            <input id="payDate" name="payment_date" type="date" className="input-field" value={form.payment_date} onChange={handleChange} required />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1" htmlFor="payMethod">Method</label>
-              <select id="payMethod" name="method" className="w-full border rounded-lg p-2 text-sm bg-transparent" value={form.method} onChange={handleChange} required>
+              <label className="label" htmlFor="payMethod">Method</label>
+              <select id="payMethod" name="method" className="input-field bg-[var(--color-input)] text-foreground" value={form.method} onChange={handleChange} required>
                 <option value="upi">UPI</option>
                 <option value="cash">Cash</option>
                 <option value="cheque">Cheque</option>
@@ -187,8 +187,8 @@ export default function PaymentsPanel() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1" htmlFor="payStatus">Status</label>
-              <select id="payStatus" name="status" className="w-full border rounded-lg p-2 text-sm bg-transparent" value={form.status} onChange={handleChange}>
+              <label className="label" htmlFor="payStatus">Status</label>
+              <select id="payStatus" name="status" className="input-field bg-[var(--color-input)] text-foreground" value={form.status} onChange={handleChange}>
                 <option value="pending">Pending</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
@@ -196,20 +196,20 @@ export default function PaymentsPanel() {
             </div>
           </div>
           
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors mt-2">
+          <button type="submit" className="btn-primary w-full cursor-pointer mt-2">
             Create Payment
           </button>
         </form>
 
         {/* PAYMENT RECORDS LIST */}
-        <div className="card bg-white border rounded-xl shadow-sm p-6 overflow-x-auto">
-          <h3 className="font-bold text-base tracking-tight text-zinc-900 mb-4">Payment Records</h3>
+        <div className="card overflow-x-auto">
+          <h3 className="font-bold text-base tracking-tight mb-4">Payment Records</h3>
           {loading ? (
             <Loader />
           ) : (
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b text-zinc-400 font-medium text-xs uppercase tracking-wider">
+                <tr className="border-b border-border text-muted font-medium text-xs uppercase tracking-wider">
                   <th className="pb-3 pr-2">Student</th>
                   <th className="pb-3 px-2">Amount</th>
                   <th className="pb-3 px-2">Date</th>
@@ -218,10 +218,10 @@ export default function PaymentsPanel() {
                   <th className="pb-3 pl-2 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-border">
                 {payments.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-zinc-400">No payments recorded.</td>
+                    <td colSpan={6} className="text-center py-8 text-muted text-xs">No payments recorded.</td>
                   </tr>
                 ) : (
                   payments.map((payment, index) => {
@@ -229,34 +229,34 @@ export default function PaymentsPanel() {
                     const currentId = payment.id || payment.payment_id || index;
 
                     return (
-                      <tr key={currentId} className="text-zinc-700">
+                      <tr key={currentId} className="text-foreground">
                         <td className="py-3 pr-2 font-medium">{payment.student?.name || payment.student_name || `Student #${payment.student_id}`}</td>
                         <td className="py-3 px-2">${parseFloat(payment.amount || 0).toFixed(2)}</td>
                         <td className="py-3 px-2">{new Date(payment.payment_date || payment.date).toLocaleDateString()}</td>
                         <td className="py-3 px-2 uppercase text-xs font-semibold">{payment.method}</td>
                         <td className="py-3 px-2">
                           <span className={`text-xs uppercase font-bold tracking-wide px-2 py-0.5 rounded ${
-                            normalizedStatus === 'COMPLETED' ? 'bg-green-50 text-green-700' :
-                            normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? 'bg-red-50 text-red-700' :
-                            'bg-amber-50 text-amber-700'
+                            normalizedStatus === 'COMPLETED' ? 'bg-success/10 text-success border border-success/20' :
+                            normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? 'bg-danger/10 text-danger border border-danger/20' :
+                            'bg-warning/10 text-warning border border-warning/20'
                           }`}>
                             {payment.status}
                           </span>
                         </td>
                         <td className="py-3 pl-2 text-right space-x-1">
                           {normalizedStatus !== 'COMPLETED' && (
-                            <button 
-                              type="button" 
-                              className="bg-green-700 text-white hover:bg-green-800 text-xs font-medium py-1 px-2 rounded transition-colors" 
+                            <button
+                              type="button"
+                              className="btn-success btn-sm"
                               onClick={() => updateStatus(payment, currentId, 'completed')}
                             >
                               Mark Paid
                             </button>
                           )}
                           {normalizedStatus === 'PENDING' && (
-                            <button 
-                              type="button" 
-                              className="bg-red-600 text-white hover:bg-red-700 text-xs font-medium py-1 px-2 rounded transition-colors" 
+                            <button
+                              type="button"
+                              className="btn-danger btn-sm"
                               onClick={() => rejectPayment(payment, currentId)}
                             >
                               Reject

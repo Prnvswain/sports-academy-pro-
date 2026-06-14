@@ -15,6 +15,7 @@ export default function AccountsPanel() {
   const [activeTab, setActiveTab] = useState('create');
   const [students, setStudents] = useState([]);
   const [receipts, setReceipts] = useState([]);
+  const [durationPlans, setDurationPlans] = useState([]);
   const [receiptForm, setReceiptForm] = useState(emptyReceiptForm);
   const [studentLedger, setStudentLedger] = useState(null);
   const [pendingFee, setPendingFee] = useState(null);
@@ -31,11 +32,12 @@ export default function AccountsPanel() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentsRes, receiptsRes, pendingDuesRes, revenueSummaryRes] = await Promise.all([
+      const [studentsRes, receiptsRes, pendingDuesRes, revenueSummaryRes, durationPlansRes] = await Promise.all([
         adminGet('/admin/students'),
         adminGet('/admin/accounts/receipts'),
         adminGet('/admin/accounts/pending-dues'),
-        adminGet('/admin/accounts/revenue-summary')
+        adminGet('/admin/accounts/revenue-summary'),
+        adminGet('/admin/duration-plans')
       ]);
       const studentsData = studentsRes.data?.data || studentsRes.data || [];
       setStudents(Array.isArray(studentsData) ? studentsData : []);
@@ -45,6 +47,7 @@ export default function AccountsPanel() {
       setPendingDues(Array.isArray(pendingDuesData) ? pendingDuesData : []);
       const revenueSummaryData = revenueSummaryRes.data?.data || revenueSummaryRes.data || null;
       setRevenueSummary(revenueSummaryData);
+      setDurationPlans(durationPlansRes.data || []);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
       setStudents([]);
@@ -97,10 +100,18 @@ export default function AccountsPanel() {
     );
 
     if (selectedStudent) {
+      // Dynamic multiplier sync with duration plans
+      const activeSelectedStudent = selectedStudent;
+      const activeStudentPlan = activeSelectedStudent?.duration_plan || activeSelectedStudent?.durationPlan || "";
+      const matchedPlanConfig = (durationPlans || []).find(p => p.name === activeStudentPlan || p._id === activeStudentPlan || p.plan_id === activeStudentPlan);
+      
+      const activeMultiplier = matchedPlanConfig ? parseFloat(matchedPlanConfig.multiplier) : parseFloat(activeSelectedStudent?.plan_multiplier || 1);
+      const dynamicSportsCost = parseFloat(activeSelectedStudent?.sports_base_fee || activeSelectedStudent?.sportsBaseFee || activeSelectedStudent?.sports_fee || 0) * activeMultiplier;
+      
       const regFee = parseFloat(selectedStudent.registration_fee || selectedStudent.registrationFee || 0);
       const addCharges = parseFloat(selectedStudent.additional_charges || selectedStudent.additionalCharges || 0);
       const discount = parseFloat(selectedStudent.discount || 0);
-      const totalFee = (regFee + addCharges) - discount;
+      const totalFee = dynamicSportsCost + regFee + addCharges - discount;
 
       // Sum up every verified payment record for this specific student from the receipts array
       const totalAmountPaid = receipts
@@ -168,18 +179,18 @@ export default function AccountsPanel() {
   }) || [];
 
   return (
-    <div className="space-y-6 bg-slate-50 min-h-screen p-6">
+    <div className="space-y-6 p-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Accounts & Invoicing Management</h2>
-        <p className="text-slate-600">Manage receipts, track payments, and monitor financial performance.</p>
+        <h2 className="text-2xl font-bold">Accounts & Invoicing Management</h2>
+        <p className="text-muted">Manage receipts, track payments, and monitor financial performance.</p>
       </div>
 
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-2 border-b border-border">
         <button
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'create'
-              ? 'border-b-2 border-emerald-700 text-emerald-800 bg-emerald-50 rounded-t-lg'
-              : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-100'
+              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('create')}
         >
@@ -188,8 +199,8 @@ export default function AccountsPanel() {
         <button
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'records'
-              ? 'border-b-2 border-emerald-700 text-emerald-800 bg-emerald-50 rounded-t-lg'
-              : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-100'
+              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('records')}
         >
@@ -198,8 +209,8 @@ export default function AccountsPanel() {
         <button
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'dues'
-              ? 'border-b-2 border-emerald-700 text-emerald-800 bg-emerald-50 rounded-t-lg'
-              : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-100'
+              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('dues')}
         >
@@ -208,8 +219,8 @@ export default function AccountsPanel() {
         <button
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'revenue'
-              ? 'border-b-2 border-emerald-700 text-emerald-800 bg-emerald-50 rounded-t-lg'
-              : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-100'
+              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('revenue')}
         >
@@ -219,7 +230,7 @@ export default function AccountsPanel() {
 
       {activeTab === 'create' ? (
         <div className="grid gap-6 xl:grid-cols-2">
-          <form className="card hover:-translate-y-[1px] hover:shadow-md transition-all duration-300" onSubmit={handleReceiptSubmit}>
+          <form className="card" onSubmit={handleReceiptSubmit}>
             <h3 className="mb-4 font-bold">Create Receipt</h3>
             <div className="mb-4">
               <label className="label" htmlFor="receiptStudent">Student</label>
@@ -242,31 +253,31 @@ export default function AccountsPanel() {
 
             {/* LIVE PENDING AMOUNT UI PANEL */}
             <div className="mt-2 mb-4">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
+              <label className="label">
                 Pending Amount
               </label>
-              <div className="p-3 rounded-lg border bg-emerald-50 border-emerald-100 flex items-center justify-between">
-                <span className="text-sm text-slate-600">Total Outstanding Balance:</span>
-                <span className={`text-base font-bold ${pendingAmount > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+              <div className="p-3 rounded-lg border bg-accent/10 border-accent/20 flex items-center justify-between">
+                <span className="text-sm text-muted">Total Outstanding Balance:</span>
+                <span className={`text-base font-bold ${pendingAmount > 0 ? 'text-warning' : 'text-muted'}`}>
                   {pendingAmount !== null ? `$${Number(pendingAmount).toFixed(2)}` : 'Select a student to view'}
                 </span>
               </div>
             </div>
 
             {studentLedger && (
-              <div className="mb-4 p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
-                <h4 className="font-semibold mb-2 text-emerald-800">Student Ledger</h4>
+              <div className="mb-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                <h4 className="font-semibold mb-2 text-accent">Student Ledger</h4>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Total Fee Due:</span>
+                    <span className="text-muted">Total Fee Due:</span>
                     <p className="font-medium">${Number(studentLedger.total_fee_due || 0).toFixed(2)}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Total Paid:</span>
+                    <span className="text-muted">Total Paid:</span>
                     <p className="font-medium">${Number(studentLedger.total_paid || 0).toFixed(2)}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Balance:</span>
+                    <span className="text-muted">Balance:</span>
                     <p className="font-medium">${Number(studentLedger.balance_outstanding || 0).toFixed(2)}</p>
                   </div>
                 </div>
@@ -350,22 +361,22 @@ export default function AccountsPanel() {
             </div>
 
             {(studentLedger || pendingAmount > 0) && (
-              <div className="mb-4 p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
-                <h4 className="font-semibold mb-2 text-emerald-800">Final Collection Amount</h4>
-                <p className="text-2xl font-bold text-emerald-700">${calculateFinalAmount().toFixed(2)}</p>
+              <div className="mb-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                <h4 className="font-semibold mb-2 text-accent">Final Collection Amount</h4>
+                <p className="text-2xl font-bold text-accent">${calculateFinalAmount().toFixed(2)}</p>
               </div>
             )}
 
             <button type="submit" className="btn-primary w-full">Create Receipt</button>
           </form>
 
-          <div className="card hover:-translate-y-[1px] hover:shadow-md transition-all duration-300">
+          <div className="card">
             <h3 className="mb-4 font-bold">Receipt Preview</h3>
             {receiptForm.student_id ? (
-              <div className="p-4 border rounded-lg bg-white text-zinc-900">
+              <div className="p-4 border rounded-lg bg-surface text-foreground">
                 <div className="text-center mb-4">
                   <h4 className="text-lg font-bold">OFFICIAL RECEIPT</h4>
-                  <p className="text-sm text-muted-foreground">Academy Management System</p>
+                  <p className="text-sm text-muted">Academy Management System</p>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -394,7 +405,7 @@ export default function AccountsPanel() {
                     </div>
                   )}
                   {parseFloat(receiptForm.discount) > 0 && (
-                    <div className="flex justify-between text-red-600">
+                    <div className="flex justify-between text-danger">
                       <span>Discount:</span>
                       <span>-${parseFloat(receiptForm.discount).toFixed(2)}</span>
                     </div>
@@ -462,24 +473,24 @@ export default function AccountsPanel() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Receipt #</th>
-                  <th>Student</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                  <th>Method</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Receipt #</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Student</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Amount</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Method</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredReceipts && Array.isArray(filteredReceipts) && filteredReceipts.length > 0 ? (
                   filteredReceipts.map((receipt) => (
                     <tr key={receipt.receipt_id}>
-                      <td className="p-3 font-medium">{receipt.receipt_number}</td>
-                      <td className="p-3">{receipt.student?.name || '—'}</td>
-                      <td className="p-3">${Number(receipt.amount).toFixed(2)}</td>
-                      <td className="p-3">{new Date(receipt.payment_date).toLocaleDateString()}</td>
-                      <td className="p-3 capitalize">{receipt.method || '—'}</td>
+                      <td className="p-3 font-medium text-slate-800">{receipt.receipt_number}</td>
+                      <td className="p-3 text-sm font-medium text-slate-800">{receipt.student?.name || '—'}</td>
+                      <td className="p-3 text-sm font-medium text-slate-800">${Number(receipt.amount).toFixed(2)}</td>
+                      <td className="p-3 text-sm font-medium text-slate-800">{new Date(receipt.payment_date).toLocaleDateString()}</td>
+                      <td className="p-3 text-sm font-medium text-slate-800 capitalize">{receipt.method || '—'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                           receipt.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
@@ -513,38 +524,38 @@ export default function AccountsPanel() {
           )}
         </div>
       ) : activeTab === 'dues' ? (
-        <div className="card overflow-x-auto hover:-translate-y-[1px] hover:shadow-md transition-all duration-300">
+        <div className="card overflow-x-auto">
           <h3 className="mb-4 font-bold">Pending Dues</h3>
           <p className="text-muted mb-4">Students with remaining unpaid balances.</p>
           {loading ? (
             <Loader />
           ) : (
-            <table className="data-table">
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Sport</th>
-                  <th>Total Fee Due</th>
-                  <th>Total Paid</th>
-                  <th>Balance Outstanding</th>
-                  <th>Next Due Date</th>
+                <tr className="border-b border-border text-muted text-xs uppercase font-bold tracking-wider">
+                  <th className="pb-3">Student</th>
+                  <th className="pb-3 px-2">Sport</th>
+                  <th className="pb-3 px-2">Total Fee Due</th>
+                  <th className="pb-3 px-2">Total Paid</th>
+                  <th className="pb-3 px-2">Balance Outstanding</th>
+                  <th className="pb-3 px-2">Next Due Date</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {pendingDues && Array.isArray(pendingDues) && pendingDues.length > 0 ? (
                   pendingDues.map((due) => (
-                    <tr key={due.student_id}>
-                      <td className="p-3 font-medium">{due.student_name}</td>
-                      <td className="p-3">{due.sport}</td>
-                      <td className="p-3">${Number(due.total_fee_due).toFixed(2)}</td>
-                      <td className="p-3">${Number(due.total_paid).toFixed(2)}</td>
-                      <td className="p-3 font-semibold text-red-600">${Number(due.balance_outstanding).toFixed(2)}</td>
-                      <td className="p-3">{new Date(due.next_due_date).toLocaleDateString()}</td>
+                    <tr key={due.student_id} className="text-foreground">
+                      <td className="py-3 font-medium">{due.student_name}</td>
+                      <td className="py-3 px-2 text-muted">{due.sport}</td>
+                      <td className="py-3 px-2">${Number(due.total_fee_due).toFixed(2)}</td>
+                      <td className="py-3 px-2">${Number(due.total_paid).toFixed(2)}</td>
+                      <td className="py-3 px-2 font-semibold text-danger text-sm">${Number(due.balance_outstanding).toFixed(2)}</td>
+                      <td className="py-3 px-2">{new Date(due.next_due_date).toLocaleDateString()}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={6} className="text-center py-8 text-muted text-xs">
                       No pending dues found. All students are up to date!
                     </td>
                   </tr>
@@ -554,43 +565,43 @@ export default function AccountsPanel() {
           )}
         </div>
       ) : (
-        <div className="card hover:-translate-y-[1px] hover:shadow-md transition-all duration-300">
+        <div className="card">
           <h3 className="mb-4 font-bold">Revenue Summary</h3>
           <p className="text-muted mb-4">Historical performance matrix.</p>
           {loading ? (
             <Loader />
           ) : revenueSummary ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
-                <h4 className="text-sm text-slate-600 mb-1">Total Revenue</h4>
-                <p className="text-2xl font-bold text-emerald-700">${Number(revenueSummary.total_revenue).toFixed(2)}</p>
+              <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                <h4 className="text-sm text-muted mb-1">Total Revenue</h4>
+                <p className="text-2xl font-bold text-accent">${Number(revenueSummary.total_revenue).toFixed(2)}</p>
               </div>
-              <div className="p-4 bg-emerald-100 rounded-lg">
-                <h4 className="text-sm text-slate-600 mb-1">Current Year</h4>
-                <p className="text-2xl font-bold text-emerald-800">${Number(revenueSummary.current_year_revenue).toFixed(2)}</p>
+              <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                <h4 className="text-sm text-muted mb-1">Current Year</h4>
+                <p className="text-2xl font-bold text-accent">${Number(revenueSummary.current_year_revenue).toFixed(2)}</p>
               </div>
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <h4 className="text-sm text-slate-600 mb-1">Current Month</h4>
-                <p className="text-2xl font-bold text-emerald-700">${Number(revenueSummary.current_month_revenue).toFixed(2)}</p>
+              <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                <h4 className="text-sm text-muted mb-1">Current Month</h4>
+                <p className="text-2xl font-bold text-accent">${Number(revenueSummary.current_month_revenue).toFixed(2)}</p>
               </div>
-              <div className="p-4 bg-slate-100 rounded-lg">
-                <h4 className="text-sm text-slate-600 mb-1">Total Receipts</h4>
-                <p className="text-2xl font-bold text-slate-800">{revenueSummary.total_receipts}</p>
+              <div className="p-4 bg-surface-secondary border border-border rounded-lg">
+                <h4 className="text-sm text-muted mb-1">Total Receipts</h4>
+                <p className="text-2xl font-bold text-foreground">{revenueSummary.total_receipts}</p>
               </div>
               <div className="md:col-span-2 lg:col-span-4">
                 <h4 className="font-semibold mb-3">Revenue by Payment Method</h4>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {Object.entries(revenueSummary.revenue_by_method || {}).map(([method, amount]) => (
-                    <div key={method} className="p-3 border rounded-lg">
-                      <span className="text-sm text-muted-foreground capitalize">{method}</span>
-                      <p className="text-lg font-semibold">${Number(amount).toFixed(2)}</p>
+                    <div key={method} className="p-3 border border-border rounded-lg bg-surface-secondary">
+                      <span className="text-sm text-muted capitalize">{method}</span>
+                      <p className="text-lg font-semibold text-foreground">${Number(amount).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center text-muted-foreground">
+            <div className="p-8 text-center text-muted text-xs">
               No revenue data available.
             </div>
           )}

@@ -74,20 +74,20 @@ export default function PlansPanel() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <form className="card bg-white border p-6 rounded-xl shadow-sm space-y-4" onSubmit={handlePlanSubmit}>
+        <form className="card space-y-4" onSubmit={handlePlanSubmit}>
           <h3 className="font-bold text-lg">Create Duration Plan</h3>
           <div>
-            <label className="label text-xs font-medium block mb-1" htmlFor="planName">Plan Name</label>
-            <input id="planName" name="name" className="input-field border w-full p-2 rounded-lg text-sm" value={planForm.name} onChange={handlePlanChange} required placeholder="e.g. Monthly, Quarterly, Annual" />
+            <label className="label" htmlFor="planName">Plan Name</label>
+            <input id="planName" name="name" className="input-field" value={planForm.name} onChange={handlePlanChange} required placeholder="e.g. Monthly, Quarterly, Annual" />
           </div>
           <div>
-            <label className="label text-xs font-medium block mb-1" htmlFor="planDuration">Duration (Months)</label>
+            <label className="label" htmlFor="planDuration">Duration (Months)</label>
             <input
               id="planDuration"
               name="duration_months"
               type="number"
               min={1}
-              className="input-field border w-full p-2 rounded-lg text-sm"
+              className="input-field"
               value={planForm.duration_months}
               onChange={handlePlanChange}
               required
@@ -95,47 +95,47 @@ export default function PlansPanel() {
             />
           </div>
           <div>
-            <label className="label text-xs font-medium block mb-1" htmlFor="planMultiplier">Price Multiplier</label>
+            <label className="label" htmlFor="planMultiplier">Price Multiplier</label>
             <input
               id="planMultiplier"
               name="multiplier"
               type="number"
               min={0.1}
               step={0.1}
-              className="input-field border w-full p-2 rounded-lg text-sm"
+              className="input-field"
               value={planForm.multiplier}
               onChange={handlePlanChange}
               required
               placeholder="e.g. 1.0 for standard, 2.7 for discount"
             />
           </div>
-          <button type="submit" className="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors w-full">Create Plan</button>
+          <button type="submit" className="btn-primary w-full cursor-pointer">Create Plan</button>
         </form>
-        <div className="card bg-white border p-6 rounded-xl shadow-sm space-y-4 overflow-x-auto">
+        <div className="card space-y-4 overflow-x-auto">
           <h3 className="font-bold text-lg">Active Duration Plans</h3>
           {loading ? (
             <Loader />
           ) : (
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b text-zinc-400 text-xs uppercase font-bold tracking-wider">
+                <tr className="border-b border-border text-muted text-xs uppercase font-bold tracking-wider">
                   <th className="pb-3">Name</th>
                   <th className="pb-3 px-2">Duration (Months)</th>
                   <th className="pb-3 px-2">Multiplier</th>
                   <th className="pb-3 px-2 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100">
+              <tbody className="divide-y divide-border">
                 {plans && Array.isArray(plans) && plans.length > 0 ? (
                   plans.map((plan) => (
-                    <tr key={plan?.plan_id || plan?.id} className="border-b">
+                    <tr key={plan?.plan_id || plan?.id} className="text-foreground">
                       <td className="py-3 font-medium">{plan?.name}</td>
-                      <td className="py-3 px-2">{plan?.duration_months} Month(s)</td>
+                      <td className="py-3 px-2 text-muted">{plan?.duration_months} Month(s)</td>
                       <td className="py-3 px-2">{Number(plan?.multiplier || 1).toFixed(2)}x</td>
                       <td className="py-3 px-2 text-right">
                         <button
                           onClick={() => handleDeletePlan(plan?.plan_id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          className="text-danger hover:text-danger/80 text-sm font-medium transition-colors"
                         >
                           Delete
                         </button>
@@ -144,7 +144,7 @@ export default function PlansPanel() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="text-center py-6 text-zinc-400 text-xs">
+                    <td colSpan={4} className="text-center py-8 text-muted text-xs">
                       No duration plans configured yet. Create one on the left.
                     </td>
                   </tr>
@@ -156,9 +156,7 @@ export default function PlansPanel() {
       </div>
 
       {message?.text && (
-        <div className={`p-4 rounded-xl text-sm font-semibold border ${
-          message.type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200'
-        }`}>
+        <div className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
           {message.text}
         </div>
       )}

@@ -522,7 +522,7 @@ export const createStudent = async (academy_id, data) => {
     });
     
     sports.forEach(sport => {
-      const baseFee = parseFloat(sport.base_fee) || 0;
+      const baseFee = parseFloat(sport.base_fee || 0);
       totalSportsFee += baseFee;
       sportsWithFees.push({
         sport_id: sport.sport_id,
@@ -532,9 +532,9 @@ export const createStudent = async (academy_id, data) => {
   }
 
   // Calculate final fee
-  const registrationFee = parseFloat(data.registration_fee) || 0;
-  const additionalCharges = parseFloat(data.additional_charges) || 0;
-  const discount = parseFloat(data.discount) || 0;
+  const registrationFee = parseFloat(data.registration_fee || 0);
+  const additionalCharges = parseFloat(data.additional_charges || 0);
+  const discount = parseFloat(data.discount || 0);
   
   const sportsFeeWithMultiplier = totalSportsFee * planMultiplier;
   const finalFee = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
@@ -574,7 +574,7 @@ export const createStudent = async (academy_id, data) => {
   if (sportIds.length > 0) {
     const enrollmentData = sportIds.map((sportId, index) => {
       const sportWithFee = sportsWithFees.find(s => s.sport_id === parseInt(sportId, 10));
-      const sportBaseFee = sportWithFee ? sportWithFee.base_fee : 0;
+      const sportBaseFee = sportWithFee ? parseFloat(sportWithFee.base_fee) : 0;
       
       return {
         academy_id: academyId,
@@ -1020,6 +1020,7 @@ export const getStudentLedger = async (academy_id, student_id) => {
       student: { deleted_at: null }
     },
     include: {
+      duration_plan: true,
       batch: {
         include: {
           sport: true
@@ -1029,8 +1030,9 @@ export const getStudentLedger = async (academy_id, student_id) => {
   });
 
   const totalFeeDue = enrollments.reduce((sum, e) => {
-    const baseFee = Number(e.batch?.sport?.base_fee || 0);
-    const durationMultiplier = e.duration_months || 1;
+    const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
+    // Safely read the loaded multiplier from the duration_plan relation
+    const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
     return sum + (baseFee * durationMultiplier);
   }, 0);
 
@@ -1141,6 +1143,7 @@ export const getPendingDues = async (academy_id) => {
     include: {
       enrollments: {
         include: {
+          duration_plan: true,
           batch: {
             include: {
               sport: true
@@ -1165,8 +1168,9 @@ export const getPendingDues = async (academy_id) => {
     const totalPaid = receipts.reduce((sum, r) => sum + Number(r.amount), 0);
 
     const totalFeeDue = student.enrollments.reduce((sum, e) => {
-      const baseFee = Number(e.batch?.sport?.base_fee || 0);
-      const durationMultiplier = e.duration_months || 1;
+      const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
+      // Safely read the loaded multiplier from the duration_plan relation
+      const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
       return sum + (baseFee * durationMultiplier);
     }, 0);
 
