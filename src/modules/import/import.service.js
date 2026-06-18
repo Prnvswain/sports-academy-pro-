@@ -5,6 +5,48 @@ import { logAudit } from '../../utils/audit.util.js';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+]?[\d\s-]{8,15}$/;
 
+const validateCoachRow = (row, index, seenEmails) => {
+  const errors = [];
+  const line = index + 2;
+
+  if (!row.name?.trim()) errors.push({ line, field: 'name', message: 'Name is required' });
+  if (!row.email?.trim()) {
+    errors.push({ line, field: 'email', message: 'Email is required' });
+  } else if (!EMAIL_RE.test(row.email.trim())) {
+    errors.push({ line, field: 'email', message: 'Invalid email' });
+  } else if (seenEmails.has(row.email.trim().toLowerCase())) {
+    errors.push({ line, field: 'email', message: 'Duplicate email in file' });
+  } else {
+    seenEmails.add(row.email.trim().toLowerCase());
+  }
+
+  if (row.phone_number && !PHONE_RE.test(String(row.phone_number).trim())) {
+    errors.push({ line, field: 'phone_number', message: 'Invalid phone number' });
+  }
+
+  return errors;
+};
+
+const validateBatchRow = (row, index, seenBatchNames) => {
+  const errors = [];
+  const line = index + 2;
+
+  if (!row.name?.trim()) errors.push({ line, field: 'name', message: 'Batch name is required' });
+  if (!row.sport_name?.trim()) errors.push({ line, field: 'sport_name', message: 'Sport name is required' });
+  
+  if (row.name && seenBatchNames.has(row.name.trim().toLowerCase())) {
+    errors.push({ line, field: 'name', message: 'Duplicate batch name in file' });
+  } else if (row.name) {
+    seenBatchNames.add(row.name.trim().toLowerCase());
+  }
+
+  if (row.max_capacity && (Number.isNaN(Number(row.max_capacity)) || Number(row.max_capacity) < 1)) {
+    errors.push({ line, field: 'max_capacity', message: 'Invalid max capacity' });
+  }
+
+  return errors;
+};
+
 const validateStudentRow = (row, index, seenEmails) => {
   const errors = [];
   const line = index + 2;
@@ -35,6 +77,7 @@ export const validateImportRows = async (academy_id, entity, rows) => {
   const errors = [];
   const valid = [];
   const seenEmails = new Set();
+  const seenBatchNames = new Set();
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return {
@@ -86,6 +129,111 @@ export const validateImportRows = async (academy_id, entity, rows) => {
     };
   }
 
+  if (entity === 'coaches') {
+    for (let i = 0; i < rows.length; i += 1) {
+      const rowErrors = validateCoachRow(rows[i], i, seenEmails);
+      if (rowErrors.length) {
+        errors.push(...rowErrors);
+      } else {
+        valid.push(rows[i]);
+      }
+    }
+
+    const filteredValid = [];
+    for (let i = 0; i < valid.length; i += 1) {
+      const row = valid[i];
+      const existing = await prisma.coach.findFirst({
+        where: {
+          academy_id: parseInt(academy_id, 10),
+          email: row.email.trim(),
+          ...NOT_DELETED
+        }
+      });
+      if (existing) {
+        errors.push({
+          line: rows.indexOf(row) + 2,
+          field: 'email',
+          message: 'Coach with this email already exists'
+        });
+      } else {
+        filteredValid.push(row);
+      }
+    }
+
+    return {
+      valid: filteredValid,
+      errors,
+      summary: {
+        total: rows.length,
+        valid_count: filteredValid.length,
+        error_count: errors.length
+      }
+    };
+  }
+
+  if (entity === 'batches') {
+    for (let i = 0; i < rows.length; i += 1) {
+      const rowErrors = validateBatchRow(rows[i], i, seenBatchNames);
+      if (rowErrors.length) {
+        errors.push(...rowErrors);
+      } else {
+        valid.push(rows[i]);
+      }
+    }
+
+    const filteredValid = [];
+    for (let i = 0; i < valid.length; i += 1) {
+      const row = valid[i];
+      
+      // Check if sport exists
+      const sport = await prisma.sport.findFirst({
+        where: {
+          academy_id: parseInt(academy_id, 10),
+          name: row.sport_name.trim(),
+          ...NOT_DELETED
+        }
+      });
+
+      if (!sport) {
+        errors.push({
+          line: rows.indexOf(row) + 2,
+          field: 'sport_name',
+          message: `Sport '${row.sport_name}' not found in academy`
+        });
+      } else {
+        // Check if batch with same name exists for this sport
+        const existing = await prisma.batch.findFirst({
+          where: {
+            academy_id: parseInt(academy_id, 10),
+            name: row.name.trim(),
+            sport_id: sport.sport_id,
+            ...NOT_DELETED
+          }
+        });
+
+        if (existing) {
+          errors.push({
+            line: rows.indexOf(row) + 2,
+            field: 'name',
+            message: 'Batch with this name already exists for this sport'
+          });
+        } else {
+          filteredValid.push({ ...row, sport_id: sport.sport_id });
+        }
+      }
+    }
+
+    return {
+      valid: filteredValid,
+      errors,
+      summary: {
+        total: rows.length,
+        valid_count: filteredValid.length,
+        error_count: errors.length
+      }
+    };
+  }
+
   return {
     valid: [],
     errors: [{ line: 0, field: 'entity', message: `Import for ${entity} not implemented yet` }],
@@ -123,6 +271,84 @@ export const commitStudentImport = async (academy_id, rows, admin_user_id) => {
   });
 
   return { imported_count: created.length, students: created };
+};
+
+export const commitCoachImport = async (academy_id, rows, admin_user_id) => {
+  const created = [];
+
+  for (const row of rows) {
+    const coach = await prisma.coach.create({
+      data: {
+        academy_id: parseInt(academy_id, 10),
+        name: row.name.trim(),
+        email: row.email.trim(),
+        phone_number: row.phone_number?.trim() || null,
+        specialization: row.specialization?.trim() || null,
+        status: 'ACTIVE'
+      }
+    });
+    created.push(coach);
+  }
+
+  await logAudit({
+    academy_id,
+    actor_type: 'ADMIN',
+    actor_id: admin_user_id,
+    action: 'BULK_IMPORT_COACHES',
+    metadata: { count: created.length }
+  });
+
+  return { imported_count: created.length, coaches: created };
+};
+
+export const commitBatchImport = async (academy_id, rows, admin_user_id) => {
+  const created = [];
+
+  for (const row of rows) {
+    const batch = await prisma.batch.create({
+      data: {
+        academy_id: parseInt(academy_id, 10),
+        name: row.name.trim(),
+        sport_id: row.sport_id,
+        timing: row.timing?.trim() || null,
+        start_time: row.start_time?.trim() || null,
+        end_time: row.end_time?.trim() || null,
+        max_capacity: row.max_capacity ? parseInt(row.max_capacity, 10) : null,
+        status: 'ACTIVE'
+      }
+    });
+    created.push(batch);
+
+    // If coach_email is provided, assign coach to batch
+    if (row.coach_email?.trim()) {
+      const coach = await prisma.coach.findFirst({
+        where: {
+          academy_id: parseInt(academy_id, 10),
+          email: row.coach_email.trim(),
+          ...NOT_DELETED
+        }
+      });
+
+      if (coach) {
+        await prisma.batchCoach.create({
+          data: {
+            batch_id: batch.batch_id,
+            coach_id: coach.coach_id
+          }
+        });
+      }
+    }
+  }
+
+  await logAudit({
+    academy_id,
+    actor_type: 'ADMIN',
+    actor_id: admin_user_id,
+    action: 'BULK_IMPORT_BATCHES',
+    metadata: { count: created.length }
+  });
+
+  return { imported_count: created.length, batches: created };
 };
 
 export const getCsvTemplate = (entity) => {

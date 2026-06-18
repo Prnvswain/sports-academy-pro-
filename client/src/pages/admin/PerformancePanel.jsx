@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPatch } from '../../api/client';
 
@@ -182,7 +183,12 @@ export default function PerformancePanel() {
   }
 
   return (
-    <div className="space-y-6 p-6 bg-surface min-h-screen text-foreground animate-[premiumFadeIn_0.3s_ease-out]">
+    <motion.div 
+      className="space-y-6 p-6 bg-surface min-h-screen text-foreground"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div>
         <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-accent to-emerald-500">
           Performance Tracker
@@ -200,7 +206,7 @@ export default function PerformancePanel() {
       <div className="space-y-4">
         <h3 className="font-black text-lg tracking-tight">Active Sports Catalog</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {sports.map((sport) => {
+          {sports.map((sport, index) => {
             // Cleans up naming variants (e.g. "Table Tennis" -> "TableTennis") to match keys perfectly
             const cleanKey = sport.name.replace(/\s+/g, '');
             // Dynamic check: returns explicit emoji if matched, or falls back onto Multi-sport Trophy
@@ -208,11 +214,16 @@ export default function PerformancePanel() {
             const isSelected = selectedSport?.sport_id === sport.sport_id;
 
             return (
-              <button
+              <motion.button
                 key={sport.sport_id}
                 type="button"
                 onClick={() => handleSportSelect(sport)}
-                className={`card p-5 text-left transition-all duration-300 hover:border-accent/40 hover:-translate-y-1 relative group overflow-hidden ${
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                className={`card p-5 text-left transition-all duration-300 hover:border-accent/40 relative group overflow-hidden ${
                   isSelected ? 'border-accent bg-accent/5 ring-1 ring-accent/20' : 'border-border bg-surface-secondary'
                 }`}
               >
@@ -222,7 +233,7 @@ export default function PerformancePanel() {
                 <div className="text-xs text-muted mt-1.5 font-medium">
                   Click to administer attributes
                 </div>
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -338,6 +349,6 @@ export default function PerformancePanel() {
           </p>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

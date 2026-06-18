@@ -7,6 +7,7 @@ const emptyForm = {
   amount: '',
   pending_amount: 0, // Keeps track of what the student owes
   payment_date: new Date().toISOString().split('T')[0],
+  due_date: '',
   method: 'upi',
   status: 'pending'
 };
@@ -17,6 +18,13 @@ export default function PaymentsPanel() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [studentFeeData, setStudentFeeData] = useState(null);
+  const [loadingFeeData, setLoadingFeeData] = useState(false);
+  
+  // Filters
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -50,53 +58,92 @@ export default function PaymentsPanel() {
   };
 
   // AUTOMATION: Triggers when a student name option is picked from the select element
-  const handleStudentChange = (event) => {
+  const handleStudentChange = async (event) => {
     const selectedId = event.target.value;
+    console.log('[handleStudentChange] Selected student ID:', selectedId);
     
     if (!selectedId) {
       setForm((prev) => ({ ...prev, student_id: '', amount: '', pending_amount: 0 }));
+      setStudentFeeData(null);
       return;
     }
 
     // Find the student object match in our loaded students list
     const studentObj = students.find(s => (s.id || s.student_id)?.toString() === selectedId.toString());
+    console.log('[handleStudentChange] Student object found:', studentObj);
 
-    if (studentObj) {
-      // Parse fee factors safely (defaulting to 0 if null or undefined)
-      const regFee = parseFloat(studentObj.registration_fee || studentObj.registrationFee || 0);
-      const additionalCharges = parseFloat(studentObj.additional_charges || studentObj.additionalCharges || 0);
-      const discount = parseFloat(studentObj.discount || 0);
+    setForm((prev) => (({
+      ...prev,
+      student_id: selectedId
+    })));
 
-      // Formula: Total Dues = (Registration + Additional) - Discounts
-      const pendingAmount = Math.max(0, (regFee + additionalCharges) - discount);
-
+    // Fetch fee data from backend
+    setLoadingFeeData(true);
+    try {
+      console.log('[handleStudentChange] Fetching fee data from API for student ID:', selectedId);
+      const ledgerRes = await adminGet(`/admin/accounts/student-ledger/${selectedId}`);
+      console.log('[handleStudentChange] API response:', ledgerRes);
+      const ledgerData = ledgerRes.data || {};
+      console.log('[handleStudentChange] Ledger data:', ledgerData);
+      
+      setStudentFeeData(ledgerData);
+      
+      const pendingAmount = ledgerData.balance_outstanding || 0;
+      console.log('[handleStudentChange] Calculated pending amount:', pendingAmount);
+      
       setForm((prev) => ({
         ...prev,
-        student_id: selectedId,
         pending_amount: pendingAmount,
-        amount: pendingAmount.toString() // Autofills your payment field with what they owe!
+        amount: pendingAmount > 0 ? pendingAmount.toString() : ''
       }));
-    } else {
-      setForm((prev) => ({ ...prev, student_id: selectedId, amount: '', pending_amount: 0 }));
+    } catch (error) {
+      console.error('[handleStudentChange] Failed to fetch student ledger:', error);
+      setStudentFeeData(null);
+      
+      // Fallback to local calculation if API fails
+      if (studentObj) {
+        const regFee = parseFloat(studentObj.registration_fee || studentObj.registrationFee || 0);
+        const additionalCharges = parseFloat(studentObj.additional_charges || studentObj.additionalCharges || 0);
+        const discount = parseFloat(studentObj.discount || 0);
+        const pendingAmount = Math.max(0, (regFee + additionalCharges) - discount);
+        console.log('[handleStudentChange] Fallback calculation - regFee:', regFee, 'additionalCharges:', additionalCharges, 'discount:', discount, 'pendingAmount:', pendingAmount);
+        
+        setForm((prev) => ({
+          ...prev,
+          pending_amount: pendingAmount,
+          amount: pendingAmount > 0 ? pendingAmount.toString() : ''
+        }));
+      } else {
+        setForm((prev) => ({ ...prev, amount: '', pending_amount: 0 }));
+      }
+    } finally {
+      setLoadingFeeData(false);
     }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
+    
+    const payload = {
+      student_id: parseInt(form.student_id, 10),
+      amount: parseFloat(form.amount),
+      payment_date: form.payment_date,
+      method: form.method,
+      status: form.status
+    };
+    
+    console.log('[handleSubmit] Sending payment payload:', payload);
+    
     try {
-      const result = await adminPost('/admin/accounts', {
-        student_id: parseInt(form.student_id, 10),
-        amount: parseFloat(form.amount),
-        payment_date: form.payment_date,
-        method: form.method,
-        status: form.status
-      });
-      
+      const result = await adminPost('/admin/accounts', payload);
+      console.log('[handleSubmit] Payment creation response:', result);
       setMessage({ text: result.message || 'Payment recorded successfully', type: 'success' });
       setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
       loadData();
     } catch (error) {
+      console.error('[handleSubmit] Payment creation error:', error);
+      console.error('[handleSubmit] Error stack:', error.stack);
       setMessage({ text: error.message, type: 'error' });
     }
   };
@@ -138,8 +185,83 @@ export default function PaymentsPanel() {
     await updateStatus(paymentObj, fallbackId, 'FAILED', reason || undefined);
   };
 
+  // Calculate collection statistics
+  const calculateStats = () => {
+    const total = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const collected = payments
+      .filter(p => (p.status || '').toUpperCase() === 'COMPLETED')
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const pending = payments
+      .filter(p => (p.status || '').toUpperCase() === 'PENDING')
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const overdue = payments
+      .filter(p => {
+        const status = (p.status || '').toUpperCase();
+        const dueDate = p.due_date ? new Date(p.due_date) : null;
+        const today = new Date();
+        return status === 'PENDING' && dueDate && dueDate < today;
+      })
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+    return { total, collected, pending, overdue };
+  };
+
+  const stats = calculateStats();
+
+  // Filter payments
+  const filteredPayments = payments.filter(payment => {
+    const status = (payment.status || '').toUpperCase();
+    
+    if (statusFilter && status !== statusFilter.toUpperCase()) return false;
+    
+    if (dateFrom) {
+      const paymentDate = new Date(payment.payment_date || payment.date);
+      const fromDate = new Date(dateFrom);
+      if (paymentDate < fromDate) return false;
+    }
+    
+    if (dateTo) {
+      const paymentDate = new Date(payment.payment_date || payment.date);
+      const toDate = new Date(dateTo);
+      if (paymentDate > toDate) return false;
+    }
+    
+    return true;
+  });
+
+  const clearFilters = () => {
+    setStatusFilter('');
+    setDateFrom('');
+    setDateTo('');
+  };
+
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold">Fee Management</h2>
+        <p className="text-muted">Track payments, due dates, and collection statistics.</p>
+      </div>
+
+      {/* Collection Statistics */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="card">
+          <div className="text-2xl font-bold">₹{stats.total.toFixed(2)}</div>
+          <div className="text-sm text-muted">Total Amount</div>
+        </div>
+        <div className="card">
+          <div className="text-2xl font-bold text-green-600">₹{stats.collected.toFixed(2)}</div>
+          <div className="text-sm text-muted">Collected</div>
+        </div>
+        <div className="card">
+          <div className="text-2xl font-bold text-yellow-600">₹{stats.pending.toFixed(2)}</div>
+          <div className="text-sm text-muted">Pending</div>
+        </div>
+        <div className="card">
+          <div className="text-2xl font-bold text-red-600">₹{stats.overdue.toFixed(2)}</div>
+          <div className="text-sm text-muted">Overdue</div>
+        </div>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-2">
         
         {/* RECORD PAYMENT CARD */}
@@ -158,11 +280,40 @@ export default function PaymentsPanel() {
             </select>
           </div>
 
-          {/* NEW: PENDING AMOUNT DISPLAY READONLY BOX */}
+          {/* COMPREHENSIVE FEE BREAKDOWN */}
           {form.student_id && (
-            <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 flex justify-between items-center text-sm">
-              <span className="text-muted font-medium">Pending Dues Outstanding:</span>
-              <span className="text-danger font-bold text-base">${form.pending_amount.toFixed(2)}</span>
+            <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 space-y-3">
+              {loadingFeeData ? (
+                <div className="text-center text-sm text-muted">Loading fee data...</div>
+              ) : studentFeeData ? (
+                <>
+                  <div className="flex justify-between items-center text-sm border-b border-accent/20 pb-2">
+                    <span className="text-muted font-medium">Total Fees Assigned:</span>
+                    <span className="font-bold">₹{studentFeeData.total_fees_assigned?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b border-accent/20 pb-2">
+                    <span className="text-muted font-medium">Total Fees Paid:</span>
+                    <span className="font-bold text-success">₹{studentFeeData.total_fees_paid?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b border-accent/20 pb-2">
+                    <span className="text-muted font-medium">Pending Fees:</span>
+                    <span className="font-bold text-warning">₹{studentFeeData.pending_fees?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b border-accent/20 pb-2">
+                    <span className="text-muted font-medium">Overdue Fees:</span>
+                    <span className="font-bold text-danger">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm bg-surface p-2 rounded">
+                    <span className="text-muted font-bold">Pending Dues Outstanding:</span>
+                    <span className="text-danger font-bold text-base">₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted font-medium">Pending Dues Outstanding:</span>
+                  <span className="text-danger font-bold text-base">₹{form.pending_amount.toFixed(2)}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -171,9 +322,15 @@ export default function PaymentsPanel() {
             <input id="payAmount" name="amount" type="number" min="0" step="0.01" className="input-field" value={form.amount} onChange={handleChange} required />
           </div>
 
-          <div>
-            <label className="label" htmlFor="payDate">Payment Date</label>
-            <input id="payDate" name="payment_date" type="date" className="input-field" value={form.payment_date} onChange={handleChange} required />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="payDate">Payment Date</label>
+              <input id="payDate" name="payment_date" type="date" className="input-field" value={form.payment_date} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="label" htmlFor="dueDate">Due Date (Optional)</label>
+              <input id="dueDate" name="due_date" type="date" className="input-field" value={form.due_date} onChange={handleChange} />
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -201,76 +358,111 @@ export default function PaymentsPanel() {
           </button>
         </form>
 
-        {/* PAYMENT RECORDS LIST */}
-        <div className="card overflow-x-auto">
-          <h3 className="font-bold text-base tracking-tight mb-4">Payment Records</h3>
-          {loading ? (
-            <Loader />
-          ) : (
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-muted font-medium text-xs uppercase tracking-wider">
-                  <th className="pb-3 pr-2">Student</th>
-                  <th className="pb-3 px-2">Amount</th>
-                  <th className="pb-3 px-2">Date</th>
-                  <th className="pb-3 px-2">Method</th>
-                  <th className="pb-3 px-2">Status</th>
-                  <th className="pb-3 pl-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {payments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted text-xs">No payments recorded.</td>
-                  </tr>
-                ) : (
-                  payments.map((payment, index) => {
-                    const normalizedStatus = (payment.status || '').toUpperCase();
-                    const currentId = payment.id || payment.payment_id || index;
+        {/* FILTERS CARD */}
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-base tracking-tight">Filters</h3>
+            <button type="button" className="btn-secondary text-sm" onClick={clearFilters}>
+              Clear Filters
+            </button>
+          </div>
+          
+          <div>
+            <label className="label" htmlFor="statusFilter">Status</label>
+            <select id="statusFilter" className="input-field" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
 
-                    return (
-                      <tr key={currentId} className="text-foreground">
-                        <td className="py-3 pr-2 font-medium">{payment.student?.name || payment.student_name || `Student #${payment.student_id}`}</td>
-                        <td className="py-3 px-2">${parseFloat(payment.amount || 0).toFixed(2)}</td>
-                        <td className="py-3 px-2">{new Date(payment.payment_date || payment.date).toLocaleDateString()}</td>
-                        <td className="py-3 px-2 uppercase text-xs font-semibold">{payment.method}</td>
-                        <td className="py-3 px-2">
-                          <span className={`text-xs uppercase font-bold tracking-wide px-2 py-0.5 rounded ${
-                            normalizedStatus === 'COMPLETED' ? 'bg-success/10 text-success border border-success/20' :
-                            normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? 'bg-danger/10 text-danger border border-danger/20' :
-                            'bg-warning/10 text-warning border border-warning/20'
-                          }`}>
-                            {payment.status}
-                          </span>
-                        </td>
-                        <td className="py-3 pl-2 text-right space-x-1">
-                          {normalizedStatus !== 'COMPLETED' && (
-                            <button
-                              type="button"
-                              className="btn-success btn-sm"
-                              onClick={() => updateStatus(payment, currentId, 'completed')}
-                            >
-                              Mark Paid
-                            </button>
-                          )}
-                          {normalizedStatus === 'PENDING' && (
-                            <button
-                              type="button"
-                              className="btn-danger btn-sm"
-                              onClick={() => rejectPayment(payment, currentId)}
-                            >
-                              Reject
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="dateFrom">From Date</label>
+              <input id="dateFrom" type="date" className="input-field" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            </div>
+            <div>
+              <label className="label" htmlFor="dateTo">To Date</label>
+              <input id="dateTo" type="date" className="input-field" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* PAYMENT RECORDS LIST */}
+      <div className="card overflow-x-auto">
+        <h3 className="font-bold text-base tracking-tight mb-4">Payment Records</h3>
+        {loading ? (
+          <Loader />
+        ) : (
+          <table className="w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted font-medium text-xs uppercase tracking-wider">
+                <th className="pb-3 pr-2">Student</th>
+                <th className="pb-3 px-2">Amount</th>
+                <th className="pb-3 px-2">Payment Date</th>
+                <th className="pb-3 px-2">Due Date</th>
+                <th className="pb-3 px-2">Method</th>
+                <th className="pb-3 px-2">Status</th>
+                <th className="pb-3 pl-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredPayments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-muted text-xs">No payments found.</td>
+                </tr>
+              ) : (
+                filteredPayments.map((payment, index) => {
+                  const normalizedStatus = (payment.status || '').toUpperCase();
+                  const currentId = payment.id || payment.payment_id || index;
+                  const isOverdue = normalizedStatus === 'PENDING' && payment.due_date && new Date(payment.due_date) < new Date();
+
+                  return (
+                    <tr key={currentId} className={`text-foreground ${isOverdue ? 'bg-red-50' : ''}`}>
+                      <td className="py-3 pr-2 font-medium">{payment.student?.name || payment.student_name || `Student #${payment.student_id}`}</td>
+                      <td className="py-3 px-2">₹{parseFloat(payment.amount || 0).toFixed(2)}</td>
+                      <td className="py-3 px-2">{new Date(payment.payment_date || payment.date).toLocaleDateString()}</td>
+                      <td className="py-3 px-2">{payment.due_date ? new Date(payment.due_date).toLocaleDateString() : '-'}</td>
+                      <td className="py-3 px-2 uppercase text-xs font-semibold">{payment.method}</td>
+                      <td className="py-3 px-2">
+                        <span className={`text-xs uppercase font-bold tracking-wide px-2 py-0.5 rounded ${
+                          isOverdue ? 'bg-red-100 text-red-800 border border-red-200' :
+                          normalizedStatus === 'COMPLETED' ? 'bg-success/10 text-success border border-success/20' :
+                          normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? 'bg-danger/10 text-danger border border-danger/20' :
+                          'bg-warning/10 text-warning border border-warning/20'
+                        }`}>
+                          {isOverdue ? 'OVERDUE' : payment.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pl-2 text-right space-x-1">
+                        {normalizedStatus !== 'COMPLETED' && (
+                          <button
+                            type="button"
+                            className="btn-success btn-sm"
+                            onClick={() => updateStatus(payment, currentId, 'completed')}
+                          >
+                            Mark Paid
+                          </button>
+                        )}
+                        {normalizedStatus === 'PENDING' && (
+                          <button
+                            type="button"
+                            className="btn-danger btn-sm"
+                            onClick={() => rejectPayment(payment, currentId)}
+                          >
+                            Reject
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {message.text && (

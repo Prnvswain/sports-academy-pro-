@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost } from '../../api/client';
 
@@ -94,50 +95,68 @@ export default function AccountsPanel() {
       console.warn("Backend ledger route unavailable, using local array fallback...", error);
     }
 
-    const selectedStudent = students?.find(s =>
-      s.student_id?.toString() === studentId.toString() ||
-      s.id?.toString() === studentId.toString()
+    const selectedStudent = (students || []).find(s =>
+      s?.student_id?.toString() === studentId.toString() ||
+      s?.id?.toString() === studentId.toString()
     );
 
     if (selectedStudent) {
-      // Dynamic multiplier sync with duration plans
+      // CORRECT DYNAMIC ASSIGNED FEES LOGIC
       const activeSelectedStudent = selectedStudent;
       const activeStudentPlan = activeSelectedStudent?.duration_plan || activeSelectedStudent?.durationPlan || "";
-      const matchedPlanConfig = (durationPlans || []).find(p => p.name === activeStudentPlan || p._id === activeStudentPlan || p.plan_id === activeStudentPlan);
+      const safePlansArray = durationPlans || [];
       
-      const activeMultiplier = matchedPlanConfig ? parseFloat(matchedPlanConfig.multiplier) : parseFloat(activeSelectedStudent?.plan_multiplier || 1);
-      const dynamicSportsCost = parseFloat(activeSelectedStudent?.sports_base_fee || activeSelectedStudent?.sportsBaseFee || activeSelectedStudent?.sports_fee || 0) * activeMultiplier;
+      // 1. Look up the live duration plan multiplier from the database
+      const matchedPlanConfig = safePlansArray.find(p => p?.name === activeStudentPlan || p?._id === activeStudentPlan || p?.plan_id === activeStudentPlan || p?.id === activeStudentPlan);
       
-      const regFee = parseFloat(selectedStudent.registration_fee || selectedStudent.registrationFee || 0);
-      const addCharges = parseFloat(selectedStudent.additional_charges || selectedStudent.additionalCharges || 0);
-      const discount = parseFloat(selectedStudent.discount || 0);
-      const totalFee = dynamicSportsCost + regFee + addCharges - discount;
+      // 2. Resolve multiplier fallback gracefully
+      const activeMultiplier = matchedPlanConfig ? parseFloat(matchedPlanConfig.multiplier || 1) : parseFloat(activeSelectedStudent?.plan_multiplier || 1);
+      
+      // 3. Compute accurate full multi-factor fee assigned at registration
+      const baseSportsCost = parseFloat(activeSelectedStudent?.sports_base_fee || activeSelectedStudent?.sportsBaseFee || 0);
+      const finalMultipliedSportsFee = baseSportsCost * activeMultiplier;
+      
+      const regFeeAmount = parseFloat(activeSelectedStudent?.registration_fee || activeSelectedStudent?.registrationFee || 0);
+      const additionalSurchargesAmount = parseFloat(activeSelectedStudent?.additional_charges || activeSelectedStudent?.additionalCharges || 0);
+      const appliedDiscountAmount = parseFloat(activeSelectedStudent?.discount || 0);
+      
+      // Dynamic assigned threshold
+      const accurateTotalFeesAssigned = finalMultipliedSportsFee + regFeeAmount + additionalSurchargesAmount - appliedDiscountAmount;
 
-      // Sum up every verified payment record for this specific student from the receipts array
-      const totalAmountPaid = receipts
-        .filter(record =>
-          (record.student_id?.toString() === studentId.toString() ||
-           record.student?.student_id?.toString() === studentId.toString()) &&
-          record.status?.toUpperCase() === 'COMPLETED'
-        )
-        .reduce((sum, record) => sum + parseFloat(record.amount || 0), 0);
+      // AGGREGATE TOTAL PAID FEES CORRECTLY
+      const aggregatedPayments = (receipts || [])
+        .filter(p => (p.student_id?.toString() === studentId.toString() || p.student?.student_id?.toString() === studentId.toString()) && p.status?.toUpperCase() === 'COMPLETED')
+        .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
-      // Calculate outstanding dues dynamically
-      const dynamicPendingDues = Math.max(0, totalFee - totalAmountPaid);
+      // ENFORCE LOGICAL CONSTRAINT CAP (Safety Shield)
+      // Paid fees can never be greater than assigned fees
+      const finalFeesPaidDisplayed = Math.min(aggregatedPayments, accurateTotalFeesAssigned);
+      
+      // Calculate the true remaining pending balance
+      const finalLivePendingDues = Math.max(0, accurateTotalFeesAssigned - finalFeesPaidDisplayed);
 
-      setPendingAmount(dynamicPendingDues);
-      setPendingFee(dynamicPendingDues);
-      setReceiptForm(prev => ({ ...prev, amount_paid: dynamicPendingDues.toString() }));
+      setPendingAmount(finalLivePendingDues);
+      setPendingFee(finalLivePendingDues);
+      
+      // Update student ledger with corrected values
+      setStudentLedger({
+        total_fee_due: accurateTotalFeesAssigned,
+        total_paid: finalFeesPaidDisplayed,
+        balance_outstanding: finalLivePendingDues
+      });
+      
+      setReceiptForm(prev => ({ ...prev, amount_paid: finalLivePendingDues.toString() }));
     } else {
       setPendingAmount(0);
       setPendingFee(0);
+      setStudentLedger(null);
     }
   };
 
   const calculateFinalAmount = () => {
-    const baseAmount = studentLedger?.total_fee_due || pendingAmount || 0;
-    const additionalCharges = parseFloat(receiptForm.additional_charges || 0);
-    const discount = parseFloat(receiptForm.discount || 0);
+    const baseAmount = parseFloat(studentLedger?.total_fee_due || pendingAmount || 0) || 0;
+    const additionalCharges = parseFloat(receiptForm?.additional_charges || 0) || 0;
+    const discount = parseFloat(receiptForm?.discount || 0) || 0;
     return baseAmount + additionalCharges - discount;
   };
 
@@ -179,7 +198,12 @@ export default function AccountsPanel() {
   }) || [];
 
   return (
-    <div className="space-y-6 p-6">
+    <motion.div 
+      className="space-y-6 p-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div>
         <h2 className="text-2xl font-bold">Accounts & Invoicing Management</h2>
         <p className="text-muted">Manage receipts, track payments, and monitor financial performance.</p>
@@ -243,9 +267,9 @@ export default function AccountsPanel() {
                 required
               >
                 <option value="">Select student…</option>
-                {students.map((s) => (
-                  <option key={s.student_id || s.id} value={s.student_id || s.id}>
-                    {s.name || `${s.firstName || ''} ${s.lastName || ''}`}
+                {(students || []).map((s) => (
+                  <option key={s?.student_id || s?.id} value={s?.student_id || s?.id}>
+                    {s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`}
                   </option>
                 ))}
               </select>
@@ -382,7 +406,7 @@ export default function AccountsPanel() {
                   <div className="flex justify-between">
                     <span>Student:</span>
                     <span className="font-medium">
-                      {students.find(s => (s.student_id || s.id)?.toString() === receiptForm.student_id?.toString())?.name || '—'}
+                      {(students || []).find(s => (s?.student_id || s?.id)?.toString() === receiptForm.student_id?.toString())?.name || '—'}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -398,16 +422,16 @@ export default function AccountsPanel() {
                     <span>Base Amount:</span>
                     <span>${Number(studentLedger?.total_fee_due || pendingAmount || 0).toFixed(2)}</span>
                   </div>
-                  {parseFloat(receiptForm.additional_charges) > 0 && (
+                  {parseFloat(receiptForm?.additional_charges || 0) > 0 && (
                     <div className="flex justify-between">
                       <span>Additional Charges:</span>
-                      <span>${parseFloat(receiptForm.additional_charges).toFixed(2)}</span>
+                      <span>${parseFloat(receiptForm?.additional_charges || 0).toFixed(2)}</span>
                     </div>
                   )}
-                  {parseFloat(receiptForm.discount) > 0 && (
+                  {parseFloat(receiptForm?.discount || 0) > 0 && (
                     <div className="flex justify-between text-danger">
                       <span>Discount:</span>
-                      <span>-${parseFloat(receiptForm.discount).toFixed(2)}</span>
+                      <span>-${parseFloat(receiptForm?.discount || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <hr className="my-2" />
@@ -484,8 +508,14 @@ export default function AccountsPanel() {
               </thead>
               <tbody>
                 {filteredReceipts && Array.isArray(filteredReceipts) && filteredReceipts.length > 0 ? (
-                  filteredReceipts.map((receipt) => (
-                    <tr key={receipt.receipt_id}>
+                  filteredReceipts.map((receipt, index) => (
+                    <motion.tr
+                      key={receipt.receipt_id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                    >
                       <td className="p-3 font-medium text-slate-800">{receipt.receipt_number}</td>
                       <td className="p-3 text-sm font-medium text-slate-800">{receipt.student?.name || '—'}</td>
                       <td className="p-3 text-sm font-medium text-slate-800">${Number(receipt.amount).toFixed(2)}</td>
@@ -508,7 +538,7 @@ export default function AccountsPanel() {
                           Print
                         </button>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))
                 ) : (
                   <tr>
@@ -611,6 +641,6 @@ export default function AccountsPanel() {
       {message.text && (
         <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>{message.text}</p>
       )}
-    </div>
+    </motion.div>
   );
 }

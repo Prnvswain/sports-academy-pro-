@@ -19,11 +19,28 @@ export function CoachBatchesProvider({ children }) {
         coachGet('/coach/batches'),
         coachGet('/coach/dashboard')
       ]);
-      const batchPayload = batchRes.data || {};
+      const batchPayload = batchRes?.data || {};
+      const dashData = dashRes?.data || {};
+      
       setBatches(batchPayload.batches || batchPayload || []);
-      setDashboard(dashRes.data || null);
+      
+      // Ensure dashboard has all required fields with default values
+      setDashboard({
+        coach_name: dashData.coach_name || 'Coach',
+        academy_name: dashData.academy_name || 'Academy',
+        todays_students: dashData.todays_students ?? 0,
+        pending_fees_count: dashData.pending_fees_count ?? 0
+      });
     } catch (err) {
       setError(err.message);
+      // Set default values on error
+      setBatches([]);
+      setDashboard({
+        coach_name: 'Coach',
+        academy_name: 'Academy',
+        todays_students: 0,
+        pending_fees_count: 0
+      });
       if (err.status === 401) {
         clearCoachToken();
         navigate('/coach/login');

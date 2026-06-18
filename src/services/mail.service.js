@@ -319,3 +319,83 @@ export const sendCoachAbsenceAlertToAdmin = async ({
     text: `Coach ${coachName} is absent on ${date}. Check the admin dashboard for affected batches.`
   });
 };
+
+export const sendPaymentSuccessEmail = async ({
+  parentEmail,
+  studentName,
+  paymentAmount,
+  transactionId,
+  paymentMethod
+}) => {
+  const subject = `Payment Receipt Acknowledged - SAMS Academy [Ref: # ${transactionId}]`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fcfdfc;">
+      <h2 style="color: #0f5132; margin-bottom: 4px;">SAMS Academy</h2>
+      <p style="font-size: 14px; color: #64748b; margin-top: 0;">Official Payment Confirmation</p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <p>Dear Parent/Guardian,</p>
+      <p>We are pleased to inform you that the payment for <strong>${studentName}</strong> has been successfully processed and verified.</p>
+      <div style="background-color: #f4f7f5; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <p style="margin: 4px 0;"><strong>Amount Settled:</strong> ₹${paymentAmount}</p>
+        <p style="margin: 4px 0;"><strong>Payment Mode:</strong> ${paymentMethod}</p>
+        <p style="margin: 4px 0;"><strong>Transaction Status:</strong> <span style="color: #10b981; font-weight: bold;">SUCCESSFUL</span></p>
+      </div>
+      <p style="font-size: 13px; color: #64748b;">Thank you for your continued support of SAMS Academy.</p>
+    </div>
+  `;
+
+  const text = [
+    `Dear Parent/Guardian,`,
+    '',
+    `Payment for ${studentName} has been successfully processed.`,
+    `Amount: ₹${paymentAmount}`,
+    `Payment Mode: ${paymentMethod}`,
+    `Transaction Status: SUCCESSFUL`,
+    '',
+    'Thank you for your continued support of SAMS Academy.'
+  ].join('\n');
+
+  return sendMail({ to: parentEmail, subject, html, text });
+};
+
+export const sendPaymentFailureEmail = async ({
+  parentEmail,
+  studentName,
+  paymentAmount,
+  transactionId,
+  paymentMethod
+}) => {
+  const subject = `URGENT: Payment Processing Failure Notice - SAMS Academy`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fffafb;">
+      <h2 style="color: #991b1b; margin-bottom: 4px;">SAMS Academy</h2>
+      <p style="font-size: 14px; color: #64748b; margin-top: 0;">Payment Transaction Alert</p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <p>Dear Parent/Guardian,</p>
+      <p>This is to alert you that the recent fee transaction attempt for <strong>${studentName}</strong> has been marked as <strong>FAILED</strong> by our billing processor platform.</p>
+      <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <p style="margin: 4px 0;"><strong>Attempted Amount:</strong> ₹${paymentAmount}</p>
+        <p style="margin: 4px 0;"><strong>Payment Mode:</strong> ${paymentMethod}</p>
+        <p style="margin: 4px 0;"><strong>Transaction Status:</strong> <span style="color: #ef4444; font-weight: bold;">DECLINED / FAILED</span></p>
+      </div>
+      <p>Please log in to your SAMS account portal dashboard or visit the academy front office desk to clear outstanding dues and prevent ledger mismatch issues.</p>
+      <p style="font-size: 13px; color: #64748b;">If this amount was already debited from your account balance, it should safely reverse automatically within 3-5 bank workspace days.</p>
+    </div>
+  `;
+
+  const text = [
+    `Dear Parent/Guardian,`,
+    '',
+    `The recent fee transaction attempt for ${studentName} has been marked as FAILED.`,
+    `Attempted Amount: ₹${paymentAmount}`,
+    `Payment Mode: ${paymentMethod}`,
+    `Transaction Status: DECLINED / FAILED`,
+    '',
+    'Please log in to your SAMS account portal dashboard or visit the academy front office desk to clear outstanding dues.',
+    'If this amount was already debited from your account balance, it should reverse automatically within 3-5 bank working days.'
+  ].join('\n');
+
+  return sendMail({ to: parentEmail, subject, html, text });
+};

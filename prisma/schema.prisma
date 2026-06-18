@@ -145,6 +145,7 @@ model Academy {
   audit_logs          AuditLog[]
   enquiries           Enquiry[]
   enrollments         StudentEnrollment[]
+  daily_notes         DailyStudentNote[]
 
   @@map("academies")
 }
@@ -197,6 +198,7 @@ model Coach {
   performance_attrs   PerformanceAttribute[] @relation("AttrRequestedBy")
   performance_scores  PerformanceScore[]
   enrollments         StudentEnrollment[]
+  daily_notes         DailyStudentNote[]
 
   @@unique([academy_id, email])
   @@map("coaches")
@@ -266,6 +268,7 @@ model Batch {
   student_attendances StudentAttendance[]
   enrollments         StudentEnrollment[]
   performance_scores  PerformanceScore[]
+  daily_notes         DailyStudentNote[]
 
   @@index([academy_id])
   @@index([sport_id])
@@ -320,6 +323,7 @@ model Student {
   receipts            Receipt[]
   student_attendances StudentAttendance[]
   performance_scores  PerformanceScore[]
+  daily_notes         DailyStudentNote[]
 
   @@index([academy_id])
   @@index([batch_id])
@@ -434,6 +438,33 @@ model CoachAttendance {
 
   @@unique([coach_id, date])
   @@map("coach_attendance")
+}
+
+// ─── Daily Student Notes ───────────────────────────────────────────────────────
+
+model DailyStudentNote {
+  note_id             Int      @id @default(autoincrement())
+  academy_id          Int
+  student_id          Int
+  batch_id            Int
+  coach_id            Int
+  note_date           DateTime @db.Date
+  performance_notes   String?  @db.Text
+  behaviour_notes     String?  @db.Text
+  achievements        String?  @db.Text
+  improvement_areas   String?  @db.Text
+  emailed_at          DateTime?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+  batch   Batch   @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade)
+  coach   Coach   @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade)
+
+  @@index([academy_id, student_id])
+  @@index([academy_id, note_date])
+  @@map("daily_student_notes")
 }
 
 // ─── Performance tracker ───────────────────────────────────────────────────────

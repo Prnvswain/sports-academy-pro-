@@ -161,8 +161,8 @@ export default function BulkImportPanel() {
             }}
           >
             <option value="students">Students</option>
-            <option value="coaches">Coaches (validate only)</option>
-            <option value="batches">Batches (validate only)</option>
+            <option value="coaches">Coaches</option>
+            <option value="batches">Batches</option>
           </select>
         </div>
 
@@ -233,7 +233,7 @@ export default function BulkImportPanel() {
           </div>
         )}
 
-        {step >= 2 && validation?.valid_count > 0 && entity === 'students' && (
+        {step >= 2 && validation?.valid_count > 0 && (
           <button type="button" className="btn-primary" disabled={loading} onClick={commitImport}>
             {loading ? 'Importing…' : `Import ${validation.valid_count} Record(s)`}
           </button>

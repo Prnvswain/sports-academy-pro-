@@ -18,10 +18,35 @@ export default function SuperAdminDashboard() {
         superAdminGet('/super-admin/stats'),
         superAdminGet('/super-admin/academies')
       ]);
-      setStats(statsRes.data || {});
-      setAcademies(academiesRes.data || []);
+      const statsData = statsRes?.data || {};
+      const academiesData = academiesRes?.data || [];
+      
+      // Ensure stats has all required fields with default values
+      setStats({
+        total_academies: statsData.total_academies ?? 0,
+        active_academies: statsData.active_academies ?? 0,
+        total_students: statsData.total_students ?? 0,
+        total_coaches: statsData.total_coaches ?? 0
+      });
+      
+      // Ensure academies have _count with default values
+      setAcademies(academiesData.map(a => ({
+        ...a,
+        _count: {
+          students: a._count?.students ?? 0,
+          coaches: a._count?.coaches ?? 0
+        }
+      })));
     } catch (error) {
       setMessage(error.message);
+      // Set default values on error
+      setStats({
+        total_academies: 0,
+        active_academies: 0,
+        total_students: 0,
+        total_coaches: 0
+      });
+      setAcademies([]);
       if (error.status === 401) {
         clearSuperAdminToken();
         navigate('/super-admin-login');

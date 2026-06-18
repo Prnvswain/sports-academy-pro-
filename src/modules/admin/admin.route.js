@@ -51,6 +51,7 @@ router.delete('/batches/:batch_id', adminController.deleteBatch);
 /* ─── ATTENDANCE TRACKER ────────────────────────────────────────────────── */
 router.post('/coach-attendance', validate('markAttendance'), validationErrorHandler, adminController.markCoachAttendance);
 router.get('/coach-attendance/:coach_id', adminController.getCoachAttendance);
+router.get('/attendance', adminController.getAttendance);
 
 /* ─── FINANCIAL LEDGERS & RECEIPTS ──────────────────────────────────────── */
 router.get('/payments', adminController.getAllPayments);

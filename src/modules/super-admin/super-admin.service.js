@@ -54,19 +54,35 @@ export const loginSuperAdmin = async ({ email, password, ip }) => {
   };
 };
 
-export const listAcademies = async () =>
-  prisma.academy.findMany({
-    orderBy: { created_at: 'desc' },
-    include: {
-      _count: {
-        select: {
-          students: true,
-          coaches: true,
-          batches: true
+export const listAcademies = async () => {
+  try {
+    const academies = await prisma.academy.findMany({
+      orderBy: { created_at: 'desc' },
+      include: {
+        _count: {
+          select: {
+            students: true,
+            coaches: true,
+            batches: true
+          }
         }
       }
-    }
-  });
+    });
+    
+    // Ensure each academy has _count with default values
+    return academies.map(a => ({
+      ...a,
+      _count: {
+        students: a._count?.students ?? 0,
+        coaches: a._count?.coaches ?? 0,
+        batches: a._count?.batches ?? 0
+      }
+    }));
+  } catch (error) {
+    // Return empty array on error
+    return [];
+  }
+};
 
 export const updateAcademyStatus = async (academy_id, status, actor_id, ip) => {
   const academy = await prisma.academy.update({

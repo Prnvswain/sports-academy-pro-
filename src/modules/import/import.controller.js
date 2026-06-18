@@ -25,17 +25,34 @@ export const validateImport = async (req, res, next) => {
 
 export const commitImport = async (req, res, next) => {
   try {
-    if (req.params.entity !== 'students') {
+    const entity = req.params.entity;
+    let result;
+
+    if (entity === 'students') {
+      result = await importService.commitStudentImport(
+        req.user.academy_id,
+        req.body.rows,
+        req.user.user_id
+      );
+    } else if (entity === 'coaches') {
+      result = await importService.commitCoachImport(
+        req.user.academy_id,
+        req.body.rows,
+        req.user.user_id
+      );
+    } else if (entity === 'batches') {
+      result = await importService.commitBatchImport(
+        req.user.academy_id,
+        req.body.rows,
+        req.user.user_id
+      );
+    } else {
       return res.status(400).json({
         success: false,
-        message: 'Only student bulk import is enabled in this release'
+        message: 'Invalid entity type'
       });
     }
-    const result = await importService.commitStudentImport(
-      req.user.academy_id,
-      req.body.rows,
-      req.user.user_id
-    );
+
     res.status(201).json(successResponse('Import completed', result));
   } catch (err) {
     next(err);

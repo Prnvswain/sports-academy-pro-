@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { useFormDraft } from '../../hooks/useFormDraft';
 import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
@@ -123,20 +124,21 @@ export default function StudentsPanel() {
     const selectedSportIds = selectedSports || [];
     let totalSportsFee = 0;
     
-    selectedSportIds.forEach(sportId => {
-      const sport = sports.find(s => String(s.sport_id) === String(sportId));
+    (selectedSportIds || []).forEach(sportId => {
+      const sport = (sports || []).find(s => s?.sport_id && String(s.sport_id) === String(sportId));
       if (sport) {
-        totalSportsFee += parseFloat(sport.base_fee) || 0;
+        totalSportsFee += parseFloat(sport?.base_fee || sport?.baseFee || 0) || 0;
       }
     });
 
-    const durationPlan = durationPlans.find(p => String(p.plan_id) === String(form.duration_plan_id));
-    const multiplier = durationPlan ? parseFloat(durationPlan.multiplier) : 1;
+    const safePlansArray = durationPlans || [];
+    const durationPlan = safePlansArray.find(p => p?.plan_id && String(p.plan_id) === String(form.duration_plan_id));
+    const multiplier = durationPlan ? parseFloat(durationPlan?.multiplier || 1) : 1;
     
-    const sportsFeeWithMultiplier = totalSportsFee * multiplier;
-    const registrationFee = parseFloat(form.registration_fee) || 0;
-    const additionalCharges = parseFloat(form.additional_charges) || 0;
-    const discount = parseFloat(form.discount) || 0;
+    const sportsFeeWithMultiplier = totalSportsFee * (isNaN(multiplier) ? 1 : multiplier);
+    const registrationFee = parseFloat(form?.registration_fee || form?.registrationFee || 0) || 0;
+    const additionalCharges = parseFloat(form?.additional_charges || form?.additionalCharges || 0) || 0;
+    const discount = parseFloat(form?.discount || 0) || 0;
     
     const finalFee = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
     
@@ -216,6 +218,26 @@ export default function StudentsPanel() {
     }
   };
 
+  const handleMarkActive = async (studentId) => {
+    try {
+      await adminPut(`/admin/students/${studentId}`, { status: 'ACTIVE' });
+      setMessage({ text: 'Student marked as active successfully.', type: 'success' });
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleDeactivate = async (studentId) => {
+    try {
+      await adminPut(`/admin/students/${studentId}`, { status: 'INACTIVE' });
+      setMessage({ text: 'Student deactivated successfully.', type: 'success' });
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
   const handleStudentClick = async (student) => {
     setSelectedStudent(student);
     setShowStudentModal(true);
@@ -239,9 +261,9 @@ export default function StudentsPanel() {
         batch_id: detailsRes.data.student.batch_id || ''
       });
       // Initialize selected sports from enrollments
-      const activeSportIds = detailsRes.data.enrollments
-        ?.filter(e => e.is_active)
-        ?.map(e => e.sport_id) || [];
+      const activeSportIds = (detailsRes?.data?.enrollments || [])
+        ?.filter(e => e?.is_active)
+        ?.map(e => e?.sport_id) || [];
       setEditSelectedSports(activeSportIds);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -335,16 +357,16 @@ export default function StudentsPanel() {
     reader.readAsText(bulkUploadFile);
   };
 
-  const filteredStudents = students.filter(student => {
+  const filteredStudents = (students || []).filter(student => {
     const matchesSearch = !searchQuery || 
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (student.name && student.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (student.first_name && student.first_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (student.last_name && student.last_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (student.parent_email && student.parent_email.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesSport = !filterSport || 
       student.sport_id === parseInt(filterSport) ||
-      (student.enrollments && student.enrollments.some(e => e.sport_id === parseInt(filterSport)));
+      (student.enrollments && Array.isArray(student.enrollments) && student.enrollments.some(e => e.sport_id === parseInt(filterSport)));
     
     const matchesBatch = !filterBatch || student.batch_id === parseInt(filterBatch);
     
@@ -352,7 +374,12 @@ export default function StudentsPanel() {
   });
 
   return (
-    <div className="space-y-6 p-6">
+    <motion.div 
+      className="space-y-6 p-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -362,20 +389,24 @@ export default function StudentsPanel() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
+          <motion.button
             type="button"
             className="btn-primary"
             onClick={() => setShowAddStudentModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             + Add Student
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
             className="btn-secondary"
             onClick={() => setShowBulkUpload(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             Bulk Import (CSV)
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -398,7 +429,7 @@ export default function StudentsPanel() {
               onChange={(e) => setFilterSport(e.target.value)}
             >
               <option value="">All Sports</option>
-              {sports.map((s) => (
+              {(sports || []).map((s) => (
                 <option key={s.sport_id} value={s.sport_id}>{s.name}</option>
               ))}
             </select>
@@ -410,7 +441,7 @@ export default function StudentsPanel() {
               onChange={(e) => setFilterBatch(e.target.value)}
             >
               <option value="">All Batches</option>
-              {availableBatches.map((b) => (
+              {(availableBatches || []).map((b) => (
                 <option key={b.batch_id} value={b.batch_id}>{b.name}</option>
               ))}
             </select>
@@ -483,12 +514,12 @@ export default function StudentsPanel() {
                     <p>{studentDetails?.student?.parent_phone || '—'}</p>
                   </div>
                 </div>
-                {studentDetails?.enrollments && studentDetails.enrollments.length > 0 && (
+                {studentDetails?.enrollments && Array.isArray(studentDetails.enrollments) && studentDetails.enrollments.length > 0 && (
                   <div className="mt-4">
                     <h4 className="mb-2 font-semibold">Enrollments</h4>
                     <div className="space-y-2">
-                      {studentDetails.enrollments.map((enrollment) => (
-                        <div key={enrollment?.enrollment_id} className="rounded bg-muted p-3">
+                      {(studentDetails.enrollments || []).map((enrollment) => (
+                        <div key={enrollment?.enrollment_id || enrollment?.id} className="rounded bg-muted p-3">
                           <div className="flex items-center justify-between">
                             <span className="font-semibold">
                               {typeof enrollment?.sport === 'string' ? enrollment.sport : (enrollment?.sport?.name || 'Unassigned')}
@@ -498,7 +529,7 @@ export default function StudentsPanel() {
                             </span>
                           </div>
                           <div className="mt-2 text-sm">
-                            <p>Duration Plan: {enrollment?.duration_plan?.name || 'No plan'}</p>
+                            <p>Duration Plan: {enrollment?.duration_plan?.name || enrollment?.durationPlan?.name || 'No plan'}</p>
                           </div>
                         </div>
                       ))}
@@ -507,15 +538,15 @@ export default function StudentsPanel() {
                 )}
                 <div className="mt-4 p-4 rounded-lg border bg-accent/10 border-accent/20">
                   <h4 className="mb-3 font-bold text-accent">Financial Accounts Matrix</h4>
-                  {studentDetails?.enrollments && studentDetails.enrollments.length > 0 ? (
+                  {studentDetails?.enrollments && Array.isArray(studentDetails.enrollments) && studentDetails.enrollments.length > 0 ? (
                     <div className="space-y-2 text-sm">
-                      {studentDetails.enrollments.map((enrollment) => {
-                        const regFee = parseFloat(enrollment?.registration_fee || enrollment?.registrationFee || 0);
-                        const addCharges = parseFloat(enrollment?.additional_charges || enrollment?.additionalCharges || 0);
-                        const discount = parseFloat(enrollment?.discount || 0);
+                      {(studentDetails.enrollments || []).map((enrollment) => {
+                        const regFee = parseFloat(enrollment?.registration_fee || enrollment?.registrationFee || 0) || 0;
+                        const addCharges = parseFloat(enrollment?.additional_charges || enrollment?.additionalCharges || 0) || 0;
+                        const discount = parseFloat(enrollment?.discount || 0) || 0;
                         const netDue = Math.max(0, (regFee + addCharges) - discount);
                         return (
-                          <div key={enrollment?.enrollment_id} className="border-b pb-2 last:border-0">
+                          <div key={enrollment?.enrollment_id || enrollment?.id} className="border-b pb-2 last:border-0">
                             <p className="font-semibold">
                               {typeof enrollment?.sport === 'string' ? enrollment.sport : (enrollment?.sport?.name || 'Unassigned')}
                             </p>
@@ -560,7 +591,7 @@ export default function StudentsPanel() {
                       <td colSpan={5} className="py-8 text-center text-muted text-xs">No active students found.</td>
                     </tr>
                   ) : (
-                    filteredStudents.map((student) => {
+                    filteredStudents.map((student, index) => {
                       const regFee = parseFloat(student?.registration_fee || student?.registrationFee || 0);
                       const addFee = parseFloat(student?.additional_charges || student?.additionalCharges || 0);
                       const disc = parseFloat(student?.discount || 0);
@@ -568,8 +599,12 @@ export default function StudentsPanel() {
                       const feeStatusLabel = totalOutstanding > 0 ? 'Unpaid' : 'Paid';
 
                       return (
-                        <tr
+                        <motion.tr
                           key={student.student_id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.05 }}
+                          whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
                           className="text-foreground"
                           onClick={() => handleStudentClick(student)}
                         >
@@ -588,16 +623,16 @@ export default function StudentsPanel() {
                             </div>
                           </td>
                           <td>
-                            {student.enrollments && student.enrollments.length > 0 ? (
+                            {student.enrollments && Array.isArray(student.enrollments) && student.enrollments.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {student.enrollments.map((enrollment) => (
-                                  <span key={enrollment.enrollment_id} className="rounded bg-success/10 px-2 py-0.5 text-xs text-success border border-success/20">
-                                    {enrollment.sport?.name}
+                                {(student.enrollments || []).map((enrollment) => (
+                                  <span key={enrollment?.enrollment_id || enrollment?.id} className="rounded bg-success/10 px-2 py-0.5 text-xs text-success border border-success/20">
+                                    {enrollment?.sport?.name || enrollment?.sport || '—'}
                                   </span>
                                 ))}
                               </div>
                             ) : (
-                              <span>{student.sport?.name || '—'}</span>
+                              <span>{student?.sport?.name || student?.sport || '—'}</span>
                             )}
                           </td>
                           <td className="text-muted">{student.batch?.name || '—'}</td>
@@ -607,14 +642,17 @@ export default function StudentsPanel() {
                             </span>
                           </td>
                         <td className="space-x-1" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleExit(student.student_id)}>
-                            Exit
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(student.student_id)}>
+                            Mark Active
+                          </button>
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(student.student_id)}>
+                            Deactivate
                           </button>
                           <button type="button" className="btn-danger btn-sm" onClick={() => handleRemove(student.student_id)}>
                             Remove
                           </button>
                         </td>
-                      </tr>
+                      </motion.tr>
                       );
                     })
                   )}
@@ -780,7 +818,7 @@ export default function StudentsPanel() {
                   <label className="label" htmlFor="durationPlan">Duration Plan</label>
                   <select id="durationPlan" name="duration_plan_id" className="input-field" value={form.duration_plan_id} onChange={updateField}>
                     <option value="">Select plan…</option>
-                    {durationPlans.map((p) => (
+                    {(durationPlans || []).map((p) => (
                       <option key={p.plan_id} value={p.plan_id}>
                         {p.name} ({p.duration_months} months) - {p.multiplier}x
                       </option>
@@ -798,9 +836,9 @@ export default function StudentsPanel() {
                     disabled={!selectedSports || selectedSports.length === 0}
                   >
                     <option value="">
-                      {!selectedSports || selectedSports.length === 0 ? 'Select sport first…' : availableBatches.length ? 'Select batch…' : 'No batches with seats'}
+                      {!selectedSports || selectedSports.length === 0 ? 'Select sport first…' : (availableBatches || []).length ? 'Select batch…' : 'No batches with seats'}
                     </option>
-                    {availableBatches.map((b) => (
+                    {(availableBatches || []).map((b) => (
                       <option key={b.batch_id} value={b.batch_id}>
                         {b.name}
                         {b.timing ? ` · ${b.timing}` : ''}
@@ -980,7 +1018,7 @@ export default function StudentsPanel() {
             
             {/* Tab Navigation */}
             <div className="mb-4 flex gap-2 border-b">
-              {['profile', 'accounts', 'attendance', 'performance'].map((tab) => (
+              {['profile', 'accounts', 'attendance', 'performance', 'notes'].map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -1356,6 +1394,60 @@ export default function StudentsPanel() {
                     )}
                   </div>
                 )}
+
+                {/* Daily Notes Tab */}
+                {modalTab === 'notes' && (
+                  <div>
+                    <h4 className="mb-3 font-semibold">Daily Student Notes</h4>
+                    {studentDetails.daily_notes && studentDetails.daily_notes.length > 0 ? (
+                      <div className="space-y-4">
+                        {studentDetails.daily_notes.map((note) => (
+                          <div key={note.note_id} className="rounded border p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold">{new Date(note.note_date).toLocaleDateString()}</span>
+                              <span className="text-xs text-muted">
+                                Coach: {note.coach?.name || '—'}
+                              </span>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              {note.performance_notes && (
+                                <div>
+                                  <span className="font-medium text-accent">Performance:</span>
+                                  <p className="mt-1">{note.performance_notes}</p>
+                                </div>
+                              )}
+                              {note.behaviour_notes && (
+                                <div>
+                                  <span className="font-medium text-accent">Behaviour:</span>
+                                  <p className="mt-1">{note.behaviour_notes}</p>
+                                </div>
+                              )}
+                              {note.achievements && (
+                                <div>
+                                  <span className="font-medium text-accent">Achievements:</span>
+                                  <p className="mt-1">{note.achievements}</p>
+                                </div>
+                              )}
+                              {note.improvement_areas && (
+                                <div>
+                                  <span className="font-medium text-accent">Improvement Areas:</span>
+                                  <p className="mt-1">{note.improvement_areas}</p>
+                                </div>
+                              )}
+                              {note.emailed_at && (
+                                <p className="text-xs text-muted mt-2">
+                                  Emailed to parent: {new Date(note.emailed_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted">No daily notes found.</p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-center text-muted">Failed to load student details.</p>
@@ -1422,7 +1514,7 @@ export default function StudentsPanel() {
                 const additionalSurchargesAmount = parseFloat(latestEnrollment?.additional_charges || 0);
                 const appliedDiscountAmount = parseFloat(latestEnrollment?.discount || 0);
 
-                const accurateTotalComputedFee = calculatedSportsFeeWithMultiplier + regFeeAmount + additionalSurchargesAmount - appliedDiscountAmount;
+                const accurateTotalComputedFee = totalMultipliedSportsFee + regFeeAmount + additionalSurchargesAmount - appliedDiscountAmount;
 
                 const dynamicAmountPaidFromLedger = parseFloat(selectedStudentForView?.amount_paid || selectedStudentForView?.amountPaid || 0);
                 const finalOutstandingDuesBalance = Math.max(0, accurateTotalComputedFee - dynamicAmountPaidFromLedger);
@@ -1444,7 +1536,7 @@ export default function StudentsPanel() {
                       </div>
                       <div className="flex justify-between font-medium text-foreground bg-surface-secondary p-1 rounded transition-all duration-300 ease-in-out">
                         <span>Sports Fee (with multiplier):</span>
-                        <span>${calculatedSportsFeeWithMultiplier.toFixed(2)}</span>
+                        <span>${totalMultipliedSportsFee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Registration Fee:</span>
@@ -1481,6 +1573,6 @@ export default function StudentsPanel() {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

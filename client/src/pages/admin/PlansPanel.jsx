@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminDelete } from '../../api/client';
 
@@ -67,7 +68,12 @@ export default function PlansPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div>
         <h2 className="text-2xl font-bold">Duration Plans</h2>
         <p className="text-muted">Configure pricing multipliers and duration periods for enrollment plans.</p>
@@ -78,11 +84,20 @@ export default function PlansPanel() {
           <h3 className="font-bold text-lg">Create Duration Plan</h3>
           <div>
             <label className="label" htmlFor="planName">Plan Name</label>
-            <input id="planName" name="name" className="input-field" value={planForm.name} onChange={handlePlanChange} required placeholder="e.g. Monthly, Quarterly, Annual" />
+            <motion.input 
+              id="planName" 
+              name="name" 
+              className="input-field" 
+              value={planForm.name} 
+              onChange={handlePlanChange} 
+              required 
+              placeholder="e.g. Monthly, Quarterly, Annual"
+              whileFocus={{ scale: 1.01 }}
+            />
           </div>
           <div>
             <label className="label" htmlFor="planDuration">Duration (Months)</label>
-            <input
+            <motion.input
               id="planDuration"
               name="duration_months"
               type="number"
@@ -92,11 +107,12 @@ export default function PlansPanel() {
               onChange={handlePlanChange}
               required
               placeholder="e.g. 1, 3, 6, 12"
+              whileFocus={{ scale: 1.01 }}
             />
           </div>
           <div>
             <label className="label" htmlFor="planMultiplier">Price Multiplier</label>
-            <input
+            <motion.input
               id="planMultiplier"
               name="multiplier"
               type="number"
@@ -107,9 +123,17 @@ export default function PlansPanel() {
               onChange={handlePlanChange}
               required
               placeholder="e.g. 1.0 for standard, 2.7 for discount"
+              whileFocus={{ scale: 1.01 }}
             />
           </div>
-          <button type="submit" className="btn-primary w-full cursor-pointer">Create Plan</button>
+          <motion.button 
+            type="submit" 
+            className="btn-primary w-full cursor-pointer"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Create Plan
+          </motion.button>
         </form>
         <div className="card space-y-4 overflow-x-auto">
           <h3 className="font-bold text-lg">Active Duration Plans</h3>
@@ -127,8 +151,15 @@ export default function PlansPanel() {
               </thead>
               <tbody className="divide-y divide-border">
                 {plans && Array.isArray(plans) && plans.length > 0 ? (
-                  plans.map((plan) => (
-                    <tr key={plan?.plan_id || plan?.id} className="text-foreground">
+                  plans.map((plan, index) => (
+                    <motion.tr
+                      key={plan?.plan_id || plan?.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                      className="text-foreground"
+                    >
                       <td className="py-3 font-medium">{plan?.name}</td>
                       <td className="py-3 px-2 text-muted">{plan?.duration_months} Month(s)</td>
                       <td className="py-3 px-2">{Number(plan?.multiplier || 1).toFixed(2)}x</td>
@@ -140,7 +171,7 @@ export default function PlansPanel() {
                           Delete
                         </button>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))
                 ) : (
                   <tr>
@@ -160,6 +191,6 @@ export default function PlansPanel() {
           {message.text}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AdminRoute, CoachRoute, SuperAdminRoute } from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import AdminLayout from './layouts/AdminLayout';
 import CoachLayout from './layouts/CoachLayout';
 import LandingPage from './pages/LandingPage';
@@ -54,9 +55,9 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
-            <Route path="sports" element={<SportsPanel />} />
+            <Route path="sports" element={<ErrorBoundary><SportsPanel /></ErrorBoundary>} />
             <Route path="coaches" element={<CoachesPanel />} />
-            <Route path="students" element={<StudentsPanel />} />
+            <Route path="students" element={<ErrorBoundary><StudentsPanel /></ErrorBoundary>} />
             <Route path="batches" element={<BatchesPanel />} />
             <Route path="plans" element={<PlansPanel />} />
             <Route path="accounts" element={<PaymentsPanel />} />

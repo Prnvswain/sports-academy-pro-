@@ -246,9 +246,14 @@ export const getAllPayments = async (req, res, next) => {
 
 export const getStudentLedger = async (req, res, next) => {
   try {
+    console.log('[getStudentLedger Controller] Request params:', req.params);
+    console.log('[getStudentLedger Controller] User academy_id:', req.user.academy_id);
     const ledger = await adminService.getStudentLedger(req.user.academy_id, req.params.student_id);
+    console.log('[getStudentLedger Controller] Ledger data from service:', ledger);
     res.json(successResponse('Student ledger retrieved successfully', ledger));
   } catch (err) {
+    console.error('[getStudentLedger Controller] Error:', err);
+    console.error('[getStudentLedger Controller] Error stack:', err.stack);
     next(err);
   }
 };
@@ -291,9 +296,14 @@ export const getRevenueSummary = async (req, res, next) => {
 
 export const createPayment = async (req, res, next) => {
   try {
+    console.log('[createPayment Controller] Request body:', req.body);
+    console.log('[createPayment Controller] User academy_id:', req.user.academy_id);
     const payment = await adminService.createPayment(req.user.academy_id, req.body);
+    console.log('[createPayment Controller] Payment created successfully:', payment);
     res.status(201).json(successResponse('Payment created successfully', payment));
   } catch (err) {
+    console.error('[createPayment Controller] Error:', err);
+    console.error('[createPayment Controller] Error stack:', err.stack);
     next(err);
   }
 };
@@ -376,6 +386,15 @@ export const createPerformanceAttribute = async (req, res, next) => {
       req.body
     );
     res.status(201).json({ success: true, message: 'Performance attribute added cleanly', data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAttendance = async (req, res, next) => {
+  try {
+    const attendance = await adminService.getAttendance(req.user.academy_id, req.query);
+    res.json(successResponse('Attendance retrieved successfully', attendance));
   } catch (err) {
     next(err);
   }

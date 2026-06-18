@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { adminGet, adminPatch } from '../../api/client';
 
 export default function EnquiriesPanel() {
@@ -93,7 +94,12 @@ export default function EnquiriesPanel() {
   };
 
   return (
-    <div className="p-6 bg-surface text-foreground min-h-screen space-y-8 animate-[premiumFadeIn_0.4s_ease-out]">
+    <motion.div 
+      className="p-6 bg-surface text-foreground min-h-screen space-y-8"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-6 gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-foreground">Enquiries Desk</h1>
@@ -130,8 +136,15 @@ export default function EnquiriesPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {enquiries.map((enq) => (
-                      <tr key={enq.id} className="hover:bg-surface/40 transition-colors">
+                    {enquiries.map((enq, index) => (
+                      <motion.tr
+                        key={enq.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                        className="hover:bg-surface/40 transition-colors"
+                      >
                         <td className="font-bold whitespace-nowrap">
                           <span className="block text-foreground">{enq.name}</span>
                           <span className="block text-xs text-muted font-semibold">{enq.email}</span>
@@ -147,14 +160,16 @@ export default function EnquiriesPanel() {
                           </span>
                         </td>
                         <td>
-                          <button 
+                          <motion.button 
                             onClick={() => { setSelectedEnquiry(enq); setRemarks(enq.remarks || ''); setStatus(enq.status); }}
                             className="btn bg-accent text-white hover:bg-accent-hover btn-sm shadow-sm"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                           >
                             Review Parameters
-                          </button>
+                          </motion.button>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
@@ -181,12 +196,22 @@ export default function EnquiriesPanel() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={handleDownloadQr} className="bg-accent text-white hover:bg-accent-hover py-3 px-4 rounded-xl font-bold text-xs transition-transform active:scale-95 shadow-md shadow-accent/10">
+              <motion.button 
+                onClick={handleDownloadQr} 
+                className="bg-accent text-white hover:bg-accent-hover py-3 px-4 rounded-xl font-bold text-xs transition-transform shadow-md shadow-accent/10"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
                 📥 Download PNG
-              </button>
-              <button onClick={handleShareLink} className="btn-secondary py-3 px-4 rounded-xl font-bold text-xs">
+              </motion.button>
+              <motion.button 
+                onClick={handleShareLink} 
+                className="btn-secondary py-3 px-4 rounded-xl font-bold text-xs"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
                 🔗 Copy Form URL
-              </button>
+              </motion.button>
             </div>
           </div>
 
@@ -198,16 +223,22 @@ export default function EnquiriesPanel() {
             </div>
 
             <form onSubmit={handleAddSection} className="flex gap-2">
-              <input 
+              <motion.input 
                 type="text" 
                 placeholder="New section title string..." 
                 value={newSectionName}
                 onChange={(e) => setNewSectionName(e.target.value)}
                 className="input-field py-2 text-xs flex-1"
+                whileFocus={{ scale: 1.01 }}
               />
-              <button type="submit" className="bg-accent text-white hover:bg-accent-hover px-4 rounded-xl font-bold text-xs transition-transform active:scale-95 whitespace-nowrap">
+              <motion.button 
+                type="submit" 
+                className="bg-accent text-white hover:bg-accent-hover px-4 rounded-xl font-bold text-xs whitespace-nowrap"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
                 Add Block
-              </button>
+              </motion.button>
             </form>
 
             <div className="space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
@@ -234,9 +265,22 @@ export default function EnquiriesPanel() {
       </div>
 
       {/* PARAMETER MODIFICATION OVERLAY DRAWER */}
-      {selectedEnquiry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[premiumFadeIn_0.2s_ease-out]">
-          <div className="w-full max-w-lg card bg-surface border border-border p-8 shadow-2xl space-y-6">
+      <AnimatePresence>
+        {selectedEnquiry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-lg card bg-surface border border-border p-8 shadow-2xl space-y-6"
+            >
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-xl font-black text-foreground tracking-tight">Review Entry Parameters</h3>
@@ -276,8 +320,15 @@ export default function EnquiriesPanel() {
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setSelectedEnquiry(null)} className="btn-secondary py-2.5 px-5">Cancel</button>
-              <button 
+              <motion.button 
+                onClick={() => setSelectedEnquiry(null)} 
+                className="btn-secondary py-2.5 px-5"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button 
                 onClick={async () => {
                   try {
                     await adminPatch(`/admin/enquiries/${selectedEnquiry.id}`, { status, remarks });
@@ -287,14 +338,17 @@ export default function EnquiriesPanel() {
                     alert(err.message || 'Failed updating status matrix.');
                   }
                 }}
-                className="bg-accent text-white hover:bg-accent-hover py-2.5 px-6 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-md shadow-accent/10"
+                className="bg-accent text-white hover:bg-accent-hover py-2.5 px-6 rounded-xl font-bold text-sm shadow-md shadow-accent/10"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Save Structural Updates
-              </button>
+              </motion.button>
             </div>
-          </div>
-        </div>
-      )}
-    </div>
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

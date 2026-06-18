@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
@@ -87,7 +88,12 @@ export default function SportsPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div>
         <h2 className="text-2xl font-bold">Sports Catalog</h2>
         <p className="text-muted">Create and manage sports for your academy workspace.</p>
@@ -97,17 +103,18 @@ export default function SportsPanel() {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="label" htmlFor="sportName">Sport Name</label>
-            <input
+            <motion.input
               id="sportName"
               className="input-field"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              whileFocus={{ scale: 1.01 }}
             />
           </div>
           <div>
             <label className="label" htmlFor="baseFee">Base Fee</label>
-            <input
+            <motion.input
               id="baseFee"
               type="number"
               min={0}
@@ -116,23 +123,32 @@ export default function SportsPanel() {
               value={formData.base_fee}
               onChange={(e) => setFormData({ ...formData, base_fee: e.target.value })}
               placeholder="0.00"
+              whileFocus={{ scale: 1.01 }}
             />
           </div>
         </div>
         <div className="mt-4">
           <label className="label" htmlFor="status">Status</label>
-          <select
+          <motion.select
             id="status"
             className="input-field"
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            whileFocus={{ scale: 1.01 }}
           >
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
-          </select>
+          </motion.select>
         </div>
         <div className="mt-4">
-          <button type="submit" className="btn-primary">Create Sport</button>
+          <motion.button 
+            type="submit" 
+            className="btn-primary"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Create Sport
+          </motion.button>
         </div>
       </form>
       {message.text && (
@@ -153,9 +169,16 @@ export default function SportsPanel() {
               </tr>
             </thead>
             <tbody>
-              {sports && sports.length > 0 ? (
-                sports.map((sport) => (
-                  <tr key={sport.sport_id || sport.id} className="border-b">
+              {(sports || []).length > 0 ? (
+                (sports || []).map((sport, index) => (
+                  <motion.tr
+                    key={sport.sport_id || sport.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                    className="border-b"
+                  >
                     <td className="p-3 font-medium">{sport.name}</td>
                     <td className="p-3">${Number(sport.base_fee || sport.baseFee || 0).toFixed(2)}</td>
                     <td className="p-3">
@@ -169,7 +192,7 @@ export default function SportsPanel() {
                         className={`text-sm font-medium ${sport.status === 'ACTIVE' ? 'text-amber-600 hover:text-amber-800' : 'text-emerald-600 hover:text-emerald-800'}`}
                         onClick={() => handleToggleStatus(sport.sport_id || sport.id, sport.status)}
                       >
-                        {sport.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                        {sport.status === 'ACTIVE' ? 'Deactivate' : 'Mark Active'}
                       </button>
                       <button
                         type="button"
@@ -179,7 +202,7 @@ export default function SportsPanel() {
                         Remove
                       </button>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))
               ) : (
                 <tr>
@@ -192,6 +215,6 @@ export default function SportsPanel() {
           </table>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

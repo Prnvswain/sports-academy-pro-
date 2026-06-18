@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, TIMING_OPTIONS } from '../../api/client';
 
@@ -76,7 +77,12 @@ export default function BatchesPanel() {
   );
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div>
         <h2 className="text-2xl font-bold">Training Batches</h2>
         <p className="text-muted">Schedule and manage training batches with coaches and sports.</p>
@@ -89,37 +95,69 @@ export default function BatchesPanel() {
           <div>
             <label className="label" htmlFor="batchName">Batch Name</label>
             {/* FIXED INPUT: Replaced explicitly broken inner utility classes with generic clean 'input-field' */}
-            <input id="batchName" name="name" className="input-field" value={batchForm.name} onChange={handleBatchChange} required />
+            <motion.input 
+              id="batchName" 
+              name="name" 
+              className="input-field" 
+              value={batchForm.name} 
+              onChange={handleBatchChange} 
+              required
+              whileFocus={{ scale: 1.01 }}
+            />
           </div>
           <div>
             <label className="label" htmlFor="batchTiming">Timing</label>
-            <select id="batchTiming" name="timing" className="input-field bg-[var(--color-input)] text-foreground" value={batchForm.timing} onChange={handleBatchChange} required>
+            <motion.select 
+              id="batchTiming" 
+              name="timing" 
+              className="input-field bg-[var(--color-input)] text-foreground" 
+              value={batchForm.timing} 
+              onChange={handleBatchChange} 
+              required
+              whileFocus={{ scale: 1.01 }}
+            >
               {TIMING_OPTIONS.map((time) => (
                 <option key={time} value={time}>{time}</option>
               ))}
-            </select>
+            </motion.select>
           </div>
           <div>
             <label className="label" htmlFor="batchCoach">Coach</label>
-            <select id="batchCoach" name="coach_id" className="input-field bg-[var(--color-input)] text-foreground" value={batchForm.coach_id} onChange={handleBatchChange} required>
+            <motion.select 
+              id="batchCoach" 
+              name="coach_id" 
+              className="input-field bg-[var(--color-input)] text-foreground" 
+              value={batchForm.coach_id} 
+              onChange={handleBatchChange} 
+              required
+              whileFocus={{ scale: 1.01 }}
+            >
               <option value="" className="text-muted">Select coach…</option>
               {coaches.map((c) => (
                 <option key={c?.coach_id} value={c?.coach_id}>{c?.name}</option>
               ))}
-            </select>
+            </motion.select>
           </div>
           <div>
             <label className="label" htmlFor="batchSport">Sport</label>
-            <select id="batchSport" name="sport_id" className="input-field bg-[var(--color-input)] text-foreground" value={batchForm.sport_id} onChange={handleBatchChange} required>
+            <motion.select 
+              id="batchSport" 
+              name="sport_id" 
+              className="input-field bg-[var(--color-input)] text-foreground" 
+              value={batchForm.sport_id} 
+              onChange={handleBatchChange} 
+              required
+              whileFocus={{ scale: 1.01 }}
+            >
               <option value="" className="text-muted">Select sport…</option>
               {sports.map((s) => (
                 <option key={s?.sport_id} value={s?.sport_id}>{s?.name}</option>
               ))}
-            </select>
+            </motion.select>
           </div>
           <div>
             <label className="label" htmlFor="batchCapacity">Max Capacity (optional)</label>
-            <input
+            <motion.input
               id="batchCapacity"
               name="max_capacity"
               type="number"
@@ -128,10 +166,18 @@ export default function BatchesPanel() {
               value={batchForm.max_capacity}
               onChange={handleBatchChange}
               placeholder="e.g. 20"
+              whileFocus={{ scale: 1.01 }}
             />
           </div>
           {/* FIXED BUTTON: Replaced static 'bg-blue-600' with your global green/emerald setup 'btn-primary' */}
-          <button type="submit" className="btn-primary w-full cursor-pointer">Create Batch</button>
+          <motion.button 
+            type="submit" 
+            className="btn-primary w-full cursor-pointer"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Create Batch
+          </motion.button>
         </form>
 
         {/* FIXED LIST CONTAINER: Removed hardcoded background utilities */}
@@ -169,8 +215,15 @@ export default function BatchesPanel() {
                     </td>
                   </tr>
                 ) : (
-                  filteredBatches.map((batch) => (
-                    <tr key={batch?.batch_id} className="text-foreground">
+                  filteredBatches.map((batch, index) => (
+                    <motion.tr
+                      key={batch?.batch_id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                      className="text-foreground"
+                    >
                       <td className="py-3 font-semibold">{batch?.name}</td>
                       <td className="py-3 px-2 text-muted">{batch?.timing || '—'}</td>
                       <td className="py-3 px-2">{batch?.coach?.name || '—'}</td>
@@ -185,7 +238,7 @@ export default function BatchesPanel() {
                           {batch?.status || 'ACTIVE'}
                         </span>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))
                 )}
               </tbody>
@@ -200,6 +253,6 @@ export default function BatchesPanel() {
           {message.text}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
