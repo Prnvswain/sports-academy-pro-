@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { adminGet } from '../api/client';
 
+const formatCurrency = (value) =>
+  Number.isFinite(Number(value))
+    ? Number(value).toFixed(2)
+    : '0.00';
+
 // Theme Palette Constants
 const THEME = {
   background: '#0B0F19',
@@ -222,7 +227,7 @@ export default function AdminDashboard() {
                     REVENUE LEDGER
                   </p>
                   <p className="text-4xl font-bold mt-2 tracking-tight" style={{ color: THEME.textPrimary }}>
-                    ${(kpiData.totalRevenue / 1000).toFixed(1)}K
+                    ${Number.isFinite(Number(kpiData.totalRevenue / 1000)) ? Number(kpiData.totalRevenue / 1000).toFixed(1) : '0.0'}K
                   </p>
                 </div>
                 <div className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: THEME.glow, color: THEME.emerald }}>

@@ -3,6 +3,11 @@ import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
+const formatCurrency = (value) =>
+  Number.isFinite(Number(value))
+    ? Number(value).toFixed(2)
+    : '0.00';
+
 export default function SportsPanel() {
   const [sports, setSports] = useState([]);
   const [formData, setFormData] = useState({
@@ -59,17 +64,41 @@ export default function SportsPanel() {
     }
   };
 
-  const handleToggleStatus = async (sportId, currentStatus) => {
-    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    setMessage({ text: '', type: '' });
+  const handleMarkActive = async (sportId) => {
     try {
-      const result = await adminPatch(`/admin/sports/${sportId}`, {
-        status: newStatus
+      // Update local state immediately for real-time feedback
+      setSports(prevSports => 
+        prevSports.map(s => 
+          (s.sport_id || s.id) === sportId ? { ...s, status: 'ACTIVE' } : s
+        )
+      );
+      const result = await adminPatch(`/admin/sports/${sportId}/status`, {
+        status: 'ACTIVE'
       });
-      setMessage({ text: result?.message || `Sport ${newStatus === 'ACTIVE' ? 'enabled' : 'disabled'} successfully`, type: 'success' });
+      setMessage({ text: result?.message || 'Sport marked as active successfully', type: 'success' });
       loadSports();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      loadSports(); // Revert on error
+    }
+  };
+
+  const handleDeactivate = async (sportId) => {
+    try {
+      // Update local state immediately for real-time feedback
+      setSports(prevSports => 
+        prevSports.map(s => 
+          (s.sport_id || s.id) === sportId ? { ...s, status: 'INACTIVE' } : s
+        )
+      );
+      const result = await adminPatch(`/admin/sports/${sportId}/status`, {
+        status: 'INACTIVE'
+      });
+      setMessage({ text: result?.message || 'Sport deactivated successfully', type: 'success' });
+      loadSports();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+      loadSports(); // Revert on error
     }
   };
 
@@ -79,11 +108,16 @@ export default function SportsPanel() {
     }
     setMessage({ text: '', type: '' });
     try {
+      // Update local state immediately for real-time feedback
+      setSports(prevSports => 
+        prevSports.filter(s => (s.sport_id || s.id) !== sportId)
+      );
       const result = await adminDelete(`/admin/sports/${sportId}`);
       setMessage({ text: result?.message || 'Sport removed successfully', type: 'success' });
       loadSports();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      loadSports(); // Revert on error
     }
   };
 
@@ -180,27 +214,34 @@ export default function SportsPanel() {
                     className="border-b"
                   >
                     <td className="p-3 font-medium">{sport.name}</td>
-                    <td className="p-3">${Number(sport.base_fee || sport.baseFee || 0).toFixed(2)}</td>
+                    <td className="p-3">${formatCurrency(sport.base_fee || sport.baseFee)}</td>
                     <td className="p-3">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${sport.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                        sport.status === 'ACTIVE' ? 'bg-success/10 text-success border border-success/20' : 'bg-danger/10 text-danger border border-danger/20'
+                      }`}>
                         {sport.status || 'ACTIVE'}
                       </span>
                     </td>
-                    <td className="p-3">
-                      <button
-                        type="button"
-                        className={`text-sm font-medium ${sport.status === 'ACTIVE' ? 'text-amber-600 hover:text-amber-800' : 'text-emerald-600 hover:text-emerald-800'}`}
-                        onClick={() => handleToggleStatus(sport.sport_id || sport.id, sport.status)}
-                      >
-                        {sport.status === 'ACTIVE' ? 'Deactivate' : 'Mark Active'}
-                      </button>
-                      <button
-                        type="button"
-                        className="text-sm text-red-600 hover:text-red-900 font-medium ml-4"
-                        onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
-                      >
-                        Remove
-                      </button>
+                    <td className="p-3 space-x-1">
+                      {sport.status === 'ACTIVE' ? (
+                        <>
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>
+                            Deactivate
+                          </button>
+                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>
+                            Mark Active
+                          </button>
+                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>
+                            Remove
+                          </button>
+                        </>
+                      )}
                     </td>
                   </motion.tr>
                 ))

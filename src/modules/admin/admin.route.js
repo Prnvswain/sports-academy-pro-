@@ -15,6 +15,8 @@ router.use(enforceActiveSubscription);
 /* ─── SPORTS CATALOG ────────────────────────────────────────────────────── */
 router.get('/sports', adminController.getSportsCatalog);
 router.post('/sports', validate('createSport'), validationErrorHandler, adminController.createSport);
+router.patch('/sports/:id/status', adminController.updateSportStatus);
+router.delete('/sports/:id', adminController.deleteSport);
 
 /* ─── DURATION PLANS ────────────────────────────────────────────────────── */
 router.get('/duration-plans', adminController.getDurationPlans);

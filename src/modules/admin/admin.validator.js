@@ -95,8 +95,15 @@ export const validate = (method) => {
           .isInt({ min: 1, max: 100 })
           .withMessage('Age must be between 1 and 100'),
         body('gender')
-          .isIn(['Male', 'Female', 'Other'])
-          .withMessage('Invalid gender'),
+          .custom((value) => {
+            if (!value) return true;
+            const normalized = value.toString().toLowerCase().trim();
+            const validGenders = ['male', 'female', 'other', 'm', 'f'];
+            if (!validGenders.includes(normalized)) {
+              throw new Error('Invalid gender');
+            }
+            return true;
+          }),
         body('sport_ids')
           .optional()
           .isArray()
@@ -149,8 +156,15 @@ export const validate = (method) => {
           .withMessage('Age must be between 1 and 100'),
         body('gender')
           .optional()
-          .isIn(['Male', 'Female', 'Other'])
-          .withMessage('Invalid gender'),
+          .custom((value) => {
+            if (!value) return true;
+            const normalized = value.toString().toLowerCase().trim();
+            const validGenders = ['male', 'female', 'other', 'm', 'f'];
+            if (!validGenders.includes(normalized)) {
+              throw new Error('Invalid gender');
+            }
+            return true;
+          }),
         body('sport_id')
           .optional()
           .isInt()

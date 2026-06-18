@@ -31,7 +31,10 @@ import IntakeForm from './pages/public/IntakeForm';
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}>
         <Routes>
           {/* Public Frontend Routing Layer Protocols */}
           <Route path="/" element={<LandingPage />} />

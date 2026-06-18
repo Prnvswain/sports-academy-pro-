@@ -241,6 +241,14 @@ export const validateImportRows = async (academy_id, entity, rows) => {
   };
 };
 
+const normalizeGender = (gender) => {
+  if (!gender) return 'Other';
+  const normalized = gender.toString().toLowerCase().trim();
+  if (['male', 'm'].includes(normalized)) return 'Male';
+  if (['female', 'f'].includes(normalized)) return 'Female';
+  return 'Other';
+};
+
 export const commitStudentImport = async (academy_id, rows, admin_user_id) => {
   const created = [];
 
@@ -250,7 +258,7 @@ export const commitStudentImport = async (academy_id, rows, admin_user_id) => {
         academy_id: parseInt(academy_id, 10),
         name: row.name.trim(),
         age: row.age ? parseInt(row.age, 10) : null,
-        gender: row.gender || 'Other',
+        gender: normalizeGender(row.gender),
         parent_name: row.parent_name?.trim() || null,
         parent_email: row.parent_email.trim(),
         parent_phone: row.parent_phone?.trim() || null,

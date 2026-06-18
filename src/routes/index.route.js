@@ -10,6 +10,7 @@ import publicRoutes from '../modules/public/public.route.js';
 import performanceRoutes from '../modules/performance/performance.route.js';
 import notificationsRoutes from '../modules/notifications/notifications.route.js';
 import auditRoutes from '../modules/audit/audit.route.js';
+import enquiriesRoutes from '../modules/enquiries/enquiries.route.js';
 import { authRateLimiter } from '../middlewares/rateLimit.middleware.js';
 
 const router = express.Router();
@@ -23,6 +24,7 @@ router.use('/admin/reports', reportsRoutes);
 router.use('/admin/performance', performanceRoutes);
 router.use('/admin/notifications', notificationsRoutes);
 router.use('/admin/audit', auditRoutes);
+router.use('/admin/enquiries', enquiriesRoutes);
 router.use('/coach', coachRoutes);
 router.use('/coach/notes', notesRoutes);
 router.use('/coach/performance', performanceRoutes);

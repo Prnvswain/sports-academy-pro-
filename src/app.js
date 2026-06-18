@@ -48,17 +48,21 @@ app.use((req, res) => {
     logger.warn('API route not found', {
       method: req.method,
       url: req.originalUrl,
+      path: req.path,
       ip: req.ip
     });
     return res.status(404).json({
       success: false,
-      message: 'Route not found'
+      message: 'Route not found',
+      requestedUrl: req.originalUrl,
+      method: req.method
     });
   }
 
   logger.warn('Route not found', {
     method: req.method,
     url: req.originalUrl,
+    path: req.path,
     ip: req.ip
   });
 

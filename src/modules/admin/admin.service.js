@@ -7,6 +7,14 @@ import { sendCoachOnboardingEmail, sendStudentExitEmail, sendPaymentSuccessEmail
 import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
 
+const normalizeGender = (gender) => {
+  if (!gender) return 'Other';
+  const normalized = gender.toString().toLowerCase().trim();
+  if (['male', 'm'].includes(normalized)) return 'Male';
+  if (['female', 'f'].includes(normalized)) return 'Female';
+  return 'Other';
+};
+
 const academyScope = (academy_id) => ({
   academy_id: parseInt(academy_id, 10),
   ...NOT_DELETED
@@ -270,7 +278,7 @@ export const bulkUploadStudents = async (academy_id, students) => {
           last_name: studentData.last_name,
           phone: studentData.phone || null,
           age: studentData.age ? parseInt(studentData.age, 10) : null,
-          gender: studentData.gender || 'Other',
+          gender: normalizeGender(studentData.gender),
           parent_name: studentData.parent_name || null,
           parent_email: studentData.parent_email || null,
           parent_phone: studentData.parent_phone || null,
@@ -344,6 +352,65 @@ export const createSport = async (academy_id, data) => {
 
   logger.info('Sport created', { sport_id: sport.sport_id, academy_id: academyId });
   return sport;
+};
+
+export const updateSportStatus = async (academy_id, sport_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const sportId = parseInt(sport_id, 10);
+
+  console.log('[updateSportStatus Service] Processing:', { academyId, sportId, status: data.status });
+
+  const sport = await prisma.sport.findFirst({
+    where: {
+      sport_id: sportId,
+      academy_id: academyId
+    }
+  });
+
+  if (!sport) {
+    console.error('[updateSportStatus Service] Sport not found:', { sportId, academyId });
+    const error = new Error('Sport not found in this academy');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updatedSport = await prisma.sport.update({
+    where: { sport_id: sportId },
+    data: { status: data.status }
+  });
+
+  logger.info('Sport status updated', { sport_id: sportId, status: data.status, academy_id: academyId });
+  console.log('[updateSportStatus Service] Success:', updatedSport);
+  return updatedSport;
+};
+
+export const deleteSport = async (academy_id, sport_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const sportId = parseInt(sport_id, 10);
+
+  console.log('[deleteSport Service] Processing:', { academyId, sportId });
+
+  const sport = await prisma.sport.findFirst({
+    where: {
+      sport_id: sportId,
+      academy_id: academyId
+    }
+  });
+
+  if (!sport) {
+    console.error('[deleteSport Service] Sport not found:', { sportId, academyId });
+    const error = new Error('Sport not found in this academy');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await prisma.sport.delete({
+    where: { sport_id: sportId }
+  });
+
+  logger.info('Sport deleted', { sport_id: sportId, academy_id: academyId });
+  console.log('[deleteSport Service] Success');
+  return { success: true };
 };
 
 // ==================== COACHES ====================
@@ -590,7 +657,7 @@ export const createStudent = async (academy_id, data) => {
       last_name: data.last_name || null,
       phone: data.phone || null,
       age: data.age,
-      gender: data.gender,
+      gender: normalizeGender(data.gender),
       sport_id: sportIds.length > 0 ? parseInt(sportIds[0], 10) : null, // Primary sport for backward compatibility
       batch_id: data.batch_id ? parseInt(data.batch_id, 10) : null,
       blood_group: data.blood_group,
@@ -689,7 +756,7 @@ export const updateStudent = async (academy_id, student_id, data) => {
     data: {
       name: data.name ?? student.name,
       age: data.age ?? student.age,
-      gender: data.gender ?? student.gender,
+      gender: normalizeGender(data.gender ?? student.gender),
       sport_id: primarySportId,
       batch_id: nextBatchId,
       blood_group: data.blood_group ?? student.blood_group,
@@ -729,10 +796,10 @@ export const updateStudent = async (academy_id, student_id, data) => {
           if (durationPlan) {
             const sport = await prisma.sport.findUnique({
               where: { sport_id: sportId },
-              select: { sports_fee: true }
+              select: { base_fee: true }
             });
             if (sport) {
-              finalFee = sport.sports_fee * durationPlan.multiplier;
+              finalFee = sport.base_fee * durationPlan.multiplier;
             }
           }
         }

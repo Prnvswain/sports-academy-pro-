@@ -4,6 +4,20 @@ import Loader from '../../components/Loader';
 import { useFormDraft } from '../../hooks/useFormDraft';
 import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
 
+const formatCurrency = (value) =>
+  Number.isFinite(Number(value))
+    ? Number(value).toFixed(2)
+    : '0.00';
+
+const normalizeGender = (gender) => {
+  if (!gender) return 'Not Specified';
+  const normalized = gender.toString().toLowerCase().trim();
+  if (['male', 'm'].includes(normalized)) return 'Male';
+  if (['female', 'f'].includes(normalized)) return 'Female';
+  if (['other'].includes(normalized)) return 'Other';
+  return 'Not Specified';
+};
+
 const emptyForm = {
   firstName: '',
   middleName: '',
@@ -220,21 +234,35 @@ export default function StudentsPanel() {
 
   const handleMarkActive = async (studentId) => {
     try {
+      // Update local state immediately for real-time feedback
+      setStudents(prevStudents => 
+        prevStudents.map(s => 
+          s.student_id === studentId ? { ...s, status: 'ACTIVE' } : s
+        )
+      );
       await adminPut(`/admin/students/${studentId}`, { status: 'ACTIVE' });
       setMessage({ text: 'Student marked as active successfully.', type: 'success' });
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      loadData(); // Revert on error
     }
   };
 
   const handleDeactivate = async (studentId) => {
     try {
+      // Update local state immediately for real-time feedback
+      setStudents(prevStudents => 
+        prevStudents.map(s => 
+          s.student_id === studentId ? { ...s, status: 'INACTIVE' } : s
+        )
+      );
       await adminPut(`/admin/students/${studentId}`, { status: 'INACTIVE' });
       setMessage({ text: 'Student deactivated successfully.', type: 'success' });
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      loadData(); // Revert on error
     }
   };
 
@@ -362,7 +390,9 @@ export default function StudentsPanel() {
       (student.name && student.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (student.first_name && student.first_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (student.last_name && student.last_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (student.parent_email && student.parent_email.toLowerCase().includes(searchQuery.toLowerCase()));
+      (student.parent_email && student.parent_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (student.phone && student.phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (student.parent_phone && student.parent_phone.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesSport = !filterSport || 
       student.sport_id === parseInt(filterSport) ||
@@ -472,22 +502,34 @@ export default function StudentsPanel() {
               <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
+                    <label className="text-sm font-semibold text-muted">Student ID</label>
+                    <p>{studentDetails?.student?.student_id || selectedStudent?.student_id || '—'}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-semibold text-muted">Full Name</label>
                     <p className="text-lg">
                       {[
                         studentDetails?.student?.first_name,
                         studentDetails?.student?.middle_name,
                         studentDetails?.student?.last_name
-                      ].filter(Boolean).join(' ') || studentDetails?.student?.name || '—'}
+                      ].filter(Boolean).join(' ') || studentDetails?.student?.name || selectedStudent?.name || '—'}
                     </p>
                   </div>
                   <div>
+                    <label className="text-sm font-semibold text-muted">Email</label>
+                    <p>{studentDetails?.student?.parent_email || selectedStudent?.parent_email || '—'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-muted">Phone</label>
+                    <p>{studentDetails?.student?.phone || selectedStudent?.phone || '—'}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-semibold text-muted">Age</label>
-                    <p>{studentDetails?.student?.age || '—'}</p>
+                    <p>{studentDetails?.student?.age || selectedStudent?.age || '—'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-muted">Gender</label>
-                    <p>{studentDetails?.student?.gender || '—'}</p>
+                    <p>{normalizeGender(studentDetails?.student?.gender || selectedStudent?.gender)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-muted">Blood Group</label>
@@ -495,11 +537,16 @@ export default function StudentsPanel() {
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-muted">Joining Date</label>
-                    <p>{studentDetails?.student?.joining_date ? new Date(studentDetails.student.joining_date).toLocaleDateString() : '—'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-muted">Phone</label>
-                    <p>{studentDetails?.student?.phone || '—'}</p>
+                    <p>
+                      {(() => {
+                        try {
+                          const date = studentDetails?.student?.joining_date || selectedStudent?.joining_date;
+                          return date ? new Date(date).toLocaleDateString() : '—';
+                        } catch (e) {
+                          return '—';
+                        }
+                      })()}
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-muted">Parent Name</label>
@@ -513,56 +560,132 @@ export default function StudentsPanel() {
                     <label className="text-sm font-semibold text-muted">Parent Phone</label>
                     <p>{studentDetails?.student?.parent_phone || '—'}</p>
                   </div>
+                  <div>
+                    <label className="text-sm font-semibold text-muted">Fee Status</label>
+                    <p>{studentDetails?.student?.fees_status || selectedStudent?.fees_status || '—'}</p>
+                  </div>
                 </div>
-                {studentDetails?.enrollments && Array.isArray(studentDetails.enrollments) && studentDetails.enrollments.length > 0 && (
+                {studentDetails?.enrollments && Array.isArray(studentDetails.enrollments) && studentDetails.enrollments.length > 0 ? (
                   <div className="mt-4">
                     <h4 className="mb-2 font-semibold">Enrollments</h4>
                     <div className="space-y-2">
-                      {(studentDetails.enrollments || []).map((enrollment) => (
-                        <div key={enrollment?.enrollment_id || enrollment?.id} className="rounded bg-muted p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold">
-                              {typeof enrollment?.sport === 'string' ? enrollment.sport : (enrollment?.sport?.name || 'Unassigned')}
-                            </span>
-                            <span className="text-sm text-muted">
-                              {typeof enrollment?.batch === 'string' ? enrollment.batch : (enrollment?.batch?.name || 'N/A')}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-sm">
-                            <p>Duration Plan: {enrollment?.duration_plan?.name || enrollment?.durationPlan?.name || 'No plan'}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="mt-4 p-4 rounded-lg border bg-accent/10 border-accent/20">
-                  <h4 className="mb-3 font-bold text-accent">Financial Accounts Matrix</h4>
-                  {studentDetails?.enrollments && Array.isArray(studentDetails.enrollments) && studentDetails.enrollments.length > 0 ? (
-                    <div className="space-y-2 text-sm">
-                      {(studentDetails.enrollments || []).map((enrollment) => {
-                        const regFee = parseFloat(enrollment?.registration_fee || enrollment?.registrationFee || 0) || 0;
-                        const addCharges = parseFloat(enrollment?.additional_charges || enrollment?.additionalCharges || 0) || 0;
-                        const discount = parseFloat(enrollment?.discount || 0) || 0;
-                        const netDue = Math.max(0, (regFee + addCharges) - discount);
+                      {studentDetails.enrollments.map((enrollment, idx) => {
+                        const enrollmentId = enrollment?.enrollment_id || enrollment?.id || idx;
+                        const sportName = typeof enrollment?.sport === 'string' 
+                          ? enrollment.sport 
+                          : (enrollment?.sport?.name || enrollment?.sport || 'Unassigned');
+                        const batchName = typeof enrollment?.batch === 'string' 
+                          ? enrollment.batch 
+                          : (enrollment?.batch?.name || enrollment?.batch || 'N/A');
+                        const planName = enrollment?.duration_plan?.name || enrollment?.durationPlan?.name || 'No plan';
+                        
                         return (
-                          <div key={enrollment?.enrollment_id || enrollment?.id} className="border-b pb-2 last:border-0">
-                            <p className="font-semibold">
-                              {typeof enrollment?.sport === 'string' ? enrollment.sport : (enrollment?.sport?.name || 'Unassigned')}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                              <span>Registration: ${regFee.toFixed(2)}</span>
-                              <span>Additional: ${addCharges.toFixed(2)}</span>
-                              <span>Discount: -${discount.toFixed(2)}</span>
-                              <span className="font-bold text-success">Net Due: ${netDue.toFixed(2)}</span>
+                          <div key={enrollmentId} className="rounded bg-muted p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold">{sportName}</span>
+                              <span className="text-sm text-muted">{batchName}</span>
+                            </div>
+                            <div className="mt-2 text-sm">
+                              <p>Duration Plan: {planName}</p>
                             </div>
                           </div>
                         );
                       })}
                     </div>
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <h4 className="mb-2 font-semibold">Enrollments</h4>
+                    <p className="text-muted">No enrollment data available</p>
+                  </div>
+                )}
+                <div className="mt-4 p-4 rounded-lg border bg-accent/10 border-accent/20">
+                  <h4 className="mb-3 font-bold text-accent">Financial Accounts Matrix</h4>
+                  {studentDetails?.enrollments && Array.isArray(studentDetails.enrollments) && studentDetails.enrollments.length > 0 ? (
+                    <>
+                      {/* Combined Financial Summary */}
+                      <div className="mb-4 p-3 rounded-lg bg-accent/20 border border-accent/30">
+                        <h5 className="mb-2 font-semibold text-accent">Combined Financial Summary</h5>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Total Registration Fee:</span>
+                            <span className="font-semibold">${formatCurrency(
+                              studentDetails.enrollments.reduce((sum, e) => sum + (Number(e?.registration_fee || e?.registrationFee || 0) || 0), 0)
+                            )}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Total Monthly Fee:</span>
+                            <span className="font-semibold">${formatCurrency(
+                              studentDetails.enrollments.reduce((sum, e) => sum + (Number(e?.monthly_fee || e?.monthlyFee || 0) || 0), 0)
+                            )}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Total Additional Charges:</span>
+                            <span className="font-semibold">${formatCurrency(
+                              studentDetails.enrollments.reduce((sum, e) => sum + (Number(e?.additional_charges || e?.additionalCharges || 0) || 0), 0)
+                            )}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Total Discount:</span>
+                            <span className="font-semibold text-danger">-${formatCurrency(
+                              studentDetails.enrollments.reduce((sum, e) => sum + (Number(e?.discount || 0) || 0), 0)
+                            )}</span>
+                          </div>
+                          <div className="col-span-2 flex justify-between border-t border-accent/30 pt-2 mt-2">
+                            <span className="font-bold text-accent">Grand Total Due:</span>
+                            <span className="font-bold text-success text-lg">${formatCurrency(
+                              studentDetails.enrollments.reduce((sum, e) => {
+                                const regFee = Number(e?.registration_fee || e?.registrationFee || 0) || 0;
+                                const monthlyFee = Number(e?.monthly_fee || e?.monthlyFee || 0) || 0;
+                                const addCharges = Number(e?.additional_charges || e?.additionalCharges || 0) || 0;
+                                const discount = Number(e?.discount || 0) || 0;
+                                return sum + Math.max(0, regFee + monthlyFee + addCharges - discount);
+                              }, 0)
+                            )}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sport-wise Breakdown */}
+                      <div className="space-y-2 text-sm">
+                        <h5 className="font-semibold text-muted text-xs uppercase tracking-wider">Sport-wise Breakdown</h5>
+                        {studentDetails.enrollments.map((enrollment, idx) => {
+                          const enrollmentId = enrollment?.enrollment_id || enrollment?.id || idx;
+                          const regFee = parseFloat(enrollment?.registration_fee || enrollment?.registrationFee || 0) || 0;
+                          const monthlyFee = parseFloat(enrollment?.monthly_fee || enrollment?.monthlyFee || 0) || 0;
+                          const addCharges = parseFloat(enrollment?.additional_charges || enrollment?.additionalCharges || 0) || 0;
+                          const discount = parseFloat(enrollment?.discount || 0) || 0;
+                          const netDue = Math.max(0, regFee + monthlyFee + addCharges - discount);
+                          const sportName = typeof enrollment?.sport === 'string' 
+                            ? enrollment.sport 
+                            : (enrollment?.sport?.name || enrollment?.sport || 'Unassigned');
+                          
+                          return (
+                            <div key={enrollmentId} className="border-b pb-2 last:border-0">
+                              <p className="font-semibold">{sportName}</p>
+                              <div className="grid grid-cols-2 gap-2 mt-1">
+                                <span>Registration: ${formatCurrency(regFee)}</span>
+                                <span>Monthly: ${formatCurrency(monthlyFee)}</span>
+                                <span>Additional: ${formatCurrency(addCharges)}</span>
+                                <span>Discount: -${formatCurrency(discount)}</span>
+                                <span className="col-span-2 font-bold text-success">Net Due: ${formatCurrency(netDue)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   ) : (
                     <p className="text-muted">No enrollment data available</p>
                   )}
+                </div>
+                <div className="mt-4 p-4 rounded-lg border bg-muted/10 border-muted/20">
+                  <h4 className="mb-3 font-bold">Attendance Summary</h4>
+                  <p className="text-muted">Attendance data not available in current view</p>
+                </div>
+                <div className="mt-4 p-4 rounded-lg border bg-muted/10 border-muted/20">
+                  <h4 className="mb-3 font-bold">Payment History</h4>
+                  <p className="text-muted">Payment history not available in current view</p>
                 </div>
               </div>
             ) : (
@@ -581,6 +704,7 @@ export default function StudentsPanel() {
                     <th className="pb-3">Name</th>
                     <th className="pb-3 px-2">Sports</th>
                     <th className="pb-3 px-2">Batch</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Status</th>
                     <th className="pb-3 px-2">Fees</th>
                     <th className="pb-3 px-2">Actions</th>
                   </tr>
@@ -588,7 +712,7 @@ export default function StudentsPanel() {
                 <tbody className="divide-y divide-border">
                   {filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-muted text-xs">No active students found.</td>
+                      <td colSpan={6} className="py-8 text-center text-muted text-xs">No active students found.</td>
                     </tr>
                   ) : (
                     filteredStudents.map((student, index) => {
@@ -636,18 +760,35 @@ export default function StudentsPanel() {
                             )}
                           </td>
                           <td className="text-muted">{student.batch?.name || '—'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/50 tracking-wide uppercase">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-950 text-rose-400 border border-rose-800/50 tracking-wide uppercase">
+                                INACTIVE
+                              </span>
+                            )}
+                          </td>
                           <td>
                             <span className={`rounded px-2 py-0.5 text-xs font-bold ${feeStatusLabel === 'Paid' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'}`}>
                               {feeStatusLabel}
                             </span>
                           </td>
                         <td className="space-x-1" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(student.student_id)}>
-                            Mark Active
+                          <button type="button" className="btn-secondary btn-sm border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleStudentClick(student)}>
+                            Profile
                           </button>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(student.student_id)}>
-                            Deactivate
-                          </button>
+                          {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                            <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(student.student_id)}>
+                              Deactivate
+                            </button>
+                          ) : (
+                            <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(student.student_id)}>
+                              Mark Active
+                            </button>
+                          )}
                           <button type="button" className="btn-danger btn-sm" onClick={() => handleRemove(student.student_id)}>
                             Remove
                           </button>
@@ -871,7 +1012,7 @@ export default function StudentsPanel() {
                 <div className="space-y-2 text-sm text-foreground">
                   <div className="flex justify-between">
                     <span>Sports Base Fee:</span>
-                    <span className="font-semibold">${calculateLiveFee().totalSportsFee.toFixed(2)}</span>
+                    <span className="font-semibold">${formatCurrency(calculateLiveFee().totalSportsFee)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Plan Multiplier:</span>
@@ -879,23 +1020,23 @@ export default function StudentsPanel() {
                   </div>
                   <div className="flex justify-between">
                     <span>Sports Fee (with multiplier):</span>
-                    <span className="font-semibold">${calculateLiveFee().sportsFeeWithMultiplier.toFixed(2)}</span>
+                    <span className="font-semibold">${formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Registration Fee:</span>
-                    <span className="font-semibold">${calculateLiveFee().registrationFee.toFixed(2)}</span>
+                    <span className="font-semibold">${formatCurrency(calculateLiveFee().registrationFee)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Additional Charges:</span>
-                    <span className="font-semibold">${calculateLiveFee().additionalCharges.toFixed(2)}</span>
+                    <span className="font-semibold">${formatCurrency(calculateLiveFee().additionalCharges)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Discount:</span>
-                    <span className="font-semibold text-danger">-${calculateLiveFee().discount.toFixed(2)}</span>
+                    <span className="font-semibold text-danger">-${formatCurrency(calculateLiveFee().discount)}</span>
                   </div>
                   <div className="mt-2 flex justify-between border-t border-accent/20 pt-2">
                     <span className="font-bold">Final Fee:</span>
-                    <span className="font-bold text-success text-lg">${calculateLiveFee().finalFee.toFixed(2)}</span>
+                    <span className="font-bold text-success text-lg">${formatCurrency(calculateLiveFee().finalFee)}</span>
                   </div>
                 </div>
               </div>
@@ -1266,7 +1407,7 @@ export default function StudentsPanel() {
                         </div>
                         <div>
                           <label className="text-sm font-semibold text-muted">Gender</label>
-                          <p>{studentDetails.student.gender || '—'}</p>
+                          <p>{normalizeGender(studentDetails.student.gender)}</p>
                         </div>
                         <div>
                           <label className="text-sm font-semibold text-muted">Blood Group</label>
@@ -1293,7 +1434,7 @@ export default function StudentsPanel() {
                                 <span className="text-sm text-muted">{enrollment.duration_plan?.name || 'No plan'}</span>
                               </div>
                               <div className="mt-2 text-sm">
-                                <p>Final Fee: ${enrollment.final_fee?.toFixed(2) || '0'}</p>
+                                <p>Final Fee: ${formatCurrency(enrollment.final_fee)}</p>
                                 <p>Next Due: {enrollment.next_due_date ? new Date(enrollment.next_due_date).toLocaleDateString() : '—'}</p>
                               </div>
                             </div>
@@ -1322,7 +1463,7 @@ export default function StudentsPanel() {
                               </span>
                             </div>
                             <div className="mt-2 text-sm">
-                              <p>Amount: ${receipt.amount?.toFixed(2) || '0'}</p>
+                              <p>Amount: ${formatCurrency(receipt.amount)}</p>
                               <p>Date: {new Date(receipt.payment_date).toLocaleDateString()}</p>
                               <p>Method: {receipt.method || '—'}</p>
                             </div>
@@ -1474,7 +1615,7 @@ export default function StudentsPanel() {
                 <h4 className="text-xs font-bold uppercase tracking-wider text-accent">Personal Information</h4>
               </div>
               <div><span className="font-semibold text-muted block">Full Name:</span> {selectedStudentForView?.name || `${selectedStudentForView?.firstName || ''} ${selectedStudentForView?.middleName || ''} ${selectedStudentForView?.lastName || ''}`}</div>
-              <div><span className="font-semibold text-muted block">Age / Gender:</span> {selectedStudentForView?.age || '—'} years / {selectedStudentForView?.gender || '—'}</div>
+              <div><span className="font-semibold text-muted block">Age / Gender:</span> {selectedStudentForView?.age || '—'} years / {normalizeGender(selectedStudentForView?.gender)}</div>
               <div><span className="font-semibold text-muted block">Blood Group:</span> {selectedStudentForView?.blood_group || selectedStudentForView?.bloodGroup || 'Not Provided'}</div>
               <div><span className="font-semibold text-muted block">Joining Date:</span> {selectedStudentForView?.joining_date ? new Date(selectedStudentForView.joining_date).toLocaleDateString() : '—'}</div>
 
@@ -1528,41 +1669,41 @@ export default function StudentsPanel() {
                     <div className="space-y-2 border-t pt-3 mt-2 text-sm text-foreground">
                       <div className="flex justify-between">
                         <span>Sports Base Fee:</span>
-                        <span className="font-medium">${rawBaseSportsFee.toFixed(2)}</span>
+                        <span className="font-medium">${formatCurrency(rawBaseSportsFee)}</span>
                       </div>
                       <div className="flex justify-between text-xs text-muted pl-2">
                         <span>Plan Multiplier / Duration:</span>
-                        <span className="font-medium">{dynamicMultiplier.toFixed(1)}x ({durationPlanName})</span>
+                        <span className="font-medium">{Number.isFinite(Number(dynamicMultiplier)) ? Number(dynamicMultiplier).toFixed(1) : '1.0'}x ({durationPlanName})</span>
                       </div>
                       <div className="flex justify-between font-medium text-foreground bg-surface-secondary p-1 rounded transition-all duration-300 ease-in-out">
                         <span>Sports Fee (with multiplier):</span>
-                        <span>${totalMultipliedSportsFee.toFixed(2)}</span>
+                        <span>${formatCurrency(totalMultipliedSportsFee)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Registration Fee:</span>
-                        <span>${regFeeAmount.toFixed(2)}</span>
+                        <span>${formatCurrency(regFeeAmount)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Additional Surcharges:</span>
-                        <span>${additionalSurchargesAmount.toFixed(2)}</span>
+                        <span>${formatCurrency(additionalSurchargesAmount)}</span>
                       </div>
                       <div className="flex justify-between text-danger">
                         <span>Applied Discount:</span>
-                        <span>-${appliedDiscountAmount.toFixed(2)}</span>
+                        <span>-${formatCurrency(appliedDiscountAmount)}</span>
                       </div>
 
                       <div className="flex justify-between border-t pt-2 mt-2 font-semibold text-foreground bg-surface-secondary p-1.5 rounded transition-all duration-300 ease-in-out">
                         <span>Total Computed Fee (Decided):</span>
-                        <span>${accurateTotalComputedFee.toFixed(2)}</span>
+                        <span>${formatCurrency(accurateTotalComputedFee)}</span>
                       </div>
                       <div className="flex justify-between text-success font-medium transition-all duration-300 ease-in-out">
                         <span>Amount Paid (Accounts Section):</span>
-                        <span>-${dynamicAmountPaidFromLedger.toFixed(2)}</span>
+                        <span>-${formatCurrency(dynamicAmountPaidFromLedger)}</span>
                       </div>
                       <div className="flex justify-between border-t pt-2 text-base font-bold">
                         <span>Total Balance Due:</span>
                         <span className={finalOutstandingDuesBalance > 0 ? "text-danger" : "text-success"}>
-                          ${finalOutstandingDuesBalance.toFixed(2)} ({conditionalFeeStatusString})
+                          ${formatCurrency(finalOutstandingDuesBalance)} ({conditionalFeeStatusString})
                         </span>
                       </div>
                     </div>

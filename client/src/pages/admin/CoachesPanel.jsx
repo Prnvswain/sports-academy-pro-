@@ -212,12 +212,15 @@ export default function CoachesPanel() {
                       </span>
                     </td>
                     <td className="py-3 pl-2 text-right space-x-1">
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(coach.coach_id)}>
-                        Mark Active
-                      </button>
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(coach.coach_id)}>
-                        Deactivate
-                      </button>
+                      {coach.status === 'ACTIVE' ? (
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(coach.coach_id)}>
+                          Deactivate
+                        </button>
+                      ) : (
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(coach.coach_id)}>
+                          Mark Active
+                        </button>
+                      )}
                       <button type="button" className="btn-danger btn-sm" onClick={() => handleRemove(coach.coach_id)}>
                         Remove
                       </button>

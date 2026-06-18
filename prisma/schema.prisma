@@ -514,22 +514,49 @@ model PerformanceScore {
 
 // ─── Enquiries ───────────────────────────────────────────────────────────────
 
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  TRIAL_SCHEDULED
+  TRIAL_COMPLETED
+  CONVERTED
+  CLOSED
+  NOT_INTERESTED
+}
+
+enum EnquirySource {
+  WALK_IN
+  PHONE
+  WEBSITE
+  WHATSAPP
+  REFERRAL
+  SOCIAL_MEDIA
+}
+
 model Enquiry {
-  enquiry_id Int      @id @default(autoincrement())
-  academy_id Int?
-  name       String
-  email      String
-  phone      String?
-  subject    String
-  message    String   @db.Text
-  status     String   @default("New")
-  remarks    String?  @db.Text
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  enquiry_id      Int            @id @default(autoincrement())
+  academy_id      Int?
+  student_name    String
+  parent_name     String?
+  phone           String
+  email           String?
+  sport_interested String?
+  age             Int?
+  gender          String?
+  enquiry_source  EnquirySource?
+  enquiry_date    DateTime       @default(now())
+  follow_up_date  DateTime?
+  status          EnquiryStatus  @default(NEW)
+  notes           String?        @db.Text
+  converted_to_student_id Int?
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
 
   academy Academy? @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade)
 
   @@index([academy_id, created_at])
+  @@index([academy_id, status])
+  @@index([follow_up_date])
   @@map("enquiries")
 }
 

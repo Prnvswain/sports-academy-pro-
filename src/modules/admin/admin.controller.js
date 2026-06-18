@@ -64,6 +64,43 @@ export const createSport = async (req, res, next) => {
   }
 };
 
+export const updateSportStatus = async (req, res, next) => {
+  try {
+    console.log('[updateSportStatus] Request received:', {
+      method: req.method,
+      url: req.originalUrl,
+      params: req.params,
+      body: req.body,
+      academy_id: req.user.academy_id
+    });
+    const sport = await adminService.updateSportStatus(
+      req.user.academy_id,
+      req.params.id,
+      req.body
+    );
+    res.json(successResponse('Sport status updated successfully', sport));
+  } catch (err) {
+    console.error('[updateSportStatus] Error:', err);
+    next(err);
+  }
+};
+
+export const deleteSport = async (req, res, next) => {
+  try {
+    console.log('[deleteSport] Request received:', {
+      method: req.method,
+      url: req.originalUrl,
+      params: req.params,
+      academy_id: req.user.academy_id
+    });
+    await adminService.deleteSport(req.user.academy_id, req.params.id);
+    res.json(successResponse('Sport deleted successfully', {}));
+  } catch (err) {
+    console.error('[deleteSport] Error:', err);
+    next(err);
+  }
+};
+
 export const getAllCoaches = async (req, res, next) => {
   try {
     const coaches = await adminService.getAllCoaches(req.user.academy_id);

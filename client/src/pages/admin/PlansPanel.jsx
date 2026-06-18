@@ -3,6 +3,11 @@ import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminDelete } from '../../api/client';
 
+const formatCurrency = (value) =>
+  Number.isFinite(Number(value))
+    ? Number(value).toFixed(2)
+    : '0.00';
+
 const emptyPlanForm = {
   name: '',
   duration_months: '',
@@ -162,7 +167,7 @@ export default function PlansPanel() {
                     >
                       <td className="py-3 font-medium">{plan?.name}</td>
                       <td className="py-3 px-2 text-muted">{plan?.duration_months} Month(s)</td>
-                      <td className="py-3 px-2">{Number(plan?.multiplier || 1).toFixed(2)}x</td>
+                      <td className="py-3 px-2">{Number.isFinite(Number(plan?.multiplier || 1)) ? Number(plan?.multiplier || 1).toFixed(2) : '1.00'}x</td>
                       <td className="py-3 px-2 text-right">
                         <button
                           onClick={() => handleDeletePlan(plan?.plan_id)}
