@@ -14,19 +14,17 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'accounts', label: 'Accounts', icon: '💳' },
   { path: 'performance', label: 'Performance Tracker', icon: '📈' },
   { path: 'enquiries', label: 'Enquiries Desk', icon: '✉️' },
-  { path: 'reports', label: 'Reports', icon: '📄' }
+  { path: 'reports', label: 'Reports', icon: '📄' },
 ];
 
-const PAGE_TITLES = Object.fromEntries(
-  ADMIN_NAV_ITEMS.map((item) => [item.path, item.label])
-);
+const PAGE_TITLES = Object.fromEntries(ADMIN_NAV_ITEMS.map((item) => [item.path, item.label]));
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
+    () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
 
   const section = location.pathname.split('/')[2] || 'dashboard';
@@ -44,16 +42,19 @@ export default function AdminLayout() {
   const closeMobileSidebar = () => setSidebarOpen(false);
 
   return (
-    <div className="flex min-h-screen bg-surface">
+    <div className="bg-surface flex min-h-screen">
       <motion.aside
         initial={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         animate={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-surface-secondary transition-all duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`border-border bg-surface-secondary fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-all duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <Link to="/" className="flex items-center gap-2 font-extrabold text-foreground no-underline">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-xs text-white">
+        <div className="border-border flex items-center justify-between border-b p-4">
+          <Link
+            to="/"
+            className="text-foreground flex items-center gap-2 font-extrabold no-underline"
+          >
+            <span className="bg-accent text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs">
               SA
             </span>
             <motion.span
@@ -83,6 +84,7 @@ export default function AdminLayout() {
               to={`/admin/${item.path}`}
               end
               title={sidebarCollapsed ? item.label : undefined}
+              data-nav={item.path}
               className={({ isActive }) =>
                 `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${sidebarCollapsed ? 'justify-center px-2' : ''}`
               }
@@ -106,14 +108,14 @@ export default function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-border p-3">
+        <div className="border-border border-t p-3">
           <motion.button
             type="button"
             className="btn-secondary mb-2 w-full text-center"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <Link to="/" className="no-underline text-foreground">
+            <Link to="/" className="text-foreground no-underline">
               Back to Home
             </Link>
           </motion.button>
@@ -150,7 +152,7 @@ export default function AdminLayout() {
         transition={{ duration: 0.3, ease: 'easeInOut' }}
         className={`flex min-w-0 flex-1 flex-col lg:ml-[4.5rem] lg:transition-all lg:duration-300`}
       >
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-surface/95 px-4 backdrop-blur lg:px-8">
+        <header className="border-border bg-surface/95 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur lg:px-8">
           <div className="flex items-center gap-3">
             <motion.button
               type="button"

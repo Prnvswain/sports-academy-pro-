@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { publicPost } from '../../api/client';
 
-export default function IntakeForm() {
+const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'];
+
+const SOURCE_OPTIONS = ['WALK_IN', 'PHONE', 'WEBSITE', 'WHATSAPP', 'REFERRAL', 'SOCIAL_MEDIA'];
+
+export default function PublicEnquiryForm() {
+  const today = new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     message: '',
+    parent_name: '',
+    age: '',
+    gender: '',
+    enquiry_source: '',
+    follow_up_date: today,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -20,13 +30,29 @@ export default function IntakeForm() {
     setLoading(true);
     setMessage({ text: '', type: '' });
 
+    // Fallback: if follow_up_date is cleared, use today's date
+    const submissionData = {
+      ...formData,
+      follow_up_date: formData.follow_up_date || today,
+    };
+
     try {
-      const result = await publicPost('/public/enquiry', formData);
+      await publicPost('/public/enquiry', submissionData);
       setMessage({
         text: 'Thank you for your inquiry! We will get back to you soon.',
         type: 'success',
       });
-      setFormData({ name: '', email: '', phone: '', message: '' });
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        message: '',
+        parent_name: '',
+        age: '',
+        gender: '',
+        enquiry_source: '',
+        follow_up_date: today,
+      });
     } catch (error) {
       setMessage({
         text: error.message || 'Failed to submit inquiry. Please try again.',
@@ -39,11 +65,11 @@ export default function IntakeForm() {
 
   return (
     <div className="bg-surface flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         <div className="card bg-surface-secondary border-border border p-8 shadow-xl">
           <div className="mb-8 text-center">
             <h1 className="text-foreground mb-2 text-3xl font-black tracking-tight">
-              Sports Academy Inquiry
+              Sports Academy Enquiry
             </h1>
             <p className="text-muted text-sm">
               Join our elite training programs. Submit your details below.
@@ -62,10 +88,10 @@ export default function IntakeForm() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label" htmlFor="name">
-                Full Name
+                Name *
               </label>
               <input
                 type="text"
@@ -74,14 +100,14 @@ export default function IntakeForm() {
                 value={formData.name}
                 onChange={handleChange}
                 className="input-field"
-                placeholder="Enter your full name"
+                placeholder="Enter your name"
                 required
               />
             </div>
 
             <div>
               <label className="label" htmlFor="email">
-                Email Address
+                Email Address *
               </label>
               <input
                 type="email"
@@ -111,8 +137,96 @@ export default function IntakeForm() {
             </div>
 
             <div>
+              <label className="label" htmlFor="parent_name">
+                Parent Name
+              </label>
+              <input
+                type="text"
+                id="parent_name"
+                name="parent_name"
+                value={formData.parent_name}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Parent/Guardian name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label" htmlFor="age">
+                  Age
+                </label>
+                <input
+                  type="number"
+                  id="age"
+                  name="age"
+                  value={formData.age}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="Age"
+                  min="1"
+                  max="100"
+                />
+              </div>
+
+              <div>
+                <label className="label" htmlFor="gender">
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="input-field"
+                >
+                  <option value="">Select</option>
+                  {GENDER_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="label" htmlFor="enquiry_source">
+                How did you hear about us?
+              </label>
+              <select
+                id="enquiry_source"
+                name="enquiry_source"
+                value={formData.enquiry_source}
+                onChange={handleChange}
+                className="input-field"
+              >
+                <option value="">Select source</option>
+                {SOURCE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label" htmlFor="follow_up_date">
+                Preferred Follow-up Date
+              </label>
+              <input
+                type="date"
+                id="follow_up_date"
+                name="follow_up_date"
+                value={formData.follow_up_date}
+                onChange={handleChange}
+                className="input-field"
+              />
+            </div>
+
+            <div>
               <label className="label" htmlFor="message">
-                Your Message
+                Message *
               </label>
               <textarea
                 id="message"
@@ -120,7 +234,7 @@ export default function IntakeForm() {
                 value={formData.message}
                 onChange={handleChange}
                 className="input-field min-h-[120px] resize-none"
-                placeholder="Tell us about your training goals, preferred sports, or any questions..."
+                placeholder="Tell us about your inquiry..."
                 required
               />
             </div>
@@ -130,7 +244,7 @@ export default function IntakeForm() {
               disabled={loading}
               className="bg-accent hover:bg-accent-hover text-foreground shadow-accent/10 w-full rounded-xl px-6 py-3.5 text-sm font-bold shadow-md transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : 'Submit Inquiry'}
+              {loading ? 'Submitting...' : 'Submit Enquiry'}
             </button>
           </form>
 

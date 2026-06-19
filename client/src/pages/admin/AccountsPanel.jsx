@@ -9,7 +9,7 @@ const emptyReceiptForm = {
   discount: '',
   additional_charges: '',
   payment_method: 'cash',
-  payment_date: new Date().toISOString().split('T')[0]
+  payment_date: new Date().toISOString().split('T')[0],
 };
 
 export default function AccountsPanel() {
@@ -29,17 +29,20 @@ export default function AccountsPanel() {
   const [filterMethod, setFilterMethod] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [studentsRes, receiptsRes, pendingDuesRes, revenueSummaryRes, durationPlansRes] = await Promise.all([
-        adminGet('/admin/students'),
-        adminGet('/admin/accounts/receipts'),
-        adminGet('/admin/accounts/pending-dues'),
-        adminGet('/admin/accounts/revenue-summary'),
-        adminGet('/admin/duration-plans')
-      ]);
+      const [studentsRes, receiptsRes, pendingDuesRes, revenueSummaryRes, durationPlansRes] =
+        await Promise.all([
+          adminGet('/admin/students'),
+          adminGet('/admin/accounts/receipts'),
+          adminGet('/admin/accounts/pending-dues'),
+          adminGet('/admin/accounts/revenue-summary'),
+          adminGet('/admin/duration-plans'),
+        ]);
       const studentsData = studentsRes.data?.data || studentsRes.data || [];
       setStudents(Array.isArray(studentsData) ? studentsData : []);
       const receiptsData = receiptsRes.data?.data || receiptsRes.data || [];
@@ -70,82 +73,115 @@ export default function AccountsPanel() {
   };
 
   const handleStudentSelection = async (studentId) => {
-    console.log("DEBUG: Selected Student ID changed to:", studentId);
+    console.log('DEBUG: Selected Student ID changed to:', studentId);
 
-    setReceiptForm(prev => ({ ...prev, student_id: studentId }));
+    setReceiptForm((prev) => ({ ...prev, student_id: studentId }));
+
+    const selectedStudent = (students || []).find(
+      (s) =>
+        s?.student_id?.toString() === studentId.toString() ||
+        s?.id?.toString() === studentId.toString(),
+    );
+
+    if (selectedStudent) {
+      setStudentSearchQuery(
+        selectedStudent?.name ||
+          `${selectedStudent?.firstName || ''} ${selectedStudent?.lastName || ''}`,
+      );
+    }
 
     if (!studentId) {
       setPendingAmount(null);
       setPendingFee(null);
       setStudentLedger(null);
+      setStudentSearchQuery('');
       return;
     }
 
     try {
       const result = await adminGet(`/admin/accounts/student-ledger/${studentId}`);
       if (result && result.data) {
-        const remainingAmount = result.data.remaining || result.data.balance_outstanding || result.data.pendingFee || 0;
+        const remainingAmount =
+          result.data.remaining || result.data.balance_outstanding || result.data.pendingFee || 0;
         setPendingFee(remainingAmount);
         setPendingAmount(remainingAmount);
         setStudentLedger(result.data?.data || result.data);
-        setReceiptForm(prev => ({ ...prev, amount_paid: remainingAmount.toString() }));
+        setReceiptForm((prev) => ({ ...prev, amount_paid: remainingAmount.toString() }));
         return;
       }
     } catch (error) {
-      console.warn("Backend ledger route unavailable, using local array fallback...", error);
+      console.warn('Backend ledger route unavailable, using local array fallback...', error);
     }
 
-    const selectedStudent = (students || []).find(s =>
-      s?.student_id?.toString() === studentId.toString() ||
-      s?.id?.toString() === studentId.toString()
-    );
-
     if (selectedStudent) {
-      // CORRECT DYNAMIC ASSIGNED FEES LOGIC
+      // CORRECT DYNAMIC ASSIGNED FEES LOGIC (Kept fully original)
       const activeSelectedStudent = selectedStudent;
-      const activeStudentPlan = activeSelectedStudent?.duration_plan || activeSelectedStudent?.durationPlan || "";
+      const activeStudentPlan =
+        activeSelectedStudent?.duration_plan || activeSelectedStudent?.durationPlan || '';
       const safePlansArray = durationPlans || [];
-      
+
       // 1. Look up the live duration plan multiplier from the database
-      const matchedPlanConfig = safePlansArray.find(p => p?.name === activeStudentPlan || p?._id === activeStudentPlan || p?.plan_id === activeStudentPlan || p?.id === activeStudentPlan);
-      
+      const matchedPlanConfig = safePlansArray.find(
+        (p) =>
+          p?.name === activeStudentPlan ||
+          p?._id === activeStudentPlan ||
+          p?.plan_id === activeStudentPlan ||
+          p?.id === activeStudentPlan,
+      );
+
       // 2. Resolve multiplier fallback gracefully
-      const activeMultiplier = matchedPlanConfig ? parseFloat(matchedPlanConfig.multiplier || 1) : parseFloat(activeSelectedStudent?.plan_multiplier || 1);
-      
+      const activeMultiplier = matchedPlanConfig
+        ? parseFloat(matchedPlanConfig.multiplier || 1)
+        : parseFloat(activeSelectedStudent?.plan_multiplier || 1);
+
       // 3. Compute accurate full multi-factor fee assigned at registration
-      const baseSportsCost = parseFloat(activeSelectedStudent?.sports_base_fee || activeSelectedStudent?.sportsBaseFee || 0);
+      const baseSportsCost = parseFloat(
+        activeSelectedStudent?.sports_base_fee || activeSelectedStudent?.sportsBaseFee || 0,
+      );
       const finalMultipliedSportsFee = baseSportsCost * activeMultiplier;
-      
-      const regFeeAmount = parseFloat(activeSelectedStudent?.registration_fee || activeSelectedStudent?.registrationFee || 0);
-      const additionalSurchargesAmount = parseFloat(activeSelectedStudent?.additional_charges || activeSelectedStudent?.additionalCharges || 0);
+
+      const regFeeAmount = parseFloat(
+        activeSelectedStudent?.registration_fee || activeSelectedStudent?.registrationFee || 0,
+      );
+      const additionalSurchargesAmount = parseFloat(
+        activeSelectedStudent?.additional_charges || activeSelectedStudent?.additionalCharges || 0,
+      );
       const appliedDiscountAmount = parseFloat(activeSelectedStudent?.discount || 0);
-      
+
       // Dynamic assigned threshold
-      const accurateTotalFeesAssigned = finalMultipliedSportsFee + regFeeAmount + additionalSurchargesAmount - appliedDiscountAmount;
+      const accurateTotalFeesAssigned =
+        finalMultipliedSportsFee +
+        regFeeAmount +
+        additionalSurchargesAmount -
+        appliedDiscountAmount;
 
       // AGGREGATE TOTAL PAID FEES CORRECTLY
       const aggregatedPayments = (receipts || [])
-        .filter(p => (p.student_id?.toString() === studentId.toString() || p.student?.student_id?.toString() === studentId.toString()) && p.status?.toUpperCase() === 'COMPLETED')
+        .filter(
+          (p) =>
+            (p.student_id?.toString() === studentId.toString() ||
+              p.student?.student_id?.toString() === studentId.toString()) &&
+            p.status?.toUpperCase() === 'COMPLETED',
+        )
         .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
       // ENFORCE LOGICAL CONSTRAINT CAP (Safety Shield)
-      // Paid fees can never be greater than assigned fees
       const finalFeesPaidDisplayed = Math.min(aggregatedPayments, accurateTotalFeesAssigned);
-      
+
       // Calculate the true remaining pending balance
       const finalLivePendingDues = Math.max(0, accurateTotalFeesAssigned - finalFeesPaidDisplayed);
 
       setPendingAmount(finalLivePendingDues);
       setPendingFee(finalLivePendingDues);
-      
+
       // Update student ledger with corrected values
       setStudentLedger({
         total_fee_due: accurateTotalFeesAssigned,
         total_paid: finalFeesPaidDisplayed,
-        balance_outstanding: finalLivePendingDues
+        balance_outstanding: finalLivePendingDues,
       });
-      
-      setReceiptForm(prev => ({ ...prev, amount_paid: finalLivePendingDues.toString() }));
+
+      setReceiptForm((prev) => ({ ...prev, amount_paid: finalLivePendingDues.toString() }));
     } else {
       setPendingAmount(0);
       setPendingFee(0);
@@ -154,7 +190,7 @@ export default function AccountsPanel() {
   };
 
   const calculateFinalAmount = () => {
-    const baseAmount = parseFloat(studentLedger?.total_fee_due || pendingAmount || 0) || 0;
+    const baseAmount = parseFloat(receiptForm?.amount_paid || 0) || 0;
     const additionalCharges = parseFloat(receiptForm?.additional_charges || 0) || 0;
     const discount = parseFloat(receiptForm?.discount || 0) || 0;
     return baseAmount + additionalCharges - discount;
@@ -170,10 +206,11 @@ export default function AccountsPanel() {
         discount: parseFloat(receiptForm.discount || 0),
         additional_charges: parseFloat(receiptForm.additional_charges || 0),
         payment_method: receiptForm.payment_method,
-        payment_date: receiptForm.payment_date
+        payment_date: receiptForm.payment_date,
       });
-      setMessage({ text: result.message, type: 'success' });
+      setMessage({ text: result.message || 'Receipt created successfully', type: 'success' });
       setReceiptForm({ ...emptyReceiptForm, payment_date: new Date().toISOString().split('T')[0] });
+      setStudentSearchQuery('');
       setStudentLedger(null);
       setPendingAmount(null);
       setPendingFee(null);
@@ -187,18 +224,26 @@ export default function AccountsPanel() {
     window.print();
   };
 
-  const filteredReceipts = receipts?.filter(receipt => {
-    const matchesSearch = !searchQuery ||
-      receipt.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      receipt.student?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesMethod = !filterMethod || receipt.method === filterMethod;
-    const matchesDateFrom = !filterDateFrom || new Date(receipt.payment_date) >= new Date(filterDateFrom);
-    const matchesDateTo = !filterDateTo || new Date(receipt.payment_date) <= new Date(filterDateTo);
-    return matchesSearch && matchesMethod && matchesDateFrom && matchesDateTo;
-  }) || [];
+  const filteredReceipts =
+    receipts?.filter((receipt) => {
+      const matchesSearch =
+        !searchQuery ||
+        receipt.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        receipt.student?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Normalized comparison handles both "method" and "payment_method" schemas reliably
+      const actualMethod = (receipt.method || receipt.payment_method || '').toLowerCase();
+      const matchesMethod = !filterMethod || actualMethod === filterMethod.toLowerCase();
+
+      const matchesDateFrom =
+        !filterDateFrom || new Date(receipt.payment_date) >= new Date(filterDateFrom);
+      const matchesDateTo =
+        !filterDateTo || new Date(receipt.payment_date) <= new Date(filterDateTo);
+      return matchesSearch && matchesMethod && matchesDateFrom && matchesDateTo;
+    }) || [];
 
   return (
-    <motion.div 
+    <motion.div
       className="space-y-6 p-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -206,14 +251,17 @@ export default function AccountsPanel() {
     >
       <div>
         <h2 className="text-2xl font-bold">Accounts & Invoicing Management</h2>
-        <p className="text-muted">Manage receipts, track payments, and monitor financial performance.</p>
+        <p className="text-muted">
+          Manage receipts, track payments, and monitor financial performance.
+        </p>
       </div>
 
-      <div className="flex gap-2 border-b border-border">
+      <div className="border-border flex gap-2 border-b">
         <button
+          type="button"
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'create'
-              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              ? 'border-accent text-accent bg-accent/10 rounded-t-lg border-b-2'
               : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('create')}
@@ -221,9 +269,10 @@ export default function AccountsPanel() {
           Create Receipt
         </button>
         <button
+          type="button"
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'records'
-              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              ? 'border-accent text-accent bg-accent/10 rounded-t-lg border-b-2'
               : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('records')}
@@ -231,9 +280,10 @@ export default function AccountsPanel() {
           Receipt Records
         </button>
         <button
+          type="button"
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'dues'
-              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              ? 'border-accent text-accent bg-accent/10 rounded-t-lg border-b-2'
               : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('dues')}
@@ -241,9 +291,10 @@ export default function AccountsPanel() {
           Pending Dues
         </button>
         <button
+          type="button"
           className={`px-4 py-2 font-medium transition-all duration-300 ${
             activeTab === 'revenue'
-              ? 'border-b-2 border-accent text-accent bg-accent/10 rounded-t-lg'
+              ? 'border-accent text-accent bg-accent/10 rounded-t-lg border-b-2'
               : 'text-muted hover:text-accent hover:bg-surface-secondary'
           }`}
           onClick={() => setActiveTab('revenue')}
@@ -256,60 +307,93 @@ export default function AccountsPanel() {
         <div className="grid gap-6 xl:grid-cols-2">
           <form className="card" onSubmit={handleReceiptSubmit}>
             <h3 className="mb-4 font-bold">Create Receipt</h3>
-            <div className="mb-4">
-              <label className="label" htmlFor="receiptStudent">Student</label>
-              <select
+            <div className="relative mb-4">
+              <label className="label" htmlFor="receiptStudent">
+                Student
+              </label>
+              <input
                 id="receiptStudent"
-                name="student_id"
+                type="text"
                 className="input-field"
-                value={receiptForm.student_id}
-                onChange={(e) => handleStudentSelection(e.target.value)}
+                placeholder="Search student by name..."
+                value={studentSearchQuery}
+                onChange={(e) => {
+                  setStudentSearchQuery(e.target.value);
+                  setShowStudentDropdown(true);
+                }}
+                onFocus={() => setShowStudentDropdown(true)}
+                onBlur={() => setTimeout(() => setShowStudentDropdown(false), 250)}
                 required
-              >
-                <option value="">Select student…</option>
-                {(students || []).map((s) => (
-                  <option key={s?.student_id || s?.id} value={s?.student_id || s?.id}>
-                    {s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`}
-                  </option>
-                ))}
-              </select>
+                autoComplete="off"
+              />
+              {showStudentDropdown && studentSearchQuery && (
+                <div className="bg-surface border-border absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg">
+                  {(students || [])
+                    .filter((s) => {
+                      const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+                      return name.toLowerCase().includes(studentSearchQuery.toLowerCase());
+                    })
+                    .map((s) => (
+                      <div
+                        key={s?.student_id || s?.id}
+                        className="hover:bg-surface-secondary cursor-pointer px-4 py-2 text-sm"
+                        onMouseDown={() => {
+                          handleStudentSelection(s?.student_id || s?.id);
+                          setShowStudentDropdown(false);
+                        }}
+                      >
+                        {s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`}
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
 
             {/* LIVE PENDING AMOUNT UI PANEL */}
-            <div className="mt-2 mb-4">
-              <label className="label">
-                Pending Amount
-              </label>
-              <div className="p-3 rounded-lg border bg-accent/10 border-accent/20 flex items-center justify-between">
-                <span className="text-sm text-muted">Total Outstanding Balance:</span>
-                <span className={`text-base font-bold ${pendingAmount > 0 ? 'text-warning' : 'text-muted'}`}>
-                  {pendingAmount !== null ? `$${Number(pendingAmount).toFixed(2)}` : 'Select a student to view'}
+            <div className="mb-4 mt-2">
+              <label className="label">Pending Amount</label>
+              <div className="bg-accent/10 border-accent/20 flex items-center justify-between rounded-lg border p-3">
+                <span className="text-muted text-sm">Total Outstanding Balance:</span>
+                <span
+                  className={`text-base font-bold ${pendingAmount > 0 ? 'text-warning' : 'text-muted'}`}
+                >
+                  {pendingAmount !== null
+                    ? `$${Number(pendingAmount).toFixed(2)}`
+                    : 'Select a student to view'}
                 </span>
               </div>
             </div>
 
             {studentLedger && (
-              <div className="mb-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                <h4 className="font-semibold mb-2 text-accent">Student Ledger</h4>
+              <div className="bg-accent/10 border-accent/20 mb-4 rounded-lg border p-4">
+                <h4 className="text-accent mb-2 font-semibold">Student Ledger</h4>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-muted">Total Fee Due:</span>
-                    <p className="font-medium">${Number(studentLedger.total_fee_due || 0).toFixed(2)}</p>
+                    <p className="font-medium">
+                      ${Number(studentLedger.total_fee_due || 0).toFixed(2)}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted">Total Paid:</span>
-                    <p className="font-medium">${Number(studentLedger.total_paid || 0).toFixed(2)}</p>
+                    <p className="font-medium">
+                      ${Number(studentLedger.total_paid || 0).toFixed(2)}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted">Balance:</span>
-                    <p className="font-medium">${Number(studentLedger.balance_outstanding || 0).toFixed(2)}</p>
+                    <p className="font-medium">
+                      ${Number(studentLedger.balance_outstanding || 0).toFixed(2)}
+                    </p>
                   </div>
                 </div>
               </div>
             )}
 
             <div className="mb-4">
-              <label className="label" htmlFor="receiptAmount">Amount Paid</label>
+              <label className="label" htmlFor="receiptAmount">
+                Amount Paid
+              </label>
               <input
                 id="receiptAmount"
                 name="amount_paid"
@@ -323,9 +407,11 @@ export default function AccountsPanel() {
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 mb-4">
+            <div className="mb-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="label" htmlFor="additionalCharges">Additional Charges</label>
+                <label className="label" htmlFor="additionalCharges">
+                  Additional Charges
+                </label>
                 <input
                   id="additionalCharges"
                   name="additional_charges"
@@ -339,7 +425,9 @@ export default function AccountsPanel() {
                 />
               </div>
               <div>
-                <label className="label" htmlFor="discount">Discount</label>
+                <label className="label" htmlFor="discount">
+                  Discount
+                </label>
                 <input
                   id="discount"
                   name="discount"
@@ -355,7 +443,9 @@ export default function AccountsPanel() {
             </div>
 
             <div className="mb-4">
-              <label className="label" htmlFor="paymentMethod">Payment Method</label>
+              <label className="label" htmlFor="paymentMethod">
+                Payment Method
+              </label>
               <select
                 id="paymentMethod"
                 name="payment_method"
@@ -372,7 +462,9 @@ export default function AccountsPanel() {
             </div>
 
             <div className="mb-4">
-              <label className="label" htmlFor="paymentDate">Payment Date</label>
+              <label className="label" htmlFor="paymentDate">
+                Payment Date
+              </label>
               <input
                 id="paymentDate"
                 name="payment_date"
@@ -385,33 +477,45 @@ export default function AccountsPanel() {
             </div>
 
             {(studentLedger || pendingAmount > 0) && (
-              <div className="mb-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                <h4 className="font-semibold mb-2 text-accent">Final Collection Amount</h4>
-                <p className="text-2xl font-bold text-accent">${calculateFinalAmount().toFixed(2)}</p>
+              <div className="bg-accent/10 border-accent/20 mb-4 rounded-lg border p-4">
+                <h4 className="text-accent mb-2 font-semibold">Final Collection Amount</h4>
+                <p className="text-accent text-2xl font-bold">
+                  ${calculateFinalAmount().toFixed(2)}
+                </p>
               </div>
             )}
 
-            <button type="submit" className="btn-primary w-full">Create Receipt</button>
+            <button type="submit" className="btn-primary w-full">
+              Create Receipt
+            </button>
           </form>
 
           <div className="card">
             <h3 className="mb-4 font-bold">Receipt Preview</h3>
             {receiptForm.student_id ? (
-              <div className="p-4 border rounded-lg bg-surface text-foreground">
-                <div className="text-center mb-4">
+              <div className="bg-surface text-foreground rounded-lg border p-4">
+                <div className="mb-4 text-center">
                   <h4 className="text-lg font-bold">OFFICIAL RECEIPT</h4>
-                  <p className="text-sm text-muted">Academy Management System</p>
+                  <p className="text-muted text-sm">Academy Management System</p>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Student:</span>
                     <span className="font-medium">
-                      {(students || []).find(s => (s?.student_id || s?.id)?.toString() === receiptForm.student_id?.toString())?.name || '—'}
+                      {(students || []).find(
+                        (s) =>
+                          (s?.student_id || s?.id)?.toString() ===
+                          receiptForm.student_id?.toString(),
+                      )?.name ||
+                        studentSearchQuery ||
+                        '—'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Date:</span>
-                    <span className="font-medium">{new Date(receiptForm.payment_date).toLocaleDateString()}</span>
+                    <span className="font-medium">
+                      {new Date(receiptForm.payment_date).toLocaleDateString()}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Payment Method:</span>
@@ -420,7 +524,7 @@ export default function AccountsPanel() {
                   <hr className="my-2" />
                   <div className="flex justify-between">
                     <span>Base Amount:</span>
-                    <span>${Number(studentLedger?.total_fee_due || pendingAmount || 0).toFixed(2)}</span>
+                    <span>${Number(receiptForm.amount_paid || 0).toFixed(2)}</span>
                   </div>
                   {parseFloat(receiptForm?.additional_charges || 0) > 0 && (
                     <div className="flex justify-between">
@@ -429,20 +533,22 @@ export default function AccountsPanel() {
                     </div>
                   )}
                   {parseFloat(receiptForm?.discount || 0) > 0 && (
-                    <div className="flex justify-between text-danger">
+                    <div className="text-danger flex justify-between">
                       <span>Discount:</span>
                       <span>-${parseFloat(receiptForm?.discount || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <hr className="my-2" />
-                  <div className="flex justify-between font-bold text-lg">
+                  <div className="flex justify-between text-lg font-bold">
                     <span>Total:</span>
                     <span>${calculateFinalAmount().toFixed(2)}</span>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-8">Select a student to preview receipt</p>
+              <p className="text-muted-foreground py-8 text-center">
+                Select a student to preview receipt
+              </p>
             )}
           </div>
         </div>
@@ -491,49 +597,92 @@ export default function AccountsPanel() {
               />
             </div>
           </div>
+          <div className="mb-4">
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() => {
+                setSearchQuery('');
+                setFilterMethod('');
+                setFilterDateFrom('');
+                setFilterDateTo('');
+              }}
+            >
+              Clear Filters
+            </button>
+          </div>
           {loading ? (
             <Loader />
           ) : (
-            <table className="data-table">
+            <table className="data-table w-full text-left">
               <thead>
                 <tr>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Receipt #</th>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Student</th>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Amount</th>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Method</th>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                  <th className="text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Receipt #
+                  </th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Student
+                  </th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Amount
+                  </th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Date
+                  </th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Method
+                  </th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Status
+                  </th>
+                  <th className="p-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredReceipts && Array.isArray(filteredReceipts) && filteredReceipts.length > 0 ? (
+                {filteredReceipts && filteredReceipts.length > 0 ? (
                   filteredReceipts.map((receipt, index) => (
                     <motion.tr
-                      key={receipt.receipt_id}
+                      key={receipt.receipt_id || receipt.id || index}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                       whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
                     >
                       <td className="p-3 font-medium text-slate-800">{receipt.receipt_number}</td>
-                      <td className="p-3 text-sm font-medium text-slate-800">{receipt.student?.name || '—'}</td>
-                      <td className="p-3 text-sm font-medium text-slate-800">${Number(receipt.amount).toFixed(2)}</td>
-                      <td className="p-3 text-sm font-medium text-slate-800">{new Date(receipt.payment_date).toLocaleDateString()}</td>
-                      <td className="p-3 text-sm font-medium text-slate-800 capitalize">{receipt.method || '—'}</td>
+                      <td className="p-3 text-sm font-medium text-slate-800">
+                        {receipt.student?.name || '—'}
+                      </td>
+                      <td className="p-3 text-sm font-medium text-slate-800">
+                        ${Number(receipt.amount || receipt.amount_paid || 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-sm font-medium text-slate-800">
+                        {receipt.payment_date
+                          ? new Date(receipt.payment_date).toLocaleDateString()
+                          : '—'}
+                      </td>
+                      <td className="p-3 text-sm font-medium capitalize text-slate-800">
+                        {receipt.method || receipt.payment_method || '—'}
+                      </td>
                       <td className="p-3">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          receipt.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
-                          receipt.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
+                        <span
+                          className={
+                            receipt.status === 'COMPLETED'
+                              ? 'badge-success'
+                              : receipt.status === 'PENDING'
+                                ? 'badge-warning'
+                                : 'badge-danger'
+                          }
+                        >
                           {receipt.status}
                         </span>
                       </td>
                       <td className="p-3">
                         <button
+                          type="button"
                           onClick={() => handlePrintReceipt(receipt)}
-                          className="text-emerald-600 hover:text-emerald-800 text-sm font-medium transition-colors"
+                          className="text-success hover:text-success/80 text-sm font-medium transition-colors"
                         >
                           Print
                         </button>
@@ -542,7 +691,7 @@ export default function AccountsPanel() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={7} className="text-muted-foreground py-8 text-center">
                       {searchQuery || filterMethod || filterDateFrom || filterDateTo
                         ? 'No receipts match your filters.'
                         : 'No receipt records found.'}
@@ -562,30 +711,34 @@ export default function AccountsPanel() {
           ) : (
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border text-muted text-xs uppercase font-bold tracking-wider">
+                <tr className="border-border text-muted border-b text-xs font-bold uppercase tracking-wider">
                   <th className="pb-3">Student</th>
-                  <th className="pb-3 px-2">Sport</th>
-                  <th className="pb-3 px-2">Total Fee Due</th>
-                  <th className="pb-3 px-2">Total Paid</th>
-                  <th className="pb-3 px-2">Balance Outstanding</th>
-                  <th className="pb-3 px-2">Next Due Date</th>
+                  <th className="px-2 pb-3">Sport</th>
+                  <th className="px-2 pb-3">Total Fee Due</th>
+                  <th className="px-2 pb-3">Total Paid</th>
+                  <th className="px-2 pb-3">Balance Outstanding</th>
+                  <th className="px-2 pb-3">Next Due Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {pendingDues && Array.isArray(pendingDues) && pendingDues.length > 0 ? (
-                  pendingDues.map((due) => (
-                    <tr key={due.student_id} className="text-foreground">
+              <tbody className="divide-border divide-y">
+                {pendingDues && pendingDues.length > 0 ? (
+                  pendingDues.map((due, idx) => (
+                    <tr key={due.student_id || idx} className="text-foreground">
                       <td className="py-3 font-medium">{due.student_name}</td>
-                      <td className="py-3 px-2 text-muted">{due.sport}</td>
-                      <td className="py-3 px-2">${Number(due.total_fee_due).toFixed(2)}</td>
-                      <td className="py-3 px-2">${Number(due.total_paid).toFixed(2)}</td>
-                      <td className="py-3 px-2 font-semibold text-danger text-sm">${Number(due.balance_outstanding).toFixed(2)}</td>
-                      <td className="py-3 px-2">{new Date(due.next_due_date).toLocaleDateString()}</td>
+                      <td className="text-muted px-2 py-3">{due.sport}</td>
+                      <td className="px-2 py-3">${Number(due.total_fee_due).toFixed(2)}</td>
+                      <td className="px-2 py-3">${Number(due.total_paid).toFixed(2)}</td>
+                      <td className="text-danger px-2 py-3 text-sm font-semibold">
+                        ${Number(due.balance_outstanding).toFixed(2)}
+                      </td>
+                      <td className="px-2 py-3">
+                        {due.next_due_date ? new Date(due.next_due_date).toLocaleDateString() : '—'}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted text-xs">
+                    <td colSpan={6} className="text-muted py-8 text-center text-xs">
                       No pending dues found. All students are up to date!
                     </td>
                   </tr>
@@ -602,44 +755,52 @@ export default function AccountsPanel() {
             <Loader />
           ) : revenueSummary ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                <h4 className="text-sm text-muted mb-1">Total Revenue</h4>
-                <p className="text-2xl font-bold text-accent">${Number(revenueSummary.total_revenue).toFixed(2)}</p>
+              <div className="kpi-card border-l-success border-l-4">
+                <h4 className="kpi-label">Total Revenue</h4>
+                <p className="kpi-value text-success">
+                  ${Number(revenueSummary.total_revenue).toFixed(2)}
+                </p>
               </div>
-              <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                <h4 className="text-sm text-muted mb-1">Current Year</h4>
-                <p className="text-2xl font-bold text-accent">${Number(revenueSummary.current_year_revenue).toFixed(2)}</p>
+              <div className="kpi-card border-l-blue border-l-4">
+                <h4 className="kpi-label">Current Year</h4>
+                <p className="kpi-value text-blue">
+                  ${Number(revenueSummary.current_year_revenue).toFixed(2)}
+                </p>
               </div>
-              <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                <h4 className="text-sm text-muted mb-1">Current Month</h4>
-                <p className="text-2xl font-bold text-accent">${Number(revenueSummary.current_month_revenue).toFixed(2)}</p>
+              <div className="kpi-card border-l-purple border-l-4">
+                <h4 className="kpi-label">Current Month</h4>
+                <p className="kpi-value text-purple">
+                  ${Number(revenueSummary.current_month_revenue).toFixed(2)}
+                </p>
               </div>
-              <div className="p-4 bg-surface-secondary border border-border rounded-lg">
-                <h4 className="text-sm text-muted mb-1">Total Receipts</h4>
-                <p className="text-2xl font-bold text-foreground">{revenueSummary.total_receipts}</p>
+              <div className="kpi-card border-l-cyan border-l-4">
+                <h4 className="kpi-label">Total Receipts</h4>
+                <p className="kpi-value text-cyan">{revenueSummary.total_receipts}</p>
               </div>
               <div className="md:col-span-2 lg:col-span-4">
-                <h4 className="font-semibold mb-3">Revenue by Payment Method</h4>
+                <h4 className="mb-3 font-semibold">Revenue by Payment Method</h4>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {Object.entries(revenueSummary.revenue_by_method || {}).map(([method, amount]) => (
-                    <div key={method} className="p-3 border border-border rounded-lg bg-surface-secondary">
-                      <span className="text-sm text-muted capitalize">{method}</span>
-                      <p className="text-lg font-semibold text-foreground">${Number(amount).toFixed(2)}</p>
-                    </div>
-                  ))}
+                  {Object.entries(revenueSummary.revenue_by_method || {}).map(
+                    ([method, amount]) => (
+                      <div key={method} className="kpi-card border-l-orange border-l-4">
+                        <span className="kpi-label capitalize">{method}</span>
+                        <p className="kpi-value text-orange">${Number(amount).toFixed(2)}</p>
+                      </div>
+                    ),
+                  )}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center text-muted text-xs">
-              No revenue data available.
-            </div>
+            <div className="text-muted p-8 text-center text-xs">No revenue data available.</div>
           )}
         </div>
       )}
 
       {message.text && (
-        <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>{message.text}</p>
+        <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
+          {message.text}
+        </p>
       )}
     </motion.div>
   );

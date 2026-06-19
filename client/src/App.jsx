@@ -27,14 +27,17 @@ import CoachFeesPage from './pages/coach/CoachFeesPage';
 import CoachMyAttendancePage from './pages/coach/CoachMyAttendancePage';
 import CoachPerformancePage from './pages/coach/CoachPerformancePage';
 import IntakeForm from './pages/public/IntakeForm';
+import PublicEnquiryForm from './pages/public/PublicEnquiryForm';
 
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Routes>
           {/* Public Frontend Routing Layer Protocols */}
           <Route path="/" element={<LandingPage />} />
@@ -42,6 +45,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/signup" element={<LandingPage />} />
           <Route path="/public/intake-form" element={<IntakeForm />} />
+          <Route path="/enquiry-form" element={<PublicEnquiryForm />} />
 
           {/* Legacy Administrative Internal Path Auto Redirection Handlers */}
           <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
@@ -58,9 +62,23 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
-            <Route path="sports" element={<ErrorBoundary><SportsPanel /></ErrorBoundary>} />
+            <Route
+              path="sports"
+              element={
+                <ErrorBoundary>
+                  <SportsPanel />
+                </ErrorBoundary>
+              }
+            />
             <Route path="coaches" element={<CoachesPanel />} />
-            <Route path="students" element={<ErrorBoundary><StudentsPanel /></ErrorBoundary>} />
+            <Route
+              path="students"
+              element={
+                <ErrorBoundary>
+                  <StudentsPanel />
+                </ErrorBoundary>
+              }
+            />
             <Route path="batches" element={<BatchesPanel />} />
             <Route path="plans" element={<PlansPanel />} />
             <Route path="accounts" element={<PaymentsPanel />} />

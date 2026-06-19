@@ -5,10 +5,11 @@ import { adminGet, adminPost, TIMING_OPTIONS } from '../../api/client';
 
 const emptyBatchForm = {
   name: '',
-  timing: TIMING_OPTIONS[4],
+  startTime: '08:00',
+  endTime: '09:00',
   coach_id: '',
   sport_id: '',
-  max_capacity: ''
+  max_capacity: '',
 };
 
 export default function BatchesPanel() {
@@ -26,7 +27,7 @@ export default function BatchesPanel() {
       const [batchesRes, coachesRes, sportsRes] = await Promise.all([
         adminGet('/admin/batches'),
         adminGet('/admin/coaches'),
-        adminGet('/admin/sports')
+        adminGet('/admin/sports'),
       ]);
       setBatches(batchesRes?.data || []);
       setCoaches(coachesRes?.data || []);
@@ -54,13 +55,32 @@ export default function BatchesPanel() {
   const handleBatchSubmit = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
+
+    // Validate required fields
+    if (!batchForm.coach_id) {
+      setMessage({ text: 'Coach is required', type: 'error' });
+      return;
+    }
+    if (!batchForm.sport_id) {
+      setMessage({ text: 'Sport is required', type: 'error' });
+      return;
+    }
+
     try {
+      // Format times to ensure HH:mm format with leading zeros
+      const formatTime = (time) => {
+        if (!time) return '';
+        const [hours, minutes] = time.split(':');
+        return `${hours.padStart(2, '0')}:${minutes}`;
+      };
+      const timing = `${formatTime(batchForm.startTime)} - ${formatTime(batchForm.endTime)}`;
+
       const result = await adminPost('/admin/batches', {
         name: batchForm.name?.trim(),
-        timing: batchForm.timing,
+        timing,
         coach_id: parseInt(batchForm.coach_id, 10),
         sport_id: parseInt(batchForm.sport_id, 10),
-        max_capacity: batchForm.max_capacity ? parseInt(batchForm.max_capacity, 10) : undefined
+        max_capacity: batchForm.max_capacity ? parseInt(batchForm.max_capacity, 10) : undefined,
       });
       setMessage({ text: result?.message || 'Batch created successfully', type: 'success' });
       setBatchForm(emptyBatchForm);
@@ -70,14 +90,15 @@ export default function BatchesPanel() {
     }
   };
 
-  const filteredBatches = (batches || []).filter(batch =>
-    batch?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    batch?.sport?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    batch?.coach?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredBatches = (batches || []).filter(
+    (batch) =>
+      batch?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      batch?.sport?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      batch?.coach?.name?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
-    <motion.div 
+    <motion.div
       className="space-y-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -91,72 +112,104 @@ export default function BatchesPanel() {
       <div className="grid gap-6 xl:grid-cols-2">
         {/* FIXED FORM: Replaced 'bg-white border p-6 rounded-xl' with global 'card' utility */}
         <form className="card space-y-4" onSubmit={handleBatchSubmit}>
-          <h3 className="font-bold text-lg">Create Batch</h3>
+          <h3 className="text-lg font-bold">Create Batch</h3>
           <div>
-            <label className="label" htmlFor="batchName">Batch Name</label>
+            <label className="label" htmlFor="batchName">
+              Batch Name
+            </label>
             {/* FIXED INPUT: Replaced explicitly broken inner utility classes with generic clean 'input-field' */}
-            <motion.input 
-              id="batchName" 
-              name="name" 
-              className="input-field" 
-              value={batchForm.name} 
-              onChange={handleBatchChange} 
+            <motion.input
+              id="batchName"
+              name="name"
+              className="input-field"
+              value={batchForm.name}
+              onChange={handleBatchChange}
               required
               whileFocus={{ scale: 1.01 }}
             />
           </div>
-          <div>
-            <label className="label" htmlFor="batchTiming">Timing</label>
-            <motion.select 
-              id="batchTiming" 
-              name="timing" 
-              className="input-field bg-[var(--color-input)] text-foreground" 
-              value={batchForm.timing} 
-              onChange={handleBatchChange} 
-              required
-              whileFocus={{ scale: 1.01 }}
-            >
-              {TIMING_OPTIONS.map((time) => (
-                <option key={time} value={time}>{time}</option>
-              ))}
-            </motion.select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label" htmlFor="batchStartTime">
+                Start Time
+              </label>
+              <motion.input
+                id="batchStartTime"
+                name="startTime"
+                type="time"
+                className="input-field"
+                value={batchForm.startTime}
+                onChange={handleBatchChange}
+                required
+                whileFocus={{ scale: 1.01 }}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="batchEndTime">
+                End Time
+              </label>
+              <motion.input
+                id="batchEndTime"
+                name="endTime"
+                type="time"
+                className="input-field"
+                value={batchForm.endTime}
+                onChange={handleBatchChange}
+                required
+                whileFocus={{ scale: 1.01 }}
+              />
+            </div>
           </div>
           <div>
-            <label className="label" htmlFor="batchCoach">Coach</label>
-            <motion.select 
-              id="batchCoach" 
-              name="coach_id" 
-              className="input-field bg-[var(--color-input)] text-foreground" 
-              value={batchForm.coach_id} 
-              onChange={handleBatchChange} 
+            <label className="label" htmlFor="batchCoach">
+              Coach
+            </label>
+            <motion.select
+              id="batchCoach"
+              name="coach_id"
+              className="input-field text-foreground bg-[var(--color-input)]"
+              value={batchForm.coach_id}
+              onChange={handleBatchChange}
               required
               whileFocus={{ scale: 1.01 }}
             >
-              <option value="" className="text-muted">Select coach…</option>
+              <option value="" className="text-muted">
+                Select coach…
+              </option>
               {coaches.map((c) => (
-                <option key={c?.coach_id} value={c?.coach_id}>{c?.name}</option>
+                <option key={c?.coach_id} value={c?.coach_id}>
+                  {c?.name}
+                </option>
               ))}
             </motion.select>
           </div>
           <div>
-            <label className="label" htmlFor="batchSport">Sport</label>
-            <motion.select 
-              id="batchSport" 
-              name="sport_id" 
-              className="input-field bg-[var(--color-input)] text-foreground" 
-              value={batchForm.sport_id} 
-              onChange={handleBatchChange} 
+            <label className="label" htmlFor="batchSport">
+              Sport
+            </label>
+            <motion.select
+              id="batchSport"
+              name="sport_id"
+              className="input-field text-foreground bg-[var(--color-input)]"
+              value={batchForm.sport_id}
+              onChange={handleBatchChange}
               required
               whileFocus={{ scale: 1.01 }}
             >
-              <option value="" className="text-muted">Select sport…</option>
+              <option value="" className="text-muted">
+                Select sport…
+              </option>
               {sports.map((s) => (
-                <option key={s?.sport_id} value={s?.sport_id}>{s?.name}</option>
+                <option key={s?.sport_id} value={s?.sport_id}>
+                  {s?.name}
+                </option>
               ))}
             </motion.select>
           </div>
           <div>
-            <label className="label" htmlFor="batchCapacity">Max Capacity (optional)</label>
+            <label className="label" htmlFor="batchCapacity">
+              Max Capacity (optional)
+            </label>
             <motion.input
               id="batchCapacity"
               name="max_capacity"
@@ -170,8 +223,8 @@ export default function BatchesPanel() {
             />
           </div>
           {/* FIXED BUTTON: Replaced static 'bg-blue-600' with your global green/emerald setup 'btn-primary' */}
-          <motion.button 
-            type="submit" 
+          <motion.button
+            type="submit"
             className="btn-primary w-full cursor-pointer"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -182,7 +235,7 @@ export default function BatchesPanel() {
 
         {/* FIXED LIST CONTAINER: Removed hardcoded background utilities */}
         <div className="card space-y-4 overflow-x-auto">
-          <h3 className="font-bold text-lg">Scheduled Batches</h3>
+          <h3 className="text-lg font-bold">Scheduled Batches</h3>
           <div>
             <input
               type="text"
@@ -198,19 +251,19 @@ export default function BatchesPanel() {
             /* FIXED TABLE: Leveraged theme-aware text-muted and internal token borders */
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border text-muted text-xs uppercase font-bold tracking-wider">
+                <tr className="border-border text-muted border-b text-xs font-bold uppercase tracking-wider">
                   <th className="pb-3">Name</th>
-                  <th className="pb-3 px-2">Timing</th>
-                  <th className="pb-3 px-2">Coach</th>
-                  <th className="pb-3 px-2">Sport</th>
-                  <th className="pb-3 px-2">Capacity</th>
-                  <th className="pb-3 px-2">Status</th>
+                  <th className="px-2 pb-3">Timing</th>
+                  <th className="px-2 pb-3">Coach</th>
+                  <th className="px-2 pb-3">Sport</th>
+                  <th className="px-2 pb-3">Capacity</th>
+                  <th className="px-2 pb-3">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-border divide-y">
                 {filteredBatches.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted text-xs">
+                    <td colSpan={6} className="text-muted py-8 text-center text-xs">
                       {searchQuery ? 'No batches match your search.' : 'No batches scheduled.'}
                     </td>
                   </tr>
@@ -225,16 +278,18 @@ export default function BatchesPanel() {
                       className="text-foreground"
                     >
                       <td className="py-3 font-semibold">{batch?.name}</td>
-                      <td className="py-3 px-2 text-muted">{batch?.timing || '—'}</td>
-                      <td className="py-3 px-2">{batch?.coach?.name || '—'}</td>
-                      <td className="py-3 px-2">{batch?.sport?.name || '—'}</td>
-                      <td className="py-3 px-2 font-medium">
+                      <td className="text-muted px-2 py-3">{batch?.timing || '—'}</td>
+                      <td className="px-2 py-3">{batch?.coach?.name || '—'}</td>
+                      <td className="px-2 py-3">{batch?.sport?.name || '—'}</td>
+                      <td className="px-2 py-3 font-medium">
                         {batch?.enrolled_count ?? batch?.students?.length ?? 0}
                         {batch?.max_capacity != null ? ` / ${batch.max_capacity}` : ''}
                       </td>
-                      <td className="py-3 px-2">
+                      <td className="px-2 py-3">
                         {/* Dynamic green status badges using customized color tokens */}
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${batch?.status === 'ACTIVE' || !batch?.status ? 'bg-success/10 text-success border border-success/20' : 'bg-danger/10 text-danger border border-danger/20'}`}>
+                        <span
+                          className={`rounded-lg px-2.5 py-1 text-xs font-bold ${batch?.status === 'ACTIVE' || !batch?.status ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}
+                        >
                           {batch?.status || 'ACTIVE'}
                         </span>
                       </td>

@@ -4,19 +4,19 @@ import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
 const formatCurrency = (value) =>
-  Number.isFinite(Number(value))
-    ? Number(value).toFixed(2)
-    : '0.00';
+  Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '0.00';
 
 export default function SportsPanel() {
   const [sports, setSports] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     base_fee: '',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
   });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isBulkEditMode, setIsBulkEditMode] = useState(false);
 
   const loadSports = useCallback(async () => {
     setLoading(true);
@@ -54,7 +54,7 @@ export default function SportsPanel() {
       const result = await adminPost('/admin/sports', {
         name: formData.name.trim(),
         base_fee: parseFloat(formData.base_fee || 0),
-        status: formData.status
+        status: formData.status,
       });
       setMessage({ text: result.message, type: 'success' });
       setFormData({ name: '', base_fee: '', status: 'ACTIVE' });
@@ -67,15 +67,16 @@ export default function SportsPanel() {
   const handleMarkActive = async (sportId) => {
     try {
       // Update local state immediately for real-time feedback
-      setSports(prevSports => 
-        prevSports.map(s => 
-          (s.sport_id || s.id) === sportId ? { ...s, status: 'ACTIVE' } : s
-        )
+      setSports((prevSports) =>
+        prevSports.map((s) => ((s.sport_id || s.id) === sportId ? { ...s, status: 'ACTIVE' } : s)),
       );
       const result = await adminPatch(`/admin/sports/${sportId}/status`, {
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       });
-      setMessage({ text: result?.message || 'Sport marked as active successfully', type: 'success' });
+      setMessage({
+        text: result?.message || 'Sport marked as active successfully',
+        type: 'success',
+      });
       loadSports();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -86,13 +87,13 @@ export default function SportsPanel() {
   const handleDeactivate = async (sportId) => {
     try {
       // Update local state immediately for real-time feedback
-      setSports(prevSports => 
-        prevSports.map(s => 
-          (s.sport_id || s.id) === sportId ? { ...s, status: 'INACTIVE' } : s
-        )
+      setSports((prevSports) =>
+        prevSports.map((s) =>
+          (s.sport_id || s.id) === sportId ? { ...s, status: 'INACTIVE' } : s,
+        ),
       );
       const result = await adminPatch(`/admin/sports/${sportId}/status`, {
-        status: 'INACTIVE'
+        status: 'INACTIVE',
       });
       setMessage({ text: result?.message || 'Sport deactivated successfully', type: 'success' });
       loadSports();
@@ -103,15 +104,17 @@ export default function SportsPanel() {
   };
 
   const handleRemoveSport = async (sportId) => {
-    if (!window.confirm("Warning: Permanently removing this sport will delete it from the catalog. Proceed?")) {
+    if (
+      !window.confirm(
+        'Warning: Permanently removing this sport will delete it from the catalog. Proceed?',
+      )
+    ) {
       return;
     }
     setMessage({ text: '', type: '' });
     try {
       // Update local state immediately for real-time feedback
-      setSports(prevSports => 
-        prevSports.filter(s => (s.sport_id || s.id) !== sportId)
-      );
+      setSports((prevSports) => prevSports.filter((s) => (s.sport_id || s.id) !== sportId));
       const result = await adminDelete(`/admin/sports/${sportId}`);
       setMessage({ text: result?.message || 'Sport removed successfully', type: 'success' });
       loadSports();
@@ -121,8 +124,98 @@ export default function SportsPanel() {
     }
   };
 
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedIds(sports.map((s) => s.sport_id || s.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const toggleBulkEditMode = () => {
+    setIsBulkEditMode((prev) => !prev);
+    setSelectedIds([]); // Clear selections when toggling
+  };
+
+  const handleSelectOne = (sportId, checked) => {
+    if (checked) {
+      setSelectedIds((prev) => [...prev, sportId]);
+    } else {
+      setSelectedIds((prev) => prev.filter((id) => id !== sportId));
+    }
+  };
+
+  const handleRowClick = (sportId) => {
+    if (!isBulkEditMode) return;
+    setSelectedIds((prev) => {
+      if (prev.includes(sportId)) {
+        return prev.filter((id) => id !== sportId);
+      } else {
+        return [...prev, sportId];
+      }
+    });
+  };
+
+  const handleBulkActivate = async () => {
+    if (selectedIds.length === 0) return;
+    setMessage({ text: '', type: '' });
+    try {
+      await adminPost('/admin/sports/bulk-action', {
+        action: 'activate',
+        sport_ids: selectedIds,
+      });
+      setMessage({ text: 'Sports activated successfully', type: 'success' });
+      setSelectedIds([]);
+      setIsBulkEditMode(false);
+      loadSports();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedIds.length === 0) return;
+    setMessage({ text: '', type: '' });
+    try {
+      await adminPost('/admin/sports/bulk-action', {
+        action: 'deactivate',
+        sport_ids: selectedIds,
+      });
+      setMessage({ text: 'Sports deactivated successfully', type: 'success' });
+      setSelectedIds([]);
+      setIsBulkEditMode(false);
+      loadSports();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (
+      !window.confirm(
+        `Warning: Permanently removing ${selectedIds.length} sports will delete them from the catalog. Proceed?`,
+      )
+    ) {
+      return;
+    }
+    setMessage({ text: '', type: '' });
+    try {
+      await adminPost('/admin/sports/bulk-action', {
+        action: 'delete',
+        sport_ids: selectedIds,
+      });
+      setMessage({ text: 'Sports removed successfully', type: 'success' });
+      setSelectedIds([]);
+      setIsBulkEditMode(false);
+      loadSports();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
   return (
-    <motion.div 
+    <motion.div
       className="space-y-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -136,7 +229,9 @@ export default function SportsPanel() {
         <h3 className="mb-4 font-bold">Create Sport</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="label" htmlFor="sportName">Sport Name</label>
+            <label className="label" htmlFor="sportName">
+              Sport Name
+            </label>
             <motion.input
               id="sportName"
               className="input-field"
@@ -147,7 +242,9 @@ export default function SportsPanel() {
             />
           </div>
           <div>
-            <label className="label" htmlFor="baseFee">Base Fee</label>
+            <label className="label" htmlFor="baseFee">
+              Base Fee
+            </label>
             <motion.input
               id="baseFee"
               type="number"
@@ -162,7 +259,9 @@ export default function SportsPanel() {
           </div>
         </div>
         <div className="mt-4">
-          <label className="label" htmlFor="status">Status</label>
+          <label className="label" htmlFor="status">
+            Status
+          </label>
           <motion.select
             id="status"
             className="input-field"
@@ -175,8 +274,8 @@ export default function SportsPanel() {
           </motion.select>
         </div>
         <div className="mt-4">
-          <motion.button 
-            type="submit" 
+          <motion.button
+            type="submit"
             className="btn-primary"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -186,16 +285,56 @@ export default function SportsPanel() {
         </div>
       </form>
       {message.text && (
-        <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>{message.text}</p>
+        <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
+          {message.text}
+        </p>
       )}
       <div className="card overflow-x-auto">
-        <h3 className="mb-4 font-bold">Available Sports</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h3 className="font-bold">Available Sports</h3>
+            <button
+              type="button"
+              className={`btn-sm ${isBulkEditMode ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={toggleBulkEditMode}
+            >
+              {isBulkEditMode ? 'Exit Bulk Mode' : 'Bulk Actions'}
+            </button>
+          </div>
+          {isBulkEditMode && selectedIds.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex gap-2"
+            >
+              <button type="button" className="btn-secondary btn-sm" onClick={handleBulkActivate}>
+                Bulk Activate ({selectedIds.length})
+              </button>
+              <button type="button" className="btn-secondary btn-sm" onClick={handleBulkDeactivate}>
+                Bulk Deactivate ({selectedIds.length})
+              </button>
+              <button type="button" className="btn-danger btn-sm" onClick={handleBulkDelete}>
+                Bulk Delete ({selectedIds.length})
+              </button>
+            </motion.div>
+          )}
+        </div>
         {loading ? (
           <Loader message="Loading sports catalog…" />
         ) : (
           <table className="data-table">
             <thead>
               <tr>
+                {isBulkEditMode && (
+                  <th className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.length === sports.length && sports.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="border-border accent-accent h-4 w-4 rounded"
+                    />
+                  </th>
+                )}
                 <th>Name</th>
                 <th>Base Fee</th>
                 <th>Status</th>
@@ -211,33 +350,66 @@ export default function SportsPanel() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                     whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                    className="border-b"
+                    className={`cursor-pointer border-b ${selectedIds.includes(sport.sport_id || sport.id) ? 'bg-surface-secondary/50' : ''}`}
+                    onClick={() => handleRowClick(sport.sport_id || sport.id)}
                   >
+                    {isBulkEditMode && (
+                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(sport.sport_id || sport.id)}
+                          onChange={(e) =>
+                            handleSelectOne(sport.sport_id || sport.id, e.target.checked)
+                          }
+                          className="border-border accent-accent h-4 w-4 rounded"
+                        />
+                      </td>
+                    )}
                     <td className="p-3 font-medium">{sport.name}</td>
                     <td className="p-3">${formatCurrency(sport.base_fee || sport.baseFee)}</td>
                     <td className="p-3">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                        sport.status === 'ACTIVE' ? 'bg-success/10 text-success border border-success/20' : 'bg-danger/10 text-danger border border-danger/20'
-                      }`}>
+                      <span
+                        className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
+                          sport.status === 'ACTIVE'
+                            ? 'bg-success/10 text-success border-success/20 border'
+                            : 'bg-danger/10 text-danger border-danger/20 border'
+                        }`}
+                      >
                         {sport.status || 'ACTIVE'}
                       </span>
                     </td>
-                    <td className="p-3 space-x-1">
+                    <td className="space-x-1 p-3" onClick={(e) => e.stopPropagation()}>
                       {sport.status === 'ACTIVE' ? (
                         <>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm"
+                            onClick={() => handleDeactivate(sport.sport_id || sport.id)}
+                          >
                             Deactivate
                           </button>
-                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>
+                          <button
+                            type="button"
+                            className="btn-danger btn-sm"
+                            onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
+                          >
                             Remove
                           </button>
                         </>
                       ) : (
                         <>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm"
+                            onClick={() => handleMarkActive(sport.sport_id || sport.id)}
+                          >
                             Mark Active
                           </button>
-                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>
+                          <button
+                            type="button"
+                            className="btn-danger btn-sm"
+                            onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
+                          >
                             Remove
                           </button>
                         </>
@@ -247,7 +419,10 @@ export default function SportsPanel() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <td
+                    colSpan={isBulkEditMode ? 5 : 4}
+                    className="text-muted-foreground py-8 text-center"
+                  >
                     No sports available. Create a sport above.
                   </td>
                 </tr>

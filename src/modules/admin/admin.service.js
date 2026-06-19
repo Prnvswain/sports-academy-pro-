@@ -3,7 +3,12 @@ import bcrypt from 'bcryptjs';
 import { BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
 import { NOT_DELETED, softDeletePayload } from '../../utils/softDelete.util.js';
 import { generateTempPassword } from '../../utils/password.util.js';
-import { sendCoachOnboardingEmail, sendStudentExitEmail, sendPaymentSuccessEmail, sendPaymentFailureEmail } from '../../services/mail.service.js';
+import {
+  sendCoachOnboardingEmail,
+  sendStudentExitEmail,
+  sendPaymentSuccessEmail,
+  sendPaymentFailureEmail,
+} from '../../services/mail.service.js';
 import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
 
@@ -17,25 +22,30 @@ const normalizeGender = (gender) => {
 
 const academyScope = (academy_id) => ({
   academy_id: parseInt(academy_id, 10),
-  ...NOT_DELETED
+  ...NOT_DELETED,
 });
 
 const getCoachForAcademy = async (academy_id, coach_id) =>
   prisma.coach.findFirst({
     where: {
       coach_id: parseInt(coach_id, 10),
-      ...academyScope(academy_id)
-    }
+      ...academyScope(academy_id),
+    },
   });
 
 const getStudentForAcademy = async (academy_id, student_id) => {
-  console.log('[getStudentForAcademy] Finding student with academy_id:', academy_id, 'student_id:', student_id);
+  console.log(
+    '[getStudentForAcademy] Finding student with academy_id:',
+    academy_id,
+    'student_id:',
+    student_id,
+  );
   try {
     const student = await prisma.student.findFirst({
       where: {
         student_id: parseInt(student_id, 10),
-        ...academyScope(academy_id)
-      }
+        ...academyScope(academy_id),
+      },
     });
     console.log('[getStudentForAcademy] Student found:', student);
     return student;
@@ -50,12 +60,12 @@ const getBatchForAcademy = async (academy_id, batch_id) =>
   prisma.batch.findFirst({
     where: {
       batch_id: parseInt(batch_id, 10),
-      academy_id: parseInt(academy_id, 10)
+      academy_id: parseInt(academy_id, 10),
     },
-    include: { 
-      coaches: { include: { coach: true } }, 
-      sport: true 
-    }
+    include: {
+      coaches: { include: { coach: true } },
+      sport: true,
+    },
   });
 
 const getPaymentForAcademy = async (academy_id, receipt_id) =>
@@ -63,9 +73,9 @@ const getPaymentForAcademy = async (academy_id, receipt_id) =>
     where: {
       receipt_id: parseInt(receipt_id, 10),
       academy_id: parseInt(academy_id, 10),
-      student: NOT_DELETED
+      student: NOT_DELETED,
     },
-    include: { student: true }
+    include: { student: true },
   });
 
 const assertStudentSportBatch = async (academy_id, sport_id, batch_id) => {
@@ -93,7 +103,7 @@ const assertStudentSportBatch = async (academy_id, sport_id, batch_id) => {
 
   if (batch.max_capacity != null) {
     const enrolled = await prisma.student.count({
-      where: { batch_id: batchId, ...NOT_DELETED, status: 'ACTIVE' }
+      where: { batch_id: batchId, ...NOT_DELETED, status: 'ACTIVE' },
     });
     if (enrolled >= batch.max_capacity) {
       const error = new Error('Batch has no available seats');
@@ -113,7 +123,7 @@ export const getSportsCatalog = async (academy_id) => {
 
     const sports = await prisma.sport.findMany({
       where: { academy_id: academyId },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
 
     return sports || [];
@@ -128,9 +138,9 @@ export const getDurationPlans = async (academy_id) => {
   const plans = await prisma.durationPlan.findMany({
     where: {
       academy_id: academyId,
-      status: 'ACTIVE'
+      status: 'ACTIVE',
     },
-    orderBy: { duration_months: 'asc' }
+    orderBy: { duration_months: 'asc' },
   });
 
   return plans;
@@ -145,8 +155,8 @@ export const createDurationPlan = async (academy_id, data) => {
       duration_months: parseInt(data.duration_months, 10),
       multiplier: parseFloat(data.multiplier),
       status: 'ACTIVE',
-      academy_id: academyId
-    }
+      academy_id: academyId,
+    },
   });
 
   logger.info('Duration plan created', { plan_id: plan.plan_id, academy_id: academyId });
@@ -160,8 +170,8 @@ export const deleteDurationPlan = async (academy_id, plan_id) => {
   const plan = await prisma.durationPlan.findFirst({
     where: {
       plan_id: planId,
-      academy_id: academyId
-    }
+      academy_id: academyId,
+    },
   });
 
   if (!plan) {
@@ -171,7 +181,7 @@ export const deleteDurationPlan = async (academy_id, plan_id) => {
   }
 
   await prisma.durationPlan.delete({
-    where: { plan_id: planId }
+    where: { plan_id: planId },
   });
 
   logger.info('Duration plan deleted', { plan_id: planId, academy_id: academyId });
@@ -191,80 +201,85 @@ export const getStudentDetails = async (academy_id, student_id) => {
     prisma.receipt.findMany({
       where: {
         student_id: student.student_id,
-        academy_id: parseInt(academy_id, 10)
+        academy_id: parseInt(academy_id, 10),
       },
-      orderBy: { payment_date: 'desc' }
+      orderBy: { payment_date: 'desc' },
     }),
     prisma.studentAttendance.findMany({
       where: {
         student_id: student.student_id,
-        academy_id: parseInt(academy_id, 10)
+        academy_id: parseInt(academy_id, 10),
       },
       include: { batch: true },
       orderBy: { date: 'desc' },
-      take: 50
+      take: 50,
     }),
     prisma.performanceScore.findMany({
       where: {
         student_id: student.student_id,
-        academy_id: parseInt(academy_id, 10)
+        academy_id: parseInt(academy_id, 10),
       },
       include: {
         attribute: {
-          include: { sport: true }
+          include: { sport: true },
         },
-        coach: true
+        coach: true,
       },
       orderBy: { scored_at: 'desc' },
-      take: 50
+      take: 50,
     }),
     prisma.studentEnrollment.findMany({
       where: {
         student_id: student.student_id,
         academy_id: parseInt(academy_id, 10),
-        is_active: true
+        is_active: true,
       },
       include: {
         sport: true,
         duration_plan: true,
-        batch: true
-      }
-    }),
-    prisma.dailyStudentNote.findMany({
-      where: {
-        student_id: student.student_id,
-        academy_id: parseInt(academy_id, 10)
+        batch: true,
       },
-      include: { coach: { select: { name: true } } },
-      orderBy: { note_date: 'desc' },
-      take: 50
-    }).catch((error) => {
-      console.error("Warning: Could not fetch student notes, falling back to empty array:", error.message);
-      return [];
-    })
+    }),
+    prisma.dailyStudentNote
+      .findMany({
+        where: {
+          student_id: student.student_id,
+          academy_id: parseInt(academy_id, 10),
+        },
+        include: { coach: { select: { name: true } } },
+        orderBy: { note_date: 'desc' },
+        take: 50,
+      })
+      .catch((error) => {
+        console.error(
+          'Warning: Could not fetch student notes, falling back to empty array:',
+          error.message,
+        );
+        return [];
+      }),
   ]);
 
   // Calculate total amount paid from completed receipts
   const amountPaid = receipts
-    .filter(r => r.status === 'COMPLETED')
+    .filter((r) => r.status === 'COMPLETED')
     .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
 
   return {
     student: {
       ...student,
-      amount_paid: amountPaid
+      amount_paid: amountPaid,
     },
     receipts,
     attendance,
     performance_scores: performanceScores,
     enrollments,
-    daily_notes: dailyNotes
+    daily_notes: dailyNotes,
   };
 };
 
 export const bulkUploadStudents = async (academy_id, students) => {
   const academyId = parseInt(academy_id, 10);
-  
+
   const createdStudents = [];
   const errors = [];
 
@@ -284,8 +299,8 @@ export const bulkUploadStudents = async (academy_id, students) => {
           parent_phone: studentData.parent_phone || null,
           joining_date: new Date(),
           fees_status: 'unpaid',
-          status: 'ACTIVE'
-        }
+          status: 'ACTIVE',
+        },
       });
 
       createdStudents.push(student);
@@ -295,12 +310,12 @@ export const bulkUploadStudents = async (academy_id, students) => {
         actor_type: 'ADMIN',
         action: 'STUDENT_BULK_CREATED',
         entity_type: 'Student',
-        entity_id: student.student_id
+        entity_id: student.student_id,
       });
     } catch (error) {
       errors.push({
         data: studentData,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -308,7 +323,7 @@ export const bulkUploadStudents = async (academy_id, students) => {
   logger.info('Bulk student upload completed', {
     academy_id: academyId,
     created: createdStudents.length,
-    errors: errors.length
+    errors: errors.length,
   });
 
   return {
@@ -316,8 +331,59 @@ export const bulkUploadStudents = async (academy_id, students) => {
     errors,
     total: students.length,
     success_count: createdStudents.length,
-    error_count: errors.length
+    error_count: errors.length,
   };
+};
+
+export const bulkStudentAction = async (academy_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const { action, student_ids } = data;
+
+  const studentIds = student_ids.map((id) => parseInt(id, 10));
+
+  // Verify all students belong to the academy
+  const students = await prisma.student.findMany({
+    where: {
+      student_id: { in: studentIds },
+      academy_id: academyId,
+    },
+  });
+
+  if (students.length !== studentIds.length) {
+    const error = new Error('Some students not found in this academy');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  let result;
+  switch (action) {
+    case 'activate':
+      result = await prisma.student.updateMany({
+        where: { student_id: { in: studentIds } },
+        data: { status: 'ACTIVE' },
+      });
+      logger.info('Students activated', { student_ids: studentIds, academy_id: academyId });
+      break;
+    case 'deactivate':
+      result = await prisma.student.updateMany({
+        where: { student_id: { in: studentIds } },
+        data: { status: 'INACTIVE' },
+      });
+      logger.info('Students deactivated', { student_ids: studentIds, academy_id: academyId });
+      break;
+    case 'delete':
+      result = await prisma.student.deleteMany({
+        where: { student_id: { in: studentIds } },
+      });
+      logger.info('Students deleted', { student_ids: studentIds, academy_id: academyId });
+      break;
+    default:
+      const error = new Error('Invalid action');
+      error.statusCode = 400;
+      throw error;
+  }
+
+  return { count: result.count, action };
 };
 
 export const createSport = async (academy_id, data) => {
@@ -326,8 +392,8 @@ export const createSport = async (academy_id, data) => {
   const existing = await prisma.sport.findFirst({
     where: {
       name: data.name,
-      academy_id: academyId
-    }
+      academy_id: academyId,
+    },
   });
 
   if (existing) {
@@ -338,7 +404,9 @@ export const createSport = async (academy_id, data) => {
 
   // Support both camelCase and snake_case for base_fee
   const { name, base_fee, baseFee, status } = data;
-  const parsedFee = parseFloat(base_fee !== undefined ? base_fee : (baseFee !== undefined ? baseFee : 0));
+  const parsedFee = parseFloat(
+    base_fee !== undefined ? base_fee : baseFee !== undefined ? baseFee : 0,
+  );
 
   const sport = await prisma.sport.create({
     data: {
@@ -346,8 +414,8 @@ export const createSport = async (academy_id, data) => {
       base_fee: parsedFee,
       status: status || 'ACTIVE',
       academy_id: academyId,
-      is_custom: true
-    }
+      is_custom: true,
+    },
   });
 
   logger.info('Sport created', { sport_id: sport.sport_id, academy_id: academyId });
@@ -358,13 +426,17 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
   const academyId = parseInt(academy_id, 10);
   const sportId = parseInt(sport_id, 10);
 
-  console.log('[updateSportStatus Service] Processing:', { academyId, sportId, status: data.status });
+  console.log('[updateSportStatus Service] Processing:', {
+    academyId,
+    sportId,
+    status: data.status,
+  });
 
   const sport = await prisma.sport.findFirst({
     where: {
       sport_id: sportId,
-      academy_id: academyId
-    }
+      academy_id: academyId,
+    },
   });
 
   if (!sport) {
@@ -374,14 +446,43 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
     throw error;
   }
 
-  const updatedSport = await prisma.sport.update({
-    where: { sport_id: sportId },
-    data: { status: data.status }
+  // Use transaction for cascading update
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedSport = await tx.sport.update({
+      where: { sport_id: sportId },
+      data: { status: data.status },
+    });
+
+    // Cascade status to associated batches when deactivating sport
+    if (data.status === 'INACTIVE') {
+      const batchUpdateResult = await tx.batch.updateMany({
+        where: {
+          sport_id: sportId,
+          academy_id: academyId,
+          status: 'ACTIVE',
+        },
+        data: { status: 'INACTIVE' },
+      });
+
+      logger.info('Cascaded batch deactivation', {
+        sport_id: sportId,
+        academy_id: academyId,
+        batches_deactivated: batchUpdateResult.count,
+      });
+
+      return { sport: updatedSport, batchesDeactivated: batchUpdateResult.count };
+    }
+
+    return { sport: updatedSport, batchesDeactivated: 0 };
   });
 
-  logger.info('Sport status updated', { sport_id: sportId, status: data.status, academy_id: academyId });
-  console.log('[updateSportStatus Service] Success:', updatedSport);
-  return updatedSport;
+  logger.info('Sport status updated', {
+    sport_id: sportId,
+    status: data.status,
+    academy_id: academyId,
+  });
+  console.log('[updateSportStatus Service] Success:', result);
+  return result;
 };
 
 export const deleteSport = async (academy_id, sport_id) => {
@@ -393,8 +494,8 @@ export const deleteSport = async (academy_id, sport_id) => {
   const sport = await prisma.sport.findFirst({
     where: {
       sport_id: sportId,
-      academy_id: academyId
-    }
+      academy_id: academyId,
+    },
   });
 
   if (!sport) {
@@ -405,12 +506,63 @@ export const deleteSport = async (academy_id, sport_id) => {
   }
 
   await prisma.sport.delete({
-    where: { sport_id: sportId }
+    where: { sport_id: sportId },
   });
 
   logger.info('Sport deleted', { sport_id: sportId, academy_id: academyId });
   console.log('[deleteSport Service] Success');
   return { success: true };
+};
+
+export const bulkSportAction = async (academy_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const { action, sport_ids } = data;
+
+  const sportIds = sport_ids.map((id) => parseInt(id, 10));
+
+  // Verify all sports belong to the academy
+  const sports = await prisma.sport.findMany({
+    where: {
+      sport_id: { in: sportIds },
+      academy_id: academyId,
+    },
+  });
+
+  if (sports.length !== sportIds.length) {
+    const error = new Error('Some sports not found in this academy');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  let result;
+  switch (action) {
+    case 'activate':
+      result = await prisma.sport.updateMany({
+        where: { sport_id: { in: sportIds } },
+        data: { status: 'ACTIVE' },
+      });
+      logger.info('Sports activated', { sport_ids: sportIds, academy_id: academyId });
+      break;
+    case 'deactivate':
+      result = await prisma.sport.updateMany({
+        where: { sport_id: { in: sportIds } },
+        data: { status: 'INACTIVE' },
+      });
+      logger.info('Sports deactivated', { sport_ids: sportIds, academy_id: academyId });
+      break;
+    case 'delete':
+      result = await prisma.sport.deleteMany({
+        where: { sport_id: { in: sportIds } },
+      });
+      logger.info('Sports deleted', { sport_ids: sportIds, academy_id: academyId });
+      break;
+    default:
+      const error = new Error('Invalid action');
+      error.statusCode = 400;
+      throw error;
+  }
+
+  return { count: result.count, action };
 };
 
 // ==================== COACHES ====================
@@ -421,14 +573,14 @@ export const getAllCoaches = async (academy_id) =>
     include: {
       // ✅ FIXED: Replaced batches with batch_assignments join structure lookup mapping
       batch_assignments: {
-        include: { 
+        include: {
           batch: {
-            include: { sport: true }
-          }
-        }
-      }
+            include: { sport: true },
+          },
+        },
+      },
     },
-    orderBy: { created_at: 'desc' }
+    orderBy: { created_at: 'desc' },
   });
 
 export const createCoach = async (academy_id, data) => {
@@ -441,8 +593,8 @@ export const createCoach = async (academy_id, data) => {
     where: {
       email,
       academy_id: academyId,
-      ...NOT_DELETED
-    }
+      ...NOT_DELETED,
+    },
   });
 
   if (existingCoach) {
@@ -455,13 +607,13 @@ export const createCoach = async (academy_id, data) => {
     where: {
       email,
       academy_id: academyId,
-      is_deleted: true
-    }
+      is_deleted: true,
+    },
   });
 
   if (deletedCoach) {
     const error = new Error(
-      'A coach with this email was previously removed. Restore or use a different email.'
+      'A coach with this email was previously removed. Restore or use a different email.',
     );
     error.statusCode = 409;
     throw error;
@@ -475,8 +627,8 @@ export const createCoach = async (academy_id, data) => {
       phone_number: data.phone_number,
       email,
       // ✅ FIXED: Explicitly maps hashed data to password_hash to populate MySQL DB columns accurately
-      password_hash 
-    }
+      password_hash,
+    },
   });
 
   let credentials_sent = false;
@@ -485,13 +637,13 @@ export const createCoach = async (academy_id, data) => {
     await sendCoachOnboardingEmail({
       email,
       name: data.name,
-      temporaryPassword
+      temporaryPassword,
     });
     credentials_sent = true;
     logger.info('Coach provisioned with credentials email', {
       coach_id: coach.coach_id,
       academy_id: academyId,
-      email
+      email,
     });
   } catch (mailError) {
     logger.error('Coach created but onboarding email failed', {
@@ -499,10 +651,10 @@ export const createCoach = async (academy_id, data) => {
       academy_id: academyId,
       email,
       smtp_code: mailError.code,
-      message: mailError.message
+      message: mailError.message,
     });
     const error = new Error(
-      'Coach account was created but the credentials email could not be sent. Check SMTP settings and try resending credentials.'
+      'Coach account was created but the credentials email could not be sent. Check SMTP settings and try resending credentials.',
     );
     error.statusCode = 502;
     error.coach_id = coach.coach_id;
@@ -515,7 +667,7 @@ export const createCoach = async (academy_id, data) => {
     email: coach.email,
     specialization: coach.specialization,
     phone_number: coach.phone_number,
-    credentials_sent
+    credentials_sent,
   };
 };
 
@@ -535,8 +687,8 @@ export const updateCoach = async (academy_id, coach_id, data) => {
       specialization: data.specialization ?? coach.specialization,
       phone_number: data.phone_number ?? coach.phone_number,
       email: data.email ?? coach.email,
-      status: data.status ?? coach.status
-    }
+      status: data.status ?? coach.status,
+    },
   });
 };
 
@@ -551,7 +703,7 @@ export const deleteCoach = async (academy_id, coach_id) => {
 
   await prisma.coach.update({
     where: { coach_id: coach.coach_id },
-    data: softDeletePayload()
+    data: softDeletePayload(),
   });
 
   logger.info('Coach soft-deleted', { coach_id, academy_id });
@@ -570,16 +722,16 @@ export const getAllStudents = async (academy_id) => {
           include: {
             sport: true,
             duration_plan: true,
-            batch: true
+            batch: true,
           },
-          where: { is_active: true }
+          where: { is_active: true },
         },
         receipts: {
           orderBy: { payment_date: 'desc' },
-          take: 5
-        }
+          take: 5,
+        },
       },
-      orderBy: { created_at: 'desc' }
+      orderBy: { created_at: 'desc' },
     });
     return students || [];
   } catch (error) {
@@ -589,11 +741,15 @@ export const getAllStudents = async (academy_id) => {
 
 export const createStudent = async (academy_id, data) => {
   const academyId = parseInt(academy_id, 10);
-  
+
   // Handle multi-sport enrollment
-  const sportIds = Array.isArray(data.sport_ids) ? data.sport_ids : (data.sport_id ? [data.sport_id] : []);
+  const sportIds = Array.isArray(data.sport_ids)
+    ? data.sport_ids
+    : data.sport_id
+      ? [data.sport_id]
+      : [];
   const durationPlanId = data.duration_plan_id ? parseInt(data.duration_plan_id, 10) : null;
-  
+
   // Get duration plan multiplier if provided
   let durationPlan = null;
   let planMultiplier = 1;
@@ -602,8 +758,8 @@ export const createStudent = async (academy_id, data) => {
       where: {
         plan_id: durationPlanId,
         academy_id: academyId,
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
     if (durationPlan) {
       planMultiplier = parseFloat(durationPlan.multiplier);
@@ -613,21 +769,21 @@ export const createStudent = async (academy_id, data) => {
   // Calculate total sports fee
   let totalSportsFee = 0;
   const sportsWithFees = [];
-  
+
   if (sportIds.length > 0) {
     const sports = await prisma.sport.findMany({
       where: {
-        sport_id: { in: sportIds.map(id => parseInt(id, 10)) },
-        status: 'ACTIVE'
-      }
+        sport_id: { in: sportIds.map((id) => parseInt(id, 10)) },
+        status: 'ACTIVE',
+      },
     });
-    
-    sports.forEach(sport => {
+
+    sports.forEach((sport) => {
       const baseFee = parseFloat(sport.base_fee || 0);
       totalSportsFee += baseFee;
       sportsWithFees.push({
         sport_id: sport.sport_id,
-        base_fee: baseFee
+        base_fee: baseFee,
       });
     });
   }
@@ -636,7 +792,7 @@ export const createStudent = async (academy_id, data) => {
   const registrationFee = parseFloat(data.registration_fee || 0);
   const additionalCharges = parseFloat(data.additional_charges || 0);
   const discount = parseFloat(data.discount || 0);
-  
+
   const sportsFeeWithMultiplier = totalSportsFee * planMultiplier;
   const finalFee = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
 
@@ -666,17 +822,17 @@ export const createStudent = async (academy_id, data) => {
       parent_phone: data.parent_phone || null,
       joining_date: data.joining_date ? new Date(data.joining_date) : new Date(),
       fees_status: data.fees_status || 'unpaid',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
     },
-    include: { batch: true, sport: true }
+    include: { batch: true, sport: true },
   });
 
   // Create enrollment records for each sport
   if (sportIds.length > 0) {
     const enrollmentData = sportIds.map((sportId, index) => {
-      const sportWithFee = sportsWithFees.find(s => s.sport_id === parseInt(sportId, 10));
+      const sportWithFee = sportsWithFees.find((s) => s.sport_id === parseInt(sportId, 10));
       const sportBaseFee = sportWithFee ? parseFloat(sportWithFee.base_fee) : 0;
-      
+
       return {
         academy_id: academyId,
         student_id: student.student_id,
@@ -687,14 +843,14 @@ export const createStudent = async (academy_id, data) => {
         sports_fee: sportBaseFee * planMultiplier,
         additional_charges: index === 0 ? additionalCharges : 0,
         discount: index === 0 ? discount : 0,
-        final_fee: index === 0 ? finalFee : (sportBaseFee * planMultiplier),
+        final_fee: index === 0 ? finalFee : sportBaseFee * planMultiplier,
         next_due_date: index === 0 ? nextDueDate : null,
-        is_active: true
+        is_active: true,
       };
     });
 
     await prisma.studentEnrollment.createMany({
-      data: enrollmentData
+      data: enrollmentData,
     });
   }
 
@@ -703,11 +859,15 @@ export const createStudent = async (academy_id, data) => {
     actor_type: 'ADMIN',
     action: 'STUDENT_CREATED',
     entity_type: 'Student',
-    entity_id: student.student_id
+    entity_id: student.student_id,
   });
 
-  logger.info('Student created with enrollments', { student_id: student.student_id, academy_id: academyId, sport_count: sportIds.length });
-  
+  logger.info('Student created with enrollments', {
+    student_id: student.student_id,
+    academy_id: academyId,
+    sport_count: sportIds.length,
+  });
+
   // Return student with enrollments
   return prisma.student.findUnique({
     where: { student_id: student.student_id },
@@ -718,11 +878,11 @@ export const createStudent = async (academy_id, data) => {
         include: {
           sport: true,
           duration_plan: true,
-          batch: true
+          batch: true,
         },
-        where: { is_active: true }
-      }
-    }
+        where: { is_active: true },
+      },
+    },
   });
 };
 
@@ -739,7 +899,7 @@ export const updateStudent = async (academy_id, student_id, data) => {
   const parsedStudentId = parseInt(student_id, 10);
 
   // Handle multi-sport updates via sport_ids array
-  const sportIds = data.sport_ids ? data.sport_ids.map(id => parseInt(id, 10)) : [];
+  const sportIds = data.sport_ids ? data.sport_ids.map((id) => parseInt(id, 10)) : [];
   const durationPlanId = data.duration_plan_id ? parseInt(data.duration_plan_id, 10) : null;
 
   // Sync backward-compatible primary sport_id field using first element of sport_ids array
@@ -763,10 +923,11 @@ export const updateStudent = async (academy_id, student_id, data) => {
       parent_name: data.parent_name ?? student.parent_name,
       parent_email: data.parent_email ?? student.parent_email,
       parent_phone: data.parent_phone ?? student.parent_phone,
+      phone: data.phone ?? student.phone,
       fees_status: data.fees_status ?? student.fees_status,
-      status: data.status ?? student.status
+      status: data.status ?? student.status,
     },
-    include: { batch: true, sport: true, receipts: true }
+    include: { batch: true, sport: true, receipts: true },
   });
 
   // Manage active enrollment records if sport_ids or duration_plan_id provided
@@ -776,11 +937,11 @@ export const updateStudent = async (academy_id, student_id, data) => {
       where: {
         academy_id: parsedAcademyId,
         student_id: parsedStudentId,
-        is_active: true
+        is_active: true,
       },
       data: {
-        is_active: false
-      }
+        is_active: false,
+      },
     });
 
     // Create fresh StudentEnrollment rows for each selected sport
@@ -791,12 +952,12 @@ export const updateStudent = async (academy_id, student_id, data) => {
         if (durationPlanId) {
           const durationPlan = await prisma.durationPlan.findUnique({
             where: { plan_id: durationPlanId },
-            select: { multiplier: true }
+            select: { multiplier: true },
           });
           if (durationPlan) {
             const sport = await prisma.sport.findUnique({
               where: { sport_id: sportId },
-              select: { base_fee: true }
+              select: { base_fee: true },
             });
             if (sport) {
               finalFee = sport.base_fee * durationPlan.multiplier;
@@ -818,8 +979,8 @@ export const updateStudent = async (academy_id, student_id, data) => {
             paid_amount: 0,
             is_active: true,
             coach_id: null,
-            batch_id: nextBatchId
-          }
+            batch_id: nextBatchId,
+          },
         });
       }
     }
@@ -829,7 +990,7 @@ export const updateStudent = async (academy_id, student_id, data) => {
     student_id: parsedStudentId,
     academy_id: parsedAcademyId,
     sport_ids: sportIds,
-    duration_plan_id: durationPlanId
+    duration_plan_id: durationPlanId,
   });
 
   return updatedStudent;
@@ -851,8 +1012,8 @@ export const exitStudent = async (academy_id, student_id, data, admin_user_id) =
       exit_reason: data.exit_reason,
       exit_note: data.exit_note || null,
       batch_id: null,
-      ...softDeletePayload()
-    }
+      ...softDeletePayload(),
+    },
   });
 
   if (student.parent_email) {
@@ -861,12 +1022,12 @@ export const exitStudent = async (academy_id, student_id, data, admin_user_id) =
         parentEmail: student.parent_email,
         studentName: student.name,
         exitReason: data.exit_reason,
-        exitNote: data.exit_note
+        exitNote: data.exit_note,
       });
     } catch (mailErr) {
       logger.error('Student exit email failed', {
         student_id: student.student_id,
-        message: mailErr.message
+        message: mailErr.message,
       });
     }
   }
@@ -878,7 +1039,7 @@ export const exitStudent = async (academy_id, student_id, data, admin_user_id) =
     action: 'STUDENT_EXIT',
     entity_type: 'Student',
     entity_id: student.student_id,
-    metadata: { exit_reason: data.exit_reason }
+    metadata: { exit_reason: data.exit_reason },
   });
 
   return updated;
@@ -895,7 +1056,7 @@ export const deleteStudent = async (academy_id, student_id) => {
 
   await prisma.student.update({
     where: { student_id: student.student_id },
-    data: softDeletePayload()
+    data: softDeletePayload(),
   });
 
   logger.info('Student soft-deleted', { student_id, academy_id });
@@ -909,9 +1070,9 @@ export const getAllBatches = async (academy_id) => {
     include: {
       coaches: { include: { coach: true } },
       sport: true,
-      students: { where: { ...NOT_DELETED, status: 'ACTIVE' } }
+      students: { where: { ...NOT_DELETED, status: 'ACTIVE' } },
     },
-    orderBy: { batch_id: 'desc' }
+    orderBy: { batch_id: 'desc' },
   });
 
   return batches.map((batch) => {
@@ -921,9 +1082,7 @@ export const getAllBatches = async (academy_id) => {
       coach: basicCoachInfo && basicCoachInfo.is_deleted ? null : basicCoachInfo,
       enrolled_count: batch.students.length,
       available_seats:
-        batch.max_capacity != null
-          ? Math.max(0, batch.max_capacity - batch.students.length)
-          : null
+        batch.max_capacity != null ? Math.max(0, batch.max_capacity - batch.students.length) : null,
     };
   });
 };
@@ -936,12 +1095,21 @@ export const getAvailableBatches = async (academy_id, sport_id) => {
     (batch) =>
       batch.status === 'ACTIVE' &&
       batch.sport_id === sportId &&
-      (batch.max_capacity == null || batch.students.length < batch.max_capacity)
+      (batch.max_capacity == null || batch.students.length < batch.max_capacity),
   );
 };
 
 export const createBatch = async (academy_id, data) => {
   const academyId = parseInt(academy_id, 10);
+
+  // Parse timing string "HH:mm - HH:mm" into start_time and end_time
+  let startTime = null;
+  let endTime = null;
+  if (data.timing) {
+    const [start, end] = data.timing.split('-').map((t) => t.trim());
+    startTime = start;
+    endTime = end;
+  }
 
   const batch = await prisma.batch.create({
     data: {
@@ -949,10 +1117,12 @@ export const createBatch = async (academy_id, data) => {
       name: data.name,
       sport_id: data.sport_id ? parseInt(data.sport_id, 10) : null,
       timing: data.timing,
+      start_time: startTime,
+      end_time: endTime,
       max_capacity: data.max_capacity ? parseInt(data.max_capacity, 10) : null,
-      status: data.status || 'ACTIVE'
+      status: data.status || 'ACTIVE',
     },
-    include: { sport: true }
+    include: { sport: true },
   });
 
   if (data.coach_id) {
@@ -966,8 +1136,8 @@ export const createBatch = async (academy_id, data) => {
     await prisma.batchCoach.create({
       data: {
         batch_id: batch.batch_id,
-        coach_id: coach.coach_id
-      }
+        coach_id: coach.coach_id,
+      },
     });
   }
 
@@ -984,18 +1154,27 @@ export const updateBatch = async (academy_id, batch_id, data) => {
     throw error;
   }
 
+  // Parse timing string "HH:mm - HH:mm" into start_time and end_time
+  let startTime = batch.start_time;
+  let endTime = batch.end_time;
+  if (data.timing) {
+    const [start, end] = data.timing.split('-').map((t) => t.trim());
+    startTime = start;
+    endTime = end;
+  }
+
   await prisma.batch.update({
     where: { batch_id: batch.batch_id },
     data: {
       name: data.name ?? batch.name,
       sport_id: data.sport_id !== undefined ? parseInt(data.sport_id, 10) : batch.sport_id,
       timing: data.timing ?? batch.timing,
+      start_time: startTime,
+      end_time: endTime,
       max_capacity:
-        data.max_capacity !== undefined
-          ? parseInt(data.max_capacity, 10)
-          : batch.max_capacity,
-      status: data.status ?? batch.status
-    }
+        data.max_capacity !== undefined ? parseInt(data.max_capacity, 10) : batch.max_capacity,
+      status: data.status ?? batch.status,
+    },
   });
 
   if (data.coach_id !== undefined) {
@@ -1004,8 +1183,8 @@ export const updateBatch = async (academy_id, batch_id, data) => {
       await prisma.batchCoach.create({
         data: {
           batch_id: batch.batch_id,
-          coach_id: parseInt(data.coach_id, 10)
-        }
+          coach_id: parseInt(data.coach_id, 10),
+        },
       });
     }
   }
@@ -1023,7 +1202,7 @@ export const deleteBatch = async (academy_id, batch_id) => {
   }
 
   const enrolled = await prisma.student.count({
-    where: { batch_id: batch.batch_id, ...NOT_DELETED, status: 'ACTIVE' }
+    where: { batch_id: batch.batch_id, ...NOT_DELETED, status: 'ACTIVE' },
   });
 
   if (enrolled > 0) {
@@ -1034,7 +1213,7 @@ export const deleteBatch = async (academy_id, batch_id) => {
 
   await prisma.batch.update({
     where: { batch_id: batch.batch_id },
-    data: { status: 'INACTIVE' }
+    data: { status: 'INACTIVE' },
   });
 
   logger.info('Batch deactivated', { batch_id, academy_id });
@@ -1058,8 +1237,8 @@ export const markCoachAttendance = async (academy_id, marked_by_admin_id, data) 
       date: new Date(data.date),
       status: data.status,
       marked_by_admin_id,
-      remarks: data.remarks || null
-    }
+      remarks: data.remarks || null,
+    },
   });
 };
 
@@ -1075,9 +1254,9 @@ export const getCoachAttendance = async (academy_id, coach_id) => {
   return prisma.coachAttendance.findMany({
     where: {
       coach_id: coach.coach_id,
-      academy_id: parseInt(academy_id, 10)
+      academy_id: parseInt(academy_id, 10),
     },
-    orderBy: { date: 'desc' }
+    orderBy: { date: 'desc' },
   });
 };
 
@@ -1087,10 +1266,10 @@ export const getAllPayments = async (academy_id) =>
   prisma.receipt.findMany({
     where: {
       academy_id: parseInt(academy_id, 10),
-      student: NOT_DELETED
+      student: NOT_DELETED,
     },
     include: { student: true },
-    orderBy: { payment_date: 'desc' }
+    orderBy: { payment_date: 'desc' },
   });
 
 export const getStudentLedger = async (academy_id, student_id) => {
@@ -1111,8 +1290,8 @@ export const getStudentLedger = async (academy_id, student_id) => {
     where: {
       academy_id: academyId,
       student_id: studentId,
-      status: 'COMPLETED'
-    }
+      status: 'COMPLETED',
+    },
   });
 
   console.log('[getStudentLedger] Completed receipts found:', receipts.length);
@@ -1124,16 +1303,16 @@ export const getStudentLedger = async (academy_id, student_id) => {
     where: {
       student_id: studentId,
       academy_id: academyId,
-      student: { deleted_at: null }
+      student: { deleted_at: null },
     },
     include: {
       duration_plan: true,
       batch: {
         include: {
-          sport: true
-        }
-      }
-    }
+          sport: true,
+        },
+      },
+    },
   });
 
   console.log('[getStudentLedger] Enrollments found:', enrollments.length);
@@ -1146,8 +1325,22 @@ export const getStudentLedger = async (academy_id, student_id) => {
     // Safely read the loaded multiplier from the duration_plan relation
     const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
     const sportsFeeWithMultiplier = baseFee * durationMultiplier;
-    const enrollmentTotal = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
-    console.log('[getStudentLedger] Enrollment calculation - baseFee:', baseFee, 'registrationFee:', registrationFee, 'additionalCharges:', additionalCharges, 'discount:', discount, 'multiplier:', durationMultiplier, 'total:', enrollmentTotal);
+    const enrollmentTotal =
+      sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
+    console.log(
+      '[getStudentLedger] Enrollment calculation - baseFee:',
+      baseFee,
+      'registrationFee:',
+      registrationFee,
+      'additionalCharges:',
+      additionalCharges,
+      'discount:',
+      discount,
+      'multiplier:',
+      durationMultiplier,
+      'total:',
+      enrollmentTotal,
+    );
     return sum + enrollmentTotal;
   }, 0);
 
@@ -1169,7 +1362,7 @@ export const getStudentLedger = async (academy_id, student_id) => {
     overdue_fees: overdueFees,
     balance_outstanding: Math.max(0, balanceOutstanding),
     receipt_count: receipts.length,
-    enrollment_count: enrollments.length
+    enrollment_count: enrollments.length,
   };
 };
 
@@ -1179,12 +1372,12 @@ export const getReceipts = async (academy_id) => {
   const receipts = await prisma.receipt.findMany({
     where: {
       academy_id: academyId,
-      student: NOT_DELETED
+      student: NOT_DELETED,
     },
     include: {
-      student: true
+      student: true,
     },
-    orderBy: { payment_date: 'desc' }
+    orderBy: { payment_date: 'desc' },
   });
 
   return receipts;
@@ -1205,9 +1398,9 @@ export const createReceipt = async (academy_id, data) => {
     where: {
       academy_id: academyId,
       receipt_number: {
-        startsWith: `REC-${year}`
-      }
-    }
+        startsWith: `REC-${year}`,
+      },
+    },
   });
 
   const receiptNumber = `REC-${year}-${String(count + 1).padStart(3, '0')}`;
@@ -1222,11 +1415,11 @@ export const createReceipt = async (academy_id, data) => {
       additional_charges: parseFloat(data.additional_charges || 0),
       payment_date: new Date(data.payment_date),
       method: data.payment_method,
-      status: 'COMPLETED'
+      status: 'COMPLETED',
     },
     include: {
-      student: true
-    }
+      student: true,
+    },
   });
 
   // Update the student's active enrollment's paid_amount to maintain financial link
@@ -1234,8 +1427,8 @@ export const createReceipt = async (academy_id, data) => {
     where: {
       student_id: student.student_id,
       academy_id: academyId,
-      is_active: true
-    }
+      is_active: true,
+    },
   });
 
   if (activeEnrollment) {
@@ -1244,7 +1437,7 @@ export const createReceipt = async (academy_id, data) => {
 
     await prisma.studentEnrollment.update({
       where: { enrollment_id: activeEnrollment.enrollment_id },
-      data: { paid_amount: newPaidAmount }
+      data: { paid_amount: newPaidAmount },
     });
   }
 
@@ -1253,7 +1446,7 @@ export const createReceipt = async (academy_id, data) => {
     actor_type: 'ADMIN',
     action: 'RECEIPT_CREATED',
     entity_type: 'Receipt',
-    entity_id: receipt.receipt_id
+    entity_id: receipt.receipt_id,
   });
 
   return receipt;
@@ -1265,7 +1458,7 @@ export const getPendingDues = async (academy_id) => {
   const students = await prisma.student.findMany({
     where: {
       academy_id: academyId,
-      deleted_at: null
+      deleted_at: null,
     },
     include: {
       enrollments: {
@@ -1273,12 +1466,12 @@ export const getPendingDues = async (academy_id) => {
           duration_plan: true,
           batch: {
             include: {
-              sport: true
-            }
-          }
-        }
-      }
-    }
+              sport: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   const pendingDues = [];
@@ -1288,8 +1481,8 @@ export const getPendingDues = async (academy_id) => {
       where: {
         student_id: student.student_id,
         academy_id: academyId,
-        status: 'COMPLETED'
-      }
+        status: 'COMPLETED',
+      },
     });
 
     const totalPaid = receipts.reduce((sum, r) => sum + Number(r.amount), 0);
@@ -1298,7 +1491,7 @@ export const getPendingDues = async (academy_id) => {
       const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
       // Safely read the loaded multiplier from the duration_plan relation
       const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
-      return sum + (baseFee * durationMultiplier);
+      return sum + baseFee * durationMultiplier;
     }, 0);
 
     const balanceOutstanding = totalFeeDue - totalPaid;
@@ -1317,7 +1510,7 @@ export const getPendingDues = async (academy_id) => {
         total_paid: totalPaid,
         balance_outstanding: balanceOutstanding,
         next_due_date: nextDueDate,
-        sport: latestEnrollment?.batch?.sport?.name || '—'
+        sport: latestEnrollment?.batch?.sport?.name || '—',
       });
     }
   }
@@ -1331,24 +1524,32 @@ export const getRevenueSummary = async (academy_id) => {
   const receipts = await prisma.receipt.findMany({
     where: {
       academy_id: academyId,
-      status: 'COMPLETED'
-    }
+      status: 'COMPLETED',
+    },
   });
 
   const totalRevenue = receipts.reduce((sum, r) => sum + Number(r.amount), 0);
   const totalDiscounts = receipts.reduce((sum, r) => sum + Number(r.discount || 0), 0);
-  const totalAdditionalCharges = receipts.reduce((sum, r) => sum + Number(r.additional_charges || 0), 0);
+  const totalAdditionalCharges = receipts.reduce(
+    (sum, r) => sum + Number(r.additional_charges || 0),
+    0,
+  );
 
   const currentYear = new Date().getFullYear();
-  const currentYearReceipts = receipts.filter(r => new Date(r.payment_date).getFullYear() === currentYear);
+  const currentYearReceipts = receipts.filter(
+    (r) => new Date(r.payment_date).getFullYear() === currentYear,
+  );
   const currentYearRevenue = currentYearReceipts.reduce((sum, r) => sum + Number(r.amount), 0);
 
   const currentMonth = new Date().getMonth();
-  const currentYearMonthReceipts = receipts.filter(r => {
+  const currentYearMonthReceipts = receipts.filter((r) => {
     const date = new Date(r.payment_date);
     return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
   });
-  const currentMonthRevenue = currentYearMonthReceipts.reduce((sum, r) => sum + Number(r.amount), 0);
+  const currentMonthRevenue = currentYearMonthReceipts.reduce(
+    (sum, r) => sum + Number(r.amount),
+    0,
+  );
 
   // Revenue by payment method
   const revenueByMethod = receipts.reduce((acc, r) => {
@@ -1364,14 +1565,14 @@ export const getRevenueSummary = async (academy_id) => {
     current_year_revenue: currentYearRevenue,
     current_month_revenue: currentMonthRevenue,
     total_receipts: receipts.length,
-    revenue_by_method: revenueByMethod
+    revenue_by_method: revenueByMethod,
   };
 };
 
 export const createPayment = async (academy_id, data) => {
   console.log('[createPayment] Request body:', data);
   console.log('[createPayment] Academy ID:', academy_id);
-  
+
   const student = await getStudentForAcademy(academy_id, data.student_id);
 
   if (!student) {
@@ -1389,15 +1590,15 @@ export const createPayment = async (academy_id, data) => {
     amount: data.amount,
     payment_date: new Date(data.payment_date),
     method: data.method || 'cash',
-    status: data.status === 'completed' ? 'COMPLETED' : 'PENDING'
+    status: data.status === 'completed' ? 'COMPLETED' : 'PENDING',
   };
-  
+
   console.log('[createPayment] Prisma receipt.create data:', receiptData);
 
   let receipt;
   try {
     receipt = await prisma.receipt.create({
-      data: receiptData
+      data: receiptData,
     });
     console.log('[createPayment] Receipt created successfully:', receipt);
   } catch (error) {
@@ -1411,7 +1612,7 @@ export const createPayment = async (academy_id, data) => {
     try {
       await prisma.student.update({
         where: { student_id: student.student_id },
-        data: { fees_status: 'paid' }
+        data: { fees_status: 'paid' },
       });
       console.log('[createPayment] Student updated successfully');
     } catch (error) {
@@ -1426,7 +1627,7 @@ export const createPayment = async (academy_id, data) => {
     actor_type: 'ADMIN',
     action: 'PAYMENT_CREATED',
     entity_type: 'Receipt',
-    entity_id: receipt.receipt_id
+    entity_id: receipt.receipt_id,
   });
 
   // Dispatch email notification asynchronously for COMPLETED or FAILED status
@@ -1434,7 +1635,8 @@ export const createPayment = async (academy_id, data) => {
     setImmediate(async () => {
       try {
         if (student.parent_email) {
-          const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.name;
+          const studentName =
+            `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.name;
           const paymentAmount = parseFloat(receipt.amount).toFixed(2);
           const transactionId = receipt.receipt_number;
           const paymentMethod = receipt.method || 'Cash';
@@ -1445,7 +1647,7 @@ export const createPayment = async (academy_id, data) => {
               studentName,
               paymentAmount,
               transactionId,
-              paymentMethod
+              paymentMethod,
             });
             logger.info(`Payment success email dispatched to parent: ${student.parent_email}`);
           } else if (receipt.status === 'FAILED') {
@@ -1454,18 +1656,20 @@ export const createPayment = async (academy_id, data) => {
               studentName,
               paymentAmount,
               transactionId,
-              paymentMethod
+              paymentMethod,
             });
             logger.info(`Payment failure email dispatched to parent: ${student.parent_email}`);
           }
         } else {
-          logger.warn(`No parent email found for student_id: ${student.student_id}, skipping email notification`);
+          logger.warn(
+            `No parent email found for student_id: ${student.student_id}, skipping email notification`,
+          );
         }
       } catch (mailError) {
         logger.error('Failed to dispatch payment email notification', {
           error: mailError.message,
           receipt_id: receipt.receipt_id,
-          student_id: student.student_id
+          student_id: student.student_id,
         });
       }
     });
@@ -1478,7 +1682,7 @@ export const updatePaymentStatus = async (
   academy_id,
   payment_id,
   { status, rejected_reason },
-  admin_user_id
+  admin_user_id,
 ) => {
   const payment = await getPaymentForAcademy(academy_id, payment_id);
 
@@ -1494,20 +1698,22 @@ export const updatePaymentStatus = async (
     where: { receipt_id: payment.receipt_id },
     data: {
       status: targetStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED',
-      approved_by_user_id: targetStatus === 'COMPLETED' ? admin_user_id : payment.approved_by_user_id,
-      rejected_reason: targetStatus === 'REJECTED' || targetStatus === 'FAILED' ? rejected_reason || null : null
-    }
+      approved_by_user_id:
+        targetStatus === 'COMPLETED' ? admin_user_id : payment.approved_by_user_id,
+      rejected_reason:
+        targetStatus === 'REJECTED' || targetStatus === 'FAILED' ? rejected_reason || null : null,
+    },
   });
 
   if (targetStatus === 'COMPLETED') {
     await prisma.student.update({
       where: { student_id: payment.student_id },
-      data: { fees_status: 'paid' }
+      data: { fees_status: 'paid' },
     });
   } else {
     await prisma.student.update({
       where: { student_id: payment.student_id },
-      data: { fees_status: 'unpaid' }
+      data: { fees_status: 'unpaid' },
     });
   }
 
@@ -1518,7 +1724,7 @@ export const updatePaymentStatus = async (
     action: 'PAYMENT_STATUS_UPDATED',
     entity_type: 'Receipt',
     entity_id: payment.receipt_id,
-    metadata: { status: targetStatus }
+    metadata: { status: targetStatus },
   });
 
   // Dispatch email notification asynchronously for COMPLETED or FAILED status
@@ -1526,7 +1732,9 @@ export const updatePaymentStatus = async (
     setImmediate(async () => {
       try {
         if (payment.student && payment.student.parent_email) {
-          const studentName = `${payment.student.first_name || ''} ${payment.student.last_name || ''}`.trim() || payment.student.name;
+          const studentName =
+            `${payment.student.first_name || ''} ${payment.student.last_name || ''}`.trim() ||
+            payment.student.name;
           const paymentAmount = parseFloat(updatedReceipt.amount).toFixed(2);
           const transactionId = updatedReceipt.receipt_number;
           const paymentMethod = updatedReceipt.method || 'Cash';
@@ -1537,27 +1745,33 @@ export const updatePaymentStatus = async (
               studentName,
               paymentAmount,
               transactionId,
-              paymentMethod
+              paymentMethod,
             });
-            logger.info(`Payment success email dispatched to parent: ${payment.student.parent_email}`);
+            logger.info(
+              `Payment success email dispatched to parent: ${payment.student.parent_email}`,
+            );
           } else if (targetStatus === 'FAILED') {
             await sendPaymentFailureEmail({
               parentEmail: payment.student.parent_email,
               studentName,
               paymentAmount,
               transactionId,
-              paymentMethod
+              paymentMethod,
             });
-            logger.info(`Payment failure email dispatched to parent: ${payment.student.parent_email}`);
+            logger.info(
+              `Payment failure email dispatched to parent: ${payment.student.parent_email}`,
+            );
           }
         } else {
-          logger.warn(`No parent email found for student_id: ${payment.student_id}, skipping email notification`);
+          logger.warn(
+            `No parent email found for student_id: ${payment.student_id}, skipping email notification`,
+          );
         }
       } catch (mailError) {
         logger.error('Failed to dispatch payment status update email notification', {
           error: mailError.message,
           receipt_id: updatedReceipt.receipt_id,
-          student_id: payment.student_id
+          student_id: payment.student_id,
         });
       }
     });
@@ -1589,61 +1803,75 @@ export const getAcademyReport = async (academy_id) => {
       dailyNotesCount,
       pendingDuesAggregate,
       monthlyRevenueAggregate,
-      monthlyAttendanceCount
+      monthlyAttendanceCount,
     ] = await Promise.all([
       prisma.coach.count({ where: activeCoachFilter }).catch(() => 0),
       prisma.student.count({ where: { ...activeStudentFilter, status: 'ACTIVE' } }).catch(() => 0),
       prisma.batch.count({ where: { academy_id: academyId, status: 'ACTIVE' } }).catch(() => 0),
-      prisma.receipt.aggregate({
-        where: {
-          academy_id: academyId,
-          status: 'COMPLETED',
-          student: NOT_DELETED
-        },
-        _sum: { amount: true }
-      }).catch(() => ({ _sum: { amount: 0 } })),
-      prisma.student.count({
-        where: { ...activeStudentFilter, fees_status: 'paid' }
-      }).catch(() => 0),
-      prisma.student.count({
-        where: {
-          ...activeStudentFilter,
-          fees_status: { in: ['unpaid', 'pending', 'partial'] }
-        }
-      }).catch(() => 0),
-      prisma.studentAttendance.groupBy({
-        by: ['status'],
-        where: {
-          academy_id: academyId,
-          date: { gte: thirtyDaysAgo }
-        },
-        _count: { status: true }
-      }).catch(() => []),
+      prisma.receipt
+        .aggregate({
+          where: {
+            academy_id: academyId,
+            status: 'COMPLETED',
+            student: NOT_DELETED,
+          },
+          _sum: { amount: true },
+        })
+        .catch(() => ({ _sum: { amount: 0 } })),
+      prisma.student
+        .count({
+          where: { ...activeStudentFilter, fees_status: 'paid' },
+        })
+        .catch(() => 0),
+      prisma.student
+        .count({
+          where: {
+            ...activeStudentFilter,
+            fees_status: { in: ['unpaid', 'pending', 'partial'] },
+          },
+        })
+        .catch(() => 0),
+      prisma.studentAttendance
+        .groupBy({
+          by: ['status'],
+          where: {
+            academy_id: academyId,
+            date: { gte: thirtyDaysAgo },
+          },
+          _count: { status: true },
+        })
+        .catch(() => []),
       prisma.performanceScore.count({ where: { academy_id: academyId } }).catch(() => 0),
       prisma.dailyStudentNote.count({ where: { academy_id: academyId } }).catch(() => 0),
-      prisma.student.aggregate({
-        where: activeStudentFilter,
-        _sum: {
-          registration_fee: true,
-          additional_charges: true,
-          discount: true
-        }
-      }).catch(() => ({ _sum: { registration_fee: 0, additional_charges: 0, discount: 0 } })),
-      prisma.receipt.aggregate({
-        where: {
-          academy_id: academyId,
-          status: 'COMPLETED',
-          student: NOT_DELETED,
-          payment_date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
-        },
-        _sum: { amount: true }
-      }).catch(() => ({ _sum: { amount: 0 } })),
-      prisma.studentAttendance.count({
-        where: {
-          academy_id: academyId,
-          date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
-        }
-      }).catch(() => 0)
+      prisma.student
+        .aggregate({
+          where: activeStudentFilter,
+          _sum: {
+            registration_fee: true,
+            additional_charges: true,
+            discount: true,
+          },
+        })
+        .catch(() => ({ _sum: { registration_fee: 0, additional_charges: 0, discount: 0 } })),
+      prisma.receipt
+        .aggregate({
+          where: {
+            academy_id: academyId,
+            status: 'COMPLETED',
+            student: NOT_DELETED,
+            payment_date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+          },
+          _sum: { amount: true },
+        })
+        .catch(() => ({ _sum: { amount: 0 } })),
+      prisma.studentAttendance
+        .count({
+          where: {
+            academy_id: academyId,
+            date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+          },
+        })
+        .catch(() => 0),
     ]);
 
     const attendanceCounts = attendanceAgg.reduce(
@@ -1652,20 +1880,18 @@ export const getAcademyReport = async (academy_id) => {
         acc.total += row._count.status;
         return acc;
       },
-      { total: 0 }
+      { total: 0 },
     );
 
-    const presentCount =
-      (attendanceCounts.PRESENT || 0) + (attendanceCounts.LATE || 0);
+    const presentCount = (attendanceCounts.PRESENT || 0) + (attendanceCounts.LATE || 0);
     const attendancePercent =
-      attendanceCounts.total > 0
-        ? Math.round((presentCount / attendanceCounts.total) * 100)
-        : 0;
+      attendanceCounts.total > 0 ? Math.round((presentCount / attendanceCounts.total) * 100) : 0;
 
     // Calculate pending dues
-    const totalFees = (pendingDuesAggregate._sum?.registration_fee || 0) + 
-                      (pendingDuesAggregate._sum?.additional_charges || 0) - 
-                      (pendingDuesAggregate._sum?.discount || 0);
+    const totalFees =
+      (pendingDuesAggregate._sum?.registration_fee || 0) +
+      (pendingDuesAggregate._sum?.additional_charges || 0) -
+      (pendingDuesAggregate._sum?.discount || 0);
     const totalPaid = revenueAggregate._sum?.amount || 0;
     const pendingDues = Math.max(0, totalFees - totalPaid);
 
@@ -1677,13 +1903,13 @@ export const getAcademyReport = async (academy_id) => {
       attendance_percent: attendancePercent || 0,
       payment_summary: {
         paid_students: paidStudents || 0,
-        unpaid_students: unpaidStudents || 0
+        unpaid_students: unpaidStudents || 0,
       },
       pending_dues: pendingDues || 0,
       performance_scores_count: performanceScoresCount || 0,
       daily_notes_count: dailyNotesCount || 0,
       monthly_revenue: monthlyRevenueAggregate._sum?.amount || 0,
-      monthly_attendance: monthlyAttendanceCount || 0
+      monthly_attendance: monthlyAttendanceCount || 0,
     };
   } catch (error) {
     // Return default values if anything fails
@@ -1695,13 +1921,13 @@ export const getAcademyReport = async (academy_id) => {
       attendance_percent: 0,
       payment_summary: {
         paid_students: 0,
-        unpaid_students: 0
+        unpaid_students: 0,
       },
       pending_dues: 0,
       performance_scores_count: 0,
       daily_notes_count: 0,
       monthly_revenue: 0,
-      monthly_attendance: 0
+      monthly_attendance: 0,
     };
   }
 };
@@ -1709,17 +1935,17 @@ export const getAcademyReport = async (academy_id) => {
 export const getEnquiries = async (academyId) => {
   const enquiries = await prisma.enquiry.findMany({
     where: {
-      academy_id: parseInt(academyId)
+      academy_id: parseInt(academyId),
     },
     orderBy: {
-      created_at: 'desc'
-    }
+      created_at: 'desc',
+    },
   });
 
   // Map enquiry_id to id for frontend compatibility
-  return enquiries.map(enq => ({
+  return enquiries.map((enq) => ({
     ...enq,
-    id: enq.enquiry_id
+    id: enq.enquiry_id,
   }));
 };
 
@@ -1729,8 +1955,8 @@ export const updateEnquiry = async (academyId, enquiryId, data) => {
   const enquiry = await prisma.enquiry.findFirst({
     where: {
       enquiry_id: parseInt(enquiryId),
-      academy_id: parseInt(academyId)
-    }
+      academy_id: parseInt(academyId),
+    },
   });
 
   if (!enquiry) {
@@ -1749,19 +1975,19 @@ export const updateEnquiry = async (academyId, enquiryId, data) => {
 
   const updated = await prisma.enquiry.update({
     where: { enquiry_id: parseInt(enquiryId) },
-    data: updateData
+    data: updateData,
   });
 
   logger.info('Enquiry updated', {
     enquiry_id: enquiryId,
     academy_id: academyId,
-    status: updated.status
+    status: updated.status,
   });
 
   // Return with id field for frontend compatibility
   return {
     ...updated,
-    id: updated.enquiry_id
+    id: updated.enquiry_id,
   };
 };
 
@@ -1774,13 +2000,13 @@ export const updateEnquiry = async (academyId, enquiryId, data) => {
 export const getPerformanceApprovalQueue = async (academyId, queryParams = {}) => {
   const parsedAcademyId = parseInt(academyId, 10);
   const parsedSportId = queryParams.sport_id ? parseInt(queryParams.sport_id, 10) : undefined;
-  
+
   // Natively align incoming query string filter values with your Prisma Enum parameters
-  const statusFilter = queryParams.status || 'PENDING'; 
+  const statusFilter = queryParams.status || 'PENDING';
 
   const whereClause = {
     academy_id: parsedAcademyId,
-    status: statusFilter
+    status: statusFilter,
   };
 
   // Dynamically inject sport_id scoping if passed by the frontend component
@@ -1792,21 +2018,21 @@ export const getPerformanceApprovalQueue = async (academyId, queryParams = {}) =
     where: whereClause,
     include: {
       sport: {
-        select: { name: true }
+        select: { name: true },
       },
       requested_by: {
-        select: { name: true, specialization: true }
-      }
+        select: { name: true, specialization: true },
+      },
     },
     orderBy: {
-      created_at: 'desc'
-    }
+      created_at: 'desc',
+    },
   });
 
   // Map attribute_id to id for seamless frontend dataset parsing compatibility
-  return queue.map(attr => ({
+  return queue.map((attr) => ({
     ...attr,
-    id: attr.attribute_id
+    id: attr.attribute_id,
   }));
 };
 
@@ -1820,11 +2046,14 @@ export const createPerformanceAttribute = async (academy_id, body) => {
       sport_id: parseInt(sport_id, 10),
       name: name.trim(),
       status: 'APPROVED',
-      reviewed_at: new Date()
-    }
+      reviewed_at: new Date(),
+    },
   });
 
-  logger.info('Performance attribute created successfully', { attribute_id: attribute.attribute_id, academy_id: academyId });
+  logger.info('Performance attribute created successfully', {
+    attribute_id: attribute.attribute_id,
+    academy_id: academyId,
+  });
   return attribute;
 };
 
@@ -1840,8 +2069,8 @@ export const approvePerformanceAttribute = async (academyId, attributeId, data) 
   const attribute = await prisma.performanceAttribute.findFirst({
     where: {
       attribute_id: parseInt(attributeId, 10),
-      academy_id: parseInt(academyId, 10)
-    }
+      academy_id: parseInt(academyId, 10),
+    },
   });
 
   if (!attribute) {
@@ -1854,19 +2083,19 @@ export const approvePerformanceAttribute = async (academyId, attributeId, data) 
     where: { attribute_id: parseInt(attributeId, 10) },
     data: {
       status: action,
-      reviewed_at: new Date()
-    }
+      reviewed_at: new Date(),
+    },
   });
 
   logger.info('Performance attribute checked and modified cleanly', {
     attribute_id: attributeId,
     academy_id: academyId,
-    action: action
+    action: action,
   });
 
   return {
     ...updated,
-    id: updated.attribute_id
+    id: updated.attribute_id,
   };
 };
 
@@ -1877,7 +2106,7 @@ export const getAttendance = async (academy_id, query = {}) => {
   const { from, to, batch_id, student_id, status } = query;
 
   const where = {
-    academy_id: academyId
+    academy_id: academyId,
   };
 
   if (from || to) {
@@ -1904,27 +2133,27 @@ export const getAttendance = async (academy_id, query = {}) => {
       student: {
         select: {
           student_id: true,
-          name: true
-        }
+          name: true,
+        },
       },
       batch: {
         select: {
           batch_id: true,
-          name: true
-        }
+          name: true,
+        },
       },
       coach: {
         select: {
           coach_id: true,
-          name: true
-        }
-      }
+          name: true,
+        },
+      },
     },
-    orderBy: { date: 'desc' }
+    orderBy: { date: 'desc' },
   });
 
-  return attendance.map(a => ({
+  return attendance.map((a) => ({
     ...a,
-    id: a.attendance_id
+    id: a.attendance_id,
   }));
 };

@@ -1,27 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
+import { QRCodeSVG } from 'qrcode.react';
 
 // Status options for dropdown
 const STATUS_OPTIONS = [
-  'NEW', 'CONTACTED', 'TRIAL_SCHEDULED', 'TRIAL_COMPLETED', 
-  'CONVERTED', 'CLOSED', 'NOT_INTERESTED'
+  'NEW',
+  'CONTACTED',
+  'TRIAL_SCHEDULED',
+  'TRIAL_COMPLETED',
+  'CONVERTED',
+  'CLOSED',
+  'NOT_INTERESTED',
 ];
 
 // Source options for dropdown
-const SOURCE_OPTIONS = [
-  'WALK_IN', 'PHONE', 'WEBSITE', 'WHATSAPP', 'REFERRAL', 'SOCIAL_MEDIA'
-];
+const SOURCE_OPTIONS = ['WALK_IN', 'PHONE', 'WEBSITE', 'WHATSAPP', 'REFERRAL', 'SOCIAL_MEDIA'];
 
 // Status color mapping
 const STATUS_COLORS = {
-  'NEW': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  'CONTACTED': 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-  'TRIAL_SCHEDULED': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-  'TRIAL_COMPLETED': 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
-  'CONVERTED': 'bg-green-500/10 text-green-600 border-green-500/20',
-  'CLOSED': 'bg-gray-500/10 text-gray-600 border-gray-500/20',
-  'NOT_INTERESTED': 'bg-red-500/10 text-red-600 border-red-500/20'
+  NEW: 'badge-info',
+  CONTACTED: 'badge-warning',
+  TRIAL_SCHEDULED: 'badge-purple',
+  TRIAL_COMPLETED: 'badge-cyan',
+  CONVERTED: 'badge-success',
+  CLOSED: 'badge-muted bg-surface-secondary text-muted border-border',
+  NOT_INTERESTED: 'badge-danger',
 };
 
 export default function EnquiriesPanel() {
@@ -31,7 +35,7 @@ export default function EnquiriesPanel() {
     newEnquiries: 0,
     followUpsDueToday: 0,
     convertedEnquiries: 0,
-    conversionRate: 0
+    conversionRate: 0,
   });
 
   // Enquiries list
@@ -45,7 +49,7 @@ export default function EnquiriesPanel() {
     sportInterested: '',
     search: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
   });
 
   // Modals
@@ -54,6 +58,10 @@ export default function EnquiriesPanel() {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  // QR code ref for download
+  const qrCodeRef = useRef(null);
 
   // Selected enquiry for operations
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
@@ -69,7 +77,7 @@ export default function EnquiriesPanel() {
     gender: '',
     enquiry_source: '',
     notes: '',
-    follow_up_date: ''
+    follow_up_date: '',
   });
 
   // Follow-up date
@@ -213,7 +221,7 @@ export default function EnquiriesPanel() {
       gender: '',
       enquiry_source: '',
       notes: '',
-      follow_up_date: ''
+      follow_up_date: '',
     });
   };
 
@@ -229,7 +237,7 @@ export default function EnquiriesPanel() {
       gender: enquiry.gender || '',
       enquiry_source: enquiry.enquiry_source || '',
       notes: enquiry.notes || '',
-      follow_up_date: enquiry.follow_up_date ? enquiry.follow_up_date.split('T')[0] : ''
+      follow_up_date: enquiry.follow_up_date ? enquiry.follow_up_date.split('T')[0] : '',
     });
     setShowEditModal(true);
   };
@@ -239,20 +247,42 @@ export default function EnquiriesPanel() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleCopyFormLink = () => {
+    const formUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/enquiry-form`;
+    navigator.clipboard
+      .writeText(formUrl)
+      .then(() => {
+        showToast('Form link copied to clipboard!', 'success');
+      })
+      .catch(() => {
+        showToast('Failed to copy link', 'error');
+      });
+  };
+
+  const handleDownloadQR = () => {
+    const canvas = qrCodeRef.current?.querySelector('canvas');
+    if (canvas) {
+      const link = document.createElement('a');
+      link.download = 'enquiry-form-qr.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
   // ==================== RENDER ====================
 
   return (
-    <motion.div 
-      className="p-6 bg-surface text-foreground min-h-screen space-y-6"
+    <motion.div
+      className="bg-surface text-foreground min-h-screen space-y-6 p-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -264,8 +294,8 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${
-              toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            className={`fixed right-4 top-4 z-50 rounded-xl px-6 py-3 shadow-lg ${
+              toast.type === 'success' ? 'bg-success text-foreground' : 'bg-danger text-foreground'
             }`}
           >
             {toast.message}
@@ -274,48 +304,69 @@ export default function EnquiriesPanel() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-6 gap-4">
+      <div className="border-border flex flex-col items-start justify-between gap-4 border-b pb-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Enquiries Desk</h1>
-          <p className="text-sm text-muted mt-1">Manage enquiries, follow-ups, and conversions</p>
+          <h1 className="text-foreground text-3xl font-black tracking-tight">Enquiries Desk</h1>
+          <p className="text-muted mt-1 text-sm">Manage enquiries, follow-ups, and conversions</p>
         </div>
-        <motion.button
-          onClick={() => { resetForm(); setShowAddModal(true); }}
-          className="bg-accent text-white hover:bg-accent-hover px-6 py-3 rounded-xl font-bold shadow-md shadow-accent/10"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          + Add Enquiry
-        </motion.button>
+        <div className="flex gap-2">
+          <motion.button
+            onClick={handleCopyFormLink}
+            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Copy Form Link
+          </motion.button>
+          <motion.button
+            onClick={() => setShowQRModal(true)}
+            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Show QR Code
+          </motion.button>
+          <motion.button
+            onClick={() => {
+              resetForm();
+              setShowAddModal(true);
+            }}
+            className="bg-accent hover:bg-accent-hover text-foreground shadow-accent/10 rounded-xl px-6 py-3 font-bold shadow-md"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            + Add Enquiry
+          </motion.button>
+        </div>
       </div>
 
       {/* Dashboard Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="card bg-surface-secondary border border-border p-4 shadow-sm">
-          <div className="text-2xl font-black text-accent">{stats.totalEnquiries}</div>
-          <div className="text-xs text-muted font-semibold">Total Enquiries</div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+          <div className="text-accent text-2xl font-black">{stats.totalEnquiries}</div>
+          <div className="text-muted text-xs font-semibold">Total Enquiries</div>
         </div>
-        <div className="card bg-surface-secondary border border-border p-4 shadow-sm">
-          <div className="text-2xl font-black text-blue-600">{stats.newEnquiries}</div>
-          <div className="text-xs text-muted font-semibold">New Enquiries</div>
+        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+          <div className="text-blue text-2xl font-black">{stats.newEnquiries}</div>
+          <div className="text-muted text-xs font-semibold">New Enquiries</div>
         </div>
-        <div className="card bg-surface-secondary border border-border p-4 shadow-sm">
-          <div className="text-2xl font-black text-yellow-600">{stats.followUpsDueToday}</div>
-          <div className="text-xs text-muted font-semibold">Follow-ups Due Today</div>
+        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+          <div className="text-warning text-2xl font-black">{stats.followUpsDueToday}</div>
+          <div className="text-muted text-xs font-semibold">Follow-ups Due Today</div>
         </div>
-        <div className="card bg-surface-secondary border border-border p-4 shadow-sm">
-          <div className="text-2xl font-black text-green-600">{stats.convertedEnquiries}</div>
-          <div className="text-xs text-muted font-semibold">Converted</div>
+        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+          <div className="text-success text-2xl font-black">{stats.convertedEnquiries}</div>
+          <div className="text-muted text-xs font-semibold">Converted</div>
         </div>
-        <div className="card bg-surface-secondary border border-border p-4 shadow-sm">
-          <div className="text-2xl font-black text-purple-600">{stats.conversionRate}%</div>
-          <div className="text-xs text-muted font-semibold">Conversion Rate</div>
+        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+          <div className="text-purple text-2xl font-black">{stats.conversionRate}%</div>
+          <div className="text-muted text-xs font-semibold">Conversion Rate</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="card bg-surface-secondary border border-border p-4 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
           <input
             type="text"
             placeholder="Search enquiries..."
@@ -329,8 +380,10 @@ export default function EnquiriesPanel() {
             className="input-field py-2"
           >
             <option value="">All Statuses</option>
-            {STATUS_OPTIONS.map(status => (
-              <option key={status} value={status}>{status.replace('_', ' ')}</option>
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status.replace('_', ' ')}
+              </option>
             ))}
           </select>
           <input
@@ -356,17 +409,17 @@ export default function EnquiriesPanel() {
       </div>
 
       {/* Enquiries Table */}
-      <div className="card bg-surface-secondary border border-border p-6 shadow-sm">
-        <h2 className="text-lg font-black tracking-tight mb-4">All Enquiries</h2>
+      <div className="card bg-surface-secondary border-border border p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-black tracking-tight">All Enquiries</h2>
 
         {loading ? (
-          <div className="py-12 text-center text-muted font-bold animate-pulse">
+          <div className="text-muted animate-pulse py-12 text-center font-bold">
             Loading enquiries...
           </div>
         ) : error ? (
-          <div className="alert-error p-4 rounded-xl text-sm border border-danger/20">{error}</div>
+          <div className="alert-error border-danger/20 rounded-xl border p-4 text-sm">{error}</div>
         ) : enquiries.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-border rounded-xl">
+          <div className="border-border rounded-xl border border-dashed py-16 text-center">
             <p className="text-muted font-medium">No enquiries found</p>
           </div>
         ) : (
@@ -399,9 +452,7 @@ export default function EnquiriesPanel() {
                     <td className="text-sm">{enq.phone}</td>
                     <td className="text-sm">{enq.sport_interested || '-'}</td>
                     <td>
-                      <span className={`inline-block px-2.5 py-1 text-xs font-black rounded-lg uppercase tracking-wider border ${
-                        STATUS_COLORS[enq.status] || 'bg-surface text-muted border-border'
-                      }`}>
+                      <span className={STATUS_COLORS[enq.status] || 'badge'}>
                         {enq.status.replace('_', ' ')}
                       </span>
                     </td>
@@ -417,16 +468,22 @@ export default function EnquiriesPanel() {
                           Edit
                         </motion.button>
                         <motion.button
-                          onClick={() => { setSelectedEnquiry(enq); setShowFollowUpModal(true); }}
-                          className="bg-blue-500 text-white hover:bg-blue-600 btn-sm px-3 py-1"
+                          onClick={() => {
+                            setSelectedEnquiry(enq);
+                            setShowFollowUpModal(true);
+                          }}
+                          className="bg-blue hover:bg-blue/80 text-foreground btn-sm px-3 py-1"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
                           Follow-up
                         </motion.button>
                         <motion.button
-                          onClick={() => { setSelectedEnquiry(enq); setShowConvertModal(true); }}
-                          className="bg-green-500 text-white hover:bg-green-600 btn-sm px-3 py-1"
+                          onClick={() => {
+                            setSelectedEnquiry(enq);
+                            setShowConvertModal(true);
+                          }}
+                          className="bg-success hover:bg-success/80 text-foreground btn-sm px-3 py-1"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           disabled={enq.status === 'CONVERTED'}
@@ -434,8 +491,11 @@ export default function EnquiriesPanel() {
                           Convert
                         </motion.button>
                         <motion.button
-                          onClick={() => { setSelectedEnquiry(enq); setShowDeleteModal(true); }}
-                          className="bg-red-500 text-white hover:bg-red-600 btn-sm px-3 py-1"
+                          onClick={() => {
+                            setSelectedEnquiry(enq);
+                            setShowDeleteModal(true);
+                          }}
+                          className="bg-danger hover:bg-danger/80 text-foreground btn-sm px-3 py-1"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
@@ -458,21 +518,26 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl card bg-surface border border-border p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+              className="card bg-surface border-border max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto border p-6 shadow-2xl"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black">Add New Enquiry</h3>
-                <button onClick={() => setShowAddModal(false)} className="text-muted hover:text-foreground font-bold text-xl">✕</button>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="text-muted hover:text-foreground text-xl font-bold"
+                >
+                  ✕
+                </button>
               </div>
 
               <form onSubmit={handleCreateEnquiry} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="label">Student Name *</label>
                     <input
@@ -517,7 +582,9 @@ export default function EnquiriesPanel() {
                       type="text"
                       required
                       value={formData.sport_interested}
-                      onChange={(e) => setFormData({ ...formData, sport_interested: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sport_interested: e.target.value })
+                      }
                       className="input-field"
                     />
                   </div>
@@ -551,8 +618,10 @@ export default function EnquiriesPanel() {
                       className="input-field"
                     >
                       <option value="">Select Source</option>
-                      {SOURCE_OPTIONS.map(source => (
-                        <option key={source} value={source}>{source.replace('_', ' ')}</option>
+                      {SOURCE_OPTIONS.map((source) => (
+                        <option key={source} value={source}>
+                          {source.replace('_', ' ')}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -587,7 +656,7 @@ export default function EnquiriesPanel() {
                   <motion.button
                     type="submit"
                     disabled={submitting}
-                    className="bg-accent text-white hover:bg-accent-hover px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                    className="bg-accent hover:bg-accent-hover text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
@@ -607,21 +676,26 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl card bg-surface border border-border p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+              className="card bg-surface border-border max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto border p-6 shadow-2xl"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black">Edit Enquiry</h3>
-                <button onClick={() => setShowEditModal(false)} className="text-muted hover:text-foreground font-bold text-xl">✕</button>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-muted hover:text-foreground text-xl font-bold"
+                >
+                  ✕
+                </button>
               </div>
 
               <form onSubmit={handleUpdateEnquiry} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="label">Student Name *</label>
                     <input
@@ -666,7 +740,9 @@ export default function EnquiriesPanel() {
                       type="text"
                       required
                       value={formData.sport_interested}
-                      onChange={(e) => setFormData({ ...formData, sport_interested: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sport_interested: e.target.value })
+                      }
                       className="input-field"
                     />
                   </div>
@@ -700,8 +776,10 @@ export default function EnquiriesPanel() {
                       className="input-field"
                     >
                       <option value="">Select Source</option>
-                      {SOURCE_OPTIONS.map(source => (
-                        <option key={source} value={source}>{source.replace('_', ' ')}</option>
+                      {SOURCE_OPTIONS.map((source) => (
+                        <option key={source} value={source}>
+                          {source.replace('_', ' ')}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -712,8 +790,10 @@ export default function EnquiriesPanel() {
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       className="input-field"
                     >
-                      {STATUS_OPTIONS.map(status => (
-                        <option key={status} value={status}>{status.replace('_', ' ')}</option>
+                      {STATUS_OPTIONS.map((status) => (
+                        <option key={status} value={status}>
+                          {status.replace('_', ' ')}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -748,7 +828,7 @@ export default function EnquiriesPanel() {
                   <motion.button
                     type="submit"
                     disabled={submitting}
-                    className="bg-accent text-white hover:bg-accent-hover px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                    className="bg-accent hover:bg-accent-hover text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
@@ -768,22 +848,31 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md card bg-surface border border-border p-6 shadow-2xl space-y-4"
+              className="card bg-surface border-border w-full max-w-md space-y-4 border p-6 shadow-2xl"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black">Schedule Follow-up</h3>
-                <button onClick={() => setShowFollowUpModal(false)} className="text-muted hover:text-foreground font-bold text-xl">✕</button>
+                <button
+                  onClick={() => setShowFollowUpModal(false)}
+                  className="text-muted hover:text-foreground text-xl font-bold"
+                >
+                  ✕
+                </button>
               </div>
 
-              <div className="p-4 bg-surface-secondary rounded-xl">
-                <p className="text-sm"><strong>Student:</strong> {selectedEnquiry.student_name}</p>
-                <p className="text-sm"><strong>Current Status:</strong> {selectedEnquiry.status.replace('_', ' ')}</p>
+              <div className="bg-surface-secondary rounded-xl p-4">
+                <p className="text-sm">
+                  <strong>Student:</strong> {selectedEnquiry.student_name}
+                </p>
+                <p className="text-sm">
+                  <strong>Current Status:</strong> {selectedEnquiry.status.replace('_', ' ')}
+                </p>
               </div>
 
               <div>
@@ -809,7 +898,7 @@ export default function EnquiriesPanel() {
                 <motion.button
                   onClick={handleScheduleFollowUp}
                   disabled={submitting}
-                  className="bg-accent text-white hover:bg-accent-hover px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                  className="bg-accent text-foreground hover:bg-accent-hover rounded-xl px-6 py-2 font-bold disabled:opacity-50"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -828,28 +917,42 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md card bg-surface border border-border p-6 shadow-2xl space-y-4"
+              className="card bg-surface border-border w-full max-w-md space-y-4 border p-6 shadow-2xl"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black">Convert to Student</h3>
-                <button onClick={() => setShowConvertModal(false)} className="text-muted hover:text-foreground font-bold text-xl">✕</button>
+                <button
+                  onClick={() => setShowConvertModal(false)}
+                  className="text-muted hover:text-foreground text-xl font-bold"
+                >
+                  ✕
+                </button>
               </div>
 
-              <div className="p-4 bg-surface-secondary rounded-xl space-y-2">
-                <p className="text-sm"><strong>Student:</strong> {selectedEnquiry.student_name}</p>
-                <p className="text-sm"><strong>Parent:</strong> {selectedEnquiry.parent_name || '-'}</p>
-                <p className="text-sm"><strong>Phone:</strong> {selectedEnquiry.phone}</p>
-                <p className="text-sm"><strong>Sport:</strong> {selectedEnquiry.sport_interested || '-'}</p>
+              <div className="bg-surface-secondary space-y-2 rounded-xl p-4">
+                <p className="text-sm">
+                  <strong>Student:</strong> {selectedEnquiry.student_name}
+                </p>
+                <p className="text-sm">
+                  <strong>Parent:</strong> {selectedEnquiry.parent_name || '-'}
+                </p>
+                <p className="text-sm">
+                  <strong>Phone:</strong> {selectedEnquiry.phone}
+                </p>
+                <p className="text-sm">
+                  <strong>Sport:</strong> {selectedEnquiry.sport_interested || '-'}
+                </p>
               </div>
 
-              <p className="text-sm text-muted">
-                This will create a new student record and mark the enquiry as converted. The original enquiry will be preserved.
+              <p className="text-muted text-sm">
+                This will create a new student record and mark the enquiry as converted. The
+                original enquiry will be preserved.
               </p>
 
               <div className="flex justify-end gap-3 pt-4">
@@ -864,7 +967,7 @@ export default function EnquiriesPanel() {
                 <motion.button
                   onClick={handleConvertToStudent}
                   disabled={submitting}
-                  className="bg-green-500 text-white hover:bg-green-600 px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                  className="bg-success hover:bg-success/80 text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -883,21 +986,27 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md card bg-surface border border-border p-6 shadow-2xl space-y-4"
+              className="card bg-surface border-border w-full max-w-md space-y-4 border p-6 shadow-2xl"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black text-red-600">Delete Enquiry</h3>
-                <button onClick={() => setShowDeleteModal(false)} className="text-muted hover:text-foreground font-bold text-xl">✕</button>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="text-muted hover:text-foreground text-xl font-bold"
+                >
+                  ✕
+                </button>
               </div>
 
               <p className="text-sm">
-                Are you sure you want to delete the enquiry for <strong>{selectedEnquiry.student_name}</strong>? This action cannot be undone.
+                Are you sure you want to delete the enquiry for{' '}
+                <strong>{selectedEnquiry.student_name}</strong>? This action cannot be undone.
               </p>
 
               <div className="flex justify-end gap-3 pt-4">
@@ -912,11 +1021,75 @@ export default function EnquiriesPanel() {
                 <motion.button
                   onClick={handleDeleteEnquiry}
                   disabled={submitting}
-                  className="bg-red-500 text-white hover:bg-red-600 px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                  className="bg-danger hover:bg-danger/80 text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   {submitting ? 'Deleting...' : 'Delete'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {showQRModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="card bg-surface border-border w-full max-w-sm space-y-4 border p-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black">Enquiry Form QR Code</h3>
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="text-muted hover:text-foreground text-xl font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center space-y-4">
+                <div ref={qrCodeRef} className="rounded-xl bg-white p-4">
+                  {typeof window !== 'undefined' && (
+                    <QRCodeSVG
+                      value={`${window.location.origin}/enquiry-form`}
+                      size={200}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  )}
+                </div>
+                <p className="text-muted text-center text-sm">
+                  Scan this QR code to access the public enquiry form
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <motion.button
+                  onClick={() => setShowQRModal(false)}
+                  className="btn-secondary px-6 py-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Close
+                </motion.button>
+                <motion.button
+                  onClick={handleDownloadQR}
+                  className="bg-accent hover:bg-accent-hover text-foreground rounded-xl px-6 py-2 font-bold"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Download QR
                 </motion.button>
               </div>
             </motion.div>

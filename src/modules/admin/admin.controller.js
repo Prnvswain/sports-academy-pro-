@@ -39,7 +39,10 @@ export const deleteDurationPlan = async (req, res, next) => {
 
 export const getStudentDetails = async (req, res, next) => {
   try {
-    const details = await adminService.getStudentDetails(req.user.academy_id, req.params.student_id);
+    const details = await adminService.getStudentDetails(
+      req.user.academy_id,
+      req.params.student_id,
+    );
     res.json(successResponse('Student details retrieved successfully', details));
   } catch (err) {
     next(err);
@@ -50,6 +53,15 @@ export const bulkUploadStudents = async (req, res, next) => {
   try {
     const result = await adminService.bulkUploadStudents(req.user.academy_id, req.body.students);
     res.status(201).json(successResponse('Bulk upload completed', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkStudentAction = async (req, res, next) => {
+  try {
+    const result = await adminService.bulkStudentAction(req.user.academy_id, req.body);
+    res.json(successResponse('Bulk action completed successfully', result));
   } catch (err) {
     next(err);
   }
@@ -71,12 +83,12 @@ export const updateSportStatus = async (req, res, next) => {
       url: req.originalUrl,
       params: req.params,
       body: req.body,
-      academy_id: req.user.academy_id
+      academy_id: req.user.academy_id,
     });
     const sport = await adminService.updateSportStatus(
       req.user.academy_id,
       req.params.id,
-      req.body
+      req.body,
     );
     res.json(successResponse('Sport status updated successfully', sport));
   } catch (err) {
@@ -91,12 +103,21 @@ export const deleteSport = async (req, res, next) => {
       method: req.method,
       url: req.originalUrl,
       params: req.params,
-      academy_id: req.user.academy_id
+      academy_id: req.user.academy_id,
     });
     await adminService.deleteSport(req.user.academy_id, req.params.id);
     res.json(successResponse('Sport deleted successfully', {}));
   } catch (err) {
     console.error('[deleteSport] Error:', err);
+    next(err);
+  }
+};
+
+export const bulkSportAction = async (req, res, next) => {
+  try {
+    const result = await adminService.bulkSportAction(req.user.academy_id, req.body);
+    res.json(successResponse('Bulk action completed successfully', result));
+  } catch (err) {
     next(err);
   }
 };
@@ -124,7 +145,7 @@ export const updateCoach = async (req, res, next) => {
     const coach = await adminService.updateCoach(
       req.user.academy_id,
       req.params.coach_id,
-      req.body
+      req.body,
     );
     res.json(successResponse('Coach updated successfully', coach));
   } catch (err) {
@@ -164,7 +185,7 @@ export const updateStudent = async (req, res, next) => {
     const student = await adminService.updateStudent(
       req.user.academy_id,
       req.params.student_id,
-      req.body
+      req.body,
     );
     res.json(successResponse('Student updated successfully', student));
   } catch (err) {
@@ -178,7 +199,7 @@ export const exitStudent = async (req, res, next) => {
       req.user.academy_id,
       req.params.student_id,
       req.body,
-      req.user.user_id
+      req.user.user_id,
     );
     res.json(successResponse('Student exit recorded', student));
   } catch (err) {
@@ -218,7 +239,7 @@ export const updateBatch = async (req, res, next) => {
     const batch = await adminService.updateBatch(
       req.user.academy_id,
       req.params.batch_id,
-      req.body
+      req.body,
     );
     res.json(successResponse('Batch updated successfully', batch));
   } catch (err) {
@@ -228,10 +249,7 @@ export const updateBatch = async (req, res, next) => {
 
 export const getAvailableBatches = async (req, res, next) => {
   try {
-    const batches = await adminService.getAvailableBatches(
-      req.user.academy_id,
-      req.query.sport_id
-    );
+    const batches = await adminService.getAvailableBatches(req.user.academy_id, req.query.sport_id);
     res.json(successResponse('Available batches retrieved', batches));
   } catch (err) {
     next(err);
@@ -252,7 +270,7 @@ export const markCoachAttendance = async (req, res, next) => {
     const attendance = await adminService.markCoachAttendance(
       req.user.academy_id,
       req.user.user_id,
-      req.body
+      req.body,
     );
     res.status(201).json(successResponse('Attendance marked successfully', attendance));
   } catch (err) {
@@ -264,7 +282,7 @@ export const getCoachAttendance = async (req, res, next) => {
   try {
     const attendance = await adminService.getCoachAttendance(
       req.user.academy_id,
-      req.params.coach_id
+      req.params.coach_id,
     );
     res.json(successResponse('Attendance retrieved successfully', attendance));
   } catch (err) {
@@ -352,9 +370,9 @@ export const updatePaymentStatus = async (req, res, next) => {
       req.params.payment_id,
       {
         status: req.body.status,
-        rejected_reason: req.body.rejected_reason
+        rejected_reason: req.body.rejected_reason,
       },
-      req.user.user_id
+      req.user.user_id,
     );
     res.json(successResponse('Payment updated successfully', payment));
   } catch (err) {
@@ -382,11 +400,7 @@ export const getEnquiries = async (req, res, next) => {
 
 export const updateEnquiry = async (req, res, next) => {
   try {
-    const enquiry = await adminService.updateEnquiry(
-      req.user.academy_id,
-      req.params.id,
-      req.body
-    );
+    const enquiry = await adminService.updateEnquiry(req.user.academy_id, req.params.id, req.body);
     res.status(200).json({ success: true, data: enquiry });
   } catch (err) {
     next(err);
@@ -408,7 +422,7 @@ export const approvePerformanceAttribute = async (req, res, next) => {
     const result = await adminService.approvePerformanceAttribute(
       req.user.academy_id,
       req.params.id,
-      req.body
+      req.body,
     );
     res.status(200).json({ success: true, data: result });
   } catch (err) {
@@ -418,11 +432,10 @@ export const approvePerformanceAttribute = async (req, res, next) => {
 
 export const createPerformanceAttribute = async (req, res, next) => {
   try {
-    const result = await adminService.createPerformanceAttribute(
-      req.user.academy_id,
-      req.body
-    );
-    res.status(201).json({ success: true, message: 'Performance attribute added cleanly', data: result });
+    const result = await adminService.createPerformanceAttribute(req.user.academy_id, req.body);
+    res
+      .status(201)
+      .json({ success: true, message: 'Performance attribute added cleanly', data: result });
   } catch (err) {
     next(err);
   }

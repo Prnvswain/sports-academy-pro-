@@ -6,9 +6,9 @@ export const StaggerContainer = ({ children, staggerDelay = 0.1, className = '' 
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: staggerDelay
-      }
-    }
+        staggerChildren: staggerDelay,
+      },
+    },
   };
 
   return (
@@ -30,9 +30,9 @@ export const StaggerItem = ({ children, className = '' }) => {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.3
-      }
-    }
+        duration: 0.3,
+      },
+    },
   };
 
   return (
@@ -56,7 +56,13 @@ export const AnimatedCard = ({ children, className = '', hover = true }) => {
   );
 };
 
-export const AnimatedButton = ({ children, className = '', onClick, type = 'button', disabled = false }) => {
+export const AnimatedButton = ({
+  children,
+  className = '',
+  onClick,
+  type = 'button',
+  disabled = false,
+}) => {
   return (
     <motion.button
       type={type}
@@ -121,7 +127,7 @@ export const AnimatedModal = ({ children, isOpen, onClose, className = '' }) => 
       animate={{ opacity: isOpen ? 1 : 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-slate-900/40 p-4 ${className}`}
+      className={`bg-surface/40 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md ${className}`}
       onClick={onClose}
     >
       <motion.div
@@ -139,10 +145,10 @@ export const AnimatedModal = ({ children, isOpen, onClose, className = '' }) => 
 
 export const AnimatedToast = ({ children, className = '', type = 'info' }) => {
   const colors = {
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    warning: 'bg-yellow-500',
-    info: 'bg-blue-500'
+    success: 'bg-success',
+    error: 'bg-danger',
+    warning: 'bg-warning',
+    info: 'bg-blue',
   };
 
   return (
@@ -151,7 +157,7 @@ export const AnimatedToast = ({ children, className = '', type = 'info' }) => {
       animate={{ opacity: 1, x: 0, y: 0 }}
       exit={{ opacity: 0, x: 100, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg ${className}`}
+      className={`${colors[type]} text-foreground rounded-lg px-4 py-3 shadow-lg ${className}`}
     >
       {children}
     </motion.div>
@@ -161,15 +167,15 @@ export const AnimatedToast = ({ children, className = '', type = 'info' }) => {
 export const SkeletonLoader = ({ className = '', width = '100%', height = '100%' }) => {
   return (
     <motion.div
-      className={`bg-gray-200 rounded ${className}`}
+      className={`bg-surface-secondary rounded ${className}`}
       style={{ width, height }}
       animate={{
-        opacity: [0.5, 1, 0.5]
+        opacity: [0.5, 1, 0.5],
       }}
       transition={{
         duration: 1.5,
         repeat: Infinity,
-        ease: 'easeInOut'
+        ease: 'easeInOut',
       }}
     />
   );
