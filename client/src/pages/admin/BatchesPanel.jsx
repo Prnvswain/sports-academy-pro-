@@ -21,6 +21,57 @@ export default function BatchesPanel() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
 
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const setFieldError = (field, message) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const setBackendFieldErrors = (backendErrors) => {
+    setFieldErrors(backendErrors);
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+
+    switch (field) {
+      case 'name':
+        if (!value || value.trim() === '') {
+          error = 'Batch name is required';
+        }
+        break;
+      case 'coach_id':
+        if (!value) {
+          error = 'Coach is required';
+        }
+        break;
+      case 'sport_id':
+        if (!value) {
+          error = 'Sport is required';
+        }
+        break;
+      case 'max_capacity':
+        if (value && (isNaN(value) || parseInt(value) < 1)) {
+          error = 'Capacity must be a positive number';
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldError(field, error);
+      return false;
+    }
+    clearFieldError(field);
+    return true;
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -50,19 +101,22 @@ export default function BatchesPanel() {
   const handleBatchChange = (event) => {
     const { name, value } = event.target;
     setBatchForm((prev) => ({ ...prev, [name]: value }));
+    clearFieldError(name);
   };
 
   const handleBatchSubmit = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
+    setFieldErrors({});
 
-    // Validate required fields
-    if (!batchForm.coach_id) {
-      setMessage({ text: 'Coach is required', type: 'error' });
-      return;
-    }
-    if (!batchForm.sport_id) {
-      setMessage({ text: 'Sport is required', type: 'error' });
+    // Validate all fields
+    const isValid =
+      validateField('name', batchForm.name) &&
+      validateField('coach_id', batchForm.coach_id) &&
+      validateField('sport_id', batchForm.sport_id) &&
+      validateField('max_capacity', batchForm.max_capacity);
+
+    if (!isValid) {
       return;
     }
 
@@ -84,9 +138,16 @@ export default function BatchesPanel() {
       });
       setMessage({ text: result?.message || 'Batch created successfully', type: 'success' });
       setBatchForm(emptyBatchForm);
+      setFieldErrors({});
       loadData();
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      // Handle structured validation errors from backend
+      if (error.data && error.data.errors) {
+        setBackendFieldErrors(error.data.errors);
+        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
+      } else {
+        setMessage({ text: error.message, type: 'error' });
+      }
     }
   };
 
@@ -121,12 +182,16 @@ export default function BatchesPanel() {
             <motion.input
               id="batchName"
               name="name"
-              className="input-field"
+              className={`input-field ${fieldErrors.name ? 'border-red-500' : ''}`}
               value={batchForm.name}
               onChange={handleBatchChange}
+              onBlur={() => validateField('name', batchForm.name)}
               required
               whileFocus={{ scale: 1.01 }}
             />
+            {fieldErrors.name && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -167,9 +232,10 @@ export default function BatchesPanel() {
             <motion.select
               id="batchCoach"
               name="coach_id"
-              className="input-field text-foreground bg-[var(--color-input)]"
+              className={`input-field text-foreground bg-[var(--color-input)] ${fieldErrors.coach_id ? 'border-red-500' : ''}`}
               value={batchForm.coach_id}
               onChange={handleBatchChange}
+              onBlur={() => validateField('coach_id', batchForm.coach_id)}
               required
               whileFocus={{ scale: 1.01 }}
             >
@@ -182,6 +248,9 @@ export default function BatchesPanel() {
                 </option>
               ))}
             </motion.select>
+            {fieldErrors.coach_id && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.coach_id}</p>
+            )}
           </div>
           <div>
             <label className="label" htmlFor="batchSport">
@@ -190,9 +259,10 @@ export default function BatchesPanel() {
             <motion.select
               id="batchSport"
               name="sport_id"
-              className="input-field text-foreground bg-[var(--color-input)]"
+              className={`input-field text-foreground bg-[var(--color-input)] ${fieldErrors.sport_id ? 'border-red-500' : ''}`}
               value={batchForm.sport_id}
               onChange={handleBatchChange}
+              onBlur={() => validateField('sport_id', batchForm.sport_id)}
               required
               whileFocus={{ scale: 1.01 }}
             >
@@ -205,6 +275,9 @@ export default function BatchesPanel() {
                 </option>
               ))}
             </motion.select>
+            {fieldErrors.sport_id && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.sport_id}</p>
+            )}
           </div>
           <div>
             <label className="label" htmlFor="batchCapacity">
@@ -215,12 +288,16 @@ export default function BatchesPanel() {
               name="max_capacity"
               type="number"
               min={1}
-              className="input-field"
+              className={`input-field ${fieldErrors.max_capacity ? 'border-red-500' : ''}`}
               value={batchForm.max_capacity}
               onChange={handleBatchChange}
+              onBlur={() => validateField('max_capacity', batchForm.max_capacity)}
               placeholder="e.g. 20"
               whileFocus={{ scale: 1.01 }}
             />
+            {fieldErrors.max_capacity && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.max_capacity}</p>
+            )}
           </div>
           {/* FIXED BUTTON: Replaced static 'bg-blue-600' with your global green/emerald setup 'btn-primary' */}
           <motion.button

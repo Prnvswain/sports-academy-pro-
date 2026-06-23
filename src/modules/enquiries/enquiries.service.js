@@ -190,7 +190,6 @@ export const createEnquiry = async (academyId, data) => {
     parent_name,
     phone,
     email,
-    sport_interested,
     interested_sports,
     age,
     gender,
@@ -200,6 +199,8 @@ export const createEnquiry = async (academyId, data) => {
     notes
   } = data;
 
+  let sport_interested = data.sport_interested;
+
   // Validate required fields
   if (!student_name || !phone) {
     const error = new Error('Student name and phone are required');
@@ -207,7 +208,7 @@ export const createEnquiry = async (academyId, data) => {
     throw error;
   }
 
-  // Validate phone format (basic validation)
+  // Validate phone format
   const phoneRegex = /^[0-9]{10,15}$/;
   if (!phoneRegex.test(phone.replace(/[\s-]/g, ''))) {
     const error = new Error('Invalid phone number format');
@@ -215,7 +216,7 @@ export const createEnquiry = async (academyId, data) => {
     throw error;
   }
 
-  // Validate email format if provided
+  // Validate email format
   if (email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -225,11 +226,16 @@ export const createEnquiry = async (academyId, data) => {
     }
   }
 
-  // Handle interested_sports - store as JSON array
   let interestedSportsJson = null;
-  if (interested_sports && Array.isArray(interested_sports) && interested_sports.length > 0) {
+
+  if (
+    interested_sports &&
+    Array.isArray(interested_sports) &&
+    interested_sports.length > 0
+  ) {
     interestedSportsJson = JSON.stringify(interested_sports);
-    // Also set sport_interested for backward compatibility (first sport)
+
+    // first selected sport for backward compatibility
     sport_interested = interested_sports[0];
   }
 
@@ -263,7 +269,6 @@ export const createEnquiry = async (academyId, data) => {
     id: enquiry.enquiry_id
   };
 };
-
 /**
  * Update enquiry
  */

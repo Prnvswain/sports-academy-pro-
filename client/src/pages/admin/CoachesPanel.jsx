@@ -20,6 +20,61 @@ export default function CoachesPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const setFieldError = (field, message) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const setBackendFieldErrors = (backendErrors) => {
+    setFieldErrors(backendErrors);
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+
+    switch (field) {
+      case 'name':
+        if (!value || value.trim() === '') {
+          error = 'Coach name is required';
+        }
+        break;
+      case 'email':
+        if (!value || value.trim() === '') {
+          error = 'Email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Enter a valid email address';
+        }
+        break;
+      case 'phone_number':
+        if (!value || value.trim() === '') {
+          error = 'Phone number is required';
+        } else if (!/^[0-9]{10}$/.test(value.replace(/[\s-]/g, ''))) {
+          error = 'Phone number must be 10 digits';
+        }
+        break;
+      case 'specialization':
+        if (!value || value.trim() === '') {
+          error = 'Specialization is required';
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldError(field, error);
+      return false;
+    }
+    clearFieldError(field);
+    return true;
+  };
+
   const loadCoaches = useCallback(async () => {
     setLoading(true);
     try {
@@ -45,6 +100,20 @@ export default function CoachesPanel() {
     event.preventDefault();
     setSubmitting(true);
     setMessage({ text: '', type: '' });
+    setFieldErrors({});
+
+    // Validate all fields
+    const isValid =
+      validateField('name', form.name) &&
+      validateField('email', form.email) &&
+      validateField('phone_number', form.phone_number) &&
+      validateField('specialization', form.specialization);
+
+    if (!isValid) {
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const result = await adminPost('/admin/coaches', {
         name: form.name.trim(),
@@ -57,10 +126,17 @@ export default function CoachesPanel() {
         type: 'success',
       });
       setForm(emptyForm);
+      setFieldErrors({});
       setShowModal(false);
       loadCoaches();
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      // Handle structured validation errors from backend
+      if (error.data && error.data.errors) {
+        setBackendFieldErrors(error.data.errors);
+        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
+      } else {
+        setMessage({ text: error.message, type: 'error' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -288,11 +364,18 @@ export default function CoachesPanel() {
                 <input
                   id="coachName"
                   name="name"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.name ? 'border-red-500' : ''}`}
                   value={form.name}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('name');
+                  }}
+                  onBlur={() => validateField('name', form.name)}
                   required
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
+                )}
               </div>
               <div>
                 <label className="label" htmlFor="coachEmail">
@@ -302,11 +385,18 @@ export default function CoachesPanel() {
                   id="coachEmail"
                   name="email"
                   type="email"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.email ? 'border-red-500' : ''}`}
                   value={form.email}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('email');
+                  }}
+                  onBlur={() => validateField('email', form.email)}
                   required
                 />
+                {fieldErrors.email && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+                )}
               </div>
               <div>
                 <label className="label" htmlFor="coachPhone">
@@ -316,11 +406,18 @@ export default function CoachesPanel() {
                   id="coachPhone"
                   name="phone_number"
                   type="tel"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.phone_number ? 'border-red-500' : ''}`}
                   value={form.phone_number}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('phone_number');
+                  }}
+                  onBlur={() => validateField('phone_number', form.phone_number)}
                   required
                 />
+                {fieldErrors.phone_number && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.phone_number}</p>
+                )}
               </div>
               <div>
                 <label className="label" htmlFor="coachSpec">
@@ -329,11 +426,18 @@ export default function CoachesPanel() {
                 <input
                   id="coachSpec"
                   name="specialization"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.specialization ? 'border-red-500' : ''}`}
                   value={form.specialization}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('specialization');
+                  }}
+                  onBlur={() => validateField('specialization', form.specialization)}
                   required
                 />
+                {fieldErrors.specialization && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.specialization}</p>
+                )}
               </div>
               <button
                 type="submit"

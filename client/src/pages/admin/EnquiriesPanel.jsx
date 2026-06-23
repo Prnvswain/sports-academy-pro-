@@ -109,6 +109,59 @@ export default function EnquiriesPanel() {
   // Toast notification
   const [toast, setToast] = useState(null);
 
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const setFieldError = (field, message) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const setBackendFieldErrors = (backendErrors) => {
+    setFieldErrors(backendErrors);
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+
+    switch (field) {
+      case 'student_name':
+        if (!value || value.trim() === '') {
+          error = 'Student name is required';
+        }
+        break;
+      case 'phone':
+        if (!value || value.trim() === '') {
+          error = 'Phone number is required';
+        } else if (!/^[0-9]{10}$/.test(value.replace(/[\s-]/g, ''))) {
+          error = 'Phone number must be 10 digits';
+        }
+        break;
+      case 'email':
+        if (value && value.trim() !== '' && !/^[\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Enter a valid email address';
+        }
+        break;
+      case 'interested_sports':
+        if (!value || value.length === 0) {
+          error = 'At least one sport must be selected';
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldError(field, error);
+      return false;
+    }
+    clearFieldError(field);
+    return true;
+  };
+
   useEffect(() => {
     fetchDashboardStats();
     fetchEnquiries();
@@ -147,16 +200,36 @@ export default function EnquiriesPanel() {
 
   const handleCreateEnquiry = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    // Validate all fields
+    const isValid =
+      validateField('student_name', formData.student_name) &&
+      validateField('phone', formData.phone) &&
+      validateField('email', formData.email) &&
+      validateField('interested_sports', formData.interested_sports);
+
+    if (!isValid) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       await adminPost('/admin/enquiries', formData);
       setShowAddModal(false);
       resetForm();
+      setFieldErrors({});
       fetchEnquiries();
       fetchDashboardStats();
       showToast('Enquiry added successfully', 'success');
     } catch (err) {
-      showToast(err.message || 'Failed to add enquiry', 'error');
+      // Handle structured validation errors from backend
+      if (err.data && err.data.errors) {
+        setBackendFieldErrors(err.data.errors);
+        showToast('Please fix the validation errors below.', 'error');
+      } else {
+        showToast(err.message || 'Failed to add enquiry', 'error');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -164,17 +237,37 @@ export default function EnquiriesPanel() {
 
   const handleUpdateEnquiry = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    // Validate all fields
+    const isValid =
+      validateField('student_name', formData.student_name) &&
+      validateField('phone', formData.phone) &&
+      validateField('email', formData.email) &&
+      validateField('interested_sports', formData.interested_sports);
+
+    if (!isValid) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       await adminPut(`/admin/enquiries/${selectedEnquiry.id}`, formData);
       setShowEditModal(false);
       resetForm();
+      setFieldErrors({});
       setSelectedEnquiry(null);
       fetchEnquiries();
       fetchDashboardStats();
       showToast('Enquiry updated successfully', 'success');
     } catch (err) {
-      showToast(err.message || 'Failed to update enquiry', 'error');
+      // Handle structured validation errors from backend
+      if (err.data && err.data.errors) {
+        setBackendFieldErrors(err.data.errors);
+        showToast('Please fix the validation errors below.', 'error');
+      } else {
+        showToast(err.message || 'Failed to update enquiry', 'error');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -643,10 +736,17 @@ export default function EnquiriesPanel() {
                     <input
                       type="text"
                       required
+                      className={`input-field ${fieldErrors.student_name ? 'border-red-500' : ''}`}
                       value={formData.student_name}
-                      onChange={(e) => setFormData({ ...formData, student_name: e.target.value })}
-                      className="input-field"
+                      onChange={(e) => {
+                        setFormData({ ...formData, student_name: e.target.value });
+                        clearFieldError('student_name');
+                      }}
+                      onBlur={() => validateField('student_name', formData.student_name)}
                     />
+                    {fieldErrors.student_name && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.student_name}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Parent Name</label>
@@ -662,30 +762,46 @@ export default function EnquiriesPanel() {
                     <input
                       type="tel"
                       required
+                      className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="input-field"
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        clearFieldError('phone');
+                      }}
+                      onBlur={() => validateField('phone', formData.phone)}
                     />
+                    {fieldErrors.phone && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Email</label>
                     <input
                       type="email"
+                      className={`input-field ${fieldErrors.email ? 'border-red-500' : ''}`}
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="input-field"
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        clearFieldError('email');
+                      }}
+                      onBlur={() => validateField('email', formData.email)}
                     />
+                    {fieldErrors.email && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Interested Sports *</label>
                     <select
                       multiple
+                      className={`input-field min-h-[120px] ${fieldErrors.interested_sports ? 'border-red-500' : ''}`}
                       value={formData.interested_sports}
                       onChange={(e) => {
                         const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
                         setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                        clearFieldError('interested_sports');
                       }}
-                      className="input-field min-h-[120px]"
+                      onBlur={() => validateField('interested_sports', formData.interested_sports)}
                       required
                     >
                       {SPORTS_OPTIONS.map((sport) => (
@@ -697,6 +813,9 @@ export default function EnquiriesPanel() {
                     <p className="text-muted mt-1 text-xs">
                       Hold Ctrl/Cmd to select multiple sports
                     </p>
+                    {fieldErrors.interested_sports && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.interested_sports}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Age</label>
@@ -811,10 +930,17 @@ export default function EnquiriesPanel() {
                     <input
                       type="text"
                       required
+                      className={`input-field ${fieldErrors.student_name ? 'border-red-500' : ''}`}
                       value={formData.student_name}
-                      onChange={(e) => setFormData({ ...formData, student_name: e.target.value })}
-                      className="input-field"
+                      onChange={(e) => {
+                        setFormData({ ...formData, student_name: e.target.value });
+                        clearFieldError('student_name');
+                      }}
+                      onBlur={() => validateField('student_name', formData.student_name)}
                     />
+                    {fieldErrors.student_name && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.student_name}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Parent Name</label>
@@ -830,30 +956,46 @@ export default function EnquiriesPanel() {
                     <input
                       type="tel"
                       required
+                      className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="input-field"
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        clearFieldError('phone');
+                      }}
+                      onBlur={() => validateField('phone', formData.phone)}
                     />
+                    {fieldErrors.phone && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Email</label>
                     <input
                       type="email"
+                      className={`input-field ${fieldErrors.email ? 'border-red-500' : ''}`}
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="input-field"
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        clearFieldError('email');
+                      }}
+                      onBlur={() => validateField('email', formData.email)}
                     />
+                    {fieldErrors.email && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Interested Sports *</label>
                     <select
                       multiple
+                      className={`input-field min-h-[120px] ${fieldErrors.interested_sports ? 'border-red-500' : ''}`}
                       value={formData.interested_sports}
                       onChange={(e) => {
                         const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
                         setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                        clearFieldError('interested_sports');
                       }}
-                      className="input-field min-h-[120px]"
+                      onBlur={() => validateField('interested_sports', formData.interested_sports)}
                       required
                     >
                       {SPORTS_OPTIONS.map((sport) => (
@@ -865,6 +1007,9 @@ export default function EnquiriesPanel() {
                     <p className="text-muted mt-1 text-xs">
                       Hold Ctrl/Cmd to select multiple sports
                     </p>
+                    {fieldErrors.interested_sports && (
+                      <p className="mt-1 text-xs text-red-500">{fieldErrors.interested_sports}</p>
+                    )}
                   </div>
                   <div>
                     <label className="label">Age</label>

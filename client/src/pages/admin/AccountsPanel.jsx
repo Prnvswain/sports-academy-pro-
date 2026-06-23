@@ -35,6 +35,64 @@ export default function AccountsPanel() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const setFieldError = (field, message) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const setBackendFieldErrors = (backendErrors) => {
+    setFieldErrors(backendErrors);
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+
+    switch (field) {
+      case 'student_id':
+        if (!value) {
+          error = 'Student is required';
+        }
+        break;
+      case 'amount_paid':
+        if (!value || value.trim() === '') {
+          error = 'Amount paid is required';
+        } else if (isNaN(value) || parseFloat(value) < 0) {
+          error = 'Amount paid must be a valid positive number';
+        }
+        break;
+      case 'additional_charges':
+        if (value && (isNaN(value) || parseFloat(value) < 0)) {
+          error = 'Additional charges must be a valid positive number';
+        }
+        break;
+      case 'discount':
+        if (value && (isNaN(value) || parseFloat(value) < 0)) {
+          error = 'Discount must be a valid positive number';
+        }
+        break;
+      case 'payment_date':
+        if (!value) {
+          error = 'Payment date is required';
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldError(field, error);
+      return false;
+    }
+    clearFieldError(field);
+    return true;
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -73,6 +131,7 @@ export default function AccountsPanel() {
   const handleReceiptChange = (event) => {
     const { name, value } = event.target;
     setReceiptForm((prev) => ({ ...prev, [name]: value }));
+    clearFieldError(name);
   };
 
   const handleStudentSelection = async (studentId) => {
@@ -256,6 +315,20 @@ export default function AccountsPanel() {
   const handleReceiptSubmit = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
+    setFieldErrors({});
+
+    // Validate all fields
+    const isValid =
+      validateField('student_id', receiptForm.student_id) &&
+      validateField('amount_paid', receiptForm.amount_paid) &&
+      validateField('additional_charges', receiptForm.additional_charges) &&
+      validateField('discount', receiptForm.discount) &&
+      validateField('payment_date', receiptForm.payment_date);
+
+    if (!isValid) {
+      return;
+    }
+
     try {
       const result = await adminPost('/admin/accounts/receipts', {
         student_id: parseInt(receiptForm.student_id, 10),
@@ -267,13 +340,20 @@ export default function AccountsPanel() {
       });
       setMessage({ text: result.message || 'Receipt created successfully', type: 'success' });
       setReceiptForm({ ...emptyReceiptForm, payment_date: new Date().toISOString().split('T')[0] });
+      setFieldErrors({});
       setStudentSearchTerm('');
       setStudentLedger(null);
       setPendingAmount(null);
       setPendingFee(null);
       loadData();
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      // Handle structured validation errors from backend
+      if (error.data && error.data.errors) {
+        setBackendFieldErrors(error.data.errors);
+        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
+      } else {
+        setMessage({ text: error.message, type: 'error' });
+      }
     }
   };
 
@@ -496,11 +576,15 @@ export default function AccountsPanel() {
                 type="number"
                 min={0}
                 step={0.01}
-                className="input-field"
+                className={`input-field ${fieldErrors.amount_paid ? 'border-red-500' : ''}`}
                 value={receiptForm.amount_paid}
                 onChange={handleReceiptChange}
+                onBlur={() => validateField('amount_paid', receiptForm.amount_paid)}
                 required
               />
+              {fieldErrors.amount_paid && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.amount_paid}</p>
+              )}
             </div>
 
             <div className="mb-4 grid gap-4 sm:grid-cols-2">
@@ -514,11 +598,15 @@ export default function AccountsPanel() {
                   type="number"
                   min={0}
                   step={0.01}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.additional_charges ? 'border-red-500' : ''}`}
                   value={receiptForm.additional_charges}
                   onChange={handleReceiptChange}
+                  onBlur={() => validateField('additional_charges', receiptForm.additional_charges)}
                   placeholder="e.g. uniform fees"
                 />
+                {fieldErrors.additional_charges && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.additional_charges}</p>
+                )}
               </div>
               <div>
                 <label className="label" htmlFor="discount">
@@ -530,11 +618,15 @@ export default function AccountsPanel() {
                   type="number"
                   min={0}
                   step={0.01}
-                  className="input-field"
+                  className={`input-field ${fieldErrors.discount ? 'border-red-500' : ''}`}
                   value={receiptForm.discount}
                   onChange={handleReceiptChange}
+                  onBlur={() => validateField('discount', receiptForm.discount)}
                   placeholder="e.g. scholarship"
                 />
+                {fieldErrors.discount && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.discount}</p>
+                )}
               </div>
             </div>
 
@@ -565,11 +657,15 @@ export default function AccountsPanel() {
                 id="paymentDate"
                 name="payment_date"
                 type="date"
-                className="input-field"
+                className={`input-field ${fieldErrors.payment_date ? 'border-red-500' : ''}`}
                 value={receiptForm.payment_date}
                 onChange={handleReceiptChange}
+                onBlur={() => validateField('payment_date', receiptForm.payment_date)}
                 required
               />
+              {fieldErrors.payment_date && (
+                <p className="mt-1 text-xs text-red-500">{fieldErrors.payment_date}</p>
+              )}
             </div>
 
             {(studentLedger || pendingAmount > 0) && (

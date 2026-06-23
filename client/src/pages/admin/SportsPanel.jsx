@@ -21,6 +21,47 @@ export default function SportsPanel() {
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [editingFeeValue, setEditingFeeValue] = useState('');
 
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const setFieldError = (field, message) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const setBackendFieldErrors = (backendErrors) => {
+    setFieldErrors(backendErrors);
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+
+    switch (field) {
+      case 'name':
+        if (!value || value.trim() === '') {
+          error = 'Sport name is required';
+        }
+        break;
+      case 'base_fee':
+        if (value && (isNaN(value) || parseFloat(value) < 0)) {
+          error = 'Base fee must be a valid positive number';
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldError(field, error);
+      return false;
+    }
+    clearFieldError(field);
+    return true;
+  };
+
   const loadSports = useCallback(async () => {
     setLoading(true);
     try {
@@ -53,6 +94,17 @@ export default function SportsPanel() {
   const handleCreateSport = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
+    setFieldErrors({});
+
+    // Validate all fields
+    const isValid =
+      validateField('name', formData.name) &&
+      validateField('base_fee', formData.base_fee);
+
+    if (!isValid) {
+      return;
+    }
+
     try {
       const result = await adminPost('/admin/sports', {
         name: formData.name.trim(),
@@ -62,9 +114,16 @@ export default function SportsPanel() {
       });
       setMessage({ text: result.message, type: 'success' });
       setFormData({ name: '', base_fee: '', status: 'ACTIVE', icon: '🏸' });
+      setFieldErrors({});
       loadSports();
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      // Handle structured validation errors from backend
+      if (error.data && error.data.errors) {
+        setBackendFieldErrors(error.data.errors);
+        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
+      } else {
+        setMessage({ text: error.message, type: 'error' });
+      }
     }
   };
 
@@ -268,12 +327,19 @@ export default function SportsPanel() {
             </label>
             <motion.input
               id="sportName"
-              className="input-field"
+              className={`input-field ${fieldErrors.name ? 'border-red-500' : ''}`}
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                clearFieldError('name');
+              }}
+              onBlur={() => validateField('name', formData.name)}
               required
               whileFocus={{ scale: 1.01 }}
             />
+            {fieldErrors.name && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
+            )}
           </div>
           <div>
             <label className="label" htmlFor="sportIcon">
@@ -312,12 +378,19 @@ export default function SportsPanel() {
               type="number"
               min={0}
               step={0.01}
-              className="input-field"
+              className={`input-field ${fieldErrors.base_fee ? 'border-red-500' : ''}`}
               value={formData.base_fee}
-              onChange={(e) => setFormData({ ...formData, base_fee: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, base_fee: e.target.value });
+                clearFieldError('base_fee');
+              }}
+              onBlur={() => validateField('base_fee', formData.base_fee)}
               placeholder="0.00"
               whileFocus={{ scale: 1.01 }}
             />
+            {fieldErrors.base_fee && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.base_fee}</p>
+            )}
           </div>
         </div>
         <div className="mt-4">

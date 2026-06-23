@@ -15,13 +15,12 @@
     "db:migrate": "pnpm --filter @school-syllabus/database db:migrate",
     "db:seed": "pnpm --filter @school-syllabus/database db:seed",
     "db:studio": "pnpm --filter @school-syllabus/database db:studio",
-    "prepare": "husky"
+    "prepare": "husky && husky install"
   },
   "devDependencies": {
     "@school-syllabus/eslint-config": "workspace:*",
     "eslint-plugin-react": "^7.37.4",
     "globals": "^16.5.0",
-    "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
