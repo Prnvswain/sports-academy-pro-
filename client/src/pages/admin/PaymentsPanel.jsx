@@ -8,7 +8,7 @@ const emptyForm = {
   pending_amount: 0, // Keeps track of what the student owes
   payment_date: new Date().toISOString().split('T')[0],
   due_date: '',
-  method: 'upi',
+  method: '',
   status: 'pending',
 };
 
@@ -20,11 +20,20 @@ export default function PaymentsPanel() {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [studentFeeData, setStudentFeeData] = useState(null);
   const [loadingFeeData, setLoadingFeeData] = useState(false);
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [methodFilter, setMethodFilter] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 10;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -58,13 +67,13 @@ export default function PaymentsPanel() {
   };
 
   // AUTOMATION: Triggers when a student name option is picked from the select element
-  const handleStudentChange = async (event) => {
-    const selectedId = event.target.value;
+  const handleStudentChange = async (selectedId) => {
     console.log('[handleStudentChange] Selected student ID:', selectedId);
 
     if (!selectedId) {
       setForm((prev) => ({ ...prev, student_id: '', amount: '', pending_amount: 0 }));
       setStudentFeeData(null);
+      setStudentSearchTerm('');
       return;
     }
 
@@ -78,6 +87,11 @@ export default function PaymentsPanel() {
       ...prev,
       student_id: selectedId,
     }));
+
+    // Update search term with student name
+    if (studentObj) {
+      setStudentSearchTerm(studentObj.name || `${studentObj.firstName || ''} ${studentObj.lastName || ''}`);
+    }
 
     // Fetch fee data from backend
     setLoadingFeeData(true);
@@ -134,6 +148,58 @@ export default function PaymentsPanel() {
     }
   };
 
+  const handleKeyDown = (e) => {
+    const filteredStudents = getFilteredStudents();
+    if (!dropdownOpen || filteredStudents.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev < filteredStudents.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filteredStudents.length - 1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredStudents[highlightedIndex]) {
+          const student = filteredStudents[highlightedIndex];
+          const studentId = student?.id || student?.student_id;
+          setStudentSearchTerm(student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`);
+          setDropdownOpen(false);
+          setHighlightedIndex(-1);
+          handleStudentChange(studentId);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setDropdownOpen(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+  };
+
+  const getFilteredStudents = () => {
+    if (!studentSearchTerm) return [];
+    const searchTerm = studentSearchTerm.toLowerCase();
+    return students.filter((s) => {
+      const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+      const parentName = s?.parent_name || s?.parentName || '';
+      const mobile = s?.phone || s?.parent_phone || s?.mobile || '';
+      const studentId = s?.id?.toString() || s?.student_id?.toString() || '';
+      const batchName = s?.batch?.name || '';
+
+      return (
+        name.toLowerCase().includes(searchTerm) ||
+        parentName.toLowerCase().includes(searchTerm) ||
+        mobile.includes(searchTerm) ||
+        studentId.includes(searchTerm) ||
+        batchName.toLowerCase().includes(searchTerm)
+      );
+    });
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
@@ -153,6 +219,8 @@ export default function PaymentsPanel() {
       console.log('[handleSubmit] Payment creation response:', result);
       setMessage({ text: result.message || 'Payment recorded successfully', type: 'success' });
       setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
+      setStudentSearchTerm('');
+      setStudentFeeData(null);
       loadData();
     } catch (error) {
       console.error('[handleSubmit] Payment creation error:', error);
@@ -231,6 +299,11 @@ export default function PaymentsPanel() {
 
     if (statusFilter && status !== statusFilter.toUpperCase()) return false;
 
+    if (methodFilter) {
+      const paymentMethod = (payment.method || '').toLowerCase();
+      if (paymentMethod !== methodFilter.toLowerCase()) return false;
+    }
+
     if (dateFrom) {
       const paymentDate = new Date(payment.payment_date || payment.date);
       const fromDate = new Date(dateFrom);
@@ -243,17 +316,85 @@ export default function PaymentsPanel() {
       if (paymentDate > toDate) return false;
     }
 
+    if (globalSearch) {
+      const searchTerm = globalSearch.toLowerCase();
+      const studentName = payment.student?.name || payment.student_name || '';
+      const parentName = payment.student?.parent_name || payment.student?.parentName || '';
+      const paymentMethod = payment.method || '';
+      const amount = payment.amount?.toString() || '';
+      const status = payment.status || '';
+      const transactionRef = payment.transaction_reference || payment.receipt_number || payment.payment_reference || '';
+
+      return (
+        studentName.toLowerCase().includes(searchTerm) ||
+        parentName.toLowerCase().includes(searchTerm) ||
+        paymentMethod.toLowerCase().includes(searchTerm) ||
+        amount.includes(searchTerm) ||
+        status.toLowerCase().includes(searchTerm) ||
+        transactionRef.toLowerCase().includes(searchTerm)
+      );
+    }
+
     return true;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPayments.length / recordsPerPage);
+  const startIndex = (currentPage - 1) * recordsPerPage;
+  const endIndex = startIndex + recordsPerPage;
+  const paginatedPayments = filteredPayments.slice(startIndex, endIndex);
+
+  // Smart pagination page numbers generation
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, methodFilter, dateFrom, dateTo, globalSearch]);
 
   const clearFilters = () => {
     setStatusFilter('');
     setDateFrom('');
     setDateTo('');
+    setMethodFilter('');
+    setGlobalSearch('');
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-x-hidden">
       <div>
         <h2 className="text-2xl font-bold">Fee Management</h2>
         <p className="text-muted">Track payments, due dates, and collection statistics.</p>
@@ -288,21 +429,70 @@ export default function PaymentsPanel() {
             <label className="label" htmlFor="payStudent">
               Student
             </label>
-            <select
-              id="payStudent"
-              name="student_id"
-              className="input-field text-foreground bg-[var(--color-input)]"
-              value={form.student_id}
-              onChange={handleStudentChange}
-              required
-            >
-              <option value="">Select student…</option>
-              {students.map((s) => (
-                <option key={s.id || s.student_id} value={s.id || s.student_id}>
-                  {s.name} (ID: {s.id || s.student_id})
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                id="payStudent"
+                type="text"
+                className="input-field text-foreground bg-[var(--color-input)]"
+                placeholder="Search student by name, mobile or ID..."
+                value={studentSearchTerm}
+                onChange={(e) => {
+                  setStudentSearchTerm(e.target.value);
+                  setHighlightedIndex(-1);
+                }}
+                onFocus={() => setDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
+                onKeyDown={handleKeyDown}
+                required
+                autoComplete="off"
+              />
+              {dropdownOpen && studentSearchTerm && (
+                <div className="absolute z-50 w-full rounded-md border max-h-60 overflow-y-auto mt-1 shadow-lg bg-white dark:bg-[#151824] border-slate-200 dark:border-slate-800">
+                  {(() => {
+                    const filteredStudents = getFilteredStudents();
+                    if (filteredStudents.length === 0) {
+                      return (
+                        <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                          No students found
+                        </div>
+                      );
+                    }
+                    return filteredStudents.map((s, index) => {
+                      const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+                      const parentName = s?.parent_name || s?.parentName || '—';
+                      const mobile = s?.phone || s?.parent_phone || s?.mobile || '—';
+                      const batchName = s?.batch?.name || '—';
+                      const isHighlighted = index === highlightedIndex;
+                      return (
+                        <div
+                          key={s?.id || s?.student_id}
+                          className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b last:border-b-0 ${
+                            isHighlighted
+                              ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-700/30 text-slate-700 dark:text-slate-300'
+                          } border-slate-200 dark:border-slate-800`}
+                          onMouseDown={() => {
+                            const studentId = s?.id || s?.student_id;
+                            setStudentSearchTerm(name);
+                            setDropdownOpen(false);
+                            setHighlightedIndex(-1);
+                            handleStudentChange(studentId);
+                          }}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                        >
+                          <div className="font-medium">{name}</div>
+                          <div className="text-xs mt-1 text-slate-500 dark:text-slate-400">
+                            <span className="inline-block mr-3">Parent: {parentName}</span>
+                            <span className="inline-block mr-3">Mobile: {mobile}</span>
+                            <span className="inline-block">Batch: {batchName}</span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* COMPREHENSIVE FEE BREAKDOWN */}
@@ -414,8 +604,11 @@ export default function PaymentsPanel() {
                 onChange={handleChange}
                 required
               >
+                <option value="">Select Payment Method</option>
                 <option value="upi">UPI</option>
                 <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="bank_transfer">Bank Transfer</option>
                 <option value="cheque">Cheque</option>
                 <option value="online">Online</option>
               </select>
@@ -469,6 +662,26 @@ export default function PaymentsPanel() {
             </select>
           </div>
 
+          <div>
+            <label className="label" htmlFor="methodFilter">
+              Payment Method
+            </label>
+            <select
+              id="methodFilter"
+              className="input-field text-foreground bg-[var(--color-input)]"
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+            >
+              <option value="">All Methods</option>
+              <option value="upi">UPI</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="cheque">Cheque</option>
+              <option value="online">Online</option>
+            </select>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="dateFrom">
@@ -500,7 +713,16 @@ export default function PaymentsPanel() {
 
       {/* PAYMENT RECORDS LIST */}
       <div className="card overflow-x-auto">
-        <h3 className="mb-4 text-base font-bold tracking-tight">Payment Records</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold tracking-tight">Payment Records</h3>
+          <input
+            type="text"
+            className="input-field w-64"
+            placeholder="Search payments..."
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+          />
+        </div>
         {loading ? (
           <Loader />
         ) : (
@@ -517,14 +739,14 @@ export default function PaymentsPanel() {
               </tr>
             </thead>
             <tbody className="divide-border divide-y">
-              {filteredPayments.length === 0 ? (
+              {paginatedPayments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-muted py-8 text-center text-xs">
                     No payments found.
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((payment, index) => {
+                paginatedPayments.map((payment, index) => {
                   const normalizedStatus = (payment.status || '').toUpperCase();
                   const currentId = payment.id || payment.payment_id || index;
                   const isOverdue =
@@ -593,6 +815,53 @@ export default function PaymentsPanel() {
               )}
             </tbody>
           </table>
+        )}
+
+        {/* Pagination */}
+        {filteredPayments.length > 0 && (
+          <div className="mt-4 flex flex-col items-center justify-between gap-4 sm:flex-row sm:gap-0">
+            <div className="text-muted text-sm">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} of {filteredPayments.length} records
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                {'< Prev'}
+              </button>
+              {getPageNumbers().map((page, index) => (
+                page === '...' ? (
+                  <span key={`ellipsis-${index}`} className="text-muted px-2">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`btn-sm ${
+                      currentPage === page
+                        ? 'btn-primary'
+                        : 'btn-secondary'
+                    }`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                )
+              ))}
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                {'Next >'}
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

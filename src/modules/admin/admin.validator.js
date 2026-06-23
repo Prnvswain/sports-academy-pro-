@@ -81,7 +81,8 @@ export const validate = (method) => {
     case 'createStudent':
       return [
         body('name').isString().notEmpty().withMessage('Student name is required'),
-        body('age').isInt({ min: 1, max: 100 }).withMessage('Age must be between 1 and 100'),
+        body('dob').optional().isISO8601().withMessage('Invalid date of birth format'),
+        body('age').optional().isInt({ min: 1, max: 100 }).withMessage('Age must be between 1 and 100'),
         body('gender').custom((value) => {
           if (!value) return true;
           const normalized = value.toString().toLowerCase().trim();
@@ -92,9 +93,8 @@ export const validate = (method) => {
           return true;
         }),
         body('sport_ids')
-          .optional()
-          .isArray()
-          .withMessage('Sport IDs must be an array')
+          .isArray({ min: 1 })
+          .withMessage('Please select at least one sport')
           .custom((value) => {
             if (Array.isArray(value)) {
               return value.every((id) => !isNaN(parseInt(id, 10)));
@@ -103,7 +103,23 @@ export const validate = (method) => {
           })
           .withMessage('All sport IDs must be valid integers'),
         body('sport_id').optional().isInt().withMessage('Invalid sport ID'),
-        body('batch_id').optional().isInt().withMessage('Invalid batch ID'),
+        body('batch_id')
+          .optional({ nullable: true, checkFalsy: true })
+          .custom((value) => {
+            if (value === null || value === undefined || value === '') {
+              return true;
+            }
+            const parsed = parseInt(value, 10);
+            if (isNaN(parsed)) {
+              throw new Error('Invalid batch ID');
+            }
+            return true;
+          })
+          .withMessage('Invalid batch ID'),
+        body('duration_plan_id').optional().isInt().withMessage('Invalid duration plan ID'),
+        body('registration_fee').optional().isFloat({ min: 0 }).withMessage('Registration fee must be a valid number'),
+        body('additional_charges').optional().isFloat({ min: 0 }).withMessage('Additional charges must be a valid number'),
+        body('discount').optional().isFloat({ min: 0 }).withMessage('Discount must be a valid number'),
         body('blood_group')
           .optional()
           .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
@@ -115,6 +131,8 @@ export const validate = (method) => {
         body('parent_email')
           .isEmail()
           .withMessage('Valid parent email is required for attendance notifications'),
+        body('parent_phone').optional().isMobilePhone().withMessage('Invalid parent phone number'),
+        body('phone').optional().isMobilePhone().withMessage('Invalid phone number'),
       ];
 
     case 'exitStudent':
@@ -128,10 +146,8 @@ export const validate = (method) => {
       return [
         param('student_id').isInt().withMessage('Invalid student ID'),
         body('name').optional().isString().withMessage('Student name must be a string'),
-        body('age')
-          .optional()
-          .isInt({ min: 1, max: 100 })
-          .withMessage('Age must be between 1 and 100'),
+        body('dob').optional().isISO8601().withMessage('Invalid date of birth format'),
+        body('age').optional().isInt({ min: 1, max: 100 }).withMessage('Age must be between 1 and 100'),
         body('gender')
           .optional()
           .custom((value) => {
@@ -143,8 +159,32 @@ export const validate = (method) => {
             }
             return true;
           }),
+        body('sport_ids')
+          .optional()
+          .isArray()
+          .withMessage('Sport IDs must be an array')
+          .custom((value) => {
+            if (Array.isArray(value)) {
+              return value.every((id) => !isNaN(parseInt(id, 10)));
+            }
+            return true;
+          })
+          .withMessage('All sport IDs must be valid integers'),
         body('sport_id').optional().isInt().withMessage('Invalid sport ID'),
-        body('batch_id').optional().isInt().withMessage('Invalid batch ID'),
+        body('batch_id')
+          .optional({ nullable: true, checkFalsy: true })
+          .custom((value) => {
+            if (value === null || value === undefined || value === '') {
+              return true;
+            }
+            const parsed = parseInt(value, 10);
+            if (isNaN(parsed)) {
+              throw new Error('Invalid batch ID');
+            }
+            return true;
+          })
+          .withMessage('Invalid batch ID'),
+        body('duration_plan_id').optional().isInt().withMessage('Invalid duration plan ID'),
         body('blood_group')
           .optional()
           .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
@@ -154,6 +194,8 @@ export const validate = (method) => {
           .isIn(['paid', 'pending', 'partial', 'unpaid'])
           .withMessage('Invalid fees status'),
         body('parent_email').optional().isEmail().withMessage('Invalid parent email'),
+        body('parent_phone').optional().isMobilePhone().withMessage('Invalid parent phone number'),
+        body('phone').optional().isMobilePhone().withMessage('Invalid phone number'),
       ];
 
     // BATCH VALIDATORS

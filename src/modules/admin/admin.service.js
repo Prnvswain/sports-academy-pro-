@@ -11,6 +11,7 @@ import {
 } from '../../services/mail.service.js';
 import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
+import { calculateAgeAndCategory } from '../../utils/age.util.js';
 
 const normalizeGender = (gender) => {
   if (!gender) return 'Other';
@@ -453,27 +454,48 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
       data: { status: data.status },
     });
 
-    // Cascade status to associated batches when deactivating sport
-    if (data.status === 'INACTIVE') {
-      const batchUpdateResult = await tx.batch.updateMany({
-        where: {
+    // Cascade status to associated batches
+    if (data.cascade !== false) {
+      if (data.status === 'INACTIVE') {
+        // Deactivate all active batches when sport is deactivated
+        const batchUpdateResult = await tx.batch.updateMany({
+          where: {
+            sport_id: sportId,
+            academy_id: academyId,
+            status: 'ACTIVE',
+          },
+          data: { status: 'INACTIVE' },
+        });
+
+        logger.info('Cascaded batch deactivation', {
           sport_id: sportId,
           academy_id: academyId,
-          status: 'ACTIVE',
-        },
-        data: { status: 'INACTIVE' },
-      });
+          batches_deactivated: batchUpdateResult.count,
+        });
 
-      logger.info('Cascaded batch deactivation', {
-        sport_id: sportId,
-        academy_id: academyId,
-        batches_deactivated: batchUpdateResult.count,
-      });
+        return { sport: updatedSport, batchesDeactivated: batchUpdateResult.count };
+      } else if (data.status === 'ACTIVE') {
+        // Reactivate all inactive batches when sport is reactivated
+        const batchUpdateResult = await tx.batch.updateMany({
+          where: {
+            sport_id: sportId,
+            academy_id: academyId,
+            status: 'INACTIVE',
+          },
+          data: { status: 'ACTIVE' },
+        });
 
-      return { sport: updatedSport, batchesDeactivated: batchUpdateResult.count };
+        logger.info('Cascaded batch reactivation', {
+          sport_id: sportId,
+          academy_id: academyId,
+          batches_reactivated: batchUpdateResult.count,
+        });
+
+        return { sport: updatedSport, batchesReactivated: batchUpdateResult.count };
+      }
     }
 
-    return { sport: updatedSport, batchesDeactivated: 0 };
+    return { sport: updatedSport, batchesDeactivated: 0, batchesReactivated: 0 };
   });
 
   logger.info('Sport status updated', {
@@ -804,15 +826,61 @@ export const createStudent = async (academy_id, data) => {
     nextDueDate.setMonth(nextDueDate.getMonth() + durationPlan.duration_months);
   }
 
+  // Auto-calculate age and category from DOB, or use provided age
+  let calculatedAge;
+  let calculatedCategory;
+  if (data.age !== undefined && data.age !== null) {
+    calculatedAge = parseInt(data.age, 10);
+    const { category } = calculateAgeAndCategory(data.dob);
+    calculatedCategory = category;
+  } else {
+    const { age, category } = calculateAgeAndCategory(data.dob);
+    calculatedAge = age;
+    calculatedCategory = category;
+  }
+
+  // Validate batch capacity if batch is provided
+  if (data.batch_id) {
+    const batchId = parseInt(data.batch_id, 10);
+    const batch = await prisma.batch.findFirst({
+      where: {
+        batch_id: batchId,
+        academy_id: academyId,
+        status: 'ACTIVE',
+      },
+      include: {
+        _count: {
+          select: { students: true },
+        },
+      },
+    });
+
+    if (!batch) {
+      const error = new Error('Batch not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (batch.max_capacity !== null && batch._count.students >= batch.max_capacity) {
+      const error = new Error('Batch is at full capacity');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   // Create student record
   const student = await prisma.student.create({
     data: {
       academy_id: academyId,
       name: data.name,
       first_name: data.first_name || null,
+      middle_name: data.middle_name || null,
       last_name: data.last_name || null,
       phone: data.phone || null,
-      age: data.age,
+      dob: data.dob ? new Date(data.dob) : null,
+      age: calculatedAge,
+      category: calculatedCategory,
+      profile_photo: data.profile_photo || null,
       gender: normalizeGender(data.gender),
       sport_id: sportIds.length > 0 ? parseInt(sportIds[0], 10) : null, // Primary sport for backward compatibility
       batch_id: data.batch_id ? parseInt(data.batch_id, 10) : null,
@@ -906,8 +974,46 @@ export const updateStudent = async (academy_id, student_id, data) => {
   const primarySportId = sportIds.length > 0 ? sportIds[0] : student.sport_id;
   const nextBatchId = data.batch_id !== undefined ? parseInt(data.batch_id, 10) : student.batch_id;
 
+  // Validate batch capacity if batch is being changed
+  if (data.batch_id !== undefined && data.batch_id !== null && data.batch_id !== student.batch_id) {
+    const batchId = parseInt(data.batch_id, 10);
+    const batch = await prisma.batch.findFirst({
+      where: {
+        batch_id: batchId,
+        academy_id: parsedAcademyId,
+        status: 'ACTIVE',
+      },
+      include: {
+        _count: {
+          select: { students: true },
+        },
+      },
+    });
+
+    if (!batch) {
+      const error = new Error('Batch not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (batch.max_capacity !== null && batch._count.students >= batch.max_capacity) {
+      const error = new Error('Batch is at full capacity');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   if (primarySportId && nextBatchId) {
     await assertStudentSportBatch(parsedAcademyId, primarySportId, nextBatchId);
+  }
+
+  // Auto-recalculate age and category if DOB is being updated
+  let calculatedAge = student.age;
+  let calculatedCategory = student.category;
+  if (data.dob !== undefined) {
+    const { age, category } = calculateAgeAndCategory(data.dob);
+    calculatedAge = age;
+    calculatedCategory = category;
   }
 
   // Update core student details
@@ -915,7 +1021,10 @@ export const updateStudent = async (academy_id, student_id, data) => {
     where: { student_id: parsedStudentId },
     data: {
       name: data.name ?? student.name,
-      age: data.age ?? student.age,
+      dob: data.dob !== undefined ? (data.dob ? new Date(data.dob) : null) : student.dob,
+      age: calculatedAge,
+      category: calculatedCategory,
+      profile_photo: data.profile_photo !== undefined ? data.profile_photo : student.profile_photo,
       gender: normalizeGender(data.gender ?? student.gender),
       sport_id: primarySportId,
       batch_id: nextBatchId,
@@ -2156,4 +2265,335 @@ export const getAttendance = async (academy_id, query = {}) => {
     ...a,
     id: a.attendance_id,
   }));
+};
+
+// ==================== SMART BROADCAST CENTER ====================
+
+export const getAnnouncements = async (academy_id) => {
+  const academyId = parseInt(academy_id, 10);
+
+  const announcements = await prisma.announcement.findMany({
+    where: { academy_id: academyId },
+    include: {
+      batch: {
+        select: {
+          batch_id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+    take: 50,
+  });
+
+  return announcements.map((a) => ({
+    ...a,
+    id: a.announcement_id,
+  }));
+};
+
+export const createAnnouncement = async (academy_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const { title, message, target_type, batch_id, selected_coach_ids, selected_student_ids } = data;
+
+  // Create announcement record
+  const announcement = await prisma.announcement.create({
+    data: {
+      academy_id: academyId,
+      title: title.trim(),
+      message: message.trim(),
+      target_type: target_type,
+      batch_id: batch_id ? parseInt(batch_id, 10) : null,
+    },
+    include: {
+      batch: {
+        select: {
+          batch_id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  // Fetch recipient emails and create in-app notifications based on target type
+  let recipientEmails = [];
+  let inAppNotifications = [];
+
+  switch (target_type) {
+    case 'ALL_COACHES':
+      const coaches = await prisma.coach.findMany({
+        where: {
+          academy_id: academyId,
+          is_deleted: false,
+          email: { not: null },
+        },
+        select: { coach_id: true, email: true, name: true },
+      });
+      recipientEmails = coaches.map((c) => ({ email: c.email, name: c.name }));
+      // Create in-app notifications for all coaches
+      inAppNotifications = coaches.map((c) => ({
+        announcement_id: announcement.announcement_id,
+        coach_id: c.coach_id,
+        student_id: null,
+        is_read: false,
+      }));
+      break;
+
+    case 'SPECIFIC_COACHES':
+      if (!selected_coach_ids || selected_coach_ids.length === 0) {
+        const error = new Error('selected_coach_ids is required for SPECIFIC_COACHES target type');
+        error.statusCode = 400;
+        throw error;
+      }
+      const specificCoaches = await prisma.coach.findMany({
+        where: {
+          academy_id: academyId,
+          is_deleted: false,
+          coach_id: { in: selected_coach_ids.map((id) => parseInt(id, 10)) },
+          email: { not: null },
+        },
+        select: { coach_id: true, email: true, name: true },
+      });
+      recipientEmails = specificCoaches.map((c) => ({ email: c.email, name: c.name }));
+      // Create in-app notifications for specific coaches
+      inAppNotifications = specificCoaches.map((c) => ({
+        announcement_id: announcement.announcement_id,
+        coach_id: c.coach_id,
+        student_id: null,
+        is_read: false,
+      }));
+      break;
+
+    case 'BATCH_COACHES':
+      if (!batch_id) {
+        const error = new Error('batch_id is required for BATCH_COACHES target type');
+        error.statusCode = 400;
+        throw error;
+      }
+      const batchCoaches = await prisma.batchCoach.findMany({
+        where: {
+          batch_id: parseInt(batch_id, 10),
+        },
+        include: {
+          coach: {
+            select: { coach_id: true, email: true, name: true },
+          },
+        },
+      });
+      const validBatchCoaches = batchCoaches
+        .filter((bc) => bc.coach.email)
+        .map((bc) => ({ email: bc.coach.email, name: bc.coach.name, coach_id: bc.coach.coach_id }));
+      recipientEmails = validBatchCoaches.map((c) => ({ email: c.email, name: c.name }));
+      // Create in-app notifications for batch coaches
+      inAppNotifications = validBatchCoaches.map((c) => ({
+        announcement_id: announcement.announcement_id,
+        coach_id: c.coach_id,
+        student_id: null,
+        is_read: false,
+      }));
+      break;
+
+    case 'PARENTS_ALL':
+      const allStudents = await prisma.student.findMany({
+        where: {
+          academy_id: academyId,
+          is_deleted: false,
+          parent_email: { not: null },
+        },
+        select: { student_id: true, parent_email: true, name: true },
+      });
+      recipientEmails = allStudents.map((s) => ({ email: s.parent_email, name: s.name }));
+      // Create in-app notifications for all students (parents)
+      inAppNotifications = allStudents.map((s) => ({
+        announcement_id: announcement.announcement_id,
+        coach_id: null,
+        student_id: s.student_id,
+        is_read: false,
+      }));
+      break;
+
+    case 'PARENTS_DUE':
+      const dueStudents = await prisma.student.findMany({
+        where: {
+          academy_id: academyId,
+          is_deleted: false,
+          fees_status: 'unpaid',
+          parent_email: { not: null },
+        },
+        select: { student_id: true, parent_email: true, name: true },
+      });
+      recipientEmails = dueStudents.map((s) => ({ email: s.parent_email, name: s.name }));
+      // Create in-app notifications for due students (parents)
+      inAppNotifications = dueStudents.map((s) => ({
+        announcement_id: announcement.announcement_id,
+        coach_id: null,
+        student_id: s.student_id,
+        is_read: false,
+      }));
+      break;
+
+    case 'SPECIFIC_PARENTS':
+      if (!selected_student_ids || selected_student_ids.length === 0) {
+        const error = new Error('selected_student_ids is required for SPECIFIC_PARENTS target type');
+        error.statusCode = 400;
+        throw error;
+      }
+      const specificStudents = await prisma.student.findMany({
+        where: {
+          academy_id: academyId,
+          is_deleted: false,
+          student_id: { in: selected_student_ids.map((id) => parseInt(id, 10)) },
+          parent_email: { not: null },
+        },
+        select: { student_id: true, parent_email: true, name: true },
+      });
+      recipientEmails = specificStudents.map((s) => ({ email: s.parent_email, name: s.name }));
+      // Create in-app notifications for specific students (parents)
+      inAppNotifications = specificStudents.map((s) => ({
+        announcement_id: announcement.announcement_id,
+        coach_id: null,
+        student_id: s.student_id,
+        is_read: false,
+      }));
+      break;
+
+    default:
+      const error = new Error('Invalid target_type');
+      error.statusCode = 400;
+      throw error;
+  }
+
+  // Create in-app notifications in bulk
+  if (inAppNotifications.length > 0) {
+    try {
+      await prisma.inAppNotification.createMany({
+        data: inAppNotifications,
+      });
+      logger.info('In-app notifications created', {
+        count: inAppNotifications.length,
+        announcement_id: announcement.announcement_id,
+      });
+    } catch (error) {
+      logger.error('Failed to create in-app notifications', {
+        error: error.message,
+      });
+      // Continue with email dispatch even if in-app notifications fail
+    }
+  }
+
+  // Send emails to all recipients
+  const emailPromises = recipientEmails.map((recipient) =>
+    sendBroadcastEmail({
+      to: recipient.email,
+      recipientName: recipient.name,
+      title: title,
+      message: message,
+    }).catch((err) => {
+      logger.error('Failed to send broadcast email', {
+        email: recipient.email,
+        error: err.message,
+      });
+      return null;
+    })
+  );
+
+  const emailResults = await Promise.all(emailPromises);
+  const successfulEmails = emailResults.filter(Boolean).length;
+
+  logger.info('Announcement created and emails dispatched', {
+    announcement_id: announcement.announcement_id,
+    academy_id: academyId,
+    target_type: target_type,
+    total_recipients: recipientEmails.length,
+    successful_emails: successfulEmails,
+    in_app_notifications: inAppNotifications.length,
+  });
+
+  return {
+    ...announcement,
+    id: announcement.announcement_id,
+    email_stats: {
+      total_recipients: recipientEmails.length,
+      successful_emails: successfulEmails,
+    },
+    notification_stats: {
+      total_notifications: inAppNotifications.length,
+    },
+  };
+};
+
+export const getCoachNotifications = async (coach_id) => {
+  const coachId = parseInt(coach_id, 10);
+
+  const notifications = await prisma.inAppNotification.findMany({
+    where: {
+      coach_id: coachId,
+    },
+    include: {
+      announcement: {
+        select: {
+          announcement_id: true,
+          title: true,
+          message: true,
+          created_at: true,
+        },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+    take: 50,
+  });
+
+  return notifications.map((n) => ({
+    ...n,
+    id: n.notification_id,
+  }));
+};
+
+export const markNotificationAsRead = async (notification_id) => {
+  const notificationId = parseInt(notification_id, 10);
+
+  const notification = await prisma.inAppNotification.update({
+    where: { notification_id: notificationId },
+    data: { is_read: true },
+  });
+
+  logger.info('Notification marked as read', { notification_id: notificationId });
+
+  return notification;
+};
+
+const sendBroadcastEmail = async ({ to, recipientName, title, message }) => {
+  const subject = `${title} — SAMS Academy Announcement`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: ${to.includes('@') ? '#f8fafc' : '#ffffff'};">
+      <h2 style="color: #059669; margin-bottom: 8px;">SAMS Academy Announcement</h2>
+      <p style="font-size: 14px; color: #64748b; margin-top: 0;">Important Update</p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <p>Dear <strong>${recipientName || 'Parent/Guardian'}</strong>,</p>
+      <p style="font-size: 16px; font-weight: 600; color: #1e293b; margin: 16px 0;">${title}</p>
+      <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p style="margin: 0; line-height: 1.6; color: #334155;">${message}</p>
+      </div>
+      <p style="font-size: 13px; color: #64748b; margin-top: 20px;">If you have any questions, please contact the academy administration.</p>
+      <p style="font-size: 12px; color: #94a3b8; margin-top: 16px;">This is an automated message from SAMS Academy.</p>
+    </div>
+  `;
+
+  const text = [
+    `Dear ${recipientName || 'Parent/Guardian'},`,
+    '',
+    `SAMS Academy Announcement`,
+    '',
+    `${title}`,
+    '',
+    `${message}`,
+    '',
+    'If you have any questions, please contact the academy administration.',
+    '',
+    'This is an automated message from SAMS Academy.'
+  ].join('\n');
+
+  const { sendMail } = await import('../../services/mail.service.js');
+  return sendMail({ to, subject, html, text });
 };

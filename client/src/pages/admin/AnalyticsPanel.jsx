@@ -43,7 +43,7 @@ export default function AnalyticsPanel() {
   const summary = metrics.payment_summary || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-x-hidden">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Academy Analytics</h2>
@@ -53,7 +53,7 @@ export default function AnalyticsPanel() {
           Refresh
         </button>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 w-full">
         <div className="card bg-surface-secondary">
           <span className="kpi-label">Total Revenue</span>
           <span className="kpi-value">{formatCurrency(metrics.total_revenue)}</span>

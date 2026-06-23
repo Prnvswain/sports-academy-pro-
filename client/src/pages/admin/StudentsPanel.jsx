@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
+import Avatar from '../../components/Avatar';
 import { useFormDraft } from '../../hooks/useFormDraft';
+import { useFormValidation, validationRules } from '../../hooks/useFormValidation';
 import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
 
 const formatCurrency = (value) =>
@@ -16,17 +18,30 @@ const normalizeGender = (gender) => {
   return 'Not Specified';
 };
 
+const calculateAgeFromDOB = (dob) => {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const emptyForm = {
   firstName: '',
   middleName: '',
   lastName: '',
-  age: '',
+  dob: '',
   gender: 'Male',
   blood_group: '',
   parent_name: '',
   parent_email: '',
   parent_phone: '',
   phone: '',
+  profile_photo: null,
   batch_id: '',
   duration_plan_id: '',
   registration_fee: '',
@@ -40,6 +55,73 @@ export default function StudentsPanel() {
     'sams_draft_student_form',
     emptyForm,
   );
+
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const setFieldError = (field, message) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const setBackendFieldErrors = (backendErrors) => {
+    setFieldErrors(backendErrors);
+  };
+
+  const validateField = (field, value) => {
+    let error = '';
+
+    switch (field) {
+      case 'firstName':
+      case 'lastName':
+        if (!value || value.trim() === '') {
+          error = 'This field is required';
+        }
+        break;
+      case 'parent_email':
+        if (!value || value.trim() === '') {
+          error = 'Parent email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Enter a valid email address';
+        }
+        break;
+      case 'phone':
+      case 'parent_phone':
+        if (value && !/^[0-9]{10}$/.test(value)) {
+          error = 'Phone number must be 10 digits';
+        }
+        break;
+      case 'dob':
+        if (!value) {
+          error = 'Date of birth is required';
+        } else {
+          const birthDate = new Date(value);
+          const today = new Date();
+          if (birthDate > today) {
+            error = 'Date of birth cannot be in the future';
+          } else {
+            const age = calculateAgeFromDOB(value);
+            if (age < 1 || age > 100) {
+              error = 'Age must be between 1 and 100';
+            }
+          }
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldError(field, error);
+      return false;
+    }
+    clearFieldError(field);
+    return true;
+  };
+
   const [students, setStudents] = useState([]);
   const [sports, setSports] = useState([]);
   const [durationPlans, setDurationPlans] = useState([]);
@@ -52,6 +134,7 @@ export default function StudentsPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSport, setFilterSport] = useState('');
   const [filterBatch, setFilterBatch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [modalTab, setModalTab] = useState('profile');
@@ -67,6 +150,7 @@ export default function StudentsPanel() {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -79,17 +163,17 @@ export default function StudentsPanel() {
       setStudents(studentsRes.data || []);
 
       const sportsData = sportsRes.data;
+      let sportsArray = [];
       if (Array.isArray(sportsData)) {
-        setSports(sportsData);
+        sportsArray = sportsData;
       } else if (sportsData && Array.isArray(sportsData.data)) {
-        setSports(sportsData.data);
+        sportsArray = sportsData.data;
       } else if (sportsData && Array.isArray(sportsData.available_sports)) {
-        setSports(sportsData.available_sports);
+        sportsArray = sportsData.available_sports;
       } else if (sportsData && Array.isArray(sportsData.sports)) {
-        setSports(sportsData.sports);
-      } else {
-        setSports([]);
+        sportsArray = sportsData.sports;
       }
+      setSports(sportsArray.filter(s => s.status === 'ACTIVE'));
 
       setDurationPlans(plansRes.data || []);
     } catch (error) {
@@ -175,36 +259,102 @@ export default function StudentsPanel() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage({ text: '', type: '' });
+    setFieldErrors({});
+
+    // Validate sports selection
+    if (!selectedSports || selectedSports.length === 0) {
+      setFieldError('sport_ids', 'Please select at least one sport');
+      setMessage({ text: 'Please select at least one sport.', type: 'error' });
+      return;
+    }
+
+    // Validate required fields
+    const isValid =
+      validateField('firstName', form.firstName) &&
+      validateField('lastName', form.lastName) &&
+      validateField('parent_email', form.parent_email) &&
+      validateField('dob', form.dob);
+
+    if (!isValid) {
+      return;
+    }
+
     try {
       const feeBreakdown = calculateLiveFee();
       const fullName = `${form.firstName} ${form.middleName} ${form.lastName}`.trim();
-      const result = await adminPost('/admin/students', {
+
+      // Handle profile photo - convert to base64 if file is selected
+      let profilePhotoData = null;
+      if (form.profile_photo instanceof File) {
+        profilePhotoData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(form.profile_photo);
+        });
+      }
+
+      const batchIdValue = form.batch_id ? parseInt(form.batch_id, 10) : null;
+      console.log('[handleSubmit] batch_id value:', {
+        form_batch_id: form.batch_id,
+        parsed_batch_id: batchIdValue,
+        type: typeof batchIdValue,
+        isNull: batchIdValue === null,
+      });
+
+      const payload = {
         name: fullName,
         first_name: form.firstName.trim() || undefined,
         middle_name: form.middleName.trim() || undefined,
         last_name: form.lastName.trim() || undefined,
         phone: form.phone.trim() || undefined,
-        age: parseInt(form.age, 10),
+        dob: form.dob,
+        age: calculateAgeFromDOB(form.dob),
         gender: form.gender,
         blood_group: form.bloodGroup || form.blood_group || undefined,
         parent_name: form.parent_name.trim() || undefined,
         parent_email: form.parent_email.trim(),
         parent_phone: form.parent_phone.trim() || undefined,
+        profile_photo: profilePhotoData,
         sport_ids: selectedSports.map((id) => parseInt(id, 10)),
-        batch_id: form.batch_id ? parseInt(form.batch_id, 10) : undefined,
+        batch_id: batchIdValue,
         duration_plan_id: form.duration_plan_id ? parseInt(form.duration_plan_id, 10) : undefined,
         registration_fee: parseFloat(form.registrationFee || form.registration_fee || 0),
         additional_charges: parseFloat(form.additionalCharges || form.additional_charges || 0),
         discount: parseFloat(form.discount || 0),
         joining_date: form.joining_date,
+      };
+      
+      console.log('[handleSubmit] Request payload:', payload);
+
+      const result = await adminPost('/admin/students', payload);
+
+      console.log('[handleSubmit] Response:', {
+        status: 201,
+        data: result,
       });
+
       setMessage({ text: result.message, type: 'success' });
       clearDraft();
       setSelectedSports([]);
+      setFieldErrors({});
       setShowAddStudentModal(false);
       loadData();
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      console.error('[handleSubmit] Error:', {
+        message: error.message,
+        status: error.status,
+        response: error.response,
+        data: error.data,
+      });
+
+      // Handle structured validation errors from backend
+      if (error.data && error.data.errors) {
+        setBackendFieldErrors(error.data.errors);
+        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
+      } else {
+        setMessage({ text: error.message || 'Failed to create student. Please try again.', type: 'error' });
+      }
     }
   };
 
@@ -311,6 +461,7 @@ export default function StudentsPanel() {
     setShowStudentModal(true);
     setModalTab('profile');
     setIsEditingStudent(false);
+    setPhotoPreview(null);
     setLoadingDetails(true);
     try {
       const detailsRes = await adminGet(`/admin/students/${student.student_id}/details`);
@@ -319,7 +470,9 @@ export default function StudentsPanel() {
       setEditStudentForm({
         name: detailsRes.data.student.name,
         phone: detailsRes.data.student.phone || '',
-        age: detailsRes.data.student.age,
+        dob: detailsRes.data.student.dob
+          ? new Date(detailsRes.data.student.dob).toISOString().split('T')[0]
+          : '',
         gender: detailsRes.data.student.gender,
         blood_group: detailsRes.data.student.blood_group || '',
         parent_name: detailsRes.data.student.parent_name || '',
@@ -345,16 +498,32 @@ export default function StudentsPanel() {
     event.preventDefault();
     setMessage({ text: '', type: '' });
     try {
+      // Handle profile photo - convert to base64 if file is selected
+      let profilePhotoData = undefined;
+      if (editStudentForm.profile_photo instanceof File) {
+        profilePhotoData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(editStudentForm.profile_photo);
+        });
+      } else if (editStudentForm.profile_photo === null) {
+        // Explicitly set to null to remove photo
+        profilePhotoData = null;
+      }
+
       const result = await adminPut(`/admin/students/${selectedStudent.student_id}`, {
         name: editStudentForm.name,
         phone: editStudentForm.phone,
-        age: parseInt(editStudentForm.age, 10),
+        dob: editStudentForm.dob,
+        age: calculateAgeFromDOB(editStudentForm.dob),
         gender: editStudentForm.gender,
         blood_group: editStudentForm.blood_group,
         parent_name: editStudentForm.parent_name,
         parent_email: editStudentForm.parent_email,
         parent_phone: editStudentForm.parent_phone,
         fees_status: editStudentForm.fees_status,
+        profile_photo: profilePhotoData,
         sport_ids: editSelectedSports,
         duration_plan_id: editStudentForm.duration_plan_id
           ? parseInt(editStudentForm.duration_plan_id, 10)
@@ -363,6 +532,7 @@ export default function StudentsPanel() {
       });
       setMessage({ text: result.message || 'Student updated successfully', type: 'success' });
       setIsEditingStudent(false);
+      setPhotoPreview(null);
       // Reload student details
       const detailsRes = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
       setStudentDetails(detailsRes.data);
@@ -540,12 +710,14 @@ export default function StudentsPanel() {
 
     const matchesBatch = !filterBatch || student.batch_id === parseInt(filterBatch);
 
-    return matchesSearch && matchesSport && matchesBatch;
+    const matchesCategory = !filterCategory || student.category === filterCategory;
+
+    return matchesSearch && matchesSport && matchesBatch && matchesCategory;
   });
 
   return (
     <motion.div
-      className="space-y-6 p-6"
+      className="space-y-6 p-6 w-full overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -583,7 +755,7 @@ export default function StudentsPanel() {
       {/* Filter Section */}
       <div className="card mb-6">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="min-w-[200px] flex-1">
+          <div className="min-w-0 flex-1 w-full sm:w-auto">
             <input
               type="text"
               placeholder="Search students..."
@@ -596,7 +768,7 @@ export default function StudentsPanel() {
               }}
             />
           </div>
-          <div className="min-w-[180px]">
+          <div className="min-w-0 w-full sm:w-auto">
             <select
               className="input-field w-full"
               value={filterSport}
@@ -614,7 +786,7 @@ export default function StudentsPanel() {
               ))}
             </select>
           </div>
-          <div className="min-w-[180px]">
+          <div className="min-w-0 w-full sm:w-auto">
             <select
               className="input-field w-full"
               value={filterBatch}
@@ -630,6 +802,26 @@ export default function StudentsPanel() {
                   {b.name}
                 </option>
               ))}
+            </select>
+          </div>
+          <div className="min-w-0 w-full sm:w-auto">
+            <select
+              className="input-field w-full"
+              value={filterCategory}
+              onChange={(e) => {
+                setFilterCategory(e.target.value);
+                setSelectedStudent(null);
+                setSelectedStudentForView(null);
+              }}
+            >
+              <option value="">All Categories</option>
+              <option value="U8">U8 (5-8 years)</option>
+              <option value="U10">U10 (9-10 years)</option>
+              <option value="U12">U12 (11-12 years)</option>
+              <option value="U14">U14 (13-14 years)</option>
+              <option value="U16">U16 (15-16 years)</option>
+              <option value="U18">U18 (17-18 years)</option>
+              <option value="Senior">Senior (18+ years)</option>
             </select>
           </div>
         </div>
@@ -691,8 +883,46 @@ export default function StudentsPanel() {
                     <p>{studentDetails?.student?.phone || selectedStudent?.phone || '—'}</p>
                   </div>
                   <div>
+                    <label className="text-muted text-sm font-semibold">Date of Birth</label>
+                    <p>
+                      {studentDetails?.student?.dob
+                        ? new Date(studentDetails.student.dob).toLocaleDateString()
+                        : selectedStudent?.dob
+                          ? new Date(selectedStudent.dob).toLocaleDateString()
+                          : '—'}
+                    </p>
+                  </div>
+                  <div>
                     <label className="text-muted text-sm font-semibold">Age</label>
                     <p>{studentDetails?.student?.age || selectedStudent?.age || '—'}</p>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm font-semibold">Category</label>
+                    <p>
+                      {studentDetails?.student?.category || selectedStudent?.category ? (
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs ${
+                            (studentDetails?.student?.category || selectedStudent?.category) === 'U8'
+                              ? 'bg-blue-100 text-blue-800'
+                              : (studentDetails?.student?.category || selectedStudent?.category) === 'U10'
+                                ? 'bg-green-100 text-green-800'
+                                : (studentDetails?.student?.category || selectedStudent?.category) === 'U12'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : (studentDetails?.student?.category || selectedStudent?.category) === 'U14'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : (studentDetails?.student?.category || selectedStudent?.category) === 'U16'
+                                      ? 'bg-red-100 text-red-800'
+                                      : (studentDetails?.student?.category || selectedStudent?.category) === 'U18'
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {studentDetails?.student?.category || selectedStudent?.category}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </p>
                   </div>
                   <div>
                     <label className="text-muted text-sm font-semibold">Gender</label>
@@ -980,6 +1210,8 @@ export default function StudentsPanel() {
                       </th>
                     )}
                     <th className="pb-3">Name</th>
+                    <th className="px-2 pb-3">Age</th>
+                    <th className="px-2 pb-3">Category</th>
                     <th className="px-2 pb-3">Sports</th>
                     <th className="px-2 pb-3">Batch</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -993,7 +1225,7 @@ export default function StudentsPanel() {
                   {filteredStudents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={isBulkEditMode ? 7 : 6}
+                        colSpan={isBulkEditMode ? 9 : 8}
                         className="text-muted py-8 text-center text-xs"
                       >
                         No active students found.
@@ -1027,18 +1259,51 @@ export default function StudentsPanel() {
                             </td>
                           )}
                           <td>
-                            <div
-                              className="hover:text-accent cursor-pointer transition-colors hover:underline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedStudentForView(student);
-                              }}
-                            >
-                              <p className="font-semibold">{student.name}</p>
-                              {student.parent_email && (
-                                <p className="text-muted text-xs">{student.parent_email}</p>
-                              )}
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={student.profile_photo}
+                                name={student.name}
+                                size="sm"
+                              />
+                              <div
+                                className="hover:text-accent cursor-pointer transition-colors hover:underline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedStudentForView(student);
+                                }}
+                              >
+                                <p className="font-semibold">{student.name}</p>
+                                {student.parent_email && (
+                                  <p className="text-muted text-xs">{student.parent_email}</p>
+                                )}
+                              </div>
                             </div>
+                          </td>
+                          <td className="text-muted">{student.age || '—'}</td>
+                          <td>
+                            {student.category ? (
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs ${
+                                  student.category === 'U8'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : student.category === 'U10'
+                                      ? 'bg-green-100 text-green-800'
+                                      : student.category === 'U12'
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : student.category === 'U14'
+                                          ? 'bg-orange-100 text-orange-800'
+                                          : student.category === 'U16'
+                                            ? 'bg-red-100 text-red-800'
+                                            : student.category === 'U18'
+                                              ? 'bg-purple-100 text-purple-800'
+                                              : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {student.category}
+                              </span>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                           <td>
                             {student.enrollments &&
@@ -1162,11 +1427,18 @@ export default function StudentsPanel() {
                   <input
                     id="firstName"
                     type="text"
-                    className="input-field"
+                    className={`input-field ${fieldErrors.firstName ? 'border-red-500' : ''}`}
                     value={form.firstName}
-                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, firstName: e.target.value });
+                      clearFieldError('firstName');
+                    }}
+                    onBlur={() => validateField('firstName', form.firstName)}
                     required
                   />
+                  {fieldErrors.firstName && (
+                    <p className="mt-1 text-xs text-red-500">{fieldErrors.firstName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="label" htmlFor="middleName">
@@ -1187,30 +1459,93 @@ export default function StudentsPanel() {
                   <input
                     id="lastName"
                     type="text"
-                    className="input-field"
+                    className={`input-field ${fieldErrors.lastName ? 'border-red-500' : ''}`}
                     value={form.lastName}
-                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, lastName: e.target.value });
+                      clearFieldError('lastName');
+                    }}
+                    onBlur={() => validateField('lastName', form.lastName)}
                     required
                   />
+                  {fieldErrors.lastName && (
+                    <p className="mt-1 text-xs text-red-500">{fieldErrors.lastName}</p>
+                  )}
                 </div>
+              </div>
+              <div className="mb-4">
+                <label className="label" htmlFor="profilePhoto">
+                  Profile Photo (Optional)
+                </label>
+                <input
+                  id="profilePhoto"
+                  name="profile_photo"
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  className="input-field"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      // Validate file type
+                      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                      if (!allowedTypes.includes(file.type)) {
+                        setMessage({ text: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.', type: 'error' });
+                        e.target.value = '';
+                        return;
+                      }
+                      // Validate file size (5MB max)
+                      if (file.size > 5 * 1024 * 1024) {
+                        setMessage({ text: 'File size exceeds maximum limit of 5MB', type: 'error' });
+                        e.target.value = '';
+                        return;
+                      }
+                      setForm({ ...form, profile_photo: file });
+                    }
+                  }}
+                />
+                <p className="text-muted mt-1 text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="label" htmlFor="studentAge">
-                    Age
+                  <label className="label" htmlFor="studentDob">
+                    Date of Birth
                   </label>
                   <input
-                    id="studentAge"
-                    name="age"
-                    type="number"
-                    min={1}
-                    max={100}
-                    className="input-field"
-                    value={form.age}
-                    onChange={updateField}
+                    id="studentDob"
+                    name="dob"
+                    type="date"
+                    className={`input-field ${fieldErrors.dob ? 'border-red-500' : ''}`}
+                    value={form.dob}
+                    onChange={(e) => {
+                      const dob = e.target.value;
+                      setForm({ ...form, dob });
+                      clearFieldError('dob');
+                    }}
+                    onBlur={() => validateField('dob', form.dob)}
                     required
+                    max={new Date().toISOString().split('T')[0]}
                   />
+                  {fieldErrors.dob && (
+                    <p className="mt-1 text-xs text-red-500">{fieldErrors.dob}</p>
+                  )}
+                  <p className="text-muted mt-1 text-xs">Age will be calculated automatically</p>
                 </div>
+                <div>
+                  <label className="label" htmlFor="calculatedAge">
+                    Age (Calculated)
+                  </label>
+                  <input
+                    id="calculatedAge"
+                    type="text"
+                    className="input-field bg-muted"
+                    value={form.dob ? `${calculateAgeFromDOB(form.dob)} years` : ''}
+                    readOnly
+                    disabled
+                  />
+                  <p className="text-muted mt-1 text-xs">Auto-calculated from DOB</p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="label" htmlFor="studentGender">
                     Gender
@@ -1238,10 +1573,17 @@ export default function StudentsPanel() {
                     id="studentPhone"
                     name="phone"
                     type="tel"
-                    className="input-field"
+                    className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
                     value={form.phone}
-                    onChange={updateField}
+                    onChange={(e) => {
+                      setForm({ ...form, phone: e.target.value });
+                      clearFieldError('phone');
+                    }}
+                    onBlur={() => validateField('phone', form.phone)}
                   />
+                  {fieldErrors.phone && (
+                    <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
+                  )}
                 </div>
                 <div>
                   <label className="label" htmlFor="joiningDate">
@@ -1296,11 +1638,18 @@ export default function StudentsPanel() {
                   id="parentEmail"
                   name="parent_email"
                   type="email"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.parent_email ? 'border-red-500' : ''}`}
                   value={form.parent_email}
-                  onChange={updateField}
+                  onChange={(e) => {
+                    setForm({ ...form, parent_email: e.target.value });
+                    clearFieldError('parent_email');
+                  }}
+                  onBlur={() => validateField('parent_email', form.parent_email)}
                   required
                 />
+                {fieldErrors.parent_email && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_email}</p>
+                )}
               </div>
               <div className="mb-4">
                 <label className="label" htmlFor="parentPhone">
@@ -1310,10 +1659,17 @@ export default function StudentsPanel() {
                   id="parentPhone"
                   name="parent_phone"
                   type="tel"
-                  className="input-field"
+                  className={`input-field ${fieldErrors.parent_phone ? 'border-red-500' : ''}`}
                   value={form.parent_phone}
-                  onChange={updateField}
+                  onChange={(e) => {
+                    setForm({ ...form, parent_phone: e.target.value });
+                    clearFieldError('parent_phone');
+                  }}
+                  onBlur={() => validateField('parent_phone', form.parent_phone)}
                 />
+                {fieldErrors.parent_phone && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_phone}</p>
+                )}
               </div>
               <div className="relative">
                 <label className="label">Sports Selection</label>
@@ -1390,7 +1746,7 @@ export default function StudentsPanel() {
                 </div>
                 <div>
                   <label className="label" htmlFor="studentBatch">
-                    Batch (sport · active · seats)
+                    Batch (Optional - sport · active · seats)
                   </label>
                   <select
                     id="studentBatch"
@@ -1403,9 +1759,7 @@ export default function StudentsPanel() {
                     <option value="">
                       {!selectedSports || selectedSports.length === 0
                         ? 'Select sport first…'
-                        : (availableBatches || []).length
-                          ? 'Select batch…'
-                          : 'No batches with seats'}
+                        : 'No batch (assign later)'}
                     </option>
                     {(availableBatches || []).map((b) => (
                       <option key={b.batch_id} value={b.batch_id}>
@@ -1417,6 +1771,7 @@ export default function StudentsPanel() {
                       </option>
                     ))}
                   </select>
+                  <p className="text-muted mt-1 text-xs">Batch assignment is optional. You can assign later.</p>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -1688,6 +2043,82 @@ export default function StudentsPanel() {
                 {/* Profile Tab */}
                 {modalTab === 'profile' && (
                   <div className="space-y-4">
+                    {/* Profile Photo Section */}
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        {photoPreview ? (
+                          <img
+                            src={photoPreview}
+                            alt="Preview"
+                            className="h-24 w-24 rounded-full object-cover sm:h-24 sm:w-24"
+                          />
+                        ) : studentDetails?.student?.profile_photo ? (
+                          <img
+                            src={studentDetails.student.profile_photo}
+                            alt={studentDetails.student.name}
+                            className="h-24 w-24 rounded-full object-cover sm:h-24 sm:w-24"
+                          />
+                        ) : (
+                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-500 text-white text-2xl font-semibold sm:h-24 sm:w-24">
+                            {studentDetails?.student?.name?.charAt(0) || '?'}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        {isEditingStudent ? (
+                          <div className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                              <label className="btn-secondary btn-sm cursor-pointer">
+                                Change Photo
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                                    if (!allowedTypes.includes(file.type)) {
+                                      setMessage({ text: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.', type: 'error' });
+                                      return;
+                                    }
+                                    if (file.size > 5 * 1024 * 1024) {
+                                      setMessage({ text: 'File size exceeds maximum limit of 5MB', type: 'error' });
+                                      return;
+                                    }
+                                    // Create instant preview
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => {
+                                      setPhotoPreview(e.target.result);
+                                    };
+                                    reader.readAsDataURL(file);
+                                    setEditStudentForm({ ...editStudentForm, profile_photo: file });
+                                  }
+                                }}
+                              />
+                            </label>
+                            {(studentDetails?.student?.profile_photo || photoPreview) && (
+                              <button
+                                type="button"
+                                className="btn-secondary btn-sm text-red-600 hover:text-red-700"
+                                onClick={() => {
+                                  setEditStudentForm({ ...editStudentForm, profile_photo: null });
+                                  setPhotoPreview(null);
+                                  setMessage({ text: 'Photo will be removed on save', type: 'info' });
+                                }}
+                              >
+                                Remove Photo
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-muted mt-1 text-xs">JPG, PNG, WEBP (max 5MB)</p>
+                        </div>
+                        ) : (
+                          <p className="text-muted text-sm">Profile photo</p>
+                        )}
+                      </div>
+                    </div>
+
                     {isEditingStudent ? (
                       <form onSubmit={handleUpdateStudent} className="space-y-4">
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -1739,21 +2170,50 @@ export default function StudentsPanel() {
                             />
                           </div>
                           <div>
-                            <label className="label" htmlFor="editAge">
-                              Age
+                            <label className="label" htmlFor="editDob">
+                              Date of Birth
                             </label>
                             <input
-                              id="editAge"
-                              type="number"
-                              min={1}
-                              max={100}
+                              id="editDob"
+                              type="date"
                               className="input-field"
-                              value={editStudentForm.age}
-                              onChange={(e) =>
-                                setEditStudentForm({ ...editStudentForm, age: e.target.value })
-                              }
-                              required
+                              value={editStudentForm.dob}
+                              onChange={(e) => {
+                                const dob = e.target.value;
+                                setEditStudentForm({ ...editStudentForm, dob });
+                                // Validate DOB
+                                if (dob) {
+                                  const birthDate = new Date(dob);
+                                  const today = new Date();
+                                  if (birthDate > today) {
+                                    setMessage({ text: 'Date of birth cannot be in the future', type: 'error' });
+                                    return;
+                                  }
+                                  const age = calculateAgeFromDOB(dob);
+                                  if (age < 1 || age > 100) {
+                                    setMessage({ text: 'Age must be between 1 and 100 years', type: 'error' });
+                                    return;
+                                  }
+                                  setMessage({ text: '', type: '' });
+                                }
+                              }}
+                              max={new Date().toISOString().split('T')[0]}
                             />
+                            <p className="text-muted mt-1 text-xs">Age will be calculated automatically</p>
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editCalculatedAge">
+                              Age (Calculated)
+                            </label>
+                            <input
+                              id="editCalculatedAge"
+                              type="text"
+                              className="input-field bg-muted"
+                              value={editStudentForm.dob ? `${calculateAgeFromDOB(editStudentForm.dob)} years` : ''}
+                              readOnly
+                              disabled
+                            />
+                            <p className="text-muted mt-1 text-xs">Auto-calculated from DOB</p>
                           </div>
                           <div>
                             <label className="label" htmlFor="editGender">
@@ -1933,7 +2393,7 @@ export default function StudentsPanel() {
                           </div>
                           <div>
                             <label className="label" htmlFor="editBatch">
-                              Batch
+                              Batch (Optional)
                             </label>
                             <select
                               id="editBatch"
@@ -1943,7 +2403,7 @@ export default function StudentsPanel() {
                                 setEditStudentForm({ ...editStudentForm, batch_id: e.target.value })
                               }
                             >
-                              <option value="">Select batch…</option>
+                              <option value="">No batch (assign later)</option>
                               {availableBatches.map((b) => (
                                 <option key={b.batch_id} value={b.batch_id}>
                                   {b.name}
@@ -1954,6 +2414,7 @@ export default function StudentsPanel() {
                                 </option>
                               ))}
                             </select>
+                            <p className="text-muted mt-1 text-xs">Batch assignment is optional. You can assign later.</p>
                           </div>
                         </div>
                         <div className="flex gap-2">

@@ -74,6 +74,13 @@ enum NotificationType {
   GENERAL
 }
 
+enum AnnouncementTargetType {
+  COACHES
+  BATCH_COACHES
+  PARENTS_ALL
+  PARENTS_DUE
+}
+
 // ─── Platform ────────────────────────────────────────────────────────────────
 
 model SuperAdmin {
@@ -146,6 +153,7 @@ model Academy {
   enquiries           Enquiry[]
   enrollments         StudentEnrollment[]
   daily_notes         DailyStudentNote[]
+  announcements       Announcement[]
 
   @@map("academies")
 }
@@ -269,6 +277,7 @@ model Batch {
   enrollments         StudentEnrollment[]
   performance_scores  PerformanceScore[]
   daily_notes         DailyStudentNote[]
+  announcements       Announcement[]
 
   @@index([academy_id])
   @@index([sport_id])
@@ -301,8 +310,11 @@ model Student {
   parent_name   String?
   parent_phone  String?
   parent_email  String?
-  joining_date  DateTime?    @db.Date
+  dob           DateTime?    @db.Date
   age           Int?
+  category      String?
+  profile_photo String?      @db.Text
+  joining_date  DateTime?    @db.Date
   gender        String?
   sport_id      Int?
   batch_id      Int?
@@ -540,7 +552,8 @@ model Enquiry {
   parent_name     String?
   phone           String
   email           String?
-  sport_interested String?
+  sport_interested String?       @db.Text
+  interested_sports Json?
   age             Int?
   gender          String?
   enquiry_source  EnquirySource?
@@ -620,4 +633,38 @@ model PasswordReset {
 
   @@index([email])
   @@map("password_resets")
+}
+
+model Announcement {
+  announcement_id Int                  @id @default(autoincrement())
+  academy_id      Int
+  title           String
+  message         String               @db.Text
+  target_type     String
+  batch_id        Int?
+  created_at      DateTime             @default(now())
+
+  academy        Academy              @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade)
+  batch          Batch?               @relation(fields: [batch_id], references: [batch_id])
+  notifications   InAppNotification[]
+
+  @@index([academy_id])
+  @@index([target_type])
+  @@map("announcements")
+}
+
+model InAppNotification {
+  notification_id Int          @id @default(autoincrement())
+  announcement_id Int
+  coach_id        Int?
+  student_id      Int?
+  is_read         Boolean      @default(false)
+  created_at      DateTime     @default(now())
+
+  announcement    Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade)
+
+  @@index([coach_id])
+  @@index([student_id])
+  @@index([is_read])
+  @@map("in_app_notifications")
 }

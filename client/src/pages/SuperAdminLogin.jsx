@@ -8,6 +8,7 @@ export default function SuperAdminLogin() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -32,7 +33,7 @@ export default function SuperAdminLogin() {
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="card w-full max-w-md">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold">Platform Administration</h1>
+          <h1 className="text-xl font-bold">Super Admin Access</h1>
           <ThemeToggle />
         </div>
         <p className="mb-4 text-sm text-muted">Restricted access for platform operators only.</p>
@@ -51,18 +52,34 @@ export default function SuperAdminLogin() {
           </div>
           <div>
             <label className="label" htmlFor="saPassword">Password</label>
-            <input
-              id="saPassword"
-              name="password"
-              type="password"
-              className="input-field"
-              value={form.password}
-              onChange={handleChange}
-              required
-            />
+            <div className="relative">
+              <input
+                id="saPassword"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                className="input-field pr-10"
+                value={form.password}
+                onChange={handleChange}
+                required
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-sm"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
           <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Signing in…' : 'Login'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary w-full"
+            onClick={() => navigate('/')}
+          >
+            Back to Home
           </button>
           {message.text && (
             <p className={message.type === 'error' ? 'alert-error' : 'alert-success'}>{message.text}</p>

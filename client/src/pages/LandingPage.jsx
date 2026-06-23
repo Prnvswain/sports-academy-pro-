@@ -168,7 +168,7 @@ export default function LandingPage() {
   };
 
   const handleSecretGateway = () => {
-    window.location.href = '/super-admin-login';
+    window.location.href = '/super-admin/login';
   };
 
   // Shared utility string to suppress white background states on inputs across all viewports
@@ -249,13 +249,16 @@ export default function LandingPage() {
       </Navbar>
 
       {/* HERO SECTION */}
-      <section className="border-border from-accent/10 via-surface-secondary to-surface relative overflow-hidden border-b bg-gradient-to-br px-6 py-24 lg:py-36">
+      <section className="border-border from-accent/10 via-surface-secondary to-surface relative overflow-hidden border-b bg-gradient-to-br px-4 sm:px-6 lg:px-8 py-24 lg:py-36">
         {/* Animated Background Graphics and Floating Sports Elements */}
         <div className="pointer-events-none absolute inset-0 z-0 select-none overflow-hidden opacity-40">
           <div className="absolute left-10 top-12 animate-[spin_25s_linear_infinite] text-6xl opacity-30">
             ⚽
           </div>
-          <div className="absolute bottom-20 left-1/4 animate-[bounce_4s_ease-in-out_infinite] text-5xl opacity-20">
+          <div
+            className="absolute bottom-20 left-1/4 animate-[bounce_4s_ease-in-out_infinite] text-5xl opacity-20 cursor-pointer"
+            onClick={handleSecretGateway}
+          >
             🏀
           </div>
           <div className="absolute right-1/3 top-24 animate-[pulse_3s_ease-in-out_infinite] text-6xl opacity-20">
@@ -382,7 +385,7 @@ export default function LandingPage() {
       {/* ABOUT ACADEMY */}
       <section
         id="about"
-        className="border-border bg-surface-secondary relative overflow-hidden border-b px-6 py-24"
+        className="border-border bg-surface-secondary relative overflow-hidden border-b px-4 sm:px-6 lg:px-8 py-24"
       >
         <div className="relative z-10 mx-auto max-w-4xl space-y-6 text-center">
           <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
@@ -398,7 +401,7 @@ export default function LandingPage() {
       </section>
 
       {/* SPORTS OFFERED */}
-      <section id="sports" className="border-border bg-surface relative border-b px-6 py-24">
+      <section id="sports" className="border-border bg-surface relative border-b px-4 sm:px-6 lg:px-8 py-24">
         <div className="mx-auto max-w-7xl">
           <h2 className="mb-4 text-center text-3xl font-black tracking-tight sm:text-4xl">
             Sports Streams Offered
@@ -426,7 +429,7 @@ export default function LandingPage() {
       </section>
 
       {/* FACILITIES */}
-      <section id="facilities" className="bg-surface-secondary border-border border-b px-6 py-24">
+      <section id="facilities" className="bg-surface-secondary border-border border-b px-4 sm:px-6 lg:px-8 py-24">
         <div className="mx-auto max-w-7xl">
           <h2 className="mb-4 text-center text-3xl font-black tracking-tight sm:text-4xl">
             World-Class Infrastructure
@@ -457,7 +460,7 @@ export default function LandingPage() {
       </section>
 
       {/* TESTIMONIAL MONITOR BAR */}
-      <section id="testimonials" className="border-border bg-surface border-b px-6 py-24">
+      <section id="testimonials" className="border-border bg-surface border-b px-4 sm:px-6 lg:px-8 py-24">
         <div className="mx-auto max-w-7xl">
           <h2 className="mb-4 text-center text-3xl font-black tracking-tight sm:text-4xl">
             System Endorsements
@@ -501,7 +504,7 @@ export default function LandingPage() {
       {/* PRICING TIER TRACK MODULE */}
       <section
         id="pricing"
-        className="border-border from-surface to-surface-secondary/30 border-b bg-gradient-to-b px-6 py-24"
+        className="border-border from-surface to-surface-secondary/30 border-b bg-gradient-to-b px-4 sm:px-6 lg:px-8 py-24"
       >
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 space-y-3 text-center">
@@ -572,7 +575,7 @@ export default function LandingPage() {
       </section>
 
       {/* CONTACT DATA PIPELINE FORM */}
-      <section id="contact" className="border-border bg-surface-secondary border-b px-6 py-24">
+      <section id="contact" className="border-border bg-surface-secondary border-b px-4 sm:px-6 lg:px-8 py-24">
         <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
           <div className="space-y-4 text-center lg:text-left">
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
@@ -664,7 +667,7 @@ export default function LandingPage() {
       </section>
 
       {/* ACADEMY WORKSPACE SIGNUP FORM */}
-      <section id="signup" className="bg-surface px-6 py-24">
+      <section id="signup" className="bg-surface px-4 sm:px-6 lg:px-8 py-24">
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 space-y-3 text-center">
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">

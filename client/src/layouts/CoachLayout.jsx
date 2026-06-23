@@ -39,12 +39,12 @@ function CoachLayoutShell() {
   const closeMobileSidebar = () => setSidebarOpen(false);
 
   return (
-    <div className="bg-surface flex min-h-screen">
+    <div className="bg-surface flex min-h-screen transition-colors duration-200">
       <motion.aside
         initial={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         animate={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`border-border bg-surface-secondary fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-all duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`border-border bg-surface-secondary fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-all duration-300 ease-in-out transition-colors duration-200 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="border-border flex items-center justify-between border-b p-4">
           <Link
@@ -137,9 +137,9 @@ function CoachLayoutShell() {
         initial={{ marginLeft: sidebarCollapsed ? '4.5rem' : '16rem' }}
         animate={{ marginLeft: sidebarCollapsed ? '4.5rem' : '16rem' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`flex min-w-0 flex-1 flex-col lg:ml-[4.5rem] lg:transition-all lg:duration-300`}
+        className={`flex min-w-0 flex-1 flex-col lg:ml-[4.5rem] lg:transition-all lg:duration-300 transition-colors duration-200`}
       >
-        <header className="border-border bg-surface/95 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur lg:px-8">
+        <header className="border-border bg-surface/95 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur lg:px-8 transition-colors duration-200">
           <div className="flex items-center gap-3">
             <motion.button
               type="button"
@@ -155,7 +155,7 @@ function CoachLayoutShell() {
           </div>
           <ThemeToggle />
         </header>
-        <main className="flex-1 p-4 lg:p-8">
+        <main className="flex-1 p-4 lg:p-8 transition-colors duration-200">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 20 }}

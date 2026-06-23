@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost } from '../../api/client';
+import { useTheme } from '../../context/ThemeContext';
 
 const emptyReceiptForm = {
   student_id: '',
@@ -13,6 +14,7 @@ const emptyReceiptForm = {
 };
 
 export default function AccountsPanel() {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('create');
   const [students, setStudents] = useState([]);
   const [receipts, setReceipts] = useState([]);
@@ -29,8 +31,9 @@ export default function AccountsPanel() {
   const [filterMethod, setFilterMethod] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
-  const [studentSearchQuery, setStudentSearchQuery] = useState('');
-  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -76,6 +79,7 @@ export default function AccountsPanel() {
     console.log('DEBUG: Selected Student ID changed to:', studentId);
 
     setReceiptForm((prev) => ({ ...prev, student_id: studentId }));
+    setHighlightedIndex(-1);
 
     const selectedStudent = (students || []).find(
       (s) =>
@@ -84,7 +88,7 @@ export default function AccountsPanel() {
     );
 
     if (selectedStudent) {
-      setStudentSearchQuery(
+      setStudentSearchTerm(
         selectedStudent?.name ||
           `${selectedStudent?.firstName || ''} ${selectedStudent?.lastName || ''}`,
       );
@@ -94,7 +98,7 @@ export default function AccountsPanel() {
       setPendingAmount(null);
       setPendingFee(null);
       setStudentLedger(null);
-      setStudentSearchQuery('');
+      setStudentSearchTerm('');
       return;
     }
 
@@ -189,6 +193,59 @@ export default function AccountsPanel() {
     }
   };
 
+  const handleKeyDown = (e) => {
+    const filteredStudents = getFilteredStudents();
+    if (!dropdownOpen || filteredStudents.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev < filteredStudents.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filteredStudents.length - 1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredStudents[highlightedIndex]) {
+          const student = filteredStudents[highlightedIndex];
+          const studentId = student?.student_id || student?.id;
+          setReceiptForm({ ...receiptForm, student_id: studentId });
+          setStudentSearchTerm(student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`);
+          setDropdownOpen(false);
+          setHighlightedIndex(-1);
+          handleStudentSelection(studentId);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setDropdownOpen(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+  };
+
+  const getFilteredStudents = () => {
+    if (!studentSearchTerm) return [];
+    const searchTerm = studentSearchTerm.toLowerCase();
+    return students.filter((s) => {
+      const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+      const parentName = s?.parent_name || s?.parentName || '';
+      const mobile = s?.phone || s?.parent_phone || s?.mobile || '';
+      const studentId = s?.student_id?.toString() || s?.id?.toString() || '';
+      const batchName = s?.batch?.name || '';
+
+      return (
+        name.toLowerCase().includes(searchTerm) ||
+        parentName.toLowerCase().includes(searchTerm) ||
+        mobile.includes(searchTerm) ||
+        studentId.includes(searchTerm) ||
+        batchName.toLowerCase().includes(searchTerm)
+      );
+    });
+  };
+
   const calculateFinalAmount = () => {
     const baseAmount = parseFloat(receiptForm?.amount_paid || 0) || 0;
     const additionalCharges = parseFloat(receiptForm?.additional_charges || 0) || 0;
@@ -210,7 +267,7 @@ export default function AccountsPanel() {
       });
       setMessage({ text: result.message || 'Receipt created successfully', type: 'success' });
       setReceiptForm({ ...emptyReceiptForm, payment_date: new Date().toISOString().split('T')[0] });
-      setStudentSearchQuery('');
+      setStudentSearchTerm('');
       setStudentLedger(null);
       setPendingAmount(null);
       setPendingFee(null);
@@ -244,7 +301,7 @@ export default function AccountsPanel() {
 
   return (
     <motion.div
-      className="space-y-6 p-6"
+      className="space-y-6 p-6 w-full overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -314,37 +371,76 @@ export default function AccountsPanel() {
               <input
                 id="receiptStudent"
                 type="text"
-                className="input-field"
-                placeholder="Search student by name..."
-                value={studentSearchQuery}
+                className={`w-full rounded-md border px-3 py-2 text-sm outline-none transition-colors duration-200 ${
+                  isDark 
+                    ? 'bg-[#0F111A] border-slate-700/50 text-slate-100 placeholder-slate-500 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20' 
+                    : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10'
+                }`}
+                placeholder="Search student by name, mobile or ID..."
+                value={studentSearchTerm}
                 onChange={(e) => {
-                  setStudentSearchQuery(e.target.value);
-                  setShowStudentDropdown(true);
+                  setStudentSearchTerm(e.target.value);
+                  setHighlightedIndex(-1);
                 }}
-                onFocus={() => setShowStudentDropdown(true)}
-                onBlur={() => setTimeout(() => setShowStudentDropdown(false), 250)}
+                onFocus={() => setDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
+                onKeyDown={handleKeyDown}
                 required
                 autoComplete="off"
               />
-              {showStudentDropdown && studentSearchQuery && (
-                <div className="bg-surface border-border absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg">
-                  {(students || [])
-                    .filter((s) => {
+              {dropdownOpen && studentSearchTerm && (
+                <div className={`absolute z-50 w-full rounded-md border max-h-60 overflow-y-auto mt-1 shadow-lg transition-colors duration-200 ${
+                  isDark 
+                    ? 'bg-[#151824] border-slate-800' 
+                    : 'bg-white border-slate-200'
+                }`}>
+                  {(() => {
+                    const filteredStudents = getFilteredStudents();
+                    if (filteredStudents.length === 0) {
+                      return (
+                        <div className={`px-4 py-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          No students found
+                        </div>
+                      );
+                    }
+                    return filteredStudents.map((s, index) => {
                       const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
-                      return name.toLowerCase().includes(studentSearchQuery.toLowerCase());
-                    })
-                    .map((s) => (
-                      <div
-                        key={s?.student_id || s?.id}
-                        className="hover:bg-surface-secondary cursor-pointer px-4 py-2 text-sm"
-                        onMouseDown={() => {
-                          handleStudentSelection(s?.student_id || s?.id);
-                          setShowStudentDropdown(false);
-                        }}
-                      >
-                        {s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`}
-                      </div>
-                    ))}
+                      const parentName = s?.parent_name || s?.parentName || '—';
+                      const mobile = s?.phone || s?.parent_phone || s?.mobile || '—';
+                      const batchName = s?.batch?.name || '—';
+                      const isHighlighted = index === highlightedIndex;
+                      return (
+                        <div
+                          key={s?.student_id || s?.id}
+                          className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b last:border-b-0 ${
+                            isDark
+                              ? isHighlighted
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'hover:bg-slate-700/30 text-slate-300'
+                              : isHighlighted
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'hover:bg-slate-100 text-slate-700'
+                          } ${isDark ? 'border-slate-800' : 'border-slate-200'}`}
+                          onMouseDown={() => {
+                            const studentId = s?.student_id || s?.id;
+                            setReceiptForm({ ...receiptForm, student_id: studentId });
+                            setStudentSearchTerm(name);
+                            setDropdownOpen(false);
+                            setHighlightedIndex(-1);
+                            handleStudentSelection(studentId);
+                          }}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                        >
+                          <div className="font-medium">{name}</div>
+                          <div className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <span className="inline-block mr-3">Parent: {parentName}</span>
+                            <span className="inline-block mr-3">Mobile: {mobile}</span>
+                            <span className="inline-block">Batch: {batchName}</span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </div>

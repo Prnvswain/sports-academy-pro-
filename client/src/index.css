@@ -4,121 +4,128 @@
 
 :root,
 :root[data-theme='light'] {
-  /* Level 1: Page background */
-  --color-bg: 245, 247, 250;
-  
-  /* Level 2: Cards / sections / Sidebar */
+  /* Shadcn Core Engine Configuration (HSL Format) */
+  --background: 210 40% 98%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 142.1 76.2% 36.3%; /* Emerald Theme Match */
+  --primary-foreground: 355.7 100% 97.3%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 215.4 16.3% 46.9%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 142.1 76.2% 36.3%;
+  --radius: 0.75rem;
+
+  /* Your Existing Custom Utility RGB Variables */
+  --color-bg: 248, 250, 252;
   --color-bg-secondary: 255, 255, 255;
   --color-bg-secondary-rgb: 255, 255, 255;
-  
-  /* Level 3: Tables / Inputs */
   --color-bg-tertiary: 255, 255, 255;
   --color-bg-tertiary-rgb: 255, 255, 255;
-  
-  /* Text colors */
-  --color-text: 17, 24, 39;
-  --color-text-muted: 107, 114, 128;
-  
-  /* Borders */
-  --color-border: 229, 231, 235;
-  
-  /* Cards */
+  --color-text: 30, 41, 59;
+  --color-text-muted: 100, 116, 139;
+  --color-border: 226, 232, 240;
   --color-card: 255, 255, 255;
-  
-  /* Inputs */
   --color-input: 255, 255, 255;
-
-  /* Sports Emerald/Green Theme Maps (RGB format) */
-  --color-accent-primary: 5, 150, 105; /* Emerald 600 */
-  --color-accent-hover: 4, 120, 87;    /* Emerald 700 */
-  --color-accent-light: 209, 250, 229; /* Emerald 100 */
-
-  /* Additional Accent Colors (RGB format) */
-  --color-blue-primary: 59, 130, 246;   /* Blue 500 */
-  --color-blue-hover: 37, 99, 235;      /* Blue 600 */
-  --color-blue-light: 219, 234, 254;    /* Blue 100 */
-
-  --color-purple-primary: 139, 92, 246; /* Purple 500 */
-  --color-purple-hover: 124, 58, 237;   /* Purple 600 */
-  --color-purple-light: 243, 232, 255;  /* Purple 100 */
-
-  --color-orange-primary: 249, 115, 22;  /* Orange 500 */
-  --color-orange-hover: 234, 88, 12;    /* Orange 600 */
-  --color-orange-light: 255, 237, 213;  /* Orange 100 */
-
-  --color-cyan-primary: 6, 182, 212;    /* Cyan 500 */
-  --color-cyan-hover: 8, 145, 178;      /* Cyan 600 */
-  --color-cyan-light: 207, 250, 254;    /* Cyan 100 */
-
-  --color-amber-primary: 245, 158, 11;  /* Amber 500 */
-  --color-amber-hover: 217, 119, 6;     /* Amber 600 */
-  --color-amber-light: 254, 243, 199;  /* Amber 100 */
+  --color-accent-primary: 16, 185, 129;
+  --color-accent-hover: 5, 150, 105;
+  --color-accent-light: 209, 250, 229;
+  --color-blue-primary: 59, 130, 246;
+  --color-blue-hover: 37, 99, 235;
+  --color-blue-light: 219, 234, 254;
+  --color-purple-primary: 139, 92, 246;
+  --color-purple-hover: 124, 58, 237;
+  --color-purple-light: 243, 232, 255;
+  --color-orange-primary: 249, 115, 22;
+  --color-orange-hover: 234, 88, 12;
+  --color-orange-light: 255, 237, 213;
+  --color-cyan-primary: 6, 182, 212;
+  --color-cyan-hover: 8, 145, 178;
+  --color-cyan-light: 207, 250, 254;
+  --color-amber-primary: 245, 158, 11;
+  --color-amber-hover: 217, 119, 6;
+  --color-amber-light: 254, 243, 199;
 }
 
 :root[data-theme='dark'] {
-  /* Level 1: Page background */
-  --color-bg: 7, 26, 20;
-  
-  /* Level 2: Cards / sections / Sidebar */
-  --color-bg-secondary: 11, 36, 29;
-  --color-bg-secondary-rgb: 11, 36, 29;
-  
-  /* Level 3: Tables / Inputs */
-  --color-bg-tertiary: 16, 46, 37;
-  --color-bg-tertiary-rgb: 16, 46, 37;
-  
-  /* Text colors */
-  --color-text: 248, 250, 252;
-  --color-text-muted: 167, 181, 176;
-  
-  /* Borders */
-  --color-border: 255, 255, 255, 0.08;
-  
-  /* Cards */
-  --color-card: 16, 46, 37;
-  
-  /* Inputs */
-  --color-input: 21, 60, 48;
+  /* Shadcn Dark Core Engine Configuration (HSL Format) */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 142.1 70.6% 45.3%;
+  --primary-foreground: 222.2 84% 4.9%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 warmGray/ 40%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 142.1 70.6% 45.3%;
 
-  /* Sports Emerald/Green Dark Theme Maps (RGB format) */
-  --color-accent-primary: 16, 185, 129; /* Emerald 500 */
-  --color-accent-hover: 5, 150, 105;    /* Emerald 600 */
-  --color-accent-light: 2, 44, 34;      /* Emerald 950 */
-
-  /* Additional Accent Colors (RGB format) - Dark Mode */
-  --color-blue-primary: 96, 165, 250;   /* Blue 400 */
-  --color-blue-hover: 59, 130, 246;      /* Blue 500 */
-  --color-blue-light: 30, 58, 138;       /* Blue 900 */
-
-  --color-purple-primary: 167, 139, 250; /* Purple 400 */
-  --color-purple-hover: 139, 92, 246;   /* Purple 500 */
-  --color-purple-light: 88, 28, 135;     /* Purple 900 */
-
-  --color-orange-primary: 251, 146, 60;  /* Orange 400 */
-  --color-orange-hover: 249, 115, 22;    /* Orange 500 */
-  --color-orange-light: 124, 45, 18;     /* Orange 900 */
-
-  --color-cyan-primary: 34, 211, 238;   /* Cyan 400 */
-  --color-cyan-hover: 6, 182, 212;      /* Cyan 500 */
-  --color-cyan-light: 22, 78, 99;       /* Cyan 900 */
-
-  --color-amber-primary: 251, 191, 36;  /* Amber 400 */
-  --color-amber-hover: 245, 158, 11;     /* Amber 500 */
-  --color-amber-light: 120, 53, 15;      /* Amber 900 */
+  /* Your Existing Dark SAMS Variables */
+  --color-bg: 15, 17, 26;
+  --color-bg-secondary: 21, 24, 36;
+  --color-bg-secondary-rgb: 21, 24, 36;
+  --color-bg-tertiary: 21, 24, 36;
+  --color-bg-tertiary-rgb: 21, 24, 36;
+  --color-text: 226, 232, 240;
+  --color-text-muted: 148, 163, 184;
+  --color-border: 51, 65, 85;
+  --color-card: 21, 24, 36;
+  --color-input: 21, 24, 36;
+  --color-accent-primary: 52, 211, 153;
+  --color-accent-hover: 16, 185, 129;
+  --color-accent-light: 6, 78, 59;
+  --color-blue-primary: 96, 165, 250;
+  --color-blue-hover: 59, 130, 246;
+  --color-blue-light: 30, 58, 138;
+  --color-purple-primary: 167, 139, 250;
+  --color-purple-hover: 139, 92, 246;
+  --color-purple-light: 88, 28, 135;
+  --color-orange-primary: 251, 146, 60;
+  --color-orange-hover: 249, 115, 22;
+  --color-orange-light: 124, 45, 18;
+  --color-cyan-primary: 34, 211, 238;
+  --color-cyan-hover: 6, 182, 212;
+  --color-cyan-light: 22, 78, 99;
+  --color-amber-primary: 251, 191, 36;
+  --color-amber-hover: 245, 158, 11;
+  --color-amber-light: 120, 53, 15;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+    width: 100%;
+    overflow-x: hidden;
   }
-
   body {
-    @apply bg-surface text-foreground font-sans antialiased min-h-screen transition-colors duration-200;
+    @apply bg-background text-foreground font-sans antialiased min-h-screen transition-colors duration-200;
     margin: 0;
+    width: 100%;
+    overflow-x: hidden;
   }
-
   #root {
     @apply min-h-screen;
+    width: 100%;
+    overflow-x: hidden;
   }
 }
 
@@ -126,284 +133,113 @@
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
   }
-
   .btn-primary {
-    @apply btn bg-accent text-foreground hover:bg-accent-hover shadow-md;
+    @apply btn bg-success text-white hover:opacity-90 shadow-md;
   }
-
   .btn-secondary {
     @apply btn border border-border bg-surface-secondary text-foreground hover:bg-surface hover:border-muted;
   }
-
   .btn-success {
-    @apply btn bg-success text-foreground hover:opacity-90;
+    @apply btn bg-success text-white hover:opacity-90;
   }
-
   .btn-danger {
-    @apply btn border-2 border-danger text-danger hover:bg-danger hover:text-foreground;
+    @apply btn border-2 border-danger text-danger hover:bg-danger hover:text-white;
   }
-
   .btn-ghost {
     @apply btn border border-border bg-transparent text-foreground hover:bg-surface-secondary;
   }
-
   .btn-sm {
     @apply px-3 py-1.5 text-xs rounded-lg;
   }
-
   .card {
-    @apply rounded-2xl border border-border bg-surface-secondary p-6 shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+    @apply rounded-2xl border border-border bg-surface-secondary p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
   }
-
   .card-gradient {
     @apply card bg-gradient-to-br from-surface to-surface-secondary;
   }
-
   .input-field {
     @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-foreground placeholder:text-muted focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue/20 transition-all;
   }
-
   .input-field:focus {
     @apply shadow-lg shadow-blue/5;
   }
-
   select.input-field {
     @apply cursor-pointer;
   }
-
   textarea.input-field {
     @apply resize-y min-h-[100px];
   }
-
   .label {
     @apply mb-2 block text-xs font-bold uppercase tracking-wider text-muted;
   }
-
   .alert {
     @apply mt-4 rounded-xl border px-4 py-3 text-sm font-medium;
   }
-
-  /* Success Alert: Vibrant Green */
   .alert-success {
     @apply alert border-success/40 bg-success/10 text-success;
   }
-
-  /* Error Alert: Subtle Crimson (kept distinct for functional errors) */
   .alert-error {
     @apply alert border-danger/40 bg-danger/10 text-danger;
   }
-
-  /* Fixed Alert Info: Clean Emerald Variant using explicit RGB rules to avoid PostCSS errors */
   .alert-info {
     @apply alert;
     color: rgb(var(--color-accent-primary));
     border-color: rgba(var(--color-accent-primary), 0.4);
     background-color: rgba(var(--color-accent-primary), 0.1);
   }
-
   .data-table {
     @apply w-full border-collapse text-sm;
   }
-
   .data-table th {
     @apply border-b border-border bg-surface-secondary px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-muted;
   }
-
   .data-table td {
     @apply border-b border-border px-4 py-3 transition-colors duration-150;
   }
-
-.data-table tbody tr:hover td {
-  background-color: rgb(var(--color-bg-secondary) / 0.5);
-}
-
-.data-table tbody tr:nth-child(even) td {
-  background-color: rgb(var(--color-bg-secondary) / 0.3);
-}
-
-.data-table tbody tr:nth-child(even):hover td {
-  background-color: rgb(var(--color-bg-secondary) / 0.6);
-}
-  /* Status Badges */
+  .data-table tbody tr:hover td {
+    background-color: rgb(var(--color-bg-secondary) / 0.5);
+  }
+  .data-table tbody tr:nth-child(even) td {
+    background-color: rgb(var(--color-bg-secondary) / 0.3);
+  }
+  .data-table tbody tr:nth-child(even):hover td {
+    background-color: rgb(var(--color-bg-secondary) / 0.6);
+  }
   .badge {
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
   }
-
   .badge-success {
     @apply badge bg-success/10 text-success border border-success/20;
   }
-
   .badge-info {
     @apply badge bg-blue/10 text-blue border border-blue/20;
   }
-
   .badge-warning {
     @apply badge bg-amber/10 text-amber border border-amber/20;
   }
-
   .badge-danger {
     @apply badge bg-danger/10 text-danger border border-danger/20;
   }
-
-  .badge-purple {
-    @apply badge bg-purple/10 text-purple border border-purple/20;
-  }
-
-  .badge-cyan {
-    @apply badge bg-cyan/10 text-cyan border border-cyan/20;
-  }
-
-  .badge-orange {
-    @apply badge bg-orange/10 text-orange border border-orange/20;
-  }
-
-  /* Status-specific badges */
-  .badge-active {
-    @apply badge bg-success/10 text-success border border-success/20;
-  }
-
-  .badge-inactive {
-    @apply badge bg-surface-secondary text-muted border border-border;
-  }
-
-  .badge-paid {
-    @apply badge bg-success/10 text-success border border-success/20;
-  }
-
-  .badge-pending {
-    @apply badge bg-amber/10 text-amber border border-amber/20;
-  }
-
-  .badge-overdue {
-    @apply badge bg-danger/10 text-danger border border-danger/20;
-  }
-
   .sidebar-link {
     @apply flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold text-muted transition-colors hover:bg-surface-secondary/40 hover:text-foreground;
   }
-
   .sidebar-link-active {
     @apply sidebar-link bg-surface-secondary text-foreground shadow-sm;
   }
-
-  /* Colored hover states for different nav items */
-  .sidebar-link[data-nav="dashboard"]:hover {
-    @apply bg-blue/10 text-blue;
-  }
-
-  .sidebar-link[data-nav="sports"]:hover {
-    @apply bg-success/10 text-success;
-  }
-
-  .sidebar-link[data-nav="coaches"]:hover {
-    @apply bg-purple/10 text-purple;
-  }
-
-  .sidebar-link[data-nav="batches"]:hover {
-    @apply bg-orange/10 text-orange;
-  }
-
-  .sidebar-link[data-nav="plans"]:hover {
-    @apply bg-cyan/10 text-cyan;
-  }
-
-  .sidebar-link[data-nav="students"]:hover {
-    @apply bg-blue/10 text-blue;
-  }
-
-  .sidebar-link[data-nav="accounts"]:hover {
-    @apply bg-amber/10 text-amber;
-  }
-
-  .sidebar-link[data-nav="performance"]:hover {
-    @apply bg-purple/10 text-purple;
-  }
-
-  .sidebar-link[data-nav="enquiries"]:hover {
-    @apply bg-cyan/10 text-cyan;
-  }
-
-  .sidebar-link[data-nav="reports"]:hover {
-    @apply bg-orange/10 text-orange;
-  }
-
   .kpi-card {
     @apply card flex flex-col gap-1;
   }
-
   .kpi-label {
     @apply text-xs font-bold uppercase tracking-wider text-muted;
   }
-
   .kpi-value {
-    @apply text-3xl font-black text-accent tracking-tight;
+    @apply text-3xl font-black text-success tracking-tight;
   }
-
-  /* Gradient Utilities */
   .gradient-primary {
     background: linear-gradient(135deg, rgb(var(--color-accent-primary)) 0%, rgb(var(--color-accent-hover)) 100%);
   }
+}
 
-  .gradient-blue {
-    background: linear-gradient(135deg, rgb(var(--color-blue-primary)) 0%, rgb(var(--color-blue-hover)) 100%);
-  }
-
-  .gradient-purple {
-    background: linear-gradient(135deg, rgb(var(--color-purple-primary)) 0%, rgb(var(--color-purple-hover)) 100%);
-  }
-
-  .gradient-orange {
-    background: linear-gradient(135deg, rgb(var(--color-orange-primary)) 0%, rgb(var(--color-orange-hover)) 100%);
-  }
-
-  .gradient-cyan {
-    background: linear-gradient(135deg, rgb(var(--color-cyan-primary)) 0%, rgb(var(--color-cyan-hover)) 100%);
-  }
-
-  .gradient-amber {
-    background: linear-gradient(135deg, rgb(var(--color-amber-primary)) 0%, rgb(var(--color-amber-hover)) 100%);
-  }
-
-  /* Button Variants with Gradients */
-  .btn-gradient-primary {
-    @apply btn gradient-primary text-foreground hover:opacity-90 shadow-lg;
-  }
-
-  .btn-gradient-blue {
-    @apply btn gradient-blue text-foreground hover:opacity-90 shadow-lg;
-  }
-
-  .btn-gradient-purple {
-    @apply btn gradient-purple text-foreground hover:opacity-90 shadow-lg;
-  }
-
-  .btn-gradient-orange {
-    @apply btn gradient-orange text-foreground hover:opacity-90 shadow-lg;
-  }
-
-  .btn-gradient-cyan {
-    @apply btn gradient-cyan text-foreground hover:opacity-90 shadow-lg;
-  }
-
-  .btn-gradient-amber {
-    @apply btn gradient-amber text-foreground hover:opacity-90 shadow-lg;
-  }
-
-  .btn-info {
-    @apply btn bg-cyan text-foreground hover:bg-cyan-hover;
-  }
-
-  .btn-warning {
-    @apply btn bg-amber text-foreground hover:bg-amber-hover;
-  }
-
-  /* Premium Modal Animations */
-  @keyframes premiumFadeIn {
-    from { opacity: 0; transform: scale(0.97) translateY(8px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-  }
-
-  .animate-premiumModal {
-    animation: premiumFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
+* {
+  box-sizing: border-box;
 }

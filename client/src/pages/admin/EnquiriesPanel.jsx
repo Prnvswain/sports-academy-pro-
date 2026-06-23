@@ -17,6 +17,22 @@ const STATUS_OPTIONS = [
 // Source options for dropdown
 const SOURCE_OPTIONS = ['WALK_IN', 'PHONE', 'WEBSITE', 'WHATSAPP', 'REFERRAL', 'SOCIAL_MEDIA'];
 
+// Sports options for multi-select
+const SPORTS_OPTIONS = [
+  'Cricket',
+  'Football',
+  'Basketball',
+  'Tennis',
+  'Badminton',
+  'Swimming',
+  'Athletics',
+  'Hockey',
+  'Volleyball',
+  'Table Tennis',
+  'Kabaddi',
+  'Other',
+];
+
 // Status color mapping
 const STATUS_COLORS = {
   NEW: 'badge-info',
@@ -52,6 +68,9 @@ export default function EnquiriesPanel() {
     endDate: '',
   });
 
+  // View filter for All vs Converted Only
+  const [viewFilter, setViewFilter] = useState('all'); // 'all' or 'converted'
+
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -73,6 +92,7 @@ export default function EnquiriesPanel() {
     phone: '',
     email: '',
     sport_interested: '',
+    interested_sports: [],
     age: '',
     gender: '',
     enquiry_source: '',
@@ -177,6 +197,11 @@ export default function EnquiriesPanel() {
   };
 
   const handleScheduleFollowUp = async () => {
+    // Prevent follow-up for already converted enquiries
+    if (selectedEnquiry?.status === 'CONVERTED') {
+      showToast('Cannot schedule follow-up for converted enquiries', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       await adminPost(`/admin/enquiries/${selectedEnquiry.id}/follow-up`, { followUpDate });
@@ -193,6 +218,11 @@ export default function EnquiriesPanel() {
   };
 
   const handleConvertToStudent = async () => {
+    // Prevent conversion for already converted enquiries
+    if (selectedEnquiry?.status === 'CONVERTED') {
+      showToast('Enquiry is already converted', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       await adminPost(`/admin/enquiries/${selectedEnquiry.id}/convert`);
@@ -217,6 +247,7 @@ export default function EnquiriesPanel() {
       phone: '',
       email: '',
       sport_interested: '',
+      interested_sports: [],
       age: '',
       gender: '',
       enquiry_source: '',
@@ -227,12 +258,22 @@ export default function EnquiriesPanel() {
 
   const openEditModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
+    // Parse interested_sports from JSON if available
+    let interestedSports = [];
+    if (enquiry.interested_sports) {
+      try {
+        interestedSports = JSON.parse(enquiry.interested_sports);
+      } catch (e) {
+        interestedSports = [];
+      }
+    }
     setFormData({
       student_name: enquiry.student_name || '',
       parent_name: enquiry.parent_name || '',
       phone: enquiry.phone || '',
       email: enquiry.email || '',
       sport_interested: enquiry.sport_interested || '',
+      interested_sports: interestedSports,
       age: enquiry.age || '',
       gender: enquiry.gender || '',
       enquiry_source: enquiry.enquiry_source || '',
@@ -282,7 +323,7 @@ export default function EnquiriesPanel() {
 
   return (
     <motion.div
-      className="bg-surface text-foreground min-h-screen space-y-6 p-6"
+      className="bg-surface text-foreground min-h-screen space-y-6 p-6 w-full overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -309,10 +350,10 @@ export default function EnquiriesPanel() {
           <h1 className="text-foreground text-3xl font-black tracking-tight">Enquiries Desk</h1>
           <p className="text-muted mt-1 text-sm">Manage enquiries, follow-ups, and conversions</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <motion.button
             onClick={handleCopyFormLink}
-            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors"
+            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors flex-1 md:flex-none text-sm md:text-base"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -320,7 +361,7 @@ export default function EnquiriesPanel() {
           </motion.button>
           <motion.button
             onClick={() => setShowQRModal(true)}
-            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors"
+            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors flex-1 md:flex-none text-sm md:text-base"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -331,7 +372,7 @@ export default function EnquiriesPanel() {
               resetForm();
               setShowAddModal(true);
             }}
-            className="bg-accent hover:bg-accent-hover text-foreground shadow-accent/10 rounded-xl px-6 py-3 font-bold shadow-md"
+            className="bg-accent hover:bg-accent-hover text-foreground shadow-accent/10 rounded-xl px-6 py-3 font-bold shadow-md flex-1 md:flex-none text-sm md:text-base"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -410,7 +451,35 @@ export default function EnquiriesPanel() {
 
       {/* Enquiries Table */}
       <div className="card bg-surface-secondary border-border border p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-black tracking-tight">All Enquiries</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-black tracking-tight">All Enquiries</h2>
+          <div className="flex gap-2">
+            <motion.button
+              onClick={() => setViewFilter('all')}
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 ${
+                viewFilter === 'all'
+                  ? 'bg-accent text-foreground shadow-md'
+                  : 'bg-surface text-muted hover:bg-surface-secondary'
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              All Enquiries
+            </motion.button>
+            <motion.button
+              onClick={() => setViewFilter('converted')}
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 ${
+                viewFilter === 'converted'
+                  ? 'bg-accent text-foreground shadow-md'
+                  : 'bg-surface text-muted hover:bg-surface-secondary'
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Converted Only
+            </motion.button>
+          </div>
+        </div>
 
         {loading ? (
           <div className="text-muted animate-pulse py-12 text-center font-bold">
@@ -431,14 +500,21 @@ export default function EnquiriesPanel() {
                   <th>Student Name</th>
                   <th>Parent Name</th>
                   <th>Phone</th>
-                  <th>Sport</th>
+                  <th>Interested Sports</th>
                   <th>Status</th>
                   <th>Follow-up Date</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {enquiries.map((enq, index) => (
+                {enquiries
+                  .filter((enq) => {
+                    if (viewFilter === 'converted') {
+                      return enq.status === 'CONVERTED';
+                    }
+                    return true;
+                  })
+                  .map((enq, index) => (
                   <motion.tr
                     key={enq.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -450,7 +526,28 @@ export default function EnquiriesPanel() {
                     <td className="font-bold">{enq.student_name}</td>
                     <td className="text-sm">{enq.parent_name || '-'}</td>
                     <td className="text-sm">{enq.phone}</td>
-                    <td className="text-sm">{enq.sport_interested || '-'}</td>
+                    <td className="text-sm">
+                      {enq.interested_sports ? (
+                        (() => {
+                          try {
+                            const sports = JSON.parse(enq.interested_sports);
+                            return sports.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {sports.map((sport, idx) => (
+                                  <span key={idx} className="badge-info badge text-xs">
+                                    {sport}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : enq.sport_interested || '-';
+                          } catch (e) {
+                            return enq.sport_interested || '-';
+                          }
+                        })()
+                      ) : (
+                        enq.sport_interested || '-'
+                      )}
+                    </td>
                     <td>
                       <span className={STATUS_COLORS[enq.status] || 'badge'}>
                         {enq.status.replace('_', ' ')}
@@ -458,44 +555,47 @@ export default function EnquiriesPanel() {
                     </td>
                     <td className="text-sm">{formatDate(enq.follow_up_date)}</td>
                     <td>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2 justify-start">
                         <motion.button
                           onClick={() => openEditModal(enq)}
-                          className="btn-secondary btn-sm px-3 py-1"
+                          className="btn-secondary btn-sm px-3 py-1 text-xs"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
                           Edit
                         </motion.button>
-                        <motion.button
-                          onClick={() => {
-                            setSelectedEnquiry(enq);
-                            setShowFollowUpModal(true);
-                          }}
-                          className="bg-blue hover:bg-blue/80 text-foreground btn-sm px-3 py-1"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          Follow-up
-                        </motion.button>
-                        <motion.button
-                          onClick={() => {
-                            setSelectedEnquiry(enq);
-                            setShowConvertModal(true);
-                          }}
-                          className="bg-success hover:bg-success/80 text-foreground btn-sm px-3 py-1"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          disabled={enq.status === 'CONVERTED'}
-                        >
-                          Convert
-                        </motion.button>
+                        {enq.status !== 'CONVERTED' && (
+                          <>
+                            <motion.button
+                              onClick={() => {
+                                setSelectedEnquiry(enq);
+                                setShowFollowUpModal(true);
+                              }}
+                              className="bg-blue hover:bg-blue/80 text-foreground btn-sm px-3 py-1 text-xs"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              Follow-up
+                            </motion.button>
+                            <motion.button
+                              onClick={() => {
+                                setSelectedEnquiry(enq);
+                                setShowConvertModal(true);
+                              }}
+                              className="bg-success hover:bg-success/80 text-foreground btn-sm px-3 py-1 text-xs"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              Convert
+                            </motion.button>
+                          </>
+                        )}
                         <motion.button
                           onClick={() => {
                             setSelectedEnquiry(enq);
                             setShowDeleteModal(true);
                           }}
-                          className="bg-danger hover:bg-danger/80 text-foreground btn-sm px-3 py-1"
+                          className="bg-danger hover:bg-danger/80 text-foreground btn-sm px-3 py-1 text-xs"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
@@ -577,16 +677,26 @@ export default function EnquiriesPanel() {
                     />
                   </div>
                   <div>
-                    <label className="label">Sport Interested *</label>
-                    <input
-                      type="text"
+                    <label className="label">Interested Sports *</label>
+                    <select
+                      multiple
+                      value={formData.interested_sports}
+                      onChange={(e) => {
+                        const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+                        setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                      }}
+                      className="input-field min-h-[120px]"
                       required
-                      value={formData.sport_interested}
-                      onChange={(e) =>
-                        setFormData({ ...formData, sport_interested: e.target.value })
-                      }
-                      className="input-field"
-                    />
+                    >
+                      {SPORTS_OPTIONS.map((sport) => (
+                        <option key={sport} value={sport}>
+                          {sport}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-muted mt-1 text-xs">
+                      Hold Ctrl/Cmd to select multiple sports
+                    </p>
                   </div>
                   <div>
                     <label className="label">Age</label>
@@ -735,16 +845,26 @@ export default function EnquiriesPanel() {
                     />
                   </div>
                   <div>
-                    <label className="label">Sport Interested *</label>
-                    <input
-                      type="text"
+                    <label className="label">Interested Sports *</label>
+                    <select
+                      multiple
+                      value={formData.interested_sports}
+                      onChange={(e) => {
+                        const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+                        setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                      }}
+                      className="input-field min-h-[120px]"
                       required
-                      value={formData.sport_interested}
-                      onChange={(e) =>
-                        setFormData({ ...formData, sport_interested: e.target.value })
-                      }
-                      className="input-field"
-                    />
+                    >
+                      {SPORTS_OPTIONS.map((sport) => (
+                        <option key={sport} value={sport}>
+                          {sport}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-muted mt-1 text-xs">
+                      Hold Ctrl/Cmd to select multiple sports
+                    </p>
                   </div>
                   <div>
                     <label className="label">Age</label>
@@ -946,7 +1066,19 @@ export default function EnquiriesPanel() {
                   <strong>Phone:</strong> {selectedEnquiry.phone}
                 </p>
                 <p className="text-sm">
-                  <strong>Sport:</strong> {selectedEnquiry.sport_interested || '-'}
+                  <strong>Interested Sports:</strong>{' '}
+                  {selectedEnquiry.interested_sports ? (
+                    (() => {
+                      try {
+                        const sports = JSON.parse(selectedEnquiry.interested_sports);
+                        return sports.length > 0 ? sports.join(', ') : selectedEnquiry.sport_interested || '-';
+                      } catch (e) {
+                        return selectedEnquiry.sport_interested || '-';
+                      }
+                    })()
+                  ) : (
+                    selectedEnquiry.sport_interested || '-'
+                  )}
                 </p>
               </div>
 

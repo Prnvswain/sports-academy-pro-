@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Loader from '../../components/Loader';
+import Avatar from '../../components/Avatar';
 import { adminGet } from '../../api/client';
 
 export default function AttendancePanel() {
@@ -113,7 +114,7 @@ export default function AttendancePanel() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 w-full overflow-x-hidden">
       <div>
         <h2 className="text-2xl font-bold">Attendance Management</h2>
         <p className="text-muted">View and filter attendance records with summaries.</p>
@@ -257,7 +258,16 @@ export default function AttendancePanel() {
               {attendance.map((record) => (
                 <tr key={record.attendance_id} className="border-b">
                   <td className="px-4 py-3">{new Date(record.date).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 font-medium">{record.student?.name || 'N/A'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar
+                        src={record.student?.profile_photo}
+                        name={record.student?.name || 'N/A'}
+                        size="sm"
+                      />
+                      <span className="font-medium">{record.student?.name || 'N/A'}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">{record.batch?.name || 'N/A'}</td>
                   <td className="px-4 py-3">
                     <span

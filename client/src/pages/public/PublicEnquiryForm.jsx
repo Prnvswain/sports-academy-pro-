@@ -3,6 +3,21 @@ import { publicPost } from '../../api/client';
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'];
 
+const SPORTS_OPTIONS = [
+  'Cricket',
+  'Football',
+  'Basketball',
+  'Tennis',
+  'Badminton',
+  'Swimming',
+  'Athletics',
+  'Hockey',
+  'Volleyball',
+  'Table Tennis',
+  'Kabaddi',
+  'Other',
+];
+
 const SOURCE_OPTIONS = ['WALK_IN', 'PHONE', 'WEBSITE', 'WHATSAPP', 'REFERRAL', 'SOCIAL_MEDIA'];
 
 export default function PublicEnquiryForm() {
@@ -15,6 +30,7 @@ export default function PublicEnquiryForm() {
     parent_name: '',
     age: '',
     gender: '',
+    interested_sports: [],
     enquiry_source: '',
     follow_up_date: today,
   });
@@ -25,10 +41,25 @@ export default function PublicEnquiryForm() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSportsChange = (e) => {
+    const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+    setFormData({ ...formData, interested_sports: selectedOptions });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ text: '', type: '' });
+
+    // Validation: At least one sport must be selected
+    if (formData.interested_sports.length === 0) {
+      setMessage({
+        text: 'Please select at least one sport.',
+        type: 'error',
+      });
+      setLoading(false);
+      return;
+    }
 
     // Fallback: if follow_up_date is cleared, use today's date
     const submissionData = {
@@ -50,6 +81,7 @@ export default function PublicEnquiryForm() {
         parent_name: '',
         age: '',
         gender: '',
+        interested_sports: [],
         enquiry_source: '',
         follow_up_date: today,
       });
@@ -188,6 +220,30 @@ export default function PublicEnquiryForm() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="label" htmlFor="interested_sports">
+                Interested Sports *
+              </label>
+              <select
+                id="interested_sports"
+                name="interested_sports"
+                multiple
+                value={formData.interested_sports}
+                onChange={handleSportsChange}
+                className="input-field min-h-[120px]"
+                required
+              >
+                {SPORTS_OPTIONS.map((sport) => (
+                  <option key={sport} value={sport}>
+                    {sport}
+                  </option>
+                ))}
+              </select>
+              <p className="text-muted mt-1 text-xs">
+                Hold Ctrl/Cmd to select multiple sports
+              </p>
             </div>
 
             <div>

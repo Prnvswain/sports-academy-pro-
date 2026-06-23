@@ -173,9 +173,25 @@ export const getAllStudents = async (req, res, next) => {
 
 export const createStudent = async (req, res, next) => {
   try {
+    console.log('[createStudent] Request received:', {
+      method: req.method,
+      url: req.originalUrl,
+      academy_id: req.user.academy_id,
+      body: req.body,
+    });
     const student = await adminService.createStudent(req.user.academy_id, req.body);
+    console.log('[createStudent] Student created successfully:', {
+      student_id: student.student_id,
+      name: student.name,
+    });
     res.status(201).json(successResponse('Student created successfully', student));
   } catch (err) {
+    console.error('[createStudent] Error:', {
+      message: err.message,
+      statusCode: err.statusCode,
+      stack: err.stack,
+      body: req.body,
+    });
     next(err);
   }
 };
@@ -445,6 +461,42 @@ export const getAttendance = async (req, res, next) => {
   try {
     const attendance = await adminService.getAttendance(req.user.academy_id, req.query);
     res.json(successResponse('Attendance retrieved successfully', attendance));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAnnouncements = async (req, res, next) => {
+  try {
+    const announcements = await adminService.getAnnouncements(req.user.academy_id);
+    res.json(successResponse('Announcements retrieved successfully', announcements));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createAnnouncement = async (req, res, next) => {
+  try {
+    const announcement = await adminService.createAnnouncement(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Announcement created and emails sent successfully', announcement));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCoachNotifications = async (req, res, next) => {
+  try {
+    const notifications = await adminService.getCoachNotifications(req.params.coachId);
+    res.json(successResponse('Coach notifications retrieved successfully', notifications));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markNotificationAsRead = async (req, res, next) => {
+  try {
+    const notification = await adminService.markNotificationAsRead(req.params.notificationId);
+    res.json(successResponse('Notification marked as read successfully', notification));
   } catch (err) {
     next(err);
   }

@@ -169,4 +169,10 @@ router.post('/performance/attributes', adminController.createPerformanceAttribut
 // PATCH: Processes 'APPROVED' or 'REJECTED' Enum statuses safely via request body mapping
 router.patch('/performance/approve-attribute/:id', adminController.approvePerformanceAttribute);
 
+/* ─── SMART BROADCAST CENTER ─────────────────────────────────────────────── */
+router.get('/announcements', adminController.getAnnouncements);
+router.post('/announcements', adminController.createAnnouncement);
+router.get('/coaches/:coachId/notifications', adminController.getCoachNotifications);
+router.patch('/notifications/:notificationId/read', adminController.markNotificationAsRead);
+
 export default router;

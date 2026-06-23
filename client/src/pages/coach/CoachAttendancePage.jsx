@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Loader from '../../components/Loader';
+import Avatar from '../../components/Avatar';
 import { coachPost } from '../../api/client';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
 
@@ -123,7 +124,14 @@ export default function CoachAttendancePage() {
               key={student.student_id}
               className="grid gap-4 rounded-xl border border-border bg-[var(--color-card)] p-4 sm:grid-cols-[1fr_auto_1fr]"
             >
-              <div className="font-semibold">{student.name}</div>
+              <div className="flex items-center gap-3 font-semibold">
+                <Avatar
+                  src={student.profile_photo}
+                  name={student.name}
+                  size="sm"
+                />
+                {student.name}
+              </div>
               <div className="flex flex-wrap gap-4">
                 {['PRESENT', 'ABSENT', 'LATE'].map((status) => (
                   <label key={status} className="flex cursor-pointer items-center gap-2 text-sm">

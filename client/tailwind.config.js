@@ -1,67 +1,65 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx}'],
-  darkMode: ['selector', '[data-theme="dark"]'],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
-        surface: 'rgb(var(--color-bg) / <alpha-value>)',
-        'surface-secondary': 'rgb(var(--color-bg-secondary) / <alpha-value>)',
-        'surface-tertiary': 'rgb(var(--color-bg-tertiary) / <alpha-value>)',
-        border: 'rgb(var(--color-border) / <alpha-value>)',
-        foreground: 'rgb(var(--color-text) / <alpha-value>)',
-        muted: 'rgb(var(--color-text-muted) / <alpha-value>)',
-
-        // Fixed: Properly placed inside colors and using the alpha channel format
+        // Shadcn UI Elements mapping
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
         accent: {
-          DEFAULT: 'rgb(var(--color-accent-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-accent-hover) / <alpha-value>)',
-          light: 'rgb(var(--color-accent-light) / <alpha-value>)',
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
-
-        // New accent colors
-        blue: {
-          DEFAULT: 'rgb(var(--color-blue-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-blue-hover) / <alpha-value>)',
-          light: 'rgb(var(--color-blue-light) / <alpha-value>)',
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
         },
-
-        purple: {
-          DEFAULT: 'rgb(var(--color-purple-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-purple-hover) / <alpha-value>)',
-          light: 'rgb(var(--color-purple-light) / <alpha-value>)',
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
-
-        orange: {
-          DEFAULT: 'rgb(var(--color-orange-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-orange-hover) / <alpha-value>)',
-          light: 'rgb(var(--color-orange-light) / <alpha-value>)',
-        },
-
-        cyan: {
-          DEFAULT: 'rgb(var(--color-cyan-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-cyan-hover) / <alpha-value>)',
-          light: 'rgb(var(--color-cyan-light) / <alpha-value>)',
-        },
-
-        amber: {
-          DEFAULT: 'rgb(var(--color-amber-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-amber-hover) / <alpha-value>)',
-          light: 'rgb(var(--color-amber-light) / <alpha-value>)',
-        },
-
-        success: '#059669',
-        danger: '#dc2626',
-        warning: '#d97706',
+        
+        // Your Existing App Core Theme Aliases
+        surface: "rgb(var(--color-bg-secondary))",
+        "surface-secondary": "rgb(var(--color-bg-tertiary))",
+        success: "rgb(var(--color-accent-primary))",
+        danger: "rgb(239, 68, 68)",
+        blue: "rgb(var(--color-blue-primary))",
+        purple: "rgb(var(--color-purple-primary))",
+        amber: "rgb(var(--color-amber-primary))",
+        orange: "rgb(var(--color-orange-primary))",
+        cyan: "rgb(var(--color-cyan-primary))",
       },
-      fontFamily: {
-        sans: ['Segoe UI', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-      },
-      boxShadow: {
-        card: '0 4px 14px rgba(0, 0, 0, 0.03)',
-        'accent-glow': '0 4px 20px rgba(5, 150, 105, 0.12)',
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
     },
   },
   plugins: [],
-};
+}

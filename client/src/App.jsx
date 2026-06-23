@@ -110,7 +110,7 @@ export default function App() {
           </Route>
 
           {/* Hidden Gateways (Intentionally Omitted From Direct Public References) */}
-          <Route path="/super-admin-login" element={<SuperAdminLogin />} />
+          <Route path="/super-admin/login" element={<SuperAdminLogin />} />
           <Route
             path="/super-admin/dashboard"
             element={

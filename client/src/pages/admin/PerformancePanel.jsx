@@ -49,17 +49,17 @@ export default function PerformancePanel() {
     try {
       const result = await adminGet('/admin/sports');
       const responseData = result.data;
+      let sportsArray = [];
       if (Array.isArray(responseData)) {
-        setSports(responseData);
+        sportsArray = responseData;
       } else if (responseData && Array.isArray(responseData.data)) {
-        setSports(responseData.data);
+        sportsArray = responseData.data;
       } else if (responseData && Array.isArray(responseData.academy_sports)) {
-        setSports(responseData.academy_sports);
+        sportsArray = responseData.academy_sports;
       } else if (responseData && Array.isArray(responseData.sports)) {
-        setSports(responseData.sports);
-      } else {
-        setSports([]);
+        sportsArray = responseData.sports;
       }
+      setSports(sportsArray.filter(s => s.status === 'ACTIVE'));
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
       setSports([]);
@@ -191,7 +191,7 @@ export default function PerformancePanel() {
 
   return (
     <motion.div
-      className="bg-surface text-foreground min-h-screen space-y-6 p-6"
+      className="bg-surface text-foreground min-h-screen space-y-6 p-6 w-full overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}

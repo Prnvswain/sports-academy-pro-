@@ -32,7 +32,7 @@ export default function BatchesPanel() {
       setBatches(batchesRes?.data || []);
       setCoaches(coachesRes?.data || []);
       const sportsData = sportsRes?.data?.data || sportsRes?.data || [];
-      setSports(Array.isArray(sportsData) ? sportsData : []);
+      setSports(Array.isArray(sportsData) ? sportsData.filter(s => s.status === 'ACTIVE') : []);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
       setBatches([]);
@@ -99,7 +99,7 @@ export default function BatchesPanel() {
 
   return (
     <motion.div
-      className="space-y-6"
+      className="space-y-6 w-full overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}

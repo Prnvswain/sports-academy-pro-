@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet } from '../../api/client';
@@ -12,6 +13,7 @@ function formatCurrency(value) {
 }
 
 export default function AnalyticsPanel() {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -88,12 +90,12 @@ export default function AnalyticsPanel() {
   const summary = safeMetrics.payment_summary || { paid_students: 0, unpaid_students: 0 };
 
   return (
-    <div className="bg-surface min-h-screen space-y-6 p-6">
+    <div className="bg-surface min-h-screen space-y-6 p-6 w-full overflow-x-hidden">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="flex flex-wrap items-center justify-between gap-4"
+        className="flex flex-wrap items-center justify-between gap-4 w-full"
       >
         <div>
           <h2 className="text-foreground text-2xl font-bold">Academy Analytics</h2>
@@ -116,14 +118,14 @@ export default function AnalyticsPanel() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full"
       >
         <motion.div
-          className="kpi-card border-l-success border-l-4"
+          className="kpi-card border-l-success border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/accounts')}
         >
           <span className="kpi-label">Total Revenue</span>
           <span className="kpi-value text-success">
@@ -132,55 +134,55 @@ export default function AnalyticsPanel() {
         </motion.div>
 
         <motion.div
-          className="kpi-card border-l-purple border-l-4"
+          className="kpi-card border-l-purple border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/coaches')}
         >
           <span className="kpi-label">Active Coaches</span>
           <span className="kpi-value text-purple">{safeMetrics.active_coach_count ?? 0}</span>
         </motion.div>
 
         <motion.div
-          className="kpi-card border-l-blue border-l-4"
+          className="kpi-card border-l-blue border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/students')}
         >
           <span className="kpi-label">Active Students</span>
           <span className="kpi-value text-blue">{safeMetrics.active_student_count ?? 0}</span>
         </motion.div>
 
         <motion.div
-          className="kpi-card border-l-cyan border-l-4"
+          className="kpi-card border-l-cyan border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.25 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/batches')}
         >
           <span className="kpi-label">Total Batches</span>
           <span className="kpi-value text-cyan">{safeMetrics.total_batches ?? 0}</span>
         </motion.div>
 
         <motion.div
-          className="kpi-card border-l-success border-l-4"
+          className="kpi-card border-l-success border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/students?status=paid')}
         >
           <span className="kpi-label">Paid Students</span>
           <span className="kpi-value text-success">{summary.paid_students ?? 0}</span>
         </motion.div>
 
         <motion.div
-          className="kpi-card border-l-amber border-l-4"
+          className="kpi-card border-l-amber border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.35 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/students?status=unpaid')}
         >
           <span className="kpi-label">Unpaid Students</span>
           <span className="kpi-value text-amber">{summary.unpaid_students ?? 0}</span>
@@ -233,11 +235,11 @@ export default function AnalyticsPanel() {
         </motion.div>
 
         <motion.div
-          className="kpi-card border-l-success border-l-4"
+          className="kpi-card border-l-success border-l-4 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.6 }}
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+          onClick={() => navigate('/admin/accounts')}
         >
           <span className="kpi-label">This Month Revenue</span>
           <span className="kpi-value text-success">

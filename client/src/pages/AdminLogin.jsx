@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ThemeToggle from '../components/ThemeToggle';
-import { adminLogin } from '../api/client';
+import { adminLogin, superAdminLogin } from '../api/client';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -20,10 +20,17 @@ export default function AdminLogin() {
     setLoading(true);
     setMessage({ text: '', type: '' });
     try {
+      // Try regular admin login first
       await adminLogin(form);
       navigate('/admin/dashboard');
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+    } catch (adminError) {
+      // If regular admin login fails, try super admin login
+      try {
+        await superAdminLogin(form);
+        navigate('/super-admin/dashboard');
+      } catch (superAdminError) {
+        setMessage({ text: 'Invalid credentials', type: 'error' });
+      }
     } finally {
       setLoading(false);
     }

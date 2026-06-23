@@ -191,6 +191,7 @@ export const createEnquiry = async (academyId, data) => {
     phone,
     email,
     sport_interested,
+    interested_sports,
     age,
     gender,
     enquiry_source,
@@ -224,6 +225,14 @@ export const createEnquiry = async (academyId, data) => {
     }
   }
 
+  // Handle interested_sports - store as JSON array
+  let interestedSportsJson = null;
+  if (interested_sports && Array.isArray(interested_sports) && interested_sports.length > 0) {
+    interestedSportsJson = JSON.stringify(interested_sports);
+    // Also set sport_interested for backward compatibility (first sport)
+    sport_interested = interested_sports[0];
+  }
+
   const enquiry = await prisma.enquiry.create({
     data: {
       academy_id: parseInt(academyId),
@@ -232,6 +241,7 @@ export const createEnquiry = async (academyId, data) => {
       phone,
       email,
       sport_interested,
+      interested_sports: interestedSportsJson,
       age: age ? parseInt(age) : null,
       gender,
       enquiry_source,
@@ -264,6 +274,7 @@ export const updateEnquiry = async (academyId, enquiryId, data) => {
     phone,
     email,
     sport_interested,
+    interested_sports,
     age,
     gender,
     enquiry_source,
@@ -312,6 +323,15 @@ export const updateEnquiry = async (academyId, enquiryId, data) => {
   if (phone) updateData.phone = phone;
   if (email !== undefined) updateData.email = email;
   if (sport_interested !== undefined) updateData.sport_interested = sport_interested;
+  if (interested_sports !== undefined) {
+    if (Array.isArray(interested_sports) && interested_sports.length > 0) {
+      updateData.interested_sports = JSON.stringify(interested_sports);
+      // Also update sport_interested for backward compatibility
+      updateData.sport_interested = interested_sports[0];
+    } else {
+      updateData.interested_sports = null;
+    }
+  }
   if (age !== undefined) updateData.age = age ? parseInt(age) : null;
   if (gender !== undefined) updateData.gender = gender;
   if (enquiry_source !== undefined) updateData.enquiry_source = enquiry_source;

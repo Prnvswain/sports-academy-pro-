@@ -12,11 +12,14 @@ export default function SportsPanel() {
     name: '',
     base_fee: '',
     status: 'ACTIVE',
+    icon: '🏸',
   });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+  const [editingFeeId, setEditingFeeId] = useState(null);
+  const [editingFeeValue, setEditingFeeValue] = useState('');
 
   const loadSports = useCallback(async () => {
     setLoading(true);
@@ -55,9 +58,10 @@ export default function SportsPanel() {
         name: formData.name.trim(),
         base_fee: parseFloat(formData.base_fee || 0),
         status: formData.status,
+        icon: formData.icon,
       });
       setMessage({ text: result.message, type: 'success' });
-      setFormData({ name: '', base_fee: '', status: 'ACTIVE' });
+      setFormData({ name: '', base_fee: '', status: 'ACTIVE', icon: '🏸' });
       loadSports();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -72,6 +76,7 @@ export default function SportsPanel() {
       );
       const result = await adminPatch(`/admin/sports/${sportId}/status`, {
         status: 'ACTIVE',
+        cascade: true,
       });
       setMessage({
         text: result?.message || 'Sport marked as active successfully',
@@ -94,6 +99,7 @@ export default function SportsPanel() {
       );
       const result = await adminPatch(`/admin/sports/${sportId}/status`, {
         status: 'INACTIVE',
+        cascade: true,
       });
       setMessage({ text: result?.message || 'Sport deactivated successfully', type: 'success' });
       loadSports();
@@ -214,9 +220,37 @@ export default function SportsPanel() {
     }
   };
 
+  const handleStartEditFee = (sportId, currentFee) => {
+    setEditingFeeId(sportId);
+    setEditingFeeValue(currentFee?.toString() || '0');
+  };
+
+  const handleCancelEditFee = () => {
+    setEditingFeeId(null);
+    setEditingFeeValue('');
+  };
+
+  const handleSaveFee = async (sportId) => {
+    setMessage({ text: '', type: '' });
+    try {
+      const newFee = parseFloat(editingFeeValue);
+      if (isNaN(newFee) || newFee < 0) {
+        setMessage({ text: 'Please enter a valid fee amount', type: 'error' });
+        return;
+      }
+      await adminPatch(`/admin/sports/${sportId}`, { base_fee: newFee });
+      setMessage({ text: 'Base fee updated successfully', type: 'success' });
+      setEditingFeeId(null);
+      setEditingFeeValue('');
+      loadSports();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
   return (
     <motion.div
-      className="space-y-6"
+      className="space-y-6 w-full overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -226,7 +260,7 @@ export default function SportsPanel() {
         <p className="text-muted">Create and manage sports for your academy workspace.</p>
       </div>
       <form className="card" onSubmit={handleCreateSport}>
-        <h3 className="mb-4 font-bold">Create Sport</h3>
+        <h3 className="mb-4 font-bold">Add Sport</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="label" htmlFor="sportName">
@@ -240,6 +274,34 @@ export default function SportsPanel() {
               required
               whileFocus={{ scale: 1.01 }}
             />
+          </div>
+          <div>
+            <label className="label" htmlFor="sportIcon">
+              Sport Icon
+            </label>
+            <motion.select
+              id="sportIcon"
+              className="input-field"
+              value={formData.icon}
+              onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+              whileFocus={{ scale: 1.01 }}
+            >
+              <option value="🏸">🏸 Badminton</option>
+              <option value="🏏">🏏 Cricket</option>
+              <option value="⚽">⚽ Football</option>
+              <option value="🏀">🏀 Basketball</option>
+              <option value="🎾">🎾 Tennis</option>
+              <option value="🏊">🏊 Swimming</option>
+              <option value="🏋️">🏋️ Weightlifting</option>
+              <option value="🥊">🥊 Boxing</option>
+              <option value="🏐">🏐 Volleyball</option>
+              <option value="🎱">🎱 Pool</option>
+              <option value="⛳">⛳ Golf</option>
+              <option value="🎿">🎿 Skiing</option>
+              <option value="🛹">🛹 Skateboarding</option>
+              <option value="🚴">🚴 Cycling</option>
+              <option value="🏃">🏃 Running</option>
+            </motion.select>
           </div>
           <div>
             <label className="label" htmlFor="baseFee">
@@ -280,7 +342,7 @@ export default function SportsPanel() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            Create Sport
+            Add Sport
           </motion.button>
         </div>
       </form>
@@ -365,8 +427,63 @@ export default function SportsPanel() {
                         />
                       </td>
                     )}
-                    <td className="p-3 font-medium">{sport.name}</td>
-                    <td className="p-3">${formatCurrency(sport.base_fee || sport.baseFee)}</td>
+                    <td className="p-3 font-medium">
+                      <span className="mr-2 text-lg">{sport.icon || '🏸'}</span>
+                      {sport.name}
+                    </td>
+                    <td className="p-3">
+                      {editingFeeId === (sport.sport_id || sport.id) ? (
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            className="input-field w-24 px-2 py-1 text-sm"
+                            value={editingFeeValue}
+                            onChange={(e) => setEditingFeeValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
+                              if (e.key === 'Escape') handleCancelEditFee();
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="btn-success btn-sm px-2 py-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveFee(sport.sport_id || sport.id);
+                            }}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm px-2 py-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelEditFee();
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <span>${formatCurrency(sport.base_fee || sport.baseFee)}</span>
+                          <button
+                            type="button"
+                            className="text-muted hover:text-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee);
+                            }}
+                            title="Edit Fee"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="p-3">
                       <span
                         className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
