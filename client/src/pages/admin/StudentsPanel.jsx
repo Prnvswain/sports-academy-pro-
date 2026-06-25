@@ -41,6 +41,8 @@ const emptyForm = {
   parent_email: '',
   parent_phone: '',
   phone: '',
+  height: '',
+  weight: '',
   profile_photo: null,
   batch_id: '',
   duration_plan_id: '',
@@ -135,6 +137,10 @@ export default function StudentsPanel() {
   const [filterSport, setFilterSport] = useState('');
   const [filterBatch, setFilterBatch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterGender, setFilterGender] = useState('');
+  const [filterWeightClass, setFilterWeightClass] = useState('');
+  const [customMaxAge, setCustomMaxAge] = useState('');
+  const [customMaxWeight, setCustomMaxWeight] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [modalTab, setModalTab] = useState('profile');
@@ -262,18 +268,22 @@ export default function StudentsPanel() {
     setFieldErrors({});
 
     // Validate sports selection
+    let isValid = true;
+
     if (!selectedSports || selectedSports.length === 0) {
       setFieldError('sport_ids', 'Please select at least one sport');
-      setMessage({ text: 'Please select at least one sport.', type: 'error' });
-      return;
+      isValid = false;
     }
 
-    // Validate required fields
-    const isValid =
-      validateField('firstName', form.firstName) &&
-      validateField('lastName', form.lastName) &&
-      validateField('parent_email', form.parent_email) &&
-      validateField('dob', form.dob);
+    // Validate required fields (use | to avoid short-circuiting so all errors are shown)
+    const isFirstNameValid = validateField('firstName', form.firstName);
+    const isLastNameValid = validateField('lastName', form.lastName);
+    const isParentEmailValid = validateField('parent_email', form.parent_email);
+    const isDobValid = validateField('dob', form.dob);
+
+    if (!isFirstNameValid || !isLastNameValid || !isParentEmailValid || !isDobValid) {
+      isValid = false;
+    }
 
     if (!isValid) {
       return;
@@ -312,6 +322,8 @@ export default function StudentsPanel() {
         age: calculateAgeFromDOB(form.dob),
         gender: form.gender,
         blood_group: form.bloodGroup || form.blood_group || undefined,
+        height: form.height ? parseFloat(form.height) : undefined,
+        weight: form.weight ? parseFloat(form.weight) : undefined,
         parent_name: form.parent_name.trim() || undefined,
         parent_email: form.parent_email.trim(),
         parent_phone: form.parent_phone.trim() || undefined,
@@ -351,7 +363,6 @@ export default function StudentsPanel() {
       // Handle structured validation errors from backend
       if (error.data && error.data.errors) {
         setBackendFieldErrors(error.data.errors);
-        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
       } else {
         setMessage({ text: error.message || 'Failed to create student. Please try again.', type: 'error' });
       }
@@ -475,6 +486,8 @@ export default function StudentsPanel() {
           : '',
         gender: detailsRes.data.student.gender,
         blood_group: detailsRes.data.student.blood_group || '',
+        height: detailsRes.data.student.height || '',
+        weight: detailsRes.data.student.weight || '',
         parent_name: detailsRes.data.student.parent_name || '',
         parent_email: detailsRes.data.student.parent_email || '',
         parent_phone: detailsRes.data.student.parent_phone || '',
@@ -519,6 +532,8 @@ export default function StudentsPanel() {
         age: calculateAgeFromDOB(editStudentForm.dob),
         gender: editStudentForm.gender,
         blood_group: editStudentForm.blood_group,
+        height: editStudentForm.height ? parseFloat(editStudentForm.height) : null,
+        weight: editStudentForm.weight ? parseFloat(editStudentForm.weight) : null,
         parent_name: editStudentForm.parent_name,
         parent_email: editStudentForm.parent_email,
         parent_phone: editStudentForm.parent_phone,
@@ -710,9 +725,40 @@ export default function StudentsPanel() {
 
     const matchesBatch = !filterBatch || student.batch_id === parseInt(filterBatch);
 
-    const matchesCategory = !filterCategory || student.category === filterCategory;
+    let matchesCategory = true;
+    if (filterCategory) {
+      if (filterCategory === 'U25') {
+        matchesCategory = student.age <= 25;
+      } else if (filterCategory === 'U40') {
+        matchesCategory = student.age <= 40;
+      } else if (filterCategory === 'Custom') {
+        matchesCategory = !customMaxAge || student.age <= parseFloat(customMaxAge);
+      } else {
+        matchesCategory = student.category === filterCategory;
+      }
+    }
 
-    return matchesSearch && matchesSport && matchesBatch && matchesCategory;
+    const matchesGender = !filterGender || (student.gender && student.gender.toLowerCase() === filterGender.toLowerCase());
+
+    let matchesWeight = true;
+    if (filterWeightClass) {
+      const weight = parseFloat(student.weight);
+      if (isNaN(weight)) {
+        matchesWeight = false; // or true if we want to include students without weight
+      } else if (filterWeightClass === 'Under 50kg') {
+        matchesWeight = weight < 50;
+      } else if (filterWeightClass === '50-70kg') {
+        matchesWeight = weight >= 50 && weight <= 70;
+      } else if (filterWeightClass === '70-90kg') {
+        matchesWeight = weight > 70 && weight <= 90;
+      } else if (filterWeightClass === 'Above 90kg') {
+        matchesWeight = weight > 90;
+      } else if (filterWeightClass === 'Custom') {
+        matchesWeight = !customMaxWeight || weight <= parseFloat(customMaxWeight);
+      }
+    }
+
+    return matchesSearch && matchesSport && matchesBatch && matchesCategory && matchesGender && matchesWeight;
   });
 
   return (
@@ -804,7 +850,7 @@ export default function StudentsPanel() {
               ))}
             </select>
           </div>
-          <div className="min-w-0 w-full sm:w-auto">
+          <div className="min-w-0 w-full sm:w-auto flex gap-2">
             <select
               className="input-field w-full"
               value={filterCategory}
@@ -812,6 +858,9 @@ export default function StudentsPanel() {
                 setFilterCategory(e.target.value);
                 setSelectedStudent(null);
                 setSelectedStudentForView(null);
+                if (e.target.value !== 'Custom') {
+                  setCustomMaxAge('');
+                }
               }}
             >
               <option value="">All Categories</option>
@@ -822,7 +871,67 @@ export default function StudentsPanel() {
               <option value="U16">U16 (15-16 years)</option>
               <option value="U18">U18 (17-18 years)</option>
               <option value="Senior">Senior (18+ years)</option>
+              <option value="U25">U25 (Under 25 years)</option>
+              <option value="U40">U40 (Under 40 years)</option>
+              <option value="Custom">Custom Under Age...</option>
             </select>
+            {filterCategory === 'Custom' && (
+              <input
+                type="number"
+                min="0"
+                placeholder="Enter max age..."
+                className="input-field w-32"
+                value={customMaxAge}
+                onChange={(e) => setCustomMaxAge(e.target.value)}
+              />
+            )}
+          </div>
+          <div className="min-w-0 w-full sm:w-auto">
+            <select
+              className="input-field w-full"
+              value={filterGender}
+              onChange={(e) => {
+                setFilterGender(e.target.value);
+                setSelectedStudent(null);
+                setSelectedStudentForView(null);
+              }}
+            >
+              <option value="">All Genders</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div className="min-w-0 w-full sm:w-auto flex gap-2">
+            <select
+              className="input-field w-full"
+              value={filterWeightClass}
+              onChange={(e) => {
+                setFilterWeightClass(e.target.value);
+                setSelectedStudent(null);
+                setSelectedStudentForView(null);
+                if (e.target.value !== 'Custom') {
+                  setCustomMaxWeight('');
+                }
+              }}
+            >
+              <option value="">All Weights</option>
+              <option value="Under 50kg">Under 50kg</option>
+              <option value="50-70kg">50-70kg</option>
+              <option value="70-90kg">70-90kg</option>
+              <option value="Above 90kg">Above 90kg</option>
+              <option value="Custom">Custom Under Weight...</option>
+            </select>
+            {filterWeightClass === 'Custom' && (
+              <input
+                type="number"
+                min="0"
+                placeholder="Enter max kg..."
+                className="input-field w-32"
+                value={customMaxWeight}
+                onChange={(e) => setCustomMaxWeight(e.target.value)}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -933,6 +1042,14 @@ export default function StudentsPanel() {
                   <div>
                     <label className="text-muted text-sm font-semibold">Blood Group</label>
                     <p>{studentDetails?.student?.blood_group || '—'}</p>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm font-semibold">Height</label>
+                    <p>{studentDetails?.student?.height ? `${studentDetails.student.height} cm` : '—'}</p>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm font-semibold">Weight</label>
+                    <p>{studentDetails?.student?.weight ? `${studentDetails.student.weight} kg` : '—'}</p>
                   </div>
                   <div>
                     <label className="text-muted text-sm font-semibold">Joining Date</label>
@@ -1489,21 +1606,25 @@ export default function StudentsPanel() {
                       // Validate file type
                       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                       if (!allowedTypes.includes(file.type)) {
-                        setMessage({ text: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.', type: 'error' });
+                        setFieldError('profile_photo', 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.');
                         e.target.value = '';
                         return;
                       }
                       // Validate file size (5MB max)
                       if (file.size > 5 * 1024 * 1024) {
-                        setMessage({ text: 'File size exceeds maximum limit of 5MB', type: 'error' });
+                        alert("File size exceeds the 5MB limit. Please choose a smaller file.");
                         e.target.value = '';
                         return;
                       }
+                      clearFieldError('profile_photo');
                       setForm({ ...form, profile_photo: file });
                     }
                   }}
                 />
                 <p className="text-muted mt-1 text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
+                {fieldErrors.profile_photo && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.profile_photo}</p>
+                )}
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -1545,7 +1666,7 @@ export default function StudentsPanel() {
                   <p className="text-muted mt-1 text-xs">Auto-calculated from DOB</p>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <label className="label" htmlFor="studentGender">
                     Gender
@@ -1562,6 +1683,38 @@ export default function StudentsPanel() {
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="studentHeight">
+                    HEIGHT (cm)
+                  </label>
+                  <input
+                    id="studentHeight"
+                    name="height"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    className="input-field"
+                    value={form.height}
+                    onChange={updateField}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="studentWeight">
+                    WEIGHT (kg)
+                  </label>
+                  <input
+                    id="studentWeight"
+                    name="weight"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    className="input-field"
+                    value={form.weight}
+                    onChange={updateField}
+                    placeholder="Optional"
+                  />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -1675,7 +1828,7 @@ export default function StudentsPanel() {
                 <label className="label">Sports Selection</label>
                 <button
                   type="button"
-                  className="input-field bg-background flex w-full items-center justify-between border text-left"
+                  className={`input-field bg-background flex w-full items-center justify-between border text-left ${fieldErrors.sport_ids ? 'border-red-500' : ''}`}
                   onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
                 >
                   <span className="truncate text-sm">
@@ -1722,6 +1875,9 @@ export default function StudentsPanel() {
                       </p>
                     )}
                   </div>
+                )}
+                {fieldErrors.sport_ids && (
+                  <p className="mt-1 text-xs text-red-500">{fieldErrors.sport_ids}</p>
                 )}
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -2079,13 +2235,14 @@ export default function StudentsPanel() {
                                   if (file) {
                                     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
                                     if (!allowedTypes.includes(file.type)) {
-                                      setMessage({ text: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.', type: 'error' });
+                                      setFieldError('edit_profile_photo', 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.');
                                       return;
                                     }
                                     if (file.size > 5 * 1024 * 1024) {
-                                      setMessage({ text: 'File size exceeds maximum limit of 5MB', type: 'error' });
+                                      setFieldError('edit_profile_photo', 'File size exceeds 5MB limit.');
                                       return;
                                     }
+                                    clearFieldError('edit_profile_photo');
                                     // Create instant preview
                                     const reader = new FileReader();
                                     reader.onload = (e) => {
@@ -2112,6 +2269,9 @@ export default function StudentsPanel() {
                             )}
                           </div>
                           <p className="text-muted mt-1 text-xs">JPG, PNG, WEBP (max 5MB)</p>
+                          {fieldErrors.edit_profile_photo && (
+                            <p className="mt-1 text-xs text-red-500">{fieldErrors.edit_profile_photo}</p>
+                          )}
                         </div>
                         ) : (
                           <p className="text-muted text-sm">Profile photo</p>
@@ -2255,6 +2415,44 @@ export default function StudentsPanel() {
                                 </option>
                               ))}
                             </select>
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editHeight">
+                              Height (cm)
+                            </label>
+                            <input
+                              id="editHeight"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              className="input-field"
+                              value={editStudentForm.height || ''}
+                              onChange={(e) =>
+                                setEditStudentForm({
+                                  ...editStudentForm,
+                                  height: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="label" htmlFor="editWeight">
+                              Weight (kg)
+                            </label>
+                            <input
+                              id="editWeight"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              className="input-field"
+                              value={editStudentForm.weight || ''}
+                              onChange={(e) =>
+                                setEditStudentForm({
+                                  ...editStudentForm,
+                                  weight: e.target.value,
+                                })
+                              }
+                            />
                           </div>
                           <div>
                             <label className="label" htmlFor="editParentName">
@@ -2459,6 +2657,14 @@ export default function StudentsPanel() {
                         <div>
                           <label className="text-muted text-sm font-semibold">Blood Group</label>
                           <p>{studentDetails.student.blood_group || '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-muted text-sm font-semibold">Height</label>
+                          <p>{studentDetails.student.height ? `${studentDetails.student.height} cm` : '—'}</p>
+                        </div>
+                        <div>
+                          <label className="text-muted text-sm font-semibold">Weight</label>
+                          <p>{studentDetails.student.weight ? `${studentDetails.student.weight} kg` : '—'}</p>
                         </div>
                         <div>
                           <label className="text-muted text-sm font-semibold">Joining Date</label>
@@ -2707,6 +2913,14 @@ export default function StudentsPanel() {
                 {selectedStudentForView?.blood_group ||
                   selectedStudentForView?.bloodGroup ||
                   'Not Provided'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Height:</span>{' '}
+                {selectedStudentForView?.height ? `${selectedStudentForView.height} cm` : 'Not Provided'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Weight:</span>{' '}
+                {selectedStudentForView?.weight ? `${selectedStudentForView.weight} kg` : 'Not Provided'}
               </div>
               <div>
                 <span className="text-muted block font-semibold">Joining Date:</span>{' '}

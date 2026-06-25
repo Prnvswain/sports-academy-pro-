@@ -7,6 +7,7 @@ import routes from './routes/index.route.js';
 import errorMiddleware from './middlewares/error.middleware.js';
 import { apiRateLimiter } from './middlewares/rateLimit.middleware.js';
 import logger from './utils/logger.js';
+import { upload } from './config/multer.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,4 +75,5 @@ app.use((req, res) => {
 
 app.use(errorMiddleware);
 
+export { upload };
 export default app;

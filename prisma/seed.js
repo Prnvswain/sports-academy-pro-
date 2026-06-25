@@ -1,8 +1,18 @@
-import { PrismaClient, AcademyStatus, SubscriptionTier, UserRole, RecordStatus } from '../web/src/generated/prisma/index.js';
+import { PrismaClient, AcademyStatus, SubscriptionTier, UserRole, RecordStatus } from '../src/generated/prisma/index.js';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+const GLOBAL_SPORTS = [
+  'Cricket',
+  'Football',
+  'Basketball',
+  'Tennis',
+  'Badminton',
+  'Swimming',
+  'Athletics',
+  'Hockey'
+];
 
 const DURATION_PLANS = [
   { name: '1 Month', duration_months: 1, multiplier: 1 },

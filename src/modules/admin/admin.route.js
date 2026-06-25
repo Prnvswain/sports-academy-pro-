@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import * as adminController from './admin.controller.js';
+import * as gpsController from './admin.gps.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { enforceActiveSubscription } from '../../middlewares/subscription.middleware.js';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
 import { validate } from './admin.validator.js';
+import { upload } from '../../config/multer.config.js';
 
 const router = Router();
 
@@ -47,6 +49,7 @@ router.post(
   validationErrorHandler,
   adminController.createCoach,
 );
+router.post('/coaches/bulk-import', upload.single('file'), adminController.bulkImportCoaches);
 router.put(
   '/coaches/:coach_id',
   validate('updateCoach'),
@@ -174,5 +177,13 @@ router.get('/announcements', adminController.getAnnouncements);
 router.post('/announcements', adminController.createAnnouncement);
 router.get('/coaches/:coachId/notifications', adminController.getCoachNotifications);
 router.patch('/notifications/:notificationId/read', adminController.markNotificationAsRead);
+
+/* ─── GPS ATTENDANCE SETTINGS ───────────────────────────────────────────── */
+router.get('/gps/settings', gpsController.getGpsSettings);
+router.patch('/gps/settings', gpsController.updateGpsSettings);
+router.get('/gps/location-logs', gpsController.getAttendanceLocationLogs);
+router.get('/gps/coach-location-logs', gpsController.getCoachAttendanceLocationLogs);
+router.patch('/gps/academy-location', gpsController.updateAcademyLocation);
+router.patch('/gps/sports/:sport_id/location', gpsController.updateSportLocation);
 
 export default router;

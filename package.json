@@ -2,30 +2,25 @@
   "name": "school-syllabus-saas",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Enterprise Multi-Tenant School Syllabus Tracker SaaS",
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build",
-    "lint": "turbo lint",
+    "dev": "node server.js",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "lint": "cd client && npm run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
-    "typecheck": "turbo typecheck",
-    "db:generate": "pnpm --filter @school-syllabus/database db:generate",
-    "db:push": "pnpm --filter @school-syllabus/database db:push",
-    "db:migrate": "pnpm --filter @school-syllabus/database db:migrate",
-    "db:seed": "pnpm --filter @school-syllabus/database db:seed",
-    "db:studio": "pnpm --filter @school-syllabus/database db:studio",
-    "prepare": "husky && husky install"
+    "db:generate": "npx prisma generate",
+    "db:push": "npx prisma db push",
+    "db:migrate": "npx prisma migrate dev",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "npx prisma studio"
   },
   "devDependencies": {
-    "@school-syllabus/eslint-config": "workspace:*",
-    "eslint-plugin-react": "^7.37.4",
-    "globals": "^16.5.0",
-    "lint-staged": "^15.4.3",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "turbo": "^2.5.4",
-    "typescript": "^5.8.3"
+    "prisma": "^6.19.3"
   },
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -40,5 +35,22 @@
     "*.{json,md}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "winston": "^3.17.0"
   }
 }

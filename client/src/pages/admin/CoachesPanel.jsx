@@ -17,6 +17,9 @@ export default function CoachesPanel() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [showModal, setShowModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [bulkImportFile, setBulkImportFile] = useState(null);
+  const [bulkImportUploading, setBulkImportUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -185,6 +188,53 @@ export default function CoachesPanel() {
     setForm(emptyForm);
   };
 
+  const handleBulkImport = async () => {
+    if (!bulkImportFile) {
+      setMessage({ text: 'Please select a CSV file to upload.', type: 'error' });
+      return;
+    }
+
+    if (!bulkImportFile.name.endsWith('.csv')) {
+      setMessage({ text: 'Please upload a valid CSV file.', type: 'error' });
+      return;
+    }
+
+    setBulkImportUploading(true);
+    setMessage({ text: '', type: '' });
+
+    const formData = new FormData();
+    formData.append('file', bulkImportFile);
+
+    try {
+      const result = await adminPost('/admin/coaches/bulk-import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setMessage({ text: result.message || 'Coaches imported successfully!', type: 'success' });
+      setShowBulkImportModal(false);
+      setBulkImportFile(null);
+      loadCoaches();
+    } catch (error) {
+      setMessage({ text: error.message || 'Failed to import coaches.', type: 'error' });
+    } finally {
+      setBulkImportUploading(false);
+    }
+  };
+
+  const downloadSampleTemplate = () => {
+    const csvContent = 'first_name,last_name,email,phone,specialization,status\nJohn,Doe,john.doe@example.com,1234567890,Basketball,ACTIVE\nJane,Smith,jane.smith@example.com,9876543210,Football,ACTIVE';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'coaches_sample_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredCoaches = (coaches || []).filter((coach) => {
     const matchesSearch =
       coach?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -211,15 +261,26 @@ export default function CoachesPanel() {
             Provision coaches with auto-generated credentials sent via email.
           </p>
         </div>
-        <motion.button
-          type="button"
-          className="btn-primary"
-          onClick={openModal}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          + Add Coach
-        </motion.button>
+        <div className="flex gap-3">
+          <motion.button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setShowBulkImportModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Bulk Import (CSV)
+          </motion.button>
+          <motion.button
+            type="button"
+            className="btn-primary"
+            onClick={openModal}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            + Add Coach
+          </motion.button>
+        </div>
       </div>
 
       {/* Filter Section */}
@@ -452,6 +513,69 @@ export default function CoachesPanel() {
                 </div>
               )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Import Modal */}
+      {showBulkImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="bg-surface border-border animate-fadeIn w-full max-w-md overflow-hidden rounded-xl border shadow-xl">
+            <div className="bg-accent text-foreground flex items-center justify-between px-6 py-4">
+              <h3 className="text-lg font-bold">Bulk Import Coaches (CSV)</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkImportModal(false);
+                  setBulkImportFile(null);
+                }}
+                className="text-foreground hover:text-muted text-xl font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="space-y-4 p-6">
+              <p className="text-muted text-sm">
+                Upload a CSV file to bulk import coaches. Required headers:{' '}
+                <code className="bg-surface-secondary border-border rounded border px-2 py-1 text-xs">
+                  first_name, last_name, email, phone, specialization, status
+                </code>
+              </p>
+              <div>
+                <button
+                  type="button"
+                  onClick={downloadSampleTemplate}
+                  className="text-accent hover:text-accent-hover text-sm font-semibold underline"
+                >
+                  Download Sample Template
+                </button>
+              </div>
+              <div>
+                <label className="label" htmlFor="csvFile">
+                  Select CSV File
+                </label>
+                <input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv"
+                  className="input-field"
+                  onChange={(e) => setBulkImportFile(e.target.files[0])}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleBulkImport}
+                className="btn-primary w-full cursor-pointer"
+                disabled={bulkImportUploading}
+              >
+                {bulkImportUploading ? 'Importing...' : 'Import Coaches'}
+              </button>
+              {bulkImportUploading && (
+                <div className="mt-3">
+                  <Loader message="Processing CSV file and importing coaches…" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

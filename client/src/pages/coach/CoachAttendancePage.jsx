@@ -3,6 +3,7 @@ import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { coachPost } from '../../api/client';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
+import { MapPin, AlertTriangle } from 'lucide-react';
 
 export default function CoachAttendancePage() {
   const { batches, loading } = useCoachBatches();
@@ -12,6 +13,9 @@ export default function CoachAttendancePage() {
   const [remarksMap, setRemarksMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [gpsCoords, setGpsCoords] = useState({ latitude: null, longitude: null });
+  const [gpsError, setGpsError] = useState('');
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   const selectedBatch = batches.find((b) => String(b.batch_id) === String(selectedBatchId));
 
@@ -30,6 +34,51 @@ export default function CoachAttendancePage() {
     setAttendanceMap(initialAttendance);
     setRemarksMap(initialRemarks);
   }, [selectedBatchId, selectedBatch]);
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setGettingLocation(true);
+    setGpsError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGpsCoords({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+        setGettingLocation(false);
+        setMessage({ text: 'Location captured successfully', type: 'success' });
+        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      },
+      (error) => {
+        setGettingLocation(false);
+        let errorMessage = 'Failed to get location';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location permission denied. Please enable GPS to mark attendance.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out.';
+            break;
+          default:
+            errorMessage = 'An unknown error occurred getting location.';
+        }
+        setGpsError(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -55,7 +104,9 @@ export default function CoachAttendancePage() {
       const result = await coachPost('/coach/attendance', {
         batch_id: selectedBatch.batch_id,
         date: attendanceDate,
-        records
+        records,
+        latitude: gpsCoords.latitude,
+        longitude: gpsCoords.longitude
       });
       setMessage({
         text: `${result.message} Parent notifications are being sent where email is on file.`,
@@ -63,6 +114,11 @@ export default function CoachAttendancePage() {
       });
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      if (error.code === 'GPS_REQUIRED') {
+        setGpsError('GPS coordinates are required for attendance. Please capture your location.');
+      } else if (error.code === 'LOCATION_OUT_OF_RANGE') {
+        setGpsError(`Location verification failed: ${error.message}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -111,6 +167,40 @@ export default function CoachAttendancePage() {
             required
           />
         </div>
+      </div>
+
+      {/* GPS Location Section */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-emerald-600" />
+            <h3 className="font-semibold">Location Verification</h3>
+          </div>
+          <button
+            type="button"
+            onClick={getCurrentLocation}
+            disabled={gettingLocation}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
+          >
+            {gettingLocation ? 'Getting Location...' : 'Capture Current Location'}
+          </button>
+        </div>
+        
+        {gpsError && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">{gpsError}</p>
+          </div>
+        )}
+
+        {gpsCoords.latitude && gpsCoords.longitude && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-700">
+              <span className="font-medium">Location captured:</span> 
+              Lat: {gpsCoords.latitude.toFixed(7)}, Lon: {gpsCoords.longitude.toFixed(7)}
+            </p>
+          </div>
+        )}
       </div>
 
       {selectedBatch && (!selectedBatch.students || selectedBatch.students.length === 0) && (

@@ -27,7 +27,13 @@ export const signupAcademy = async ({
   password,
   academy_name,
   phone_number,
-  subscription_plan
+  subscription_plan,
+  address,
+  city,
+  state,
+  latitude,
+  longitude,
+  attendance_radius_meters
 }) => {
   // Validate password length before hashing
   if (!password || password.length < 6) {
@@ -85,7 +91,15 @@ export const signupAcademy = async ({
           subscription_plan: planKey,
           subscription_tier: subscriptionTier,
           subscription_expires_at,
-          status: 'ACTIVE'
+          status: 'ACTIVE',
+
+          latitude: latitude ? Number(latitude) : null,
+          longitude: longitude ? Number(longitude) : null,
+          city: city || null,
+          state: state || null,
+          address: address || null,
+          attendance_radius_meters:
+            attendance_radius_meters || 100
         }
       });
 

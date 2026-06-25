@@ -55,10 +55,16 @@ export const markSelfAttendance = async (req, res, next) => {
 
 export const markAttendance = async (req, res, next) => {
   try {
+    // Include GPS verification data from middleware
+    const payload = {
+      ...req.body,
+      gpsVerification: req.gpsVerification
+    };
+    
     const result = await coachService.markStudentAttendance(
       req.user.coach_id,
       req.user.academy_id,
-      req.body
+      payload
     );
     res.status(201).json(
       successResponse('Attendance recorded and parent notifications sent', result)

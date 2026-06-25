@@ -33,15 +33,24 @@ const SPORT_ICONS = {
   Cycling: '🚴',
 };
 
+// Fixed 10 core performance attributes for all sports
+const CORE_ATTRIBUTES = [
+  'Stamina',
+  'Accuracy',
+  'Agility',
+  'Speed',
+  'Reflexes',
+  'Tactical Knowledge',
+  'Power',
+  'Coordination',
+  'Endurance',
+  'Discipline',
+];
+
 export default function PerformancePanel() {
   const [sports, setSports] = useState([]);
   const [selectedSport, setSelectedSport] = useState(null);
-  const [attributes, setAttributes] = useState([]);
-  const [approvalQueue, setApprovalQueue] = useState([]);
-  const [formData, setFormData] = useState({
-    sport_id: '',
-    name: '',
-  });
+  const [studentMetrics, setStudentMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
 
@@ -66,123 +75,51 @@ export default function PerformancePanel() {
     }
   }, []);
 
-  const loadAttributes = useCallback(async (sportId) => {
+  const loadStudentMetrics = useCallback(async (sportId) => {
     if (!sportId) {
-      setAttributes([]);
+      setStudentMetrics([]);
       return;
     }
     try {
-      const result = await adminGet(
-        `/admin/performance/attributes?sport_id=${sportId}&status=APPROVED`,
-      );
+      const result = await adminGet(`/admin/students?sport_id=${sportId}`);
       const responseData = result.data;
+      let studentsArray = [];
       if (Array.isArray(responseData)) {
-        setAttributes(responseData);
+        studentsArray = responseData;
       } else if (responseData && Array.isArray(responseData.data)) {
-        setAttributes(responseData.data);
+        studentsArray = responseData.data;
       } else {
-        setAttributes([]);
+        studentsArray = [];
       }
+      setStudentMetrics(studentsArray);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
-      setAttributes([]);
-    }
-  }, []);
-
-  const loadApprovalQueue = useCallback(async () => {
-    try {
-      const result = await adminGet('/admin/performance/approval-queue');
-      const responseData = result.data;
-      if (Array.isArray(responseData)) {
-        setApprovalQueue(responseData);
-      } else if (responseData && Array.isArray(responseData.data)) {
-        setApprovalQueue(responseData.data);
-      } else {
-        setApprovalQueue([]);
-      }
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-      setApprovalQueue([]);
+      setStudentMetrics([]);
     }
   }, []);
 
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
-      await Promise.all([loadSports(), loadApprovalQueue()]);
+      await loadSports();
       setLoading(false);
     };
     initialize();
-  }, [loadSports, loadApprovalQueue]);
+  }, [loadSports]);
 
   useEffect(() => {
     if (selectedSport) {
-      loadAttributes(selectedSport.sport_id);
+      loadStudentMetrics(selectedSport.sport_id);
     }
-  }, [selectedSport, loadAttributes]);
-
-  const handleCreateAttribute = async (event) => {
-    event.preventDefault();
-    if (!formData.sport_id || !formData.name.trim()) return;
-    setMessage({ text: '', type: '' });
-    try {
-      const result = await adminPost('/admin/performance/attributes', {
-        sport_id: parseInt(formData.sport_id, 10),
-        name: formData.name.trim(),
-      });
-      setMessage({ text: result.message || 'Attribute added successfully!', type: 'success' });
-      setFormData((prev) => ({ ...prev, name: '' }));
-      if (selectedSport) {
-        loadAttributes(selectedSport.sport_id);
-      }
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-    }
-  };
-
-  const handleApproveAttribute = async (attributeId) => {
-    setMessage({ text: '', type: '' });
-    try {
-      const result = await adminPatch(`/admin/performance/approve-attribute/${attributeId}`, {
-        action: 'APPROVED',
-      });
-      setMessage({ text: result.message || 'Attribute approved successfully.', type: 'success' });
-      loadApprovalQueue();
-      if (selectedSport) {
-        loadAttributes(selectedSport.sport_id);
-      }
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-    }
-  };
-
-  const handleRejectAttribute = async (attributeId) => {
-    if (!window.confirm('Are you sure you want to decline this attribute suggestion?')) {
-      return;
-    }
-    setMessage({ text: '', type: '' });
-    try {
-      const result = await adminPatch(`/admin/performance/approve-attribute/${attributeId}`, {
-        action: 'REJECTED',
-      });
-      setMessage({ text: result.message || 'Attribute selection declined.', type: 'success' });
-      loadApprovalQueue();
-      if (selectedSport) {
-        loadAttributes(selectedSport.sport_id);
-      }
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-    }
-  };
+  }, [selectedSport, loadStudentMetrics]);
 
   const handleSportSelect = (sport) => {
     setSelectedSport(sport);
-    setFormData({ sport_id: sport.sport_id.toString(), name: '' });
   };
 
   const handleBackToAllSports = () => {
     setSelectedSport(null);
-    setFormData({ sport_id: '', name: '' });
+    setStudentMetrics([]);
   };
 
   if (loading) {
@@ -255,72 +192,12 @@ export default function PerformancePanel() {
                       {sport.name}
                     </div>
                     <div className="text-muted mt-1.5 text-xs font-medium">
-                      Click to administer attributes
+                      View student performance metrics
                     </div>
                   </motion.button>
                 );
               })}
             </div>
-          </div>
-
-          {/* Coach Validation Moderation Queue Interface Section */}
-          <div className="card bg-surface-secondary border-border border p-6 shadow-sm">
-            <h3 className="border-border mb-4 flex items-center gap-2 border-b pb-3 text-lg font-black tracking-tight">
-              <span>📋</span> Coach Metrics Approval Queue
-            </h3>
-
-            {approvalQueue.length > 0 ? (
-              <div className="space-y-3">
-                {approvalQueue.map((attr) => (
-                  <div
-                    key={attr.attribute_id}
-                    className="bg-surface border-border/80 flex flex-col justify-between gap-4 rounded-xl border p-4 shadow-inner sm:flex-row sm:items-center"
-                  >
-                    <div className="flex-1">
-                      <div className="text-foreground text-base font-bold tracking-tight">
-                        {attr.name}
-                      </div>
-                      <div className="text-muted mt-1.5 flex items-center gap-4 text-xs font-semibold">
-                        <span>
-                          Sport:{' '}
-                          <strong className="text-accent font-black">
-                            {attr.sport?.name || 'Unspecified'}
-                          </strong>
-                        </span>
-                        {attr.requested_by && (
-                          <span className="border-border border-l pl-4">
-                            Proposed by Coach:{' '}
-                            <strong className="text-foreground font-black">
-                              {attr.requested_by.name}
-                            </strong>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleApproveAttribute(attr.attribute_id)}
-                        className="btn-gradient-primary rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide shadow-sm transition-transform active:scale-95"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRejectAttribute(attr.attribute_id)}
-                        className="btn-gradient-orange rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide transition-transform active:scale-95"
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted border-border bg-surface/30 m-0 rounded-xl border border-dashed py-10 text-center text-sm font-medium">
-                No pending custom requests currently caught in validation loops.
-              </p>
-            )}
           </div>
         </>
       ) : (
@@ -353,84 +230,76 @@ export default function PerformancePanel() {
                   {selectedSport.name}
                 </h3>
                 <p className="text-muted mt-1 text-sm">
-                  Manage evaluation parameters and attributes
+                  Student performance metrics for core evaluation parameters
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-            {/* Attributes List Display Grid */}
-            <div className="card bg-surface-secondary border-border space-y-4 border p-6 shadow-sm lg:col-span-2">
-              <h3 className="text-foreground border-border border-b pb-3 text-lg font-black tracking-tight">
-                Core Evaluation Parameters
-              </h3>
-
-              {attributes.length > 0 ? (
-                <div className="max-h-[400px] space-y-2.5 overflow-y-auto pr-1">
-                  {attributes.map((attr) => (
-                    <div
-                      key={attr.attribute_id}
-                      className="bg-surface border-border/70 hover:border-accent/20 flex items-center justify-between rounded-xl border p-4 shadow-inner transition-colors"
-                    >
-                      <div>
-                        <div className="text-foreground text-sm font-bold tracking-tight">
-                          {attr.name}
-                        </div>
-                        <div className="text-accent mt-0.5 text-[10px] font-black uppercase tracking-widest">
-                          Status: {attr.status}
-                        </div>
-                      </div>
-                      {attr.requested_by && (
-                        <div className="text-muted bg-surface-secondary border-border/40 rounded-lg border px-3 py-1.5 text-xs font-semibold">
-                          Proposed by:{' '}
-                          <span className="text-foreground font-bold">
-                            {attr.requested_by.name}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted border-border bg-surface/30 rounded-xl border border-dashed py-6 text-center text-sm font-medium">
-                  No verified attributes defined for this discipline yet.
-                </p>
-              )}
-            </div>
-
-            {/* Direct Input Custom Form Box Element */}
-            <div className="card bg-surface-secondary border-border space-y-4 border p-6 shadow-sm">
-              <h3 className="text-foreground border-border border-b pb-3 text-lg font-black tracking-tight">
-                Add Attribute Entry
-              </h3>
-
-              <form className="space-y-4" onSubmit={handleCreateAttribute}>
-                <div>
-                  <label
-                    className="label text-muted mb-1.5 text-xs font-black uppercase tracking-wide"
-                    htmlFor="attributeName"
-                  >
-                    Attribute Title Name
-                  </label>
-                  <input
-                    id="attributeName"
-                    type="text"
-                    className="input-field py-3 text-sm"
-                    placeholder="e.g., Stamina, Agility, Accuracy..."
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="btn-gradient-primary w-full rounded-xl py-3 text-xs font-black uppercase tracking-wider shadow-md transition-transform active:scale-95"
+          {/* Fixed Core Attributes Display */}
+          <div className="card bg-surface-secondary border-border space-y-4 border p-6 shadow-sm">
+            <h3 className="text-foreground border-border border-b pb-3 text-lg font-black tracking-tight">
+              Core Evaluation Parameters
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {CORE_ATTRIBUTES.map((attr, index) => (
+                <div
+                  key={attr}
+                  className="bg-surface border-border/50 hover:border-accent/30 rounded-lg border p-3 text-center transition-colors"
                 >
-                  Append Parameter
-                </button>
-              </form>
+                  <div className="text-accent text-xs font-black uppercase tracking-wider">
+                    {index + 1}
+                  </div>
+                  <div className="text-foreground mt-1 text-sm font-semibold">
+                    {attr}
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* Student Metrics Table */}
+          <div className="card bg-surface-secondary border-border space-y-4 border p-6 shadow-sm">
+            <h3 className="text-foreground border-border border-b pb-3 text-lg font-black tracking-tight">
+              Student Performance Metrics
+            </h3>
+
+            {studentMetrics.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-border border-b">
+                      <th className="bg-surface text-left p-3 font-semibold">Student Name</th>
+                      {CORE_ATTRIBUTES.map((attr) => (
+                        <th key={attr} className="bg-surface text-center p-3 font-semibold">
+                          {attr}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentMetrics.map((student) => (
+                      <tr key={student.student_id || student.id} className="border-border/50 border-b hover:bg-surface/50">
+                        <td className="p-3 font-medium">
+                          {student.name || `${student.firstName || ''} ${student.lastName || ''}`}
+                        </td>
+                        {CORE_ATTRIBUTES.map((attr) => (
+                          <td key={attr} className="text-center p-3">
+                            <span className="bg-surface-secondary border-border/50 inline-block min-w-[60px] rounded border px-2 py-1 text-xs font-semibold">
+                              {student.performance_metrics?.[attr] || '-'}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-muted border-border bg-surface/30 rounded-xl border border-dashed py-6 text-center text-sm font-medium">
+                No students enrolled in this sport yet.
+              </p>
+            )}
           </div>
         </motion.div>
       )}

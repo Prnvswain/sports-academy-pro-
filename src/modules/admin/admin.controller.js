@@ -136,6 +136,20 @@ export const createCoach = async (req, res, next) => {
     const coach = await adminService.createCoach(req.user.academy_id, req.body);
     res.status(201).json(successResponse('Coach created and onboarding email sent', coach));
   } catch (err) {
+    next(err)
+  }
+};
+
+export const bulkImportCoaches = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      const error = new Error('No file uploaded');
+      error.statusCode = 400;
+      throw error;
+    }
+    const result = await adminService.bulkImportCoaches(req.user.academy_id, req.file);
+    res.status(201).json(successResponse('Coaches imported successfully', result));
+  } catch (err) {
     next(err);
   }
 };

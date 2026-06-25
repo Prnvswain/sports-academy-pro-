@@ -116,7 +116,7 @@ export const sendCoachOnboardingEmail = async ({ email, name, temporaryPassword 
     'Please change your password after your first login.'
   ].join('\n');
 
-  return sendMail({ to: email, subject, html, text });
+  return sendMail({ to, subject, html, text });
 };
 
 export const sendAdminWelcomeEmail = async ({
@@ -398,4 +398,81 @@ export const sendPaymentFailureEmail = async ({
   ].join('\n');
 
   return sendMail({ to: parentEmail, subject, html, text });
+};
+
+export const sendParentCredentialsEmail = async ({
+  to,
+  parent_name,
+  student_name,
+  temp_password,
+  login_url
+}) => {
+  const subject = 'Welcome to SAMS — Your Parent Portal Credentials';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a56db;">Sports Academy Management System</h2>
+      <p>Hello <strong>${parent_name}</strong>,</p>
+      <p>Your child <strong>${student_name}</strong> has been enrolled in our academy. We've created a Parent Portal account for you to track their progress, attendance, and more.</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Login URL</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;"><a href="${login_url}">${login_url}</a></td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Email</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;">${to}</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Temporary Password</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;"><code>${temp_password}</code></td></tr>
+      </table>
+      <p>Please change your password after your first login for security.</p>
+      <p style="color: #6b7280; font-size: 12px;">This is an automated message from SAMS.</p>
+    </div>
+  `;
+
+  const text = [
+    `Hello ${parent_name},`,
+    '',
+    `Your child ${student_name} has been enrolled in our academy.`,
+    '',
+    'Your Parent Portal credentials:',
+    `Login URL: ${login_url}`,
+    `Email: ${to}`,
+    `Temporary Password: ${temp_password}`,
+    '',
+    'Please change your password after your first login.'
+  ].join('\n');
+
+  return sendMail({ to, subject, html, text });
+};
+
+export const sendParentChildLinkedEmail = async ({
+  to,
+  parent_name,
+  student_name,
+  login_url
+}) => {
+  const subject = 'New Child Added to Your Parent Portal';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a56db;">Sports Academy Management System</h2>
+      <p>Hello <strong>${parent_name}</strong>,</p>
+      <p>Great news! A new child has been linked to your Parent Portal account:</p>
+      <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <p style="margin: 4px 0;"><strong>Child Name:</strong> ${student_name}</p>
+      </div>
+      <p>You can now view their attendance, performance, and other details by logging into your Parent Portal.</p>
+      <p style="margin-top: 20px;">
+        <a href="${login_url}" style="display: inline-block; padding: 12px 24px; background-color: #1a56db; color: white; text-decoration: none; border-radius: 6px;">Go to Parent Portal</a>
+      </p>
+      <p style="color: #6b7280; font-size: 12px;">This is an automated message from SAMS.</p>
+    </div>
+  `;
+
+  const text = [
+    `Hello ${parent_name},`,
+    '',
+    `A new child has been linked to your Parent Portal account:`,
+    `Child Name: ${student_name}`,
+    '',
+    'You can now view their attendance, performance, and other details by logging into your Parent Portal.',
+    `Login URL: ${login_url}`
+  ].join('\n');
+
+  return sendMail({ to, subject, html, text });
 };

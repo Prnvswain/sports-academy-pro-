@@ -8,10 +8,13 @@ import {
   sendStudentExitEmail,
   sendPaymentSuccessEmail,
   sendPaymentFailureEmail,
+  sendParentCredentialsEmail,
+  sendParentChildLinkedEmail,
 } from '../../services/mail.service.js';
 import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
 import { calculateAgeAndCategory } from '../../utils/age.util.js';
+import * as parentService from '../parent/parent.service.js';
 
 const normalizeGender = (gender) => {
   if (!gender) return 'Other';
@@ -404,7 +407,7 @@ export const createSport = async (academy_id, data) => {
   }
 
   // Support both camelCase and snake_case for base_fee
-  const { name, base_fee, baseFee, status } = data;
+  const { name, base_fee, baseFee, status, latitude, longitude, use_custom_location } = data;
   const parsedFee = parseFloat(
     base_fee !== undefined ? base_fee : baseFee !== undefined ? baseFee : 0,
   );
@@ -416,6 +419,9 @@ export const createSport = async (academy_id, data) => {
       status: status || 'ACTIVE',
       academy_id: academyId,
       is_custom: true,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null,
+      use_custom_location: use_custom_location || false,
     },
   });
 
@@ -693,6 +699,71 @@ export const createCoach = async (academy_id, data) => {
   };
 };
 
+export const bulkImportCoaches = async (academy_id, file) => {
+  const academyId = parseInt(academy_id, 10);
+  const fs = await import('fs');
+  const csv = await import('csv-parser');
+
+  const results = [];
+  const errors = [];
+
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(file.path)
+      .pipe(csv())
+      .on('data', (data) => {
+        results.push(data);
+      })
+      .on('end', async () => {
+        const createdCoaches = [];
+        const failedRecords = [];
+
+        for (const row of results) {
+          try {
+            // Validate required fields
+            if (!row.email || !row.specialization) {
+              failedRecords.push({
+                data: row,
+                error: 'Email and specialization are required',
+              });
+              continue;
+            }
+
+            const coachData = {
+              name: `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.name,
+              email: row.email.trim(),
+              phone_number: row.phone || row.phone_number || '',
+              specialization: row.specialization,
+              status: row.status || 'ACTIVE',
+            };
+
+            const coach = await createCoach(academyId.toString(), coachData);
+            createdCoaches.push(coach);
+          } catch (error) {
+            failedRecords.push({
+              data: row,
+              error: error.message,
+            });
+          }
+        }
+
+        // Clean up uploaded file
+        fs.unlinkSync(file.path);
+
+        resolve({
+          total: results.length,
+          successful: createdCoaches.length,
+          failed: failedRecords.length,
+          created: createdCoaches,
+          errors: failedRecords,
+        });
+      })
+      .on('error', (error) => {
+        fs.unlinkSync(file.path);
+        reject(error);
+      });
+  });
+};
+
 export const updateCoach = async (academy_id, coach_id, data) => {
   const coach = await getCoachForAcademy(academy_id, coach_id);
 
@@ -839,6 +910,79 @@ export const createStudent = async (academy_id, data) => {
     calculatedCategory = category;
   }
 
+  // Parent auto-creation logic
+  let parent_id = null;
+  if (data.parent_email) {
+    // Check if parent account already exists
+    const existingParent = await parentService.findParentByEmail(data.parent_email, academyId);
+
+    if (existingParent) {
+      // Link to existing parent
+      parent_id = existingParent.parent_id;
+      logger.info('Linking student to existing parent account', {
+        parent_id,
+        student_name: data.name,
+        parent_email: data.parent_email
+      });
+
+      // Send "new child linked" notification email
+      try {
+        await sendParentChildLinkedEmail({
+          to: data.parent_email,
+          parent_name: existingParent.name,
+          student_name: data.name,
+          login_url: `${process.env.APP_URL || 'http://localhost:3000'}/parent/login`,
+        });
+        logger.info('Sent new child linked email to parent', {
+          parent_id,
+          parent_email: data.parent_email
+        });
+      } catch (emailError) {
+        logger.error('Failed to send new child linked email', {
+          error: emailError.message,
+          parent_email: data.parent_email
+        });
+      }
+    } else {
+      // Create new parent account
+      const tempPassword = generateTempPassword();
+      const parent = await parentService.createParentAccount({
+        academy_id: academyId,
+        name: data.parent_name || data.name + "'s Parent",
+        email: data.parent_email,
+        phone: data.parent_phone,
+        password: tempPassword,
+      });
+
+      parent_id = parent.parent_id;
+      logger.info('Created new parent account for student', {
+        parent_id,
+        student_name: data.name,
+        parent_email: data.parent_email
+      });
+
+      // Send credentials email
+      try {
+        await sendParentCredentialsEmail({
+          to: data.parent_email,
+          parent_name: parent.name,
+          student_name: data.name,
+          temp_password: tempPassword,
+          login_url: `${process.env.APP_URL || 'http://localhost:3000'}/parent/login`,
+        });
+        logger.info('Sent parent credentials email', {
+          parent_id,
+          parent_email: data.parent_email
+        });
+      } catch (emailError) {
+        logger.error('Failed to send parent credentials email', {
+          error: emailError.message,
+          parent_email: data.parent_email
+        });
+      }
+    }
+  }
+
   // Validate batch capacity if batch is provided
   if (data.batch_id) {
     const batchId = parseInt(data.batch_id, 10);
@@ -872,6 +1016,7 @@ export const createStudent = async (academy_id, data) => {
   const student = await prisma.student.create({
     data: {
       academy_id: academyId,
+      parent_id: parent_id,
       name: data.name,
       first_name: data.first_name || null,
       middle_name: data.middle_name || null,
@@ -892,7 +1037,7 @@ export const createStudent = async (academy_id, data) => {
       fees_status: data.fees_status || 'unpaid',
       status: 'ACTIVE',
     },
-    include: { batch: true, sport: true },
+    include: { batch: true, sport: true, parent: true },
   });
 
   // Create enrollment records for each sport

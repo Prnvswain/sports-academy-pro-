@@ -15,6 +15,7 @@ enum UserRole {
   SUPER_ADMIN
   ACADEMY_ADMIN
   COACH
+  PARENT
 }
 
 enum SubscriptionTier {
@@ -139,6 +140,7 @@ model Academy {
 
   users               User[]
   coaches             Coach[]
+  parents             Parent[]
   sports              Sport[]
   duration_plans      DurationPlan[]
   batches             Batch[]
@@ -154,8 +156,26 @@ model Academy {
   enrollments         StudentEnrollment[]
   daily_notes         DailyStudentNote[]
   announcements       Announcement[]
+  gps_settings        GpsAttendanceSettings?
 
   @@map("academies")
+}
+
+// GPS Attendance Settings per Academy
+model GpsAttendanceSettings {
+  settings_id               Int      @id @default(autoincrement())
+  academy_id                Int      @unique
+  gps_verification_enabled   Boolean  @default(true)
+  attendance_radius_meters  Int      @default(200)
+  admin_override_enabled     Boolean  @default(true)
+  require_student_gps        Boolean  @default(true)
+  require_coach_gps          Boolean  @default(true)
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade)
+
+  @@map("gps_attendance_settings")
 }
 
 model User {
@@ -179,6 +199,27 @@ model User {
 
   @@index([academy_id])
   @@map("users")
+}
+
+model Parent {
+  parent_id      Int      @id @default(autoincrement())
+  academy_id     Int
+  name           String
+  email          String   @unique
+  phone          String?
+  password_hash  String
+  is_active      Boolean  @default(true)
+  must_change_password Boolean @default(true)
+  last_login_at  DateTime?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  academy   Academy   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade)
+  students  Student[]
+
+  @@unique([academy_id, email])
+  @@index([academy_id])
+  @@map("parents")
 }
 
 model Coach {
@@ -222,6 +263,9 @@ model Sport {
   status      RecordStatus @default(ACTIVE)
   academy_id  Int?
   is_custom   Boolean      @default(false)
+  latitude    Decimal?     @db.Decimal(10, 7)
+  longitude   Decimal?     @db.Decimal(10, 7)
+  use_custom_location Boolean @default(false)
   created_at  DateTime     @default(now())
   updated_at  DateTime     @updatedAt
 
@@ -302,6 +346,7 @@ model BatchCoach {
 model Student {
   student_id    Int          @id @default(autoincrement())
   academy_id    Int
+  parent_id     Int?
   name          String
   first_name    String?
   middle_name   String?
@@ -329,6 +374,7 @@ model Student {
   updated_at    DateTime     @updatedAt
 
   academy             Academy             @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade)
+  parent              Parent?             @relation(fields: [parent_id], references: [parent_id], onDelete: SetNull)
   sport               Sport?              @relation(fields: [sport_id], references: [sport_id])
   batch               Batch?              @relation(fields: [batch_id], references: [batch_id])
   enrollments         StudentEnrollment[]
@@ -418,6 +464,8 @@ model StudentAttendance {
   remarks            String?          @db.Text
   latitude           Decimal?         @db.Decimal(10, 7)
   longitude          Decimal?         @db.Decimal(10, 7)
+  distance_from_location_meters Int?
+  location_verified  Boolean          @default(false)
   created_at         DateTime         @default(now())
   updated_at         DateTime         @updatedAt
 
@@ -440,6 +488,8 @@ model CoachAttendance {
   marked_by_admin_id Int?
   latitude           Decimal?              @db.Decimal(10, 7)
   longitude          Decimal?              @db.Decimal(10, 7)
+  distance_from_location_meters Int?
+  location_verified  Boolean               @default(false)
   remarks            String?               @db.Text
   created_at         DateTime              @default(now())
   updated_at         DateTime              @updatedAt

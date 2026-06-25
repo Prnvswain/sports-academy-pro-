@@ -117,6 +117,9 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
   const attendanceDate = payload.date ? new Date(payload.date) : new Date();
   attendanceDate.setHours(0, 0, 0, 0);
   const records = payload.records || [];
+  
+  // Get GPS verification data from middleware
+  const gpsVerification = payload.gpsVerification || null;
 
   if (!Array.isArray(records) || records.length === 0) {
     const error = new Error('At least one attendance record is required');
@@ -187,12 +190,20 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
         date: attendanceDate,
         status,
         marked_by_coach_id: coachId,
-        remarks: record.remarks || null
+        remarks: record.remarks || null,
+        latitude: payload.latitude ? parseFloat(payload.latitude) : null,
+        longitude: payload.longitude ? parseFloat(payload.longitude) : null,
+        distance_from_location_meters: gpsVerification?.distance || null,
+        location_verified: gpsVerification?.verified || false
       },
       update: {
         status,
         marked_by_coach_id: coachId,
-        remarks: record.remarks || null
+        remarks: record.remarks || null,
+        latitude: payload.latitude ? parseFloat(payload.latitude) : null,
+        longitude: payload.longitude ? parseFloat(payload.longitude) : null,
+        distance_from_location_meters: gpsVerification?.distance || null,
+        location_verified: gpsVerification?.verified || false
       }
     });
 
@@ -330,14 +341,10 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
   });
 
   if (status === 'ABSENT') {
+    // FIXED: Using standard relation schemas consistent with the rest of this file
     const coach = await prisma.coach.findUnique({
       where: { coach_id: coachId },
       include: {
-        batch_assignments: { 
-          include: { 
-            batch: { where: { status: 'ACTIVE' } } 
-          } 
-        },
         academy: {
           include: {
             users: { where: { ...NOT_DELETED, role: 'ACADEMY_ADMIN' }, take: 1 }
@@ -348,10 +355,14 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
     const adminEmail = coach?.academy?.users?.[0]?.email;
     if (adminEmail) {
-      // Clean structure mapping list array layout back out for mail engine compatibility
-      const activeBatches = coach.batch_assignments
-        .filter(ba => ba.batch)
-        .map(ba => ba.batch);
+      // Safely pull active batches using the direct many-to-many lookup logic
+      const activeBatches = await prisma.batch.findMany({
+        where: {
+          coaches: { some: { coach_id: coachId } },
+          academy_id: academyId,
+          status: 'ACTIVE'
+        }
+      });
 
       await sendCoachAbsenceAlertToAdmin({
         adminEmail,

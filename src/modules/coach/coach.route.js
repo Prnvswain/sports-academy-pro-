@@ -4,6 +4,7 @@ import * as coachController from './coach.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { enforceActiveSubscription } from '../../middlewares/subscription.middleware.js';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
+import { verifyAttendanceLocation, optionalGpsVerification } from '../../middlewares/gpsVerification.middleware.js';
 import { validate } from './coach.validator.js';
 
 const router = express.Router();
@@ -14,7 +15,7 @@ router.use(enforceActiveSubscription);
 
 router.get('/dashboard', coachController.getDashboard);
 router.get('/batches', coachController.getMyBatches);
-router.post('/attendance', validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
+router.post('/attendance', verifyAttendanceLocation, validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
 router.post(
   '/payments',
   [
@@ -30,6 +31,7 @@ router.post(
 );
 router.post(
   '/self-attendance',
+  optionalGpsVerification,
   [
     body('date').optional().isISO8601(),
     body('status').isIn(['PRESENT', 'ABSENT', 'present', 'absent']),

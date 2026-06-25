@@ -1,0 +1,269 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import prisma from '../../config/prisma.js';
+import { JWT_SECRET, JWT_EXPIRE, BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
+import { generateResetCode } from '../../utils/resetCode.util.js';
+import logger from '../../utils/logger.js';
+
+export const createParentAccount = async ({ academy_id, name, email, phone, password }) => {
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+  
+  const parent = await prisma.parent.create({
+    data: {
+      academy_id,
+      name,
+      email,
+      phone: phone || null,
+      password_hash: hashedPassword,
+      must_change_password: true,
+    },
+  });
+
+  logger.info('Parent account created', { parent_id: parent.parent_id, email: parent.email });
+  return parent;
+};
+
+export const findParentByEmail = async (email, academy_id) => {
+  return await prisma.parent.findFirst({
+    where: {
+      email,
+      academy_id,
+      is_active: true,
+    },
+  });
+};
+
+export const findParentById = async (parent_id) => {
+  return await prisma.parent.findUnique({
+    where: { parent_id },
+    include: {
+      students: {
+        where: { is_deleted: false },
+        include: {
+          sport: true,
+          batch: true,
+          academy: true,
+        },
+      },
+    },
+  });
+};
+
+export const authenticateParent = async ({ email, password, academy_id }) => {
+  let parent;
+  
+  if (academy_id) {
+    parent = await findParentByEmail(email, academy_id);
+  } else {
+    // If no academy_id provided, find by email only (first active match)
+    parent = await prisma.parent.findFirst({
+      where: {
+        email,
+        is_active: true,
+      },
+    });
+  }
+  
+  if (!parent) {
+    throw new Error('Invalid credentials');
+  }
+
+  const isValidPassword = await bcrypt.compare(password, parent.password_hash);
+  
+  if (!isValidPassword) {
+    throw new Error('Invalid credentials');
+  }
+
+  if (!parent.is_active) {
+    throw new Error('Account is inactive');
+  }
+
+  // Update last login
+  await prisma.parent.update({
+    where: { parent_id: parent.parent_id },
+    data: { last_login_at: new Date() },
+  });
+
+  const token = jwt.sign(
+    { 
+      id: parent.parent_id, 
+      role: 'PARENT',
+      academy_id: parent.academy_id,
+      email: parent.email 
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRE }
+  );
+
+  logger.info('Parent authenticated', { parent_id: parent.parent_id, email: parent.email });
+  
+  return {
+    token,
+    parent: {
+      id: parent.parent_id,
+      name: parent.name,
+      email: parent.email,
+      phone: parent.phone,
+      must_change_password: parent.must_change_password,
+    },
+  };
+};
+
+export const changeParentPassword = async (parent_id, currentPassword, newPassword) => {
+  const parent = await prisma.parent.findUnique({
+    where: { parent_id },
+  });
+
+  if (!parent) {
+    throw new Error('Parent not found');
+  }
+
+  const isValidPassword = await bcrypt.compare(currentPassword, parent.password_hash);
+  
+  if (!isValidPassword) {
+    throw new Error('Current password is incorrect');
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+
+  await prisma.parent.update({
+    where: { parent_id },
+    data: {
+      password_hash: hashedPassword,
+      must_change_password: false,
+    },
+  });
+
+  logger.info('Parent password changed', { parent_id });
+  return { success: true };
+};
+
+export const linkStudentToParent = async (student_id, parent_id) => {
+  const student = await prisma.student.update({
+    where: { student_id },
+    data: { parent_id },
+    include: {
+      parent: true,
+      academy: true,
+    },
+  });
+
+  logger.info('Student linked to parent', { student_id, parent_id });
+  return student;
+};
+
+export const getParentChildren = async (parent_id) => {
+  const parent = await prisma.parent.findUnique({
+    where: { parent_id },
+    include: {
+      students: {
+        where: { is_deleted: false },
+        include: {
+          sport: true,
+          batch: true,
+          enrollments: {
+            where: { is_active: true },
+            include: {
+              duration_plan: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return parent.students;
+};
+
+export const getParentDashboardData = async (parent_id, studentId = null) => {
+  const parent = await prisma.parent.findUnique({
+    where: { parent_id },
+    include: {
+      students: {
+        where: { is_deleted: false },
+        include: {
+          sport: true,
+          batch: true,
+          academy: true,
+          enrollments: {
+            where: { is_active: true },
+            include: {
+              duration_plan: true,
+            },
+          },
+          student_attendances: {
+            orderBy: { date: 'desc' },
+            take: 30,
+          },
+          performance_scores: {
+            include: {
+              attribute: true,
+            },
+            orderBy: { scored_at: 'desc' },
+            take: 20,
+          },
+          daily_notes: {
+            orderBy: { note_date: 'desc' },
+            take: 10,
+          },
+          receipts: {
+            orderBy: { payment_date: 'desc' },
+            take: 10,
+          },
+        },
+      },
+    },
+  });
+
+  if (!parent) {
+    throw new Error('Parent not found');
+  }
+
+  // Filter students if studentId is provided
+  let filteredStudents = parent.students;
+  if (studentId) {
+    filteredStudents = parent.students.filter(s => s.student_id === studentId);
+    if (filteredStudents.length === 0) {
+      // If specific student not found, use first student as fallback
+      filteredStudents = parent.students;
+    }
+  }
+
+  // Calculate aggregated metrics for dashboard
+  const allAttendances = filteredStudents.flatMap(s => s.student_attendances);
+  const presentCount = allAttendances.filter(a => a.status === 'PRESENT').length;
+  const attendanceRate = allAttendances.length > 0 
+    ? Math.round((presentCount / allAttendances.length) * 100) 
+    : 0;
+
+  const allPerformanceScores = filteredStudents.flatMap(s => s.performance_scores);
+  const avgPerformanceScore = allPerformanceScores.length > 0
+    ? Math.round(allPerformanceScores.reduce((sum, s) => sum + s.score, 0) / allPerformanceScores.length)
+    : 0;
+
+  const allReceipts = filteredStudents.flatMap(s => s.receipts);
+  const pendingFees = allReceipts
+    .filter(r => r.status === 'PENDING' || r.status === 'DUE')
+    .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+  const recentNotes = filteredStudents.flatMap(s => s.daily_notes).slice(0, 5);
+
+  return {
+    parent: {
+      id: parent.parent_id,
+      name: parent.name,
+      email: parent.email,
+      phone: parent.phone,
+    },
+    students: parent.students, // Return all students for dropdown
+    metrics: {
+      attendanceRate,
+      avgPerformanceScore,
+      pendingFees,
+      totalStudents: parent.students.length,
+      totalAttendances: allAttendances.length,
+      recentNotes,
+      filteredStudentId: studentId, // Return the filtered student ID
+    },
+  };
+};

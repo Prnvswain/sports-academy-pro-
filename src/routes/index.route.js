@@ -3,6 +3,7 @@ import authRoutes from '../modules/auth/auth.route.js';
 import adminRoutes from '../modules/admin/admin.route.js';
 import coachRoutes from '../modules/coach/coach.route.js';
 import superAdminRoutes from '../modules/super-admin/super-admin.route.js';
+import parentRoutes from '../modules/parent/parent.route.js';
 import importRoutes from '../modules/import/import.route.js';
 import notesRoutes from '../modules/notes/notes.route.js';
 import reportsRoutes from '../modules/reports/reports.route.js';
@@ -29,5 +30,6 @@ router.use('/coach', coachRoutes);
 router.use('/coach/notes', notesRoutes);
 router.use('/coach/performance', performanceRoutes);
 router.use('/coach/notifications', notificationsRoutes);
+router.use('/parent', parentRoutes);
 
 export default router;

@@ -33,3 +33,14 @@ export function SuperAdminRoute({ children }) {
 
   return children;
 }
+
+export function ParentRoute({ children }) {
+  const location = useLocation();
+  const token = localStorage.getItem('parent_token');
+
+  if (!token) {
+    return <Navigate to="/parent/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}

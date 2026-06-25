@@ -1,9 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import { AdminRoute, CoachRoute, SuperAdminRoute } from './components/ProtectedRoute';
+import { AdminRoute, CoachRoute, SuperAdminRoute, ParentRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import AdminLayout from './layouts/AdminLayout';
 import CoachLayout from './layouts/CoachLayout';
+import ParentLayout from './layouts/ParentLayout';
 import LandingPage from './pages/LandingPage';
 import AdminLogin from './pages/AdminLogin';
 import CoachLogin from './pages/CoachLogin';
@@ -19,6 +20,7 @@ import PaymentsPanel from './pages/admin/PaymentsPanel';
 import ReportsPanel from './pages/admin/ReportsPanel';
 import PerformancePanel from './pages/admin/PerformancePanel';
 import EnquiriesPanel from './pages/admin/EnquiriesPanel';
+import GpsSettingsPanel from './pages/admin/GpsSettingsPanel';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -28,6 +30,12 @@ import CoachMyAttendancePage from './pages/coach/CoachMyAttendancePage';
 import CoachPerformancePage from './pages/coach/CoachPerformancePage';
 import IntakeForm from './pages/public/IntakeForm';
 import PublicEnquiryForm from './pages/public/PublicEnquiryForm';
+import ParentLogin from './pages/parent/ParentLogin';
+import ParentDashboard from './pages/parent/ParentDashboard';
+import ParentAttendance from './pages/parent/ParentAttendance';
+import ParentPerformance from './pages/parent/ParentPerformance';
+import ParentFees from './pages/parent/ParentFees';
+import ParentProfile from './pages/parent/ParentProfile';
 
 export default function App() {
   return (
@@ -86,6 +94,7 @@ export default function App() {
             <Route path="reports" element={<ReportsPanel />} />
             <Route path="performance" element={<PerformancePanel />} />
             <Route path="enquiries" element={<EnquiriesPanel />} />
+            <Route path="gps-settings" element={<GpsSettingsPanel />} />
             <Route path="import" element={<Navigate to="/admin/students" replace />} />
             <Route path="analytics" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
@@ -107,6 +116,24 @@ export default function App() {
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="my-attendance" element={<CoachMyAttendancePage />} />
             <Route path="performance" element={<CoachPerformancePage />} />
+          </Route>
+
+          {/* Secure Parent Portal Route Configurations */}
+          <Route path="/parent/login" element={<ParentLogin />} />
+          <Route
+            path="/parent"
+            element={
+              <ParentRoute>
+                <ParentLayout />
+              </ParentRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<ParentDashboard />} />
+            <Route path="attendance" element={<ParentAttendance />} />
+            <Route path="performance" element={<ParentPerformance />} />
+            <Route path="fees" element={<ParentFees />} />
+            <Route path="profile" element={<ParentProfile />} />
           </Route>
 
           {/* Hidden Gateways (Intentionally Omitted From Direct Public References) */}
