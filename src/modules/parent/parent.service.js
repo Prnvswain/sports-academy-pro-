@@ -8,19 +8,46 @@ import logger from '../../utils/logger.js';
 export const createParentAccount = async ({ academy_id, name, email, phone, password }) => {
   const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   
-  const parent = await prisma.parent.create({
-    data: {
-      academy_id,
-      name,
-      email,
-      phone: phone || null,
-      password_hash: hashedPassword,
-      must_change_password: true,
-    },
-  });
+  try {
+    const parent = await prisma.parent.create({
+      data: {
+        academy_id,
+        name,
+        email,
+        phone: phone || null,
+        password_hash: hashedPassword,
+        must_change_password: true,
+      },
+    });
 
-  logger.info('Parent account created', { parent_id: parent.parent_id, email: parent.email });
-  return parent;
+    logger.info('Parent account created', { parent_id: parent.parent_id, email: parent.email });
+    return parent;
+  } catch (error) {
+    // Handle unique constraint violation - parent already exists
+    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+      logger.warn('Parent account already exists, fetching existing', { email });
+      const existingParent = await prisma.parent.findFirst({
+        where: {
+          email,
+          academy_id,
+        },
+      });
+      
+      if (existingParent) {
+        // Reactivate if inactive
+        if (!existingParent.is_active) {
+          await prisma.parent.update({
+            where: { parent_id: existingParent.parent_id },
+            data: { is_active: true },
+          });
+          logger.info('Reactivated inactive parent account', { parent_id: existingParent.parent_id });
+        }
+        return existingParent;
+      }
+    }
+    // Re-throw if it's not a unique constraint error
+    throw error;
+  }
 };
 
 export const findParentByEmail = async (email, academy_id) => {

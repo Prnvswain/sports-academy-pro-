@@ -304,13 +304,26 @@ export default function StudentsPanel() {
         });
       }
 
-      const batchIdValue = form.batch_id ? parseInt(form.batch_id, 10) : null;
+      let batchIdValue = form.batch_id ? parseInt(form.batch_id, 10) : null;
       console.log('[handleSubmit] batch_id value:', {
         form_batch_id: form.batch_id,
+        form_batch_id_type: typeof form.batch_id,
         parsed_batch_id: batchIdValue,
         type: typeof batchIdValue,
         isNull: batchIdValue === null,
       });
+
+      // Ensure batch_id is not an object
+      if (form.batch_id && typeof form.batch_id === 'object') {
+        console.error('[handleSubmit] batch_id is an object, extracting value:', form.batch_id);
+        // Try to extract the ID from common object structures
+        const extractedId = form.batch_id.value || form.batch_id._id || form.batch_id.batch_id || form.batch_id.id;
+        if (extractedId) {
+          batchIdValue = parseInt(extractedId, 10);
+        } else {
+          batchIdValue = null;
+        }
+      }
 
       const payload = {
         name: fullName,
@@ -424,6 +437,14 @@ export default function StudentsPanel() {
       batch_id: student.batch_id || '',
       duration_plan_id: student.enrollments?.[0]?.duration_plan_id || '',
       sport_ids: student.enrollments?.map((e) => e.sport_id) || [],
+      age: student.age || '',
+      gender: student.gender || '',
+      blood_group: student.blood_group || '',
+      height: student.height || '',
+      weight: student.weight || '',
+      joining_date: student.joining_date
+        ? new Date(student.joining_date).toISOString().split('T')[0]
+        : '',
     });
     setEditSelectedSports(student.enrollments?.map((e) => e.sport_id) || []);
     setIsEditingStudent(true);
@@ -443,6 +464,12 @@ export default function StudentsPanel() {
         duration_plan_id: editStudentForm.duration_plan_id
           ? parseInt(editStudentForm.duration_plan_id)
           : null,
+        age: editStudentForm.age ? parseInt(editStudentForm.age) : null,
+        gender: editStudentForm.gender,
+        blood_group: editStudentForm.blood_group,
+        height: editStudentForm.height ? parseFloat(editStudentForm.height) : null,
+        weight: editStudentForm.weight ? parseFloat(editStudentForm.weight) : null,
+        joining_date: editStudentForm.joining_date || null,
       });
       setMessage({ text: 'Student updated successfully.', type: 'success' });
       setIsEditingStudent(false);
@@ -3194,6 +3221,118 @@ export default function StudentsPanel() {
                       }
                     />
                   </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="label" htmlFor="editAge">
+                      Age
+                    </label>
+                    <input
+                      id="editAge"
+                      type="number"
+                      className="input-field"
+                      value={editStudentForm.age || ''}
+                      onChange={(e) =>
+                        setEditStudentForm({ ...editStudentForm, age: e.target.value })
+                      }
+                      min="1"
+                      max="100"
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="editGender">
+                      Gender
+                    </label>
+                    <select
+                      id="editGender"
+                      className="input-field"
+                      value={editStudentForm.gender || ''}
+                      onChange={(e) =>
+                        setEditStudentForm({ ...editStudentForm, gender: e.target.value })
+                      }
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="editBloodGroup">
+                      Blood Group
+                    </label>
+                    <select
+                      id="editBloodGroup"
+                      className="input-field"
+                      value={editStudentForm.blood_group || ''}
+                      onChange={(e) =>
+                        setEditStudentForm({ ...editStudentForm, blood_group: e.target.value })
+                      }
+                    >
+                      <option value="">Select Blood Group</option>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="label" htmlFor="editHeight">
+                      Height (cm)
+                    </label>
+                    <input
+                      id="editHeight"
+                      type="number"
+                      className="input-field"
+                      value={editStudentForm.height || ''}
+                      onChange={(e) =>
+                        setEditStudentForm({ ...editStudentForm, height: e.target.value })
+                      }
+                      min="50"
+                      max="250"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="editWeight">
+                      Weight (kg)
+                    </label>
+                    <input
+                      id="editWeight"
+                      type="number"
+                      className="input-field"
+                      value={editStudentForm.weight || ''}
+                      onChange={(e) =>
+                        setEditStudentForm({ ...editStudentForm, weight: e.target.value })
+                      }
+                      min="10"
+                      max="200"
+                      step="0.1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="editJoiningDate">
+                    Joining Date
+                  </label>
+                  <input
+                    id="editJoiningDate"
+                    type="date"
+                    className="input-field"
+                    value={editStudentForm.joining_date || ''}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, joining_date: e.target.value })
+                    }
+                  />
                 </div>
 
                 <div>

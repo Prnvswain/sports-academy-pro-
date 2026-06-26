@@ -66,7 +66,7 @@ export default function AdminLayout() {
       >
         <div className="border-border flex items-center justify-between border-b p-4">
           <Link
-            to="/"
+            to="/admin/dashboard"
             className="text-foreground flex items-center gap-2 font-extrabold no-underline"
           >
             <span className="bg-accent text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs">

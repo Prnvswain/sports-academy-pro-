@@ -1,10 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { MapPin } from 'lucide-react';
 import Loader from '../../components/Loader';
+import MapLocationPicker from '../../components/MapLocationPicker';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
 const formatCurrency = (value) =>
   Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '0.00';
+
+const SPORTS_ICONS = [
+  { icon: '🏸', name: 'Badminton' },
+  { icon: '🏏', name: 'Cricket' },
+  { icon: '⚽', name: 'Football' },
+  { icon: '🏀', name: 'Basketball' },
+  { icon: '🎾', name: 'Tennis' },
+  { icon: '🏊', name: 'Swimming' },
+  { icon: '🏋️', name: 'Weightlifting' },
+  { icon: '🥊', name: 'Boxing' },
+  { icon: '🏐', name: 'Volleyball' },
+  { icon: '🎱', name: 'Pool' },
+  { icon: '⛳', name: 'Golf' },
+  { icon: '🎿', name: 'Skiing' },
+  { icon: '🛹', name: 'Skateboarding' },
+  { icon: '🚴', name: 'Cycling' },
+  { icon: '🏃', name: 'Running' },
+];
 
 export default function SportsPanel() {
   const [sports, setSports] = useState([]);
@@ -13,6 +33,7 @@ export default function SportsPanel() {
     base_fee: '',
     status: 'ACTIVE',
     icon: '🏸',
+    sport_center: '',
   });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -20,6 +41,8 @@ export default function SportsPanel() {
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [editingFeeValue, setEditingFeeValue] = useState('');
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState({});
@@ -111,9 +134,10 @@ export default function SportsPanel() {
         base_fee: parseFloat(formData.base_fee || 0),
         status: formData.status,
         icon: formData.icon,
+        sport_center: formData.sport_center.trim() || undefined,
       });
       setMessage({ text: result.message, type: 'success' });
-      setFormData({ name: '', base_fee: '', status: 'ACTIVE', icon: '🏸' });
+      setFormData({ name: '', base_fee: '', status: 'ACTIVE', icon: '🏸', sport_center: '' });
       setFieldErrors({});
       loadSports();
     } catch (error) {
@@ -345,29 +369,47 @@ export default function SportsPanel() {
             <label className="label" htmlFor="sportIcon">
               Sport Icon
             </label>
-            <motion.select
+            <button
+              type="button"
               id="sportIcon"
-              className="input-field"
-              value={formData.icon}
-              onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-              whileFocus={{ scale: 1.01 }}
+              className="input-field flex items-center justify-between text-left"
+              onClick={() => setShowIconPicker(true)}
             >
-              <option value="🏸">🏸 Badminton</option>
-              <option value="🏏">🏏 Cricket</option>
-              <option value="⚽">⚽ Football</option>
-              <option value="🏀">🏀 Basketball</option>
-              <option value="🎾">🎾 Tennis</option>
-              <option value="🏊">🏊 Swimming</option>
-              <option value="🏋️">🏋️ Weightlifting</option>
-              <option value="🥊">🥊 Boxing</option>
-              <option value="🏐">🏐 Volleyball</option>
-              <option value="🎱">🎱 Pool</option>
-              <option value="⛳">⛳ Golf</option>
-              <option value="🎿">🎿 Skiing</option>
-              <option value="🛹">🛹 Skateboarding</option>
-              <option value="🚴">🚴 Cycling</option>
-              <option value="🏃">🏃 Running</option>
-            </motion.select>
+              <span className="flex items-center gap-2">
+                <span className="text-2xl">{formData.icon}</span>
+                <span className="text-muted text-sm">
+                  {SPORTS_ICONS.find((item) => item.icon === formData.icon)?.name || 'Select Icon'}
+                </span>
+              </span>
+              <span className="text-muted">▼</span>
+            </button>
+          </div>
+          <div>
+            <label className="label" htmlFor="sportCenter">
+              Sport Center
+            </label>
+            <div className="relative">
+              <motion.input
+                id="sportCenter"
+                type="text"
+                className="input-field pr-10"
+                value={formData.sport_center}
+                onChange={(e) => {
+                  setFormData({ ...formData, sport_center: e.target.value });
+                }}
+                placeholder="Enter sport center location"
+                whileFocus={{ scale: 1.01 }}
+                onClick={() => setShowMapPicker(true)}
+                readOnly
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-accent transition-colors"
+                onClick={() => setShowMapPicker(true)}
+              >
+                <MapPin className="w-5 h-5" />
+              </button>
+            </div>
           </div>
           <div>
             <label className="label" htmlFor="baseFee">
@@ -419,6 +461,57 @@ export default function SportsPanel() {
           </motion.button>
         </div>
       </form>
+      
+      {/* Icon Picker Modal */}
+      {showIconPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="bg-surface border-border max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl">
+            <div className="border-border flex items-center justify-between border-b p-4">
+              <h3 className="font-bold text-lg">Select Sport Icon</h3>
+              <button
+                type="button"
+                className="text-muted hover:text-foreground transition-colors"
+                onClick={() => setShowIconPicker(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid max-h-[60vh] grid-cols-4 gap-3 overflow-y-auto sm:grid-cols-5 md:grid-cols-6">
+                {SPORTS_ICONS.map((item) => (
+                  <button
+                    key={item.icon}
+                    type="button"
+                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all hover:border-accent hover:bg-accent/10 ${
+                      formData.icon === item.icon
+                        ? 'border-accent bg-accent/10 ring-2 ring-accent/20'
+                        : 'border-border bg-surface-secondary'
+                    }`}
+                    onClick={() => {
+                      setFormData({ ...formData, icon: item.icon });
+                      setShowIconPicker(false);
+                    }}
+                  >
+                    <span className="text-3xl">{item.icon}</span>
+                    <span className="text-muted text-xs">{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Map Location Picker Modal */}
+      <MapLocationPicker
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onSelect={(address) => {
+          setFormData({ ...formData, sport_center: address });
+        }}
+        initialAddress={formData.sport_center}
+      />
+      
       {message.text && (
         <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
           {message.text}
@@ -471,6 +564,7 @@ export default function SportsPanel() {
                   </th>
                 )}
                 <th>Name</th>
+                <th>Sport Center</th>
                 <th>Base Fee</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -503,6 +597,9 @@ export default function SportsPanel() {
                     <td className="p-3 font-medium">
                       <span className="mr-2 text-lg">{sport.icon || '🏸'}</span>
                       {sport.name}
+                    </td>
+                    <td className="p-3">
+                      <span className="text-muted text-sm">{sport.sport_center || '—'}</span>
                     </td>
                     <td className="p-3">
                       {editingFeeId === (sport.sport_id || sport.id) ? (

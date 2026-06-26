@@ -101,6 +101,7 @@ export default function LandingPage() {
   const [contactMessage, setContactMessage] = useState({ text: '', type: '' });
 
   const [activeModal, setActiveModal] = useState(null); // 'signup' | 'contact' | null
+  const [loginDropdownOpen, setLoginDropdownOpen] = useState(false);
 
   // Auto-Save Persistence Loops
   useEffect(() => {
@@ -110,6 +111,18 @@ export default function LandingPage() {
   useEffect(() => {
     localStorage.setItem('sams_draft_public_contact', JSON.stringify(contactForm));
   }, [contactForm]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (loginDropdownOpen && !event.target.closest('.login-dropdown-container')) {
+        setLoginDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [loginDropdownOpen]);
 
   const handleSignupChange = (event) => {
     const { name, value } = event.target;
@@ -301,18 +314,6 @@ export default function LandingPage() {
         >
           Contact
         </a>
-        <Link
-          to="/coach/login"
-          className="text-muted hover:text-accent text-sm font-bold transition-colors"
-        >
-          Coach Login
-        </Link>
-        <Link
-          to="/parent/login"
-          className="text-muted hover:text-accent text-sm font-bold transition-colors"
-        >
-          Parent Login
-        </Link>
       </nav>
       <NavbarActions>
         {isInstallable && (
@@ -324,18 +325,51 @@ export default function LandingPage() {
             Install App
           </button>
         )}
-        <Link
-          to="/login/admin"
-          className="btn-secondary btn-sm transition-transform active:scale-95"
-        >
-          Admin Login
-        </Link>
-        <a
-          href="#signup"
-          className="btn-primary btn-sm font-bold transition-transform active:scale-95"
-        >
-          Admin Signup
-        </a>
+        <div className="relative login-dropdown-container">
+          <button
+            type="button"
+            className="btn-secondary btn-sm transition-transform active:scale-95"
+            onClick={() => setLoginDropdownOpen(!loginDropdownOpen)}
+          >
+            Login
+          </button>
+          {loginDropdownOpen && (
+            <div className="bg-surface border-border absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border shadow-lg">
+              <div className="p-1">
+                <Link
+                  to="/login/admin"
+                  className="text-foreground hover:bg-accent/10 block rounded px-4 py-2 text-sm font-bold transition-colors"
+                  onClick={() => setLoginDropdownOpen(false)}
+                >
+                  Admin
+                </Link>
+                <div className="px-4 pb-2 pt-1">
+                  <Link
+                    to="#signup"
+                    className="text-accent hover:text-accent/80 text-xs font-bold transition-colors"
+                    onClick={() => setLoginDropdownOpen(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+                <Link
+                  to="/coach/login"
+                  className="text-foreground hover:bg-accent/10 block rounded px-4 py-2 text-sm font-bold transition-colors"
+                  onClick={() => setLoginDropdownOpen(false)}
+                >
+                  Coach
+                </Link>
+                <Link
+                  to="/parent/login"
+                  className="text-foreground hover:bg-accent/10 block rounded px-4 py-2 text-sm font-bold transition-colors"
+                  onClick={() => setLoginDropdownOpen(false)}
+                >
+                  Parent
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
       </NavbarActions>
     </Navbar>
 

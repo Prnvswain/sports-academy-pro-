@@ -407,7 +407,7 @@ export const createSport = async (academy_id, data) => {
   }
 
   // Support both camelCase and snake_case for base_fee
-  const { name, base_fee, baseFee, status, latitude, longitude, use_custom_location } = data;
+  const { name, base_fee, baseFee, status, latitude, longitude, use_custom_location, sport_center } = data;
   const parsedFee = parseFloat(
     base_fee !== undefined ? base_fee : baseFee !== undefined ? baseFee : 0,
   );
@@ -419,6 +419,7 @@ export const createSport = async (academy_id, data) => {
       status: status || 'ACTIVE',
       academy_id: academyId,
       is_custom: true,
+      sport_center: sport_center || null,
       latitude: latitude ? parseFloat(latitude) : null,
       longitude: longitude ? parseFloat(longitude) : null,
       use_custom_location: use_custom_location || false,
@@ -913,10 +914,27 @@ export const createStudent = async (academy_id, data) => {
   // Parent auto-creation logic
   let parent_id = null;
   if (data.parent_email) {
-    // Check if parent account already exists
-    const existingParent = await parentService.findParentByEmail(data.parent_email, academyId);
+    // Check if parent account already exists (including inactive parents)
+    const existingParent = await prisma.parent.findFirst({
+      where: {
+        email: data.parent_email,
+        academy_id: academyId,
+      },
+    });
 
     if (existingParent) {
+      // Reactivate parent if inactive
+      if (!existingParent.is_active) {
+        await prisma.parent.update({
+          where: { parent_id: existingParent.parent_id },
+          data: { is_active: true },
+        });
+        logger.info('Reactivated inactive parent account', {
+          parent_id: existingParent.parent_id,
+          parent_email: data.parent_email
+        });
+      }
+
       // Link to existing parent
       parent_id = existingParent.parent_id;
       logger.info('Linking student to existing parent account', {
@@ -1036,6 +1054,8 @@ export const createStudent = async (academy_id, data) => {
       joining_date: data.joining_date ? new Date(data.joining_date) : new Date(),
       fees_status: data.fees_status || 'unpaid',
       status: 'ACTIVE',
+      height: data.height ? Number(data.height) : null,
+      weight: data.weight ? Number(data.weight) : null,
     },
     include: { batch: true, sport: true, parent: true },
   });
@@ -1180,6 +1200,9 @@ export const updateStudent = async (academy_id, student_id, data) => {
       phone: data.phone ?? student.phone,
       fees_status: data.fees_status ?? student.fees_status,
       status: data.status ?? student.status,
+      joining_date: data.joining_date !== undefined ? (data.joining_date ? new Date(data.joining_date) : null) : student.joining_date,
+      height: data.height !== undefined ? (data.height ? Number(data.height) : null) : student.height,
+      weight: data.weight !== undefined ? (data.weight ? Number(data.weight) : null) : student.weight,
     },
     include: { batch: true, sport: true, receipts: true },
   });
@@ -1455,6 +1478,7 @@ export const deleteBatch = async (academy_id, batch_id) => {
     throw error;
   }
 
+  // Check for enrolled students before deleting
   const enrolled = await prisma.student.count({
     where: { batch_id: batch.batch_id, ...NOT_DELETED, status: 'ACTIVE' },
   });
@@ -1465,12 +1489,16 @@ export const deleteBatch = async (academy_id, batch_id) => {
     throw error;
   }
 
-  await prisma.batch.update({
-    where: { batch_id: batch.batch_id },
-    data: { status: 'INACTIVE' },
+  // Hard delete the batch from database
+  // Note: Use prisma.batch (singular model name) not prisma.batches
+  await prisma.batch.delete({
+    where: {
+      batch_id: parseInt(batch_id, 10)
+    }
   });
 
-  logger.info('Batch deactivated', { batch_id, academy_id });
+  logger.info('Batch deleted permanently', { batch_id, academy_id });
+  return true;
 };
 
 // ==================== COACH ATTENDANCE ====================

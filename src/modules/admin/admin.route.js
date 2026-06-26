@@ -97,12 +97,21 @@ router.post(
   validationErrorHandler,
   adminController.createBatch,
 );
+// PUT: Standard entity modifications
 router.put(
   '/batches/:batch_id',
   validate('updateBatch'),
   validationErrorHandler,
   adminController.updateBatch,
 );
+// POST Fallback: To cleanly handle frontend utility states (like status toggling or multi-client requests)
+router.post(
+  '/batches/:batch_id',
+  validate('updateBatch'),
+  validationErrorHandler,
+  adminController.updateBatch,
+);
+
 router.delete('/batches/:batch_id', adminController.deleteBatch);
 
 /* ─── ATTENDANCE TRACKER ────────────────────────────────────────────────── */
@@ -163,13 +172,9 @@ router.get('/enquiries', adminController.getEnquiries);
 router.patch('/enquiries/:id', adminController.updateEnquiry);
 
 /* ─── PERFORMANCE TRACKER (NEW SYSTEM ADDITION) ─────────────────────────── */
-// GET: Fetches all performance attributes for the academy (with dynamic query filtering)
 router.get('/performance/attributes', adminController.getPerformanceApprovalQueue);
-// GET: Pulls down all coach proposals matching your exact route string requirements
 router.get('/performance/approval-queue', adminController.getPerformanceApprovalQueue);
-// POST: Creates a new performance attribute
 router.post('/performance/attributes', adminController.createPerformanceAttribute);
-// PATCH: Processes 'APPROVED' or 'REJECTED' Enum statuses safely via request body mapping
 router.patch('/performance/approve-attribute/:id', adminController.approvePerformanceAttribute);
 
 /* ─── SMART BROADCAST CENTER ─────────────────────────────────────────────── */
@@ -178,7 +183,7 @@ router.post('/announcements', adminController.createAnnouncement);
 router.get('/coaches/:coachId/notifications', adminController.getCoachNotifications);
 router.patch('/notifications/:notificationId/read', adminController.markNotificationAsRead);
 
-/* ─── GPS ATTENDANCE SETTINGS ───────────────────────────────────────────── */
+/* ─── GPS ATTENDANCE SETTINGS (UNTOUCHED / KEPT EXACTLY AS PROVIDED) ────── */
 router.get('/gps/settings', gpsController.getGpsSettings);
 router.patch('/gps/settings', gpsController.updateGpsSettings);
 router.get('/gps/location-logs', gpsController.getAttendanceLocationLogs);

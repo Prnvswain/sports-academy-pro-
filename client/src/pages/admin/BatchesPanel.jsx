@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Loader from '../../components/Loader';
-import { adminGet, adminPost, TIMING_OPTIONS } from '../../api/client';
+import { adminGet, adminPost, adminDelete, TIMING_OPTIONS } from '../../api/client';
 
 const emptyBatchForm = {
   name: '',
@@ -20,9 +20,11 @@ export default function BatchesPanel() {
   const [batchForm, setBatchForm] = useState(emptyBatchForm);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
-
-  // Field-level validation errors
+  const [editingBatchId, setEditingBatchId] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+
+  // TIME OVERLAP DIALOG STATE
+  const [overlapDetails, setOverlapDetails] = useState(null);
 
   const setFieldError = (field, message) => {
     setFieldErrors((prev) => ({ ...prev, [field]: message }));
@@ -32,38 +34,24 @@ export default function BatchesPanel() {
     setFieldErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
-  const setBackendFieldErrors = (backendErrors) => {
-    setFieldErrors(backendErrors);
-  };
-
   const validateField = (field, value) => {
     let error = '';
-
     switch (field) {
       case 'name':
-        if (!value || value.trim() === '') {
-          error = 'Batch name is required';
-        }
+        if (!value || value.trim() === '') error = 'Batch name is required';
         break;
       case 'coach_id':
-        if (!value) {
-          error = 'Coach is required';
-        }
+        if (!value) error = 'Coach is required';
         break;
       case 'sport_id':
-        if (!value) {
-          error = 'Sport is required';
-        }
+        if (!value) error = 'Sport is required';
         break;
       case 'max_capacity':
-        if (value && (isNaN(value) || parseInt(value) < 1)) {
-          error = 'Capacity must be a positive number';
-        }
+        if (value && (isNaN(value) || parseInt(value, 10) < 1)) error = 'Capacity must be a positive number';
         break;
       default:
         break;
     }
-
     if (error) {
       setFieldError(field, error);
       return false;
@@ -86,9 +74,6 @@ export default function BatchesPanel() {
       setSports(Array.isArray(sportsData) ? sportsData.filter(s => s.status === 'ACTIVE') : []);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
-      setBatches([]);
-      setCoaches([]);
-      setSports([]);
     } finally {
       setLoading(false);
     }
@@ -104,50 +89,153 @@ export default function BatchesPanel() {
     clearFieldError(name);
   };
 
-  const handleBatchSubmit = async (event) => {
-    event.preventDefault();
-    setMessage({ text: '', type: '' });
-    setFieldErrors({});
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const [hrs, mins] = timeStr.split(':').map(Number);
+    return hrs * 60 + mins;
+  };
 
-    // Validate all fields
+  const checkBatchConflicts = (startStr, endStr, coachId, sportId, ignoreBatchId) => {
+    const newStart = timeToMinutes(startStr);
+    const newEnd = timeToMinutes(endStr);
+
+    if (newStart >= newEnd) {
+      return { hasConflict: true, type: 'INVALID_TIME', message: 'End time must be after Start time.' };
+    }
+
+    for (const b of batches) {
+      if (b.batch_id === ignoreBatchId) continue;
+
+      let bStart = 0;
+      let bEnd = 0;
+      if (b.timing && b.timing.includes('-')) {
+        const parts = b.timing.split('-');
+        bStart = timeToMinutes(parts[0].trim());
+        bEnd = timeToMinutes(parts[1].trim());
+      } else {
+        continue;
+      }
+
+      const isOverlapping = newStart < bEnd && newEnd > bStart;
+
+      if (isOverlapping) {
+        if (b.coach_id === parseInt(coachId, 10)) {
+          const coachName = coaches.find(c => c.coach_id === b.coach_id)?.name || 'Same Coach';
+          return {
+            hasConflict: true,
+            type: 'COACH_OVERLAP',
+            message: `Coach conflict found! "${coachName}" is already handling the batch "${b.name}" during this slot (${b.timing}).`
+          };
+        }
+        if (b.sport_id === parseInt(sportId, 10)) {
+          const sportName = sports.find(s => s.sport_id === b.sport_id)?.name || 'Same Sport';
+          return {
+            hasConflict: true,
+            type: 'SPORT_OVERLAP',
+            message: `Sport/Facility slot override warning! There is already another "${sportName}" batch named "${b.name}" running at this exact time.`
+          };
+        }
+      }
+    }
+    return { hasConflict: false };
+  };
+
+  const handleBatchSubmit = async (event, forceSubmit = false) => {
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    setMessage({ text: '', type: '' });
+
     const isValid =
       validateField('name', batchForm.name) &&
       validateField('coach_id', batchForm.coach_id) &&
-      validateField('sport_id', batchForm.sport_id) &&
-      validateField('max_capacity', batchForm.max_capacity);
+      validateField('sport_id', batchForm.sport_id);
 
-    if (!isValid) {
-      return;
+    if (!isValid) return;
+
+    if (!forceSubmit) {
+      const conflict = checkBatchConflicts(
+        batchForm.startTime,
+        batchForm.endTime,
+        batchForm.coach_id,
+        batchForm.sport_id,
+        editingBatchId
+      );
+
+      if (conflict.hasConflict) {
+        if (conflict.type === 'INVALID_TIME') {
+          setMessage({ text: conflict.message, type: 'error' });
+          return;
+        }
+        setOverlapDetails(conflict.message);
+        return;
+      }
     }
 
     try {
-      // Format times to ensure HH:mm format with leading zeros
       const formatTime = (time) => {
-        if (!time) return '';
+        if (!time) return '00:00';
         const [hours, minutes] = time.split(':');
         return `${hours.padStart(2, '0')}:${minutes}`;
       };
       const timing = `${formatTime(batchForm.startTime)} - ${formatTime(batchForm.endTime)}`;
 
-      const result = await adminPost('/admin/batches', {
+      const endpoint = editingBatchId ? `/admin/batches/${editingBatchId}` : '/admin/batches';
+
+      const result = await adminPost(endpoint, {
         name: batchForm.name?.trim(),
         timing,
         coach_id: parseInt(batchForm.coach_id, 10),
         sport_id: parseInt(batchForm.sport_id, 10),
         max_capacity: batchForm.max_capacity ? parseInt(batchForm.max_capacity, 10) : undefined,
+        status: 'ACTIVE',
       });
-      setMessage({ text: result?.message || 'Batch created successfully', type: 'success' });
+
+      setMessage({ text: result?.message || `Batch saved successfully`, type: 'success' });
       setBatchForm(emptyBatchForm);
-      setFieldErrors({});
+      setEditingBatchId(null);
+      setOverlapDetails(null);
       loadData();
     } catch (error) {
-      // Handle structured validation errors from backend
-      if (error.data && error.data.errors) {
-        setBackendFieldErrors(error.data.errors);
-        setMessage({ text: 'Please fix the validation errors below.', type: 'error' });
-      } else {
-        setMessage({ text: error.message, type: 'error' });
-      }
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleEditClick = (batch) => {
+    setEditingBatchId(batch.batch_id);
+    let start = '08:00';
+    let end = '09:00';
+    if (batch.timing && batch.timing.includes('-')) {
+      const parts = batch.timing.split('-');
+      start = parts[0].trim();
+      end = parts[1].trim();
+    }
+    setBatchForm({
+      name: batch.name || '',
+      startTime: start,
+      endTime: end,
+      coach_id: batch.coach_id?.toString() || '',
+      sport_id: batch.sport_id?.toString() || '',
+      max_capacity: batch.max_capacity?.toString() || '',
+    });
+  };
+
+  const handleDeleteBatch = async (batchId) => {
+    if (!window.confirm("Are you sure you want to delete this batch?")) return;
+    try {
+      // 1. Backend API hit karein
+      await adminDelete(`/admin/batches/${batchId}`);
+
+      // 2. Success message set karein
+      setMessage({ text: "Batch deleted successfully", type: "success" });
+
+      // 3. 🔥 Frontend State se turant filter out karein taaki screen se gayab ho jaye
+      setBatches((prevBatches) => prevBatches.filter(b => b.batch_id !== batchId));
+
+      // 4. Background verification ke liye fresh load karein
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: "error" });
     }
   };
 
@@ -159,173 +247,110 @@ export default function BatchesPanel() {
   );
 
   return (
-    <motion.div
-      className="space-y-6 w-full overflow-x-hidden"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
+    <motion.div className="space-y-6 w-full relative" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+
+      {/* OVERLAP DIALOG */}
+      {overlapDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+          <motion.div
+            className="bg-white dark:bg-zinc-900 p-6 rounded-xl shadow-xl max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-800 space-y-4"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+          >
+            <div className="flex items-center gap-3 text-amber-500">
+              <span className="text-2xl">⚠️</span>
+              <h4 className="text-lg font-bold text-foreground">Schedule Overlap Alert</h4>
+            </div>
+            <p className="text-sm text-muted leading-relaxed">{overlapDetails}</p>
+            <div className="flex gap-3 pt-2 justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-foreground hover:bg-zinc-200"
+                onClick={() => setOverlapDetails(null)}
+              >
+                Go Back & Fix
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-bold rounded-lg bg-amber-500 text-white hover:bg-amber-600 shadow-xs"
+                onClick={() => handleBatchSubmit(null, true)}
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-2xl font-bold">Training Batches</h2>
         <p className="text-muted">Schedule and manage training batches with coaches and sports.</p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        {/* FIXED FORM: Replaced 'bg-white border p-6 rounded-xl' with global 'card' utility */}
-        <form className="card space-y-4" onSubmit={handleBatchSubmit}>
-          <h3 className="text-lg font-bold">Create Batch</h3>
+        <form className="card space-y-4" onSubmit={(e) => handleBatchSubmit(e, false)}>
+          <h3 className="text-lg font-bold">{editingBatchId ? 'Modify Batch Settings' : 'Create Batch'}</h3>
+
           <div>
-            <label className="label" htmlFor="batchName">
-              Batch Name
-            </label>
-            {/* FIXED INPUT: Replaced explicitly broken inner utility classes with generic clean 'input-field' */}
-            <motion.input
-              id="batchName"
+            <label className="label">Batch Name</label>
+            <input
               name="name"
               className={`input-field ${fieldErrors.name ? 'border-red-500' : ''}`}
               value={batchForm.name}
               onChange={handleBatchChange}
-              onBlur={() => validateField('name', batchForm.name)}
               required
-              whileFocus={{ scale: 1.01 }}
             />
-            {fieldErrors.name && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
-            )}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label" htmlFor="batchStartTime">
-                Start Time
-              </label>
-              <motion.input
-                id="batchStartTime"
-                name="startTime"
-                type="time"
-                className="input-field"
-                value={batchForm.startTime}
-                onChange={handleBatchChange}
-                required
-                whileFocus={{ scale: 1.01 }}
-              />
+              <label className="label">Start Time</label>
+              <input name="startTime" type="time" className="input-field" value={batchForm.startTime} onChange={handleBatchChange} required />
             </div>
             <div>
-              <label className="label" htmlFor="batchEndTime">
-                End Time
-              </label>
-              <motion.input
-                id="batchEndTime"
-                name="endTime"
-                type="time"
-                className="input-field"
-                value={batchForm.endTime}
-                onChange={handleBatchChange}
-                required
-                whileFocus={{ scale: 1.01 }}
-              />
+              <label className="label">End Time</label>
+              <input name="endTime" type="time" className="input-field" value={batchForm.endTime} onChange={handleBatchChange} required />
             </div>
           </div>
+
           <div>
-            <label className="label" htmlFor="batchCoach">
-              Coach
-            </label>
-            <motion.select
-              id="batchCoach"
-              name="coach_id"
-              className={`input-field text-foreground bg-[var(--color-input)] ${fieldErrors.coach_id ? 'border-red-500' : ''}`}
-              value={batchForm.coach_id}
-              onChange={handleBatchChange}
-              onBlur={() => validateField('coach_id', batchForm.coach_id)}
-              required
-              whileFocus={{ scale: 1.01 }}
-            >
-              <option value="" className="text-muted">
-                Select coach…
-              </option>
-              {coaches.map((c) => (
-                <option key={c?.coach_id} value={c?.coach_id}>
-                  {c?.name}
-                </option>
-              ))}
-            </motion.select>
-            {fieldErrors.coach_id && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.coach_id}</p>
-            )}
+            <label className="label">Coach</label>
+            <select name="coach_id" className="input-field bg-[var(--color-input)]" value={batchForm.coach_id} onChange={handleBatchChange} required>
+              <option value="">Select coach…</option>
+              {coaches.map(c => <option key={c.coach_id} value={c.coach_id}>{c.name}</option>)}
+            </select>
           </div>
+
           <div>
-            <label className="label" htmlFor="batchSport">
-              Sport
-            </label>
-            <motion.select
-              id="batchSport"
-              name="sport_id"
-              className={`input-field text-foreground bg-[var(--color-input)] ${fieldErrors.sport_id ? 'border-red-500' : ''}`}
-              value={batchForm.sport_id}
-              onChange={handleBatchChange}
-              onBlur={() => validateField('sport_id', batchForm.sport_id)}
-              required
-              whileFocus={{ scale: 1.01 }}
-            >
-              <option value="" className="text-muted">
-                Select sport…
-              </option>
-              {sports.map((s) => (
-                <option key={s?.sport_id} value={s?.sport_id}>
-                  {s?.name}
-                </option>
-              ))}
-            </motion.select>
-            {fieldErrors.sport_id && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.sport_id}</p>
-            )}
+            <label className="label">Sport</label>
+            <select name="sport_id" className="input-field bg-[var(--color-input)]" value={batchForm.sport_id} onChange={handleBatchChange} required>
+              <option value="">Select sport…</option>
+              {sports.map(s => <option key={s.sport_id} value={s.sport_id}>{s.name}</option>)}
+            </select>
           </div>
+
           <div>
-            <label className="label" htmlFor="batchCapacity">
-              Max Capacity (optional)
-            </label>
-            <motion.input
-              id="batchCapacity"
-              name="max_capacity"
-              type="number"
-              min={1}
-              className={`input-field ${fieldErrors.max_capacity ? 'border-red-500' : ''}`}
-              value={batchForm.max_capacity}
-              onChange={handleBatchChange}
-              onBlur={() => validateField('max_capacity', batchForm.max_capacity)}
-              placeholder="e.g. 20"
-              whileFocus={{ scale: 1.01 }}
-            />
-            {fieldErrors.max_capacity && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.max_capacity}</p>
-            )}
+            <label className="label">Max Capacity (Optional)</label>
+            <input name="max_capacity" type="number" min={1} className="input-field" value={batchForm.max_capacity} onChange={handleBatchChange} placeholder="e.g. 20" />
           </div>
-          {/* FIXED BUTTON: Replaced static 'bg-blue-600' with your global green/emerald setup 'btn-primary' */}
-          <motion.button
-            type="submit"
-            className="btn-primary w-full cursor-pointer"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Create Batch
-          </motion.button>
+
+          <div className="flex gap-3 pt-2">
+            {editingBatchId && (
+              <button type="button" className="w-1/3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold py-2.5 text-sm" onClick={() => { setEditingBatchId(null); setBatchForm(emptyBatchForm); }}>
+                Cancel
+              </button>
+            )}
+            <button type="submit" className={`btn-primary ${editingBatchId ? 'w-2/3' : 'w-full'}`}>
+              {editingBatchId ? 'Save Changes' : 'Create Batch'}
+            </button>
+          </div>
         </form>
 
-        {/* FIXED LIST CONTAINER: Removed hardcoded background utilities */}
         <div className="card space-y-4 overflow-x-auto">
           <h3 className="text-lg font-bold">Scheduled Batches</h3>
-          <div>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Search batches by name, sport, or coach..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          {loading ? (
-            <Loader />
-          ) : (
-            /* FIXED TABLE: Leveraged theme-aware text-muted and internal token borders */
+          <input type="text" className="input-field" placeholder="Search batches by name, sport, or coach..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+
+          {loading ? <Loader /> : (
             <table className="w-full border-collapse text-left text-sm">
               <thead>
                 <tr className="border-border text-muted border-b text-xs font-bold uppercase tracking-wider">
@@ -334,7 +359,7 @@ export default function BatchesPanel() {
                   <th className="px-2 pb-3">Coach</th>
                   <th className="px-2 pb-3">Sport</th>
                   <th className="px-2 pb-3">Capacity</th>
-                  <th className="px-2 pb-3">Status</th>
+                  <th className="px-2 pb-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-border divide-y">
@@ -362,13 +387,21 @@ export default function BatchesPanel() {
                         {batch?.enrolled_count ?? batch?.students?.length ?? 0}
                         {batch?.max_capacity != null ? ` / ${batch.max_capacity}` : ''}
                       </td>
-                      <td className="px-2 py-3">
-                        {/* Dynamic green status badges using customized color tokens */}
-                        <span
-                          className={`rounded-lg px-2.5 py-1 text-xs font-bold ${batch?.status === 'ACTIVE' || !batch?.status ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}
+                      <td className="px-2 py-3 text-right space-x-2 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(batch)}
+                          className="px-2 py-1 text-xs font-semibold rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                         >
-                          {batch?.status || 'ACTIVE'}
-                        </span>
+                          ✏️ Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBatch(batch?.batch_id)}
+                          className="px-2 py-1 text-xs font-semibold rounded border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          🗑️ Delete
+                        </button>
                       </td>
                     </motion.tr>
                   ))
@@ -379,7 +412,6 @@ export default function BatchesPanel() {
         </div>
       </div>
 
-      {/* FIXED SEMANTIC ALERTS: Replaced static styles with standard design framework variants */}
       {message?.text && (
         <div className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
           {message.text}

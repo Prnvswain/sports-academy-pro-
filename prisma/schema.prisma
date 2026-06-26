@@ -263,6 +263,7 @@ model Sport {
   status      RecordStatus @default(ACTIVE)
   academy_id  Int?
   is_custom   Boolean      @default(false)
+  sport_center String?     @db.Text
   latitude    Decimal?     @db.Decimal(10, 7)
   longitude   Decimal?     @db.Decimal(10, 7)
   use_custom_location Boolean @default(false)
@@ -364,6 +365,8 @@ model Student {
   sport_id      Int?
   batch_id      Int?
   blood_group   String?
+  height        Decimal?     @db.Decimal(5, 2)
+  weight        Decimal?     @db.Decimal(5, 2)
   fees_status   String       @default("unpaid")
   status        RecordStatus @default(ACTIVE)
   exit_reason   String?

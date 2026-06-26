@@ -13,6 +13,7 @@ export const validate = (method) => {
           .optional()
           .isFloat({ min: 0 })
           .withMessage('Base fee must be a valid number'),
+        body('sport_center').optional().isString().withMessage('Sport center must be a string'),
         body('status').optional().isIn(['ACTIVE', 'INACTIVE']).withMessage('Invalid status'),
       ];
 
@@ -124,6 +125,18 @@ export const validate = (method) => {
           .optional()
           .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
           .withMessage('Invalid blood group'),
+        body('height')
+          .optional({ nullable: true, checkFalsy: true })
+          .isFloat({ min: 0 })
+          .withMessage('Height must be a valid number'),
+        body('weight')
+          .optional({ nullable: true, checkFalsy: true })
+          .isFloat({ min: 0 })
+          .withMessage('Weight must be a valid number'),
+        body('joining_date')
+          .optional()
+          .isISO8601()
+          .withMessage('Invalid joining date format'),
         body('fees_status')
           .optional()
           .isIn(['paid', 'pending', 'partial', 'unpaid'])
@@ -189,6 +202,18 @@ export const validate = (method) => {
           .optional()
           .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
           .withMessage('Invalid blood group'),
+        body('height')
+          .optional({ nullable: true, checkFalsy: true })
+          .isFloat({ min: 0 })
+          .withMessage('Height must be a valid number'),
+        body('weight')
+          .optional({ nullable: true, checkFalsy: true })
+          .isFloat({ min: 0 })
+          .withMessage('Weight must be a valid number'),
+        body('joining_date')
+          .optional()
+          .isISO8601()
+          .withMessage('Invalid joining date format'),
         body('fees_status')
           .optional()
           .isIn(['paid', 'pending', 'partial', 'unpaid'])
