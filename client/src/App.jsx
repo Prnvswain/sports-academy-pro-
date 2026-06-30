@@ -5,22 +5,26 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminLayout from './layouts/AdminLayout';
 import CoachLayout from './layouts/CoachLayout';
 import ParentLayout from './layouts/ParentLayout';
+import SuperAdminLayout from './layouts/SuperAdminLayout';
 import LandingPage from './pages/LandingPage';
 import AdminLogin from './pages/AdminLogin';
 import CoachLogin from './pages/CoachLogin';
 import SuperAdminLogin from './pages/SuperAdminLogin';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import AcademiesPanel from './pages/super-admin/AcademiesPanel';
+import SuperAdminPlansPanel from './pages/super-admin/PlansPanel';
+import ControllerPanel from './pages/super-admin/ControllerPanel';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage.jsx';
 import SportsPanel from './pages/admin/SportsPanel';
 import CoachesPanel from './pages/admin/CoachesPanel';
 import StudentsPanel from './pages/admin/StudentsPanel';
 import BatchesPanel from './pages/admin/BatchesPanel';
-import PlansPanel from './pages/admin/PlansPanel';
 import PaymentsPanel from './pages/admin/PaymentsPanel';
 import ReportsPanel from './pages/admin/ReportsPanel';
 import PerformancePanel from './pages/admin/PerformancePanel';
 import EnquiriesPanel from './pages/admin/EnquiriesPanel';
 import GpsSettingsPanel from './pages/admin/GpsSettingsPanel';
+import AdminPlansPanel from './pages/admin/PlansPanel';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -36,6 +40,7 @@ import ParentAttendance from './pages/parent/ParentAttendance';
 import ParentPerformance from './pages/parent/ParentPerformance';
 import ParentFees from './pages/parent/ParentFees';
 import ParentProfile from './pages/parent/ParentProfile';
+import ParentSettings from './pages/parent/ParentSettings';
 
 export default function App() {
   return (
@@ -88,7 +93,7 @@ export default function App() {
               }
             />
             <Route path="batches" element={<BatchesPanel />} />
-            <Route path="plans" element={<PlansPanel />} />
+            <Route path="plans" element={<AdminPlansPanel />} />
             <Route path="accounts" element={<PaymentsPanel />} />
             <Route path="payments" element={<Navigate to="/admin/accounts" replace />} />
             <Route path="reports" element={<ReportsPanel />} />
@@ -134,18 +139,25 @@ export default function App() {
             <Route path="performance" element={<ParentPerformance />} />
             <Route path="fees" element={<ParentFees />} />
             <Route path="profile" element={<ParentProfile />} />
+            <Route path="settings" element={<ParentSettings />} />
           </Route>
 
           {/* Hidden Gateways (Intentionally Omitted From Direct Public References) */}
           <Route path="/super-admin/login" element={<SuperAdminLogin />} />
           <Route
-            path="/super-admin/dashboard"
+            path="/super-admin"
             element={
               <SuperAdminRoute>
-                <SuperAdminDashboard />
+                <SuperAdminLayout />
               </SuperAdminRoute>
             }
-          />
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<SuperAdminDashboard />} />
+            <Route path="academies" element={<AcademiesPanel />} />
+            <Route path="plans" element={<SuperAdminPlansPanel />} />
+            <Route path="controller" element={<ControllerPanel />} />
+          </Route>
 
           {/* Fallback Catch-All Wildcard Mapping Logic */}
           <Route path="*" element={<Navigate to="/" replace />} />

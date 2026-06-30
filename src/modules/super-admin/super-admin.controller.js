@@ -23,6 +23,42 @@ export const getAcademies = async (req, res, next) => {
   }
 };
 
+export const getPlans = async (req, res, next) => {
+  try {
+    const plans = await superAdminService.listPlans();
+    res.json(successResponse('Plans retrieved', plans));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSports = async (req, res, next) => {
+  try {
+    const sports = await superAdminService.listSports();
+    res.json(successResponse('Global sports retrieved', sports));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createSport = async (req, res, next) => {
+  try {
+    const sport = await superAdminService.createSport(req.body);
+    res.json(successResponse('Sport created successfully', sport));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const seedSports = async (req, res, next) => {
+  try {
+    const result = await superAdminService.seedDefaultSports();
+    res.json(successResponse('Sports seeded', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const patchAcademyStatus = async (req, res, next) => {
   try {
     const academy = await superAdminService.updateAcademyStatus(
@@ -32,6 +68,48 @@ export const patchAcademyStatus = async (req, res, next) => {
       req.ip
     );
     res.json(successResponse('Academy status updated', academy));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const patchPlanStatus = async (req, res, next) => {
+  try {
+    const plan = await superAdminService.updatePlanStatus(
+      req.params.plan_id,
+      req.body.status,
+      req.user.super_admin_id,
+      req.ip
+    );
+    res.json(successResponse('Plan status updated', plan));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const suspendAcademy = async (req, res, next) => {
+  try {
+    const academy = await superAdminService.updateAcademyStatus(
+      req.params.academy_id,
+      'SUSPENDED',
+      req.user.super_admin_id,
+      req.ip
+    );
+    res.json(successResponse('Academy suspended', academy));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const activateAcademy = async (req, res, next) => {
+  try {
+    const academy = await superAdminService.updateAcademyStatus(
+      req.params.academy_id,
+      'ACTIVE',
+      req.user.super_admin_id,
+      req.ip
+    );
+    res.json(successResponse('Academy activated', academy));
   } catch (err) {
     next(err);
   }

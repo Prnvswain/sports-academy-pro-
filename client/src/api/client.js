@@ -28,7 +28,12 @@ function unwrap(response) {
 }
 
 export function getAdminToken() {
-  return localStorage.getItem(ADMIN_TOKEN_KEY);
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  // 🎯 FIX: Check for invalid token values
+  if (!token || token === 'null' || token === 'undefined' || token === '""') {
+    return null;
+  }
+  return token;
 }
 
 export function setAdminToken(token) {
@@ -63,50 +68,19 @@ export function clearSuperAdminToken() {
   localStorage.removeItem(SUPER_ADMIN_TOKEN_KEY);
 }
 
-// Add this exact export block to your src/api/client.js file
-export async function adminPut(path, body) {
-  return api
-    .put(path, body, {
-      headers: { Authorization: `Bearer ${getAdminToken()}` }
-    })
-    .then(unwrap);
-}
-export async function signup(body) {
-  const data = await api.post('/auth/signup', body).then(unwrap);
-  if (data.data?.token) {
-    setAdminToken(data.data.token);
-  }
-  return data;
-}
-
-export async function adminLogin(body) {
-  const data = await api.post('/auth/login', body).then(unwrap);
-  if (data.data?.token) {
-    setAdminToken(data.data.token);
-  }
-  return data;
-}
-
-export async function coachLogin(body) {
-  const data = await api.post('/auth/coach/login', body).then(unwrap);
-  if (data.data?.token) {
-    setCoachToken(data.data.token);
-  }
-  return data;
-}
-
-export async function forgotPassword(body) {
-  return api.post('/auth/forgot-password', body).then(unwrap);
-}
-
-export async function resetPassword(body) {
-  return api.post('/auth/reset-password', body).then(unwrap);
-}
-
+/* ==========================================
+   🎯 NEW: AUTHENTICATED ACADEMY ADMIN WRAPPERS
+   ========================================== */
 export async function adminGet(path) {
+  const token = getAdminToken();
+  if (!token) {
+    const error = new Error('Unauthorized: No valid academy admin token found');
+    error.status = 401;
+    return Promise.reject(error);
+  }
   return api
     .get(path, {
-      headers: { Authorization: `Bearer ${getAdminToken()}` }
+      headers: { Authorization: `Bearer ${token}` }
     })
     .then(unwrap);
 }
@@ -127,6 +101,14 @@ export async function adminPatch(path, body) {
     .then(unwrap);
 }
 
+export async function adminPut(path, body) {
+  return api
+    .put(path, body, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
 export async function adminDelete(path) {
   return api
     .delete(path, {
@@ -135,6 +117,48 @@ export async function adminDelete(path) {
     .then(unwrap);
 }
 
+/* ==========================================
+   🎯 AUTH LOGIN / SIGNUP MODULES
+   ========================================== */
+export async function signup(body) {
+  const response = await api.post('/auth/signup', body).then(unwrap);
+  // Interceptor ke unwrap ke baad backend payload check
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    setAdminToken(token);
+  }
+  return response;
+}
+
+export async function adminLogin(body) {
+  const response = await api.post('/auth/login', body).then(unwrap);
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    setAdminToken(token);
+  }
+  return response;
+}
+
+export async function coachLogin(body) {
+  const response = await api.post('/auth/coach/login', body).then(unwrap);
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    setCoachToken(token);
+  }
+  return response;
+}
+
+export async function forgotPassword(body) {
+  return api.post('/auth/forgot-password', body).then(unwrap);
+}
+
+export async function resetPassword(body) {
+  return api.post('/auth/reset-password', body).then(unwrap);
+}
+
+/* ==========================================
+   🎯 COACH AUTHENTICATED WRAPPERS
+   ========================================== */
 export async function coachGet(path) {
   return api
     .get(path, {
@@ -144,24 +168,39 @@ export async function coachGet(path) {
 }
 
 export async function coachPost(path, body) {
-  return api
-    .post(path, body, {
-      headers: { Authorization: `Bearer ${getCoachToken()}` }
-    })
-    .then(unwrap);
+  const headers = { Authorization: `Bearer ${getCoachToken()}` };
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return api.post(path, body, { headers }).then(unwrap);
 }
 
+/* ==========================================
+   🎯 SUPER ADMIN AUTHENTICATED WRAPPERS
+   ========================================== */
 export async function superAdminLogin(body) {
-  const data = await api.post('/super-admin/login', body).then(unwrap);
-  if (data.data?.token) {
-    setSuperAdminToken(data.data.token);
+  // 🎯 FIX: Controller `/super-admin/login` hit ho raha hai
+  const response = await api.post('/super-admin/login', body).then(unwrap);
+  
+  // Interceptor se unwrapped data ko dynamic parse kar rahe hain
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    setSuperAdminToken(token);
   }
-  return data;
+  return response;
 }
 
 export async function superAdminGet(path) {
   return api
     .get(path, {
+      headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
+export async function superAdminPost(path, body) {
+  return api
+    .post(path, body, {
       headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
     })
     .then(unwrap);
@@ -179,6 +218,9 @@ export async function publicPost(path, body) {
   return api.post(path, body).then(unwrap);
 }
 
+/* ==========================================
+   🎯 STATIC DESIGN CONSTANTS
+   ========================================== */
 export const TIMING_OPTIONS = [
   '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
   '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
@@ -186,7 +228,6 @@ export const TIMING_OPTIONS = [
   '18:00', '18:30', '19:00', '19:30', '20:00'
 ];
 
-/* Refactored Pricing Plan Data Schemas - Aligned with Emerald Green Layouts */
 export const PRICING_PLANS = [
   {
     id: 'free',

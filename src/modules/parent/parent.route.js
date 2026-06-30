@@ -21,6 +21,15 @@ router.post(
 router.use(authenticate);
 
 router.get('/profile', parentController.getProfile);
+router.put(
+  '/update-profile',
+  [
+    body('name').notEmpty().withMessage('Name is required'),
+    body('email').isEmail().withMessage('Valid email is required'),
+  ],
+  validationErrorHandler,
+  parentController.updateProfile
+);
 router.patch(
   '/change-password',
   [

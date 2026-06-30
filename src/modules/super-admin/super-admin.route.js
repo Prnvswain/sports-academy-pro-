@@ -20,11 +20,29 @@ router.use(authorize('SUPER_ADMIN'));
 
 router.get('/stats', superAdminController.getStats);
 router.get('/academies', superAdminController.getAcademies);
+router.get('/plans', superAdminController.getPlans);
+router.get('/sports', superAdminController.getSports);
+router.post('/sports', superAdminController.createSport);
+router.post('/sports/seed', superAdminController.seedSports);
 router.patch(
   '/academies/:academy_id/status',
   validate('updateAcademyStatus'),
   validationErrorHandler,
   superAdminController.patchAcademyStatus
+);
+router.patch(
+  '/plans/:plan_id/status',
+  validate('updatePlanStatus'),
+  validationErrorHandler,
+  superAdminController.patchPlanStatus
+);
+router.post(
+  '/academies/:academy_id/suspend',
+  superAdminController.suspendAcademy
+);
+router.post(
+  '/academies/:academy_id/activate',
+  superAdminController.activateAcademy
 );
 router.get('/settings', superAdminController.getSettings);
 router.put(

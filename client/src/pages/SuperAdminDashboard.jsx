@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import Loader from '../components/Loader';
 import ThemeToggle from '../components/ThemeToggle';
 import { clearSuperAdminToken, superAdminGet, superAdminPatch } from '../api/client';
@@ -80,73 +81,166 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="flex h-16 items-center justify-between border-b border-border px-6">
-        <h1 className="text-lg font-bold">SAMS Super Admin</h1>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <button type="button" className="btn-danger" onClick={logout}>
-            Sign Out
-          </button>
+    <div className="bg-slate-50 min-h-screen space-y-6 p-6 w-full overflow-x-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-wrap items-center justify-between gap-4 w-full"
+      >
+        <div>
+          <h2 className="text-slate-800 text-2xl font-bold">Platform Overview</h2>
+          <p className="text-slate-400 text-sm">
+            Super Admin dashboard for managing all academies across the platform.
+          </p>
         </div>
-      </header>
-      <main className="mx-auto max-w-6xl space-y-8 p-6">
-        {message && <p className="alert-info">{message}</p>}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="kpi-card">
-            <span className="kpi-label">Academies</span>
-            <span className="kpi-value">{stats?.total_academies ?? 0}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Active</span>
-            <span className="kpi-value">{stats?.active_academies ?? 0}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Students</span>
-            <span className="kpi-value">{stats?.total_students ?? 0}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Coaches</span>
-            <span className="kpi-value">{stats?.total_coaches ?? 0}</span>
-          </div>
-        </div>
-        <div className="card overflow-x-auto">
-          <h2 className="mb-4 text-xl font-bold">Academies</h2>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Plan</th>
-                <th>Status</th>
-                <th>Students</th>
-                <th>Coaches</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {academies.map((a) => (
-                <tr key={a.academy_id}>
-                  <td>{a.academy_id}</td>
-                  <td>{a.name}</td>
-                  <td>{a.subscription_plan || '—'}</td>
-                  <td>{a.status}</td>
-                  <td>{a._count?.students ?? 0}</td>
-                  <td>{a._count?.coaches ?? 0}</td>
-                  <td className="flex flex-wrap gap-2">
-                    <button type="button" className="btn-success btn-sm" onClick={() => updateStatus(a.academy_id, 'active')}>
+        <motion.button
+          type="button"
+          className="px-4 py-2 text-sm font-medium text-slate-600 bg-white/70 border border-slate-200/60 rounded-lg hover:bg-slate-100/70 hover:border-slate-300 transition-all"
+          onClick={load}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          Refresh
+        </motion.button>
+      </motion.div>
+
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-700"
+        >
+          {message}
+        </motion.div>
+      )}
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full"
+      >
+        <motion.div
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Academies</span>
+          <span className="text-slate-800 text-2xl font-bold block mt-2">
+            {stats?.total_academies ?? 0}
+          </span>
+          <span className="text-slate-400 text-xs mt-1">All registered academies</span>
+        </motion.div>
+
+        <motion.div
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+        >
+          <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Active Academies</span>
+          <span className="text-emerald-600 text-2xl font-bold block mt-2">
+            {stats?.active_academies ?? 0}
+          </span>
+          <span className="text-slate-400 text-xs mt-1">Currently operational</span>
+        </motion.div>
+
+        <motion.div
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Students</span>
+          <span className="text-slate-800 text-2xl font-bold block mt-2">
+            {stats?.total_students ?? 0}
+          </span>
+          <span className="text-slate-400 text-xs mt-1">Across all academies</span>
+        </motion.div>
+
+        <motion.div
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.25 }}
+        >
+          <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Coaches</span>
+          <span className="text-slate-800 text-2xl font-bold block mt-2">
+            {stats?.total_coaches ?? 0}
+          </span>
+          <span className="text-slate-400 text-xs mt-1">Active instructors</span>
+        </motion.div>
+      </motion.div>
+
+      <motion.div
+        className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 overflow-x-auto"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.3 }}
+      >
+        <h2 className="text-slate-800 text-xl font-bold mb-4">Academies</h2>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-slate-200/60">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">ID</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Name</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Plan</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Status</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Students</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Coaches</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {academies.map((a) => (
+              <tr key={a.academy_id} className="border-b border-slate-200/40 hover:bg-slate-50/50 transition-colors">
+                <td className="px-4 py-3 text-sm text-slate-600">{a.academy_id}</td>
+                <td className="px-4 py-3 text-sm font-medium text-slate-800">{a.name}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{a.subscription_plan || '—'}</td>
+                <td className="px-4 py-3">
+                  {a.status === 'active' ? (
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      ACTIVE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      {a.status?.toUpperCase() || 'SUSPENDED'}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-600">{a._count?.students ?? 0}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{a._count?.coaches ?? 0}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    <motion.button
+                      type="button"
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-500 rounded-lg hover:bg-emerald-600 transition-all"
+                      onClick={() => updateStatus(a.academy_id, 'active')}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
                       Activate
-                    </button>
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => updateStatus(a.academy_id, 'suspended')}>
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all"
+                      onClick={() => updateStatus(a.academy_id, 'suspended')}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
                       Suspend
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
+                    </motion.button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </motion.div>
     </div>
   );
 }

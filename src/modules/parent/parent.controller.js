@@ -53,6 +53,21 @@ export const changePassword = async (req, res, next) => {
   }
 };
 
+export const updateProfile = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const { name, email, phone } = req.body;
+
+    const updatedParent = await parentService.updateParentProfile(parent_id, { name, email, phone });
+
+    return res.status(200).json(
+      successResponse('Profile updated successfully', { parent: updatedParent })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getChildren = async (req, res, next) => {
   try {
     const parent_id = req.user.id;

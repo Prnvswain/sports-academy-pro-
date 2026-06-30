@@ -20,10 +20,32 @@ export default function SuperAdminLogin() {
     setLoading(true);
     setMessage({ text: '', type: '' });
     try {
-      await superAdminLogin(form);
-      navigate('/super-admin/dashboard');
+      // 1. API Call executing wrapper request
+      const response = await superAdminLogin(form);
+      
+      // 2. 🎯 FIX: safely backend response wrapper check karo data parsing ke liye
+      const data = response?.data || response;
+      
+      if (data && data.token) {
+        // 3. 🎯 FIX: Isolate token globally through your client utility handler
+        setSuperAdminToken(data.token);
+        
+        // Safety Fallback (directly save inside custom namespace block to avoid conflict)
+        localStorage.setItem('superAdminToken', data.token);
+
+        setMessage({ text: 'Login successful! Redirecting...', type: 'success' });
+        
+        // Navigate after local session initialization
+        setTimeout(() => {
+          navigate('/super-admin/dashboard');
+        }, 800);
+      } else {
+        throw new Error('Token missing from server authentication response.');
+      }
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      console.error('Authentication process failed:', error);
+      const errMsg = error.response?.data?.message || error.message || 'Invalid credentials.';
+      setMessage({ text: errMsg, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -82,7 +104,9 @@ export default function SuperAdminLogin() {
             Back to Home
           </button>
           {message.text && (
-            <p className={message.type === 'error' ? 'alert-error' : 'alert-success'}>{message.text}</p>
+            <p className={message.type === 'error' ? 'alert-error' : 'alert-success'}>
+              {message.text}
+            </p>
           )}
         </form>
       </div>

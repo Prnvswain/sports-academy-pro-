@@ -9,6 +9,94 @@ import logger from '../../utils/logger.js';
 
 const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
+export const clockIn = async (coach_id, academy_id, location_data = {}) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const existingAttendance = await prisma.coachAttendance.findFirst({
+    where: {
+      coach_id: coachId,
+      academy_id: academyId,
+      date: today,
+      is_clocked_in: true
+    }
+  });
+
+  if (existingAttendance) {
+    const error = new Error('Already clocked in today');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const attendance = await prisma.coachAttendance.create({
+    data: {
+      coach_id: coachId,
+      academy_id: academyId,
+      date: today,
+      status: 'PRESENT',
+      clock_in_time: new Date(),
+      is_clocked_in: true,
+      latitude: location_data.latitude || null,
+      longitude: location_data.longitude || null,
+      location_verified: location_data.location_verified || false
+    },
+    include: {
+      coach: {
+        select: {
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  logger.info('Coach clocked in', { coach_id: coachId, academy_id: academyId });
+  return attendance;
+};
+
+export const clockOut = async (coach_id, academy_id) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const attendance = await prisma.coachAttendance.findFirst({
+    where: {
+      coach_id: coachId,
+      academy_id: academyId,
+      date: today,
+      is_clocked_in: true
+    }
+  });
+
+  if (!attendance) {
+    const error = new Error('No active clock-in found for today');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const updatedAttendance = await prisma.coachAttendance.update({
+    where: { attendance_id: attendance.attendance_id },
+    data: {
+      clock_out_time: new Date(),
+      is_clocked_in: false
+    },
+    include: {
+      coach: {
+        select: {
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  logger.info('Coach clocked out', { coach_id: coachId, academy_id: academyId });
+  return updatedAttendance;
+};
+
 export const getCoachBatches = async (coach_id, academy_id) => {
   const academy = await prisma.academy.findUnique({
     where: { academy_id: parseInt(academy_id, 10) },
@@ -37,6 +125,49 @@ export const getCoachBatches = async (coach_id, academy_id) => {
     },
     batches
   };
+};
+
+export const getCoachBatchById = async (batchId, coach_id, academy_id) => {
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: parseInt(batchId, 10),
+      academy_id: parseInt(academy_id, 10),
+      coaches: {
+        some: {
+          coach_id: parseInt(coach_id, 10)
+        }
+      },
+      status: 'ACTIVE'
+    },
+    include: {
+      sport: true,
+      coaches: {
+        include: {
+          coach: {
+            select: {
+              coach_id: true,
+              name: true,
+              specialization: true
+            }
+          }
+        }
+      },
+      students: {
+        where: { ...NOT_DELETED, status: 'ACTIVE' },
+        include: {
+          sport: true
+        }
+      }
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not assigned to this coach');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return batch;
 };
 
 export const getCoachDashboard = async (coach_id, academy_id) => {
@@ -108,6 +239,42 @@ export const getCoachDashboard = async (coach_id, academy_id) => {
     pending_fees_count: pendingFees,
     batches
   };
+};
+
+export const getCoachPayments = async (coach_id, academy_id) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+
+  const payments = await prisma.receipt.findMany({
+    where: {
+      academy_id: academyId,
+      collected_by_coach_id: coachId
+    },
+    include: {
+      student: {
+        select: {
+          student_id: true,
+          name: true
+        }
+      }
+    },
+    orderBy: {
+      created_at: 'desc'
+    },
+    take: 50
+  });
+
+  return payments.map(payment => ({
+    id: payment.receipt_id,
+    student_id: payment.student_id,
+    student_name: payment.student?.name,
+    amount: payment.amount,
+    method: payment.method,
+    status: payment.status,
+    payment_date: payment.payment_date,
+    remarks: payment.remarks,
+    created_at: payment.created_at
+  }));
 };
 
 export const markStudentAttendance = async (coach_id, academy_id, payload) => {

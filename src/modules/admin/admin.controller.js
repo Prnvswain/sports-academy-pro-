@@ -10,6 +10,15 @@ export const getSportsCatalog = async (req, res, next) => {
   }
 };
 
+export const getGlobalSports = async (req, res, next) => {
+  try {
+    const sports = await adminService.getGlobalSports();
+    res.json(successResponse('Global sports retrieved successfully', sports));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getDurationPlans = async (req, res, next) => {
   try {
     const plans = await adminService.getDurationPlans(req.user.academy_id);

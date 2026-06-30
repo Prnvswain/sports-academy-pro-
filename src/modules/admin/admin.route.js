@@ -9,13 +9,25 @@ import { upload } from '../../config/multer.config.js';
 
 const router = Router();
 
-// Global Protection Stack Matrix
+// ─── GLOBAL PROTECTION MATRIX ─────────────────────────────────────────────
 router.use(authenticate);
-router.use(authorize('ADMIN', 'ACADEMY_ADMIN'));
-router.use(enforceActiveSubscription);
+
+// 🎯 FIX 1: Allow SUPER_ADMIN inside roles matrix to smoothly fetch configurations
+router.use(authorize('ADMIN', 'ACADEMY_ADMIN', 'SUPER_ADMIN'));
+
+// 🎯 FIX 2: Dynamic Subscription Bypass Policy 
+// If the token belongs to a SUPER_ADMIN, completely bypass subscription checks!
+router.use((req, res, next) => {
+  if (req.user && req.user.role && req.user.role.toUpperCase() === 'SUPER_ADMIN') {
+    return next(); // Pass without subscription check
+  }
+  // For standard academy admins, apply normal subscription rule
+  return enforceActiveSubscription(req, res, next);
+});
 
 /* ─── SPORTS CATALOG ────────────────────────────────────────────────────── */
 router.get('/sports', adminController.getSportsCatalog);
+router.get('/sports/global', adminController.getGlobalSports);
 router.post(
   '/sports',
   validate('createSport'),
@@ -97,14 +109,12 @@ router.post(
   validationErrorHandler,
   adminController.createBatch,
 );
-// PUT: Standard entity modifications
 router.put(
   '/batches/:batch_id',
   validate('updateBatch'),
   validationErrorHandler,
   adminController.updateBatch,
 );
-// POST Fallback: To cleanly handle frontend utility states (like status toggling or multi-client requests)
 router.post(
   '/batches/:batch_id',
   validate('updateBatch'),
@@ -183,7 +193,7 @@ router.post('/announcements', adminController.createAnnouncement);
 router.get('/coaches/:coachId/notifications', adminController.getCoachNotifications);
 router.patch('/notifications/:notificationId/read', adminController.markNotificationAsRead);
 
-/* ─── GPS ATTENDANCE SETTINGS (UNTOUCHED / KEPT EXACTLY AS PROVIDED) ────── */
+/* ─── GPS ATTENDANCE SETTINGS ────────────────────────────────────────────── */
 router.get('/gps/settings', gpsController.getGpsSettings);
 router.patch('/gps/settings', gpsController.updateGpsSettings);
 router.get('/gps/location-logs', gpsController.getAttendanceLocationLogs);

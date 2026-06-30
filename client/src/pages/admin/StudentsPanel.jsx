@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Eye, Lock, Unlock, Key, Trash2, Edit } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { useFormDraft } from '../../hooks/useFormDraft';
@@ -44,7 +45,7 @@ const emptyForm = {
   height: '',
   weight: '',
   profile_photo: null,
-  batch_id: '',
+  batch_ids: [],
   duration_plan_id: '',
   registration_fee: '',
   additional_charges: '',
@@ -179,7 +180,7 @@ export default function StudentsPanel() {
       } else if (sportsData && Array.isArray(sportsData.sports)) {
         sportsArray = sportsData.sports;
       }
-      setSports(sportsArray.filter(s => s.status === 'ACTIVE'));
+      setSports(sportsArray.filter((s) => s.status === 'ACTIVE'));
 
       setDurationPlans(plansRes.data || []);
     } catch (error) {
@@ -197,24 +198,22 @@ export default function StudentsPanel() {
   useEffect(() => {
     if (!selectedSports || selectedSports.length === 0) {
       setAvailableBatches([]);
-      setForm((prev) => ({ ...prev, batch_id: '' }));
+      setForm((prev) => ({ ...prev, batch_ids: [] }));
       return;
     }
 
     const loadBatches = async () => {
       try {
+        const sportIds = selectedSports.join(',');
         const result = await adminGet(
-          `/admin/batches/available?sport_id=${encodeURIComponent(selectedSports[0])}`,
+          `/admin/batches/available?sport_ids=${encodeURIComponent(sportIds)}`,
         );
         setAvailableBatches(result.data || []);
         setForm((prev) => {
-          if (
-            prev.batch_id &&
-            !(result.data || []).some((b) => String(b.batch_id) === String(prev.batch_id))
-          ) {
-            return { ...prev, batch_id: '' };
-          }
-          return prev;
+          const validBatchIds = (prev.batch_ids || []).filter(batchId =>
+            (result.data || []).some((b) => String(b.batch_id) === String(batchId))
+          );
+          return { ...prev, batch_ids: validBatchIds };
         });
       } catch (error) {
         setMessage({ text: error.message, type: 'error' });
@@ -223,6 +222,55 @@ export default function StudentsPanel() {
 
     loadBatches();
   }, [selectedSports, setForm]);
+
+  const handleBatchSelect = (batchId) => {
+    const selectedBatch = availableBatches.find(b => b.batch_id === parseInt(batchId));
+    if (!selectedBatch) return;
+
+    setForm(prev => {
+      const currentBatchIds = prev.batch_ids || [];
+      const existingBatchIndex = currentBatchIds.findIndex(id => {
+        const batch = availableBatches.find(b => b.batch_id === id);
+        return batch && batch.sport_id === selectedBatch.sport_id;
+      });
+
+      if (existingBatchIndex !== -1) {
+        const newBatchIds = [...currentBatchIds];
+        newBatchIds[existingBatchIndex] = parseInt(batchId);
+        return { ...prev, batch_ids: newBatchIds };
+      }
+
+      return { ...prev, batch_ids: [...currentBatchIds, parseInt(batchId)] };
+    });
+  };
+
+  const handleEditBatchSelect = (batchId) => {
+    const selectedBatch = availableBatches.find(b => b.batch_id === parseInt(batchId));
+    if (!selectedBatch) return;
+
+    setEditStudentForm(prev => {
+      const currentBatchIds = prev.batch_ids || [];
+      const existingBatchIndex = currentBatchIds.findIndex(id => {
+        const batch = availableBatches.find(b => b.batch_id === id);
+        return batch && batch.sport_id === selectedBatch.sport_id;
+      });
+
+      if (existingBatchIndex !== -1) {
+        const newBatchIds = [...currentBatchIds];
+        newBatchIds[existingBatchIndex] = parseInt(batchId);
+        return { ...prev, batch_ids: newBatchIds };
+      }
+
+      return { ...prev, batch_ids: [...currentBatchIds, parseInt(batchId)] };
+    });
+  };
+
+  const handleRemoveBatch = (batchId) => {
+    setForm(prev => ({
+      ...prev,
+      batch_ids: (prev.batch_ids || []).filter(id => id !== batchId)
+    }));
+  };
 
   const calculateLiveFee = () => {
     const selectedSportIds = selectedSports || [];
@@ -304,26 +352,11 @@ export default function StudentsPanel() {
         });
       }
 
-      let batchIdValue = form.batch_id ? parseInt(form.batch_id, 10) : null;
-      console.log('[handleSubmit] batch_id value:', {
-        form_batch_id: form.batch_id,
-        form_batch_id_type: typeof form.batch_id,
-        parsed_batch_id: batchIdValue,
-        type: typeof batchIdValue,
-        isNull: batchIdValue === null,
+      let batchIdsValue = form.batch_ids ? form.batch_ids.map(id => parseInt(id, 10)) : [];
+      console.log('[handleSubmit] batch_ids value:', {
+        form_batch_ids: form.batch_ids,
+        parsed_batch_ids: batchIdsValue,
       });
-
-      // Ensure batch_id is not an object
-      if (form.batch_id && typeof form.batch_id === 'object') {
-        console.error('[handleSubmit] batch_id is an object, extracting value:', form.batch_id);
-        // Try to extract the ID from common object structures
-        const extractedId = form.batch_id.value || form.batch_id._id || form.batch_id.batch_id || form.batch_id.id;
-        if (extractedId) {
-          batchIdValue = parseInt(extractedId, 10);
-        } else {
-          batchIdValue = null;
-        }
-      }
 
       const payload = {
         name: fullName,
@@ -342,14 +375,14 @@ export default function StudentsPanel() {
         parent_phone: form.parent_phone.trim() || undefined,
         profile_photo: profilePhotoData,
         sport_ids: selectedSports.map((id) => parseInt(id, 10)),
-        batch_id: batchIdValue,
+        batch_ids: batchIdsValue,
         duration_plan_id: form.duration_plan_id ? parseInt(form.duration_plan_id, 10) : undefined,
         registration_fee: parseFloat(form.registrationFee || form.registration_fee || 0),
         additional_charges: parseFloat(form.additionalCharges || form.additional_charges || 0),
         discount: parseFloat(form.discount || 0),
         joining_date: form.joining_date,
       };
-      
+
       console.log('[handleSubmit] Request payload:', payload);
 
       const result = await adminPost('/admin/students', payload);
@@ -366,18 +399,24 @@ export default function StudentsPanel() {
       setShowAddStudentModal(false);
       loadData();
     } catch (error) {
+      const errorPayload = error.payload || error.data || error.response?.data;
+      const validationErrors = errorPayload?.errors || errorPayload?.data?.errors;
+      const errorMessage = errorPayload?.message || errorPayload?.data?.message || error.message;
+
       console.error('[handleSubmit] Error:', {
-        message: error.message,
+        message: errorMessage,
         status: error.status,
-        response: error.response,
-        data: error.data,
+        payload: errorPayload,
       });
 
       // Handle structured validation errors from backend
-      if (error.data && error.data.errors) {
-        setBackendFieldErrors(error.data.errors);
+      if (validationErrors) {
+        setBackendFieldErrors(validationErrors);
       } else {
-        setMessage({ text: error.message || 'Failed to create student. Please try again.', type: 'error' });
+        setMessage({
+          text: errorMessage || 'Failed to create student. Please try again.',
+          type: 'error',
+        });
       }
     }
   };
@@ -427,6 +466,7 @@ export default function StudentsPanel() {
   };
 
   const handleEditStudent = (student) => {
+    const batchIds = student.enrollments?.map(e => e.batch_id).filter(Boolean) || [];
     setEditStudentForm({
       student_id: student.student_id,
       name: student.name,
@@ -434,7 +474,7 @@ export default function StudentsPanel() {
       parent_email: student.parent_email || '',
       parent_phone: student.parent_phone || '',
       phone: student.phone || '',
-      batch_id: student.batch_id || '',
+      batch_ids: batchIds,
       duration_plan_id: student.enrollments?.[0]?.duration_plan_id || '',
       sport_ids: student.enrollments?.map((e) => e.sport_id) || [],
       age: student.age || '',
@@ -459,7 +499,7 @@ export default function StudentsPanel() {
         parent_email: editStudentForm.parent_email,
         parent_phone: editStudentForm.parent_phone,
         phone: editStudentForm.phone,
-        batch_id: editStudentForm.batch_id ? parseInt(editStudentForm.batch_id) : null,
+        batch_ids: editStudentForm.batch_ids ? editStudentForm.batch_ids.map(id => parseInt(id, 10)) : [],
         sport_ids: editSelectedSports,
         duration_plan_id: editStudentForm.duration_plan_id
           ? parseInt(editStudentForm.duration_plan_id)
@@ -492,6 +532,11 @@ export default function StudentsPanel() {
       setMessage({ text: error.message, type: 'error' });
       loadData(); // Revert on error
     }
+  };
+
+  const handleResetCredentials = async (studentId) => {
+    // Placeholder for reset credentials functionality
+    alert('Reset credentials functionality to be implemented');
   };
 
   const handleStudentClick = async (student) => {
@@ -765,7 +810,9 @@ export default function StudentsPanel() {
       }
     }
 
-    const matchesGender = !filterGender || (student.gender && student.gender.toLowerCase() === filterGender.toLowerCase());
+    const matchesGender =
+      !filterGender ||
+      (student.gender && student.gender.toLowerCase() === filterGender.toLowerCase());
 
     let matchesWeight = true;
     if (filterWeightClass) {
@@ -785,12 +832,19 @@ export default function StudentsPanel() {
       }
     }
 
-    return matchesSearch && matchesSport && matchesBatch && matchesCategory && matchesGender && matchesWeight;
+    return (
+      matchesSearch &&
+      matchesSport &&
+      matchesBatch &&
+      matchesCategory &&
+      matchesGender &&
+      matchesWeight
+    );
   });
 
   return (
     <motion.div
-      className="space-y-6 p-6 w-full overflow-x-hidden"
+      className="w-full space-y-6 overflow-x-hidden p-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -828,7 +882,7 @@ export default function StudentsPanel() {
       {/* Filter Section */}
       <div className="card mb-6">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="min-w-0 flex-1 w-full sm:w-auto">
+          <div className="w-full min-w-0 flex-1 sm:w-auto">
             <input
               type="text"
               placeholder="Search students..."
@@ -841,7 +895,7 @@ export default function StudentsPanel() {
               }}
             />
           </div>
-          <div className="min-w-0 w-full sm:w-auto">
+          <div className="w-full min-w-0 sm:w-auto">
             <select
               className="input-field w-full"
               value={filterSport}
@@ -859,7 +913,7 @@ export default function StudentsPanel() {
               ))}
             </select>
           </div>
-          <div className="min-w-0 w-full sm:w-auto">
+          <div className="w-full min-w-0 sm:w-auto">
             <select
               className="input-field w-full"
               value={filterBatch}
@@ -877,7 +931,7 @@ export default function StudentsPanel() {
               ))}
             </select>
           </div>
-          <div className="min-w-0 w-full sm:w-auto flex gap-2">
+          <div className="flex w-full min-w-0 gap-2 sm:w-auto">
             <select
               className="input-field w-full"
               value={filterCategory}
@@ -913,7 +967,7 @@ export default function StudentsPanel() {
               />
             )}
           </div>
-          <div className="min-w-0 w-full sm:w-auto">
+          <div className="w-full min-w-0 sm:w-auto">
             <select
               className="input-field w-full"
               value={filterGender}
@@ -929,7 +983,7 @@ export default function StudentsPanel() {
               <option value="Other">Other</option>
             </select>
           </div>
-          <div className="min-w-0 w-full sm:w-auto flex gap-2">
+          <div className="flex w-full min-w-0 gap-2 sm:w-auto">
             <select
               className="input-field w-full"
               value={filterWeightClass}
@@ -1038,17 +1092,23 @@ export default function StudentsPanel() {
                       {studentDetails?.student?.category || selectedStudent?.category ? (
                         <span
                           className={`rounded px-2 py-0.5 text-xs ${
-                            (studentDetails?.student?.category || selectedStudent?.category) === 'U8'
+                            (studentDetails?.student?.category || selectedStudent?.category) ===
+                            'U8'
                               ? 'bg-blue-100 text-blue-800'
-                              : (studentDetails?.student?.category || selectedStudent?.category) === 'U10'
+                              : (studentDetails?.student?.category || selectedStudent?.category) ===
+                                  'U10'
                                 ? 'bg-green-100 text-green-800'
-                                : (studentDetails?.student?.category || selectedStudent?.category) === 'U12'
+                                : (studentDetails?.student?.category ||
+                                      selectedStudent?.category) === 'U12'
                                   ? 'bg-yellow-100 text-yellow-800'
-                                  : (studentDetails?.student?.category || selectedStudent?.category) === 'U14'
+                                  : (studentDetails?.student?.category ||
+                                        selectedStudent?.category) === 'U14'
                                     ? 'bg-orange-100 text-orange-800'
-                                    : (studentDetails?.student?.category || selectedStudent?.category) === 'U16'
+                                    : (studentDetails?.student?.category ||
+                                          selectedStudent?.category) === 'U16'
                                       ? 'bg-red-100 text-red-800'
-                                      : (studentDetails?.student?.category || selectedStudent?.category) === 'U18'
+                                      : (studentDetails?.student?.category ||
+                                            selectedStudent?.category) === 'U18'
                                         ? 'bg-purple-100 text-purple-800'
                                         : 'bg-gray-100 text-gray-800'
                           }`}
@@ -1072,11 +1132,19 @@ export default function StudentsPanel() {
                   </div>
                   <div>
                     <label className="text-muted text-sm font-semibold">Height</label>
-                    <p>{studentDetails?.student?.height ? `${studentDetails.student.height} cm` : '—'}</p>
+                    <p>
+                      {studentDetails?.student?.height
+                        ? `${studentDetails.student.height} cm`
+                        : '—'}
+                    </p>
                   </div>
                   <div>
                     <label className="text-muted text-sm font-semibold">Weight</label>
-                    <p>{studentDetails?.student?.weight ? `${studentDetails.student.weight} kg` : '—'}</p>
+                    <p>
+                      {studentDetails?.student?.weight
+                        ? `${studentDetails.student.weight} kg`
+                        : '—'}
+                    </p>
                   </div>
                   <div>
                     <label className="text-muted text-sm font-semibold">Joining Date</label>
@@ -1379,6 +1447,7 @@ export default function StudentsPanel() {
                     filteredStudents.map((student, index) => {
                       const feeStatus = student?.fees_status || student?.feesStatus || 'unpaid';
                       const feeStatusLabel = feeStatus.toUpperCase();
+                      const isInactive = student.status?.toUpperCase() !== 'ACTIVE' && !student.isActive;
 
                       return (
                         <motion.tr
@@ -1387,7 +1456,9 @@ export default function StudentsPanel() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
                           whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                          className={`text-foreground cursor-pointer ${selectedIds.includes(student.student_id) ? 'bg-surface-secondary/50' : ''}`}
+                          className={`text-foreground cursor-pointer ${
+                            selectedIds.includes(student.student_id) ? 'bg-surface-secondary/50' : ''
+                          } ${isInactive ? 'opacity-60 bg-gray-50' : ''}`}
                           onClick={() => handleRowClick(student.student_id)}
                         >
                           {isBulkEditMode && (
@@ -1404,11 +1475,7 @@ export default function StudentsPanel() {
                           )}
                           <td>
                             <div className="flex items-center gap-3">
-                              <Avatar
-                                src={student.profile_photo}
-                                name={student.name}
-                                size="sm"
-                              />
+                              <Avatar src={student.profile_photo} name={student.name} size="sm" />
                               <div
                                 className="hover:text-accent cursor-pointer transition-colors hover:underline"
                                 onClick={(e) => {
@@ -1488,45 +1555,69 @@ export default function StudentsPanel() {
                               {feeStatusLabel}
                             </span>
                           </td>
-                          <td className="space-x-1" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-sm border-success/50 text-success hover:bg-success/10"
-                              onClick={() => handleStudentClick(student)}
-                            >
-                              Profile
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-sm border-accent/50 text-accent hover:bg-accent/10"
-                              onClick={() => handleEditStudent(student)}
-                            >
-                              Edit
-                            </button>
-                            {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              {/* View Profile - Eye Icon */}
                               <button
                                 type="button"
-                                className="btn-secondary btn-sm"
-                                onClick={() => handleDeactivate(student.student_id)}
+                                className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                onClick={() => handleStudentClick(student)}
+                                title="View Profile"
                               >
-                                Deactivate
+                                <Eye className="w-4 h-4" />
                               </button>
-                            ) : (
+
+                              {/* Edit - Edit Icon */}
                               <button
                                 type="button"
-                                className="btn-secondary btn-sm"
-                                onClick={() => handleMarkActive(student.student_id)}
+                                className="p-2 rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+                                onClick={() => handleEditStudent(student)}
+                                title="Edit Student"
                               >
-                                Mark Active
+                                <Edit className="w-4 h-4" />
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              className="btn-danger btn-sm"
-                              onClick={() => handleRemove(student.student_id)}
-                            >
-                              Remove
-                            </button>
+
+                              {/* Status Toggle - Lock/Unlock Icon */}
+                              {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                                <button
+                                  type="button"
+                                  className="p-2 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+                                  onClick={() => handleDeactivate(student.student_id)}
+                                  title="Deactivate Student"
+                                >
+                                  <Unlock className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="p-2 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                                  onClick={() => handleMarkActive(student.student_id)}
+                                  title="Activate Student"
+                                >
+                                  <Lock className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              {/* Reset Credentials - Key Icon */}
+                              <button
+                                type="button"
+                                className="p-2 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
+                                onClick={() => handleResetCredentials(student.student_id)}
+                                title="Reset Password"
+                              >
+                                <Key className="w-4 h-4" />
+                              </button>
+
+                              {/* Remove - Trash Icon */}
+                              <button
+                                type="button"
+                                className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                onClick={() => handleRemove(student.student_id)}
+                                title="Delete Student"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </motion.tr>
                       );
@@ -1631,15 +1722,24 @@ export default function StudentsPanel() {
                     const file = e.target.files[0];
                     if (file) {
                       // Validate file type
-                      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                      const allowedTypes = [
+                        'image/jpeg',
+                        'image/jpg',
+                        'image/png',
+                        'image/gif',
+                        'image/webp',
+                      ];
                       if (!allowedTypes.includes(file.type)) {
-                        setFieldError('profile_photo', 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.');
+                        setFieldError(
+                          'profile_photo',
+                          'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                        );
                         e.target.value = '';
                         return;
                       }
                       // Validate file size (5MB max)
                       if (file.size > 5 * 1024 * 1024) {
-                        alert("File size exceeds the 5MB limit. Please choose a smaller file.");
+                        alert('File size exceeds the 5MB limit. Please choose a smaller file.');
                         e.target.value = '';
                         return;
                       }
@@ -1929,32 +2029,57 @@ export default function StudentsPanel() {
                 </div>
                 <div>
                   <label className="label" htmlFor="studentBatch">
-                    Batch (Optional - sport · active · seats)
+                    Batch Assignment
                   </label>
                   <select
                     id="studentBatch"
-                    name="batch_id"
                     className="input-field"
-                    value={form.batch_id}
-                    onChange={updateField}
+                    value=""
+                    onChange={(e) => e.target.value && handleBatchSelect(e.target.value)}
                     disabled={!selectedSports || selectedSports.length === 0}
                   >
                     <option value="">
                       {!selectedSports || selectedSports.length === 0
                         ? 'Select sport first…'
-                        : 'No batch (assign later)'}
+                        : 'Select batch…'}
                     </option>
-                    {(availableBatches || []).map((b) => (
-                      <option key={b.batch_id} value={b.batch_id}>
-                        {b.name}
-                        {b.timing ? ` · ${b.timing}` : ''}
-                        {b.max_capacity != null
-                          ? ` · ${b.available_seats ?? 0}/${b.max_capacity} seats`
-                          : ''}
-                      </option>
-                    ))}
+                    {(availableBatches || []).map((b) => {
+                      const sport = sports.find(s => s.sport_id === b.sport_id);
+                      return (
+                        <option key={b.batch_id} value={b.batch_id}>
+                          {b.name} ({sport?.name || 'Unknown'})
+                        </option>
+                      );
+                    })}
                   </select>
-                  <p className="text-muted mt-1 text-xs">Batch assignment is optional. You can assign later.</p>
+                  
+                  {form.batch_ids && form.batch_ids.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {form.batch_ids.map(batchId => {
+                        const batch = availableBatches.find(b => b.batch_id === batchId);
+                        const sport = sports.find(s => s.sport_id === batch?.sport_id);
+                        return (
+                          <span
+                            key={batchId}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm"
+                          >
+                            {batch?.name} ({sport?.name || 'Unknown'})
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBatch(batchId)}
+                              className="ml-1 text-emerald-600 hover:text-emerald-900"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  <p className="text-muted mt-1 text-xs">
+                    One batch per sport. Click × to remove.
+                  </p>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -2242,7 +2367,7 @@ export default function StudentsPanel() {
                             className="h-24 w-24 rounded-full object-cover sm:h-24 sm:w-24"
                           />
                         ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-500 text-white text-2xl font-semibold sm:h-24 sm:w-24">
+                          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-500 text-2xl font-semibold text-white sm:h-24 sm:w-24">
                             {studentDetails?.student?.name?.charAt(0) || '?'}
                           </div>
                         )}
@@ -2253,53 +2378,72 @@ export default function StudentsPanel() {
                             <div className="flex gap-2">
                               <label className="btn-secondary btn-sm cursor-pointer">
                                 Change Photo
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/jpg,image/png,image/webp"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-                                    if (!allowedTypes.includes(file.type)) {
-                                      setFieldError('edit_profile_photo', 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.');
-                                      return;
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                      const allowedTypes = [
+                                        'image/jpeg',
+                                        'image/jpg',
+                                        'image/png',
+                                        'image/webp',
+                                      ];
+                                      if (!allowedTypes.includes(file.type)) {
+                                        setFieldError(
+                                          'edit_profile_photo',
+                                          'Invalid file type. Only JPEG, PNG, and WebP images are allowed.',
+                                        );
+                                        return;
+                                      }
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        setFieldError(
+                                          'edit_profile_photo',
+                                          'File size exceeds 5MB limit.',
+                                        );
+                                        return;
+                                      }
+                                      clearFieldError('edit_profile_photo');
+                                      // Create instant preview
+                                      const reader = new FileReader();
+                                      reader.onload = (e) => {
+                                        setPhotoPreview(e.target.result);
+                                      };
+                                      reader.readAsDataURL(file);
+                                      setEditStudentForm({
+                                        ...editStudentForm,
+                                        profile_photo: file,
+                                      });
                                     }
-                                    if (file.size > 5 * 1024 * 1024) {
-                                      setFieldError('edit_profile_photo', 'File size exceeds 5MB limit.');
-                                      return;
-                                    }
-                                    clearFieldError('edit_profile_photo');
-                                    // Create instant preview
-                                    const reader = new FileReader();
-                                    reader.onload = (e) => {
-                                      setPhotoPreview(e.target.result);
-                                    };
-                                    reader.readAsDataURL(file);
-                                    setEditStudentForm({ ...editStudentForm, profile_photo: file });
-                                  }
-                                }}
-                              />
-                            </label>
-                            {(studentDetails?.student?.profile_photo || photoPreview) && (
-                              <button
-                                type="button"
-                                className="btn-secondary btn-sm text-red-600 hover:text-red-700"
-                                onClick={() => {
-                                  setEditStudentForm({ ...editStudentForm, profile_photo: null });
-                                  setPhotoPreview(null);
-                                  setMessage({ text: 'Photo will be removed on save', type: 'info' });
-                                }}
-                              >
-                                Remove Photo
-                              </button>
+                                  }}
+                                />
+                              </label>
+                              {(studentDetails?.student?.profile_photo || photoPreview) && (
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-sm text-red-600 hover:text-red-700"
+                                  onClick={() => {
+                                    setEditStudentForm({ ...editStudentForm, profile_photo: null });
+                                    setPhotoPreview(null);
+                                    setMessage({
+                                      text: 'Photo will be removed on save',
+                                      type: 'info',
+                                    });
+                                  }}
+                                >
+                                  Remove Photo
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-muted mt-1 text-xs">JPG, PNG, WEBP (max 5MB)</p>
+                            {fieldErrors.edit_profile_photo && (
+                              <p className="mt-1 text-xs text-red-500">
+                                {fieldErrors.edit_profile_photo}
+                              </p>
                             )}
                           </div>
-                          <p className="text-muted mt-1 text-xs">JPG, PNG, WEBP (max 5MB)</p>
-                          {fieldErrors.edit_profile_photo && (
-                            <p className="mt-1 text-xs text-red-500">{fieldErrors.edit_profile_photo}</p>
-                          )}
-                        </div>
                         ) : (
                           <p className="text-muted text-sm">Profile photo</p>
                         )}
@@ -2373,12 +2517,18 @@ export default function StudentsPanel() {
                                   const birthDate = new Date(dob);
                                   const today = new Date();
                                   if (birthDate > today) {
-                                    setMessage({ text: 'Date of birth cannot be in the future', type: 'error' });
+                                    setMessage({
+                                      text: 'Date of birth cannot be in the future',
+                                      type: 'error',
+                                    });
                                     return;
                                   }
                                   const age = calculateAgeFromDOB(dob);
                                   if (age < 1 || age > 100) {
-                                    setMessage({ text: 'Age must be between 1 and 100 years', type: 'error' });
+                                    setMessage({
+                                      text: 'Age must be between 1 and 100 years',
+                                      type: 'error',
+                                    });
                                     return;
                                   }
                                   setMessage({ text: '', type: '' });
@@ -2386,7 +2536,9 @@ export default function StudentsPanel() {
                               }}
                               max={new Date().toISOString().split('T')[0]}
                             />
-                            <p className="text-muted mt-1 text-xs">Age will be calculated automatically</p>
+                            <p className="text-muted mt-1 text-xs">
+                              Age will be calculated automatically
+                            </p>
                           </div>
                           <div>
                             <label className="label" htmlFor="editCalculatedAge">
@@ -2396,7 +2548,11 @@ export default function StudentsPanel() {
                               id="editCalculatedAge"
                               type="text"
                               className="input-field bg-muted"
-                              value={editStudentForm.dob ? `${calculateAgeFromDOB(editStudentForm.dob)} years` : ''}
+                              value={
+                                editStudentForm.dob
+                                  ? `${calculateAgeFromDOB(editStudentForm.dob)} years`
+                                  : ''
+                              }
                               readOnly
                               disabled
                             />
@@ -2618,28 +2774,62 @@ export default function StudentsPanel() {
                           </div>
                           <div>
                             <label className="label" htmlFor="editBatch">
-                              Batch (Optional)
+                              Batch Assignment
                             </label>
                             <select
                               id="editBatch"
                               className="input-field"
-                              value={editStudentForm.batch_id || ''}
-                              onChange={(e) =>
-                                setEditStudentForm({ ...editStudentForm, batch_id: e.target.value })
-                              }
+                              value=""
+                              onChange={(e) => e.target.value && handleEditBatchSelect(e.target.value)}
+                              disabled={!editSelectedSports || editSelectedSports.length === 0}
                             >
-                              <option value="">No batch (assign later)</option>
-                              {availableBatches.map((b) => (
-                                <option key={b.batch_id} value={b.batch_id}>
-                                  {b.name}
-                                  {b.timing ? ` · ${b.timing}` : ''}
-                                  {b.max_capacity != null
-                                    ? ` · ${b.available_seats ?? 0}/${b.max_capacity} seats`
-                                    : ''}
-                                </option>
-                              ))}
+                              <option value="">
+                                {!editSelectedSports || editSelectedSports.length === 0
+                                  ? 'Select sport first…'
+                                  : 'Select batch…'}
+                              </option>
+                              {(availableBatches || []).map((b) => {
+                                const sport = sports.find(s => s.sport_id === b.sport_id);
+                                return (
+                                  <option key={b.batch_id} value={b.batch_id}>
+                                    {b.name} ({sport?.name || 'Unknown'})
+                                  </option>
+                                );
+                              })}
                             </select>
-                            <p className="text-muted mt-1 text-xs">Batch assignment is optional. You can assign later.</p>
+                            
+                            {editStudentForm.batch_ids && editStudentForm.batch_ids.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {editStudentForm.batch_ids.map(batchId => {
+                                  const batch = availableBatches.find(b => b.batch_id === batchId);
+                                  const sport = sports.find(s => s.sport_id === batch?.sport_id);
+                                  return (
+                                    <span
+                                      key={batchId}
+                                      className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm"
+                                    >
+                                      {batch?.name} ({sport?.name || 'Unknown'})
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditStudentForm(prev => ({
+                                            ...prev,
+                                            batch_ids: (prev.batch_ids || []).filter(id => id !== batchId)
+                                          }));
+                                        }}
+                                        className="ml-1 text-emerald-600 hover:text-emerald-900"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            
+                            <p className="text-muted mt-1 text-xs">
+                              One batch per sport. Click × to remove.
+                            </p>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -2687,11 +2877,19 @@ export default function StudentsPanel() {
                         </div>
                         <div>
                           <label className="text-muted text-sm font-semibold">Height</label>
-                          <p>{studentDetails.student.height ? `${studentDetails.student.height} cm` : '—'}</p>
+                          <p>
+                            {studentDetails.student.height
+                              ? `${studentDetails.student.height} cm`
+                              : '—'}
+                          </p>
                         </div>
                         <div>
                           <label className="text-muted text-sm font-semibold">Weight</label>
-                          <p>{studentDetails.student.weight ? `${studentDetails.student.weight} kg` : '—'}</p>
+                          <p>
+                            {studentDetails.student.weight
+                              ? `${studentDetails.student.weight} kg`
+                              : '—'}
+                          </p>
                         </div>
                         <div>
                           <label className="text-muted text-sm font-semibold">Joining Date</label>
@@ -2943,11 +3141,15 @@ export default function StudentsPanel() {
               </div>
               <div>
                 <span className="text-muted block font-semibold">Height:</span>{' '}
-                {selectedStudentForView?.height ? `${selectedStudentForView.height} cm` : 'Not Provided'}
+                {selectedStudentForView?.height
+                  ? `${selectedStudentForView.height} cm`
+                  : 'Not Provided'}
               </div>
               <div>
                 <span className="text-muted block font-semibold">Weight:</span>{' '}
-                {selectedStudentForView?.weight ? `${selectedStudentForView.weight} kg` : 'Not Provided'}
+                {selectedStudentForView?.weight
+                  ? `${selectedStudentForView.weight} kg`
+                  : 'Not Provided'}
               </div>
               <div>
                 <span className="text-muted block font-semibold">Joining Date:</span>{' '}
@@ -3342,18 +3544,57 @@ export default function StudentsPanel() {
                   <select
                     id="editBatch"
                     className="input-field"
-                    value={editStudentForm.batch_id || ''}
-                    onChange={(e) =>
-                      setEditStudentForm({ ...editStudentForm, batch_id: e.target.value })
-                    }
+                    value=""
+                    onChange={(e) => e.target.value && handleEditBatchSelect(e.target.value)}
+                    disabled={!editSelectedSports || editSelectedSports.length === 0}
                   >
-                    <option value="">Select Batch</option>
-                    {availableBatches.map((batch) => (
-                      <option key={batch.batch_id} value={batch.batch_id}>
-                        {batch.name}
-                      </option>
-                    ))}
+                    <option value="">
+                      {!editSelectedSports || editSelectedSports.length === 0
+                        ? 'Select sport first…'
+                        : 'Select batch…'}
+                    </option>
+                    {(availableBatches || []).map((b) => {
+                      const sport = sports.find(s => s.sport_id === b.sport_id);
+                      return (
+                        <option key={b.batch_id} value={b.batch_id}>
+                          {b.name} ({sport?.name || 'Unknown'})
+                        </option>
+                      );
+                    })}
                   </select>
+                  
+                  {editStudentForm.batch_ids && editStudentForm.batch_ids.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {editStudentForm.batch_ids.map(batchId => {
+                        const batch = availableBatches.find(b => b.batch_id === batchId);
+                        const sport = sports.find(s => s.sport_id === batch?.sport_id);
+                        return (
+                          <span
+                            key={batchId}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm"
+                          >
+                            {batch?.name} ({sport?.name || 'Unknown'})
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditStudentForm(prev => ({
+                                  ...prev,
+                                  batch_ids: (prev.batch_ids || []).filter(id => id !== batchId)
+                                }));
+                              }}
+                              className="ml-1 text-emerald-600 hover:text-emerald-900"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  <p className="text-muted mt-1 text-xs">
+                    One batch per sport. Click × to remove.
+                  </p>
                 </div>
 
                 <div>

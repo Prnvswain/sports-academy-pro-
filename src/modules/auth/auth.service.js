@@ -190,10 +190,11 @@ export const signupAcademy = async ({
 };
 
 export const loginUser = async ({ email, password, ip }) => {
-  logger.info('Admin login attempt', { email, ip });
+  const normalizedEmail = email.trim().toLowerCase();
+  logger.info('Admin login attempt', { email: normalizedEmail, ip });
 
   const user = await prisma.user.findFirst({
-    where: { email, ...NOT_DELETED },
+    where: { email: normalizedEmail, ...NOT_DELETED },
     include: { academy: true }
   });
 
@@ -251,16 +252,42 @@ export const loginUser = async ({ email, password, ip }) => {
 };
 
 export const loginCoach = async ({ email, password, ip }) => {
-  logger.info('Coach login attempt', { email, ip });
+  const normalizedEmail = email.trim().toLowerCase();
+  logger.info('Coach login attempt', { email: normalizedEmail, ip });
 
   const coach = await prisma.coach.findFirst({
-    where: { email, ...NOT_DELETED },
+    where: { email: normalizedEmail, ...NOT_DELETED },
     include: { academy: true }
   });
+
+  console.log("=== COACH LOGIN DEBUG PROMPT ===");
+  console.log("1. Input Email:", normalizedEmail);
+  console.log("2. Coach Found in DB?:", coach ? "YES" : "NO");
+  if (coach) {
+    console.log("3. Coach ID:", coach.coach_id);
+    console.log("4. Plain Password Input:", password);
+    console.log("5. Password Hash in DB:", coach.password_hash);
+    console.log("6. Password Hash Length:", coach.password_hash?.length);
+    
+    // Check if bcrypt is comparing properly
+    const isMatch = await bcrypt.compare(password, coach.password_hash);
+    console.log("7. Bcrypt Match Result:", isMatch);
+    
+    // Strict check if password was mistakenly saved as plaintext
+    console.log("8. Is Plaintext Equal?:", password === coach.password_hash);
+  }
+  console.log("=================================");
 
   if (!coach || !coach.password_hash) {
     const error = new Error('Invalid email or password');
     error.statusCode = 401;
+    throw error;
+  }
+
+  // Explicit role verification - ensure this is a valid coach account
+  if (coach.is_deleted !== false) {
+    const error = new Error('Coach account is not active');
+    error.statusCode = 403;
     throw error;
   }
 
@@ -280,6 +307,7 @@ export const loginCoach = async ({ email, password, ip }) => {
   const isPasswordValid = await bcrypt.compare(password, coach.password_hash);
 
   if (!isPasswordValid) {
+    logger.warn('Coach login failed - invalid password', { email: normalizedEmail, coach_id: coach.coach_id });
     const error = new Error('Invalid email or password');
     error.statusCode = 401;
     throw error;

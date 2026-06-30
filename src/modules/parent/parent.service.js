@@ -4,60 +4,62 @@ import prisma from '../../config/prisma.js';
 import { JWT_SECRET, JWT_EXPIRE, BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
 import { generateResetCode } from '../../utils/resetCode.util.js';
 import logger from '../../utils/logger.js';
+import { sendPasswordChangeEmail } from '../../services/email.service.js';
 
 export const createParentAccount = async ({ academy_id, name, email, phone, password }) => {
   const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-  
-  try {
-    const parent = await prisma.parent.create({
-      data: {
-        academy_id,
-        name,
-        email,
-        phone: phone || null,
-        password_hash: hashedPassword,
-        must_change_password: true,
-      },
-    });
+  const normalizedEmail = email.trim().toLowerCase();
 
-    logger.info('Parent account created', { parent_id: parent.parent_id, email: parent.email });
-    return parent;
-  } catch (error) {
-    // Handle unique constraint violation - parent already exists
-    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-      logger.warn('Parent account already exists, fetching existing', { email });
-      const existingParent = await prisma.parent.findFirst({
-        where: {
-          email,
-          academy_id,
-        },
+  const existingParent = await prisma.parent.findUnique({
+    where: {
+      email_academy_id: {
+        email: normalizedEmail,
+        academy_id,
+      },
+    },
+  });
+
+  if (existingParent) {
+    if (!existingParent.is_active) {
+      await prisma.parent.update({
+        where: { parent_id: existingParent.parent_id },
+        data: { is_active: true },
       });
-      
-      if (existingParent) {
-        // Reactivate if inactive
-        if (!existingParent.is_active) {
-          await prisma.parent.update({
-            where: { parent_id: existingParent.parent_id },
-            data: { is_active: true },
-          });
-          logger.info('Reactivated inactive parent account', { parent_id: existingParent.parent_id });
-        }
-        return existingParent;
-      }
+      logger.info('Reactivated inactive parent account', { parent_id: existingParent.parent_id });
     }
-    // Re-throw if it's not a unique constraint error
-    throw error;
+
+    logger.warn('Parent account already exists, returning existing record', {
+      email: normalizedEmail,
+    });
+    return existingParent;
   }
+
+  const parent = await prisma.parent.create({
+    data: {
+      academy_id,
+      name,
+      email: normalizedEmail,
+      phone: phone || null,
+      password_hash: hashedPassword,
+      must_change_password: true,
+    },
+  });
+
+  logger.info('Parent account created', { parent_id: parent.parent_id, email: parent.email });
+  return parent;
 };
 
 export const findParentByEmail = async (email, academy_id) => {
-  return await prisma.parent.findFirst({
+  const parent = await prisma.parent.findUnique({
     where: {
-      email,
-      academy_id,
-      is_active: true,
+      email_academy_id: {
+        email: email.trim().toLowerCase(),
+        academy_id,
+      },
     },
   });
+
+  return parent?.is_active ? parent : null;
 };
 
 export const findParentById = async (parent_id) => {
@@ -78,25 +80,26 @@ export const findParentById = async (parent_id) => {
 
 export const authenticateParent = async ({ email, password, academy_id }) => {
   let parent;
-  
+  const normalizedEmail = email.trim().toLowerCase();
+
   if (academy_id) {
-    parent = await findParentByEmail(email, academy_id);
+    parent = await findParentByEmail(normalizedEmail, academy_id);
   } else {
     // If no academy_id provided, find by email only (first active match)
     parent = await prisma.parent.findFirst({
       where: {
-        email,
+        email: normalizedEmail,
         is_active: true,
       },
     });
   }
-  
+
   if (!parent) {
     throw new Error('Invalid credentials');
   }
 
   const isValidPassword = await bcrypt.compare(password, parent.password_hash);
-  
+
   if (!isValidPassword) {
     throw new Error('Invalid credentials');
   }
@@ -112,18 +115,18 @@ export const authenticateParent = async ({ email, password, academy_id }) => {
   });
 
   const token = jwt.sign(
-    { 
-      id: parent.parent_id, 
+    {
+      id: parent.parent_id,
       role: 'PARENT',
       academy_id: parent.academy_id,
-      email: parent.email 
+      email: parent.email,
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRE }
+    { expiresIn: JWT_EXPIRE },
   );
 
   logger.info('Parent authenticated', { parent_id: parent.parent_id, email: parent.email });
-  
+
   return {
     token,
     parent: {
@@ -146,7 +149,7 @@ export const changeParentPassword = async (parent_id, currentPassword, newPasswo
   }
 
   const isValidPassword = await bcrypt.compare(currentPassword, parent.password_hash);
-  
+
   if (!isValidPassword) {
     throw new Error('Current password is incorrect');
   }
@@ -162,7 +165,60 @@ export const changeParentPassword = async (parent_id, currentPassword, newPasswo
   });
 
   logger.info('Parent password changed', { parent_id });
+
+  // Send password change email
+  try {
+    await sendPasswordChangeEmail(parent.email, parent.name, newPassword);
+    logger.info('Password change email sent successfully', { parent_id, email: parent.email });
+  } catch (emailError) {
+    logger.error('Failed to send password change email', { 
+      error: emailError.message, 
+      parent_id, 
+      email: parent.email 
+    });
+    // Don't throw error - password was changed successfully, email is secondary
+  }
+
   return { success: true };
+};
+
+export const updateParentProfile = async (parent_id, { name, email, phone }) => {
+  const parent = await prisma.parent.findUnique({
+    where: { parent_id },
+  });
+
+  if (!parent) {
+    throw new Error('Parent not found');
+  }
+
+  const normalizedEmail = email ? email.trim().toLowerCase() : parent.email;
+
+  // Check if email is being changed and if it conflicts with another parent
+  if (email && email !== parent.email) {
+    const existingParent = await prisma.parent.findFirst({
+      where: {
+        email: normalizedEmail,
+        academy_id: parent.academy_id,
+        parent_id: { not: parent_id },
+      },
+    });
+
+    if (existingParent) {
+      throw new Error('Email already exists in this academy');
+    }
+  }
+
+  const updatedParent = await prisma.parent.update({
+    where: { parent_id },
+    data: {
+      name: name || parent.name,
+      email: normalizedEmail,
+      phone: phone !== undefined ? phone : parent.phone,
+    },
+  });
+
+  logger.info('Parent profile updated', { parent_id });
+  return updatedParent;
 };
 
 export const linkStudentToParent = async (student_id, parent_id) => {
@@ -249,7 +305,7 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
   // Filter students if studentId is provided
   let filteredStudents = parent.students;
   if (studentId) {
-    filteredStudents = parent.students.filter(s => s.student_id === studentId);
+    filteredStudents = parent.students.filter((s) => s.student_id === studentId);
     if (filteredStudents.length === 0) {
       // If specific student not found, use first student as fallback
       filteredStudents = parent.students;
@@ -257,23 +313,25 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
   }
 
   // Calculate aggregated metrics for dashboard
-  const allAttendances = filteredStudents.flatMap(s => s.student_attendances);
-  const presentCount = allAttendances.filter(a => a.status === 'PRESENT').length;
-  const attendanceRate = allAttendances.length > 0 
-    ? Math.round((presentCount / allAttendances.length) * 100) 
-    : 0;
+  const allAttendances = filteredStudents.flatMap((s) => s.student_attendances);
+  const presentCount = allAttendances.filter((a) => a.status === 'PRESENT').length;
+  const attendanceRate =
+    allAttendances.length > 0 ? Math.round((presentCount / allAttendances.length) * 100) : 0;
 
-  const allPerformanceScores = filteredStudents.flatMap(s => s.performance_scores);
-  const avgPerformanceScore = allPerformanceScores.length > 0
-    ? Math.round(allPerformanceScores.reduce((sum, s) => sum + s.score, 0) / allPerformanceScores.length)
-    : 0;
+  const allPerformanceScores = filteredStudents.flatMap((s) => s.performance_scores);
+  const avgPerformanceScore =
+    allPerformanceScores.length > 0
+      ? Math.round(
+          allPerformanceScores.reduce((sum, s) => sum + s.score, 0) / allPerformanceScores.length,
+        )
+      : 0;
 
-  const allReceipts = filteredStudents.flatMap(s => s.receipts);
+  const allReceipts = filteredStudents.flatMap((s) => s.receipts);
   const pendingFees = allReceipts
-    .filter(r => r.status === 'PENDING' || r.status === 'DUE')
+    .filter((r) => r.status === 'PENDING' || r.status === 'DUE')
     .reduce((sum, r) => sum + (r.amount || 0), 0);
 
-  const recentNotes = filteredStudents.flatMap(s => s.daily_notes).slice(0, 5);
+  const recentNotes = filteredStudents.flatMap((s) => s.daily_notes).slice(0, 5);
 
   return {
     parent: {

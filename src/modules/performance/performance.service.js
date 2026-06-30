@@ -1,17 +1,21 @@
 import prisma from '../../config/prisma.js';
 import { NOT_DELETED } from '../../utils/softDelete.util.js';
 import logger from '../../utils/logger.js';
+// 1. Pure module ko ek object ki tarah import karo
+import * as mailService from '../../services/mail.service.js';
+
+// 2. Safe extraction: Chahe file me named export ho, default export ho, ya CommonJS module.exports ho, ye sabko handle karega
+const sendMail = mailService.sendMail || mailService.default?.sendMail || mailService.default;
 
 export const getAttributes = async (academyId, query = {}) => {
   const { sport_id, status } = query;
   
   const where = {
-    academy_id: academyId,
-    ...NOT_DELETED
+    academy_id: academyId
   };
 
   if (sport_id) {
-    where.sport_id = parseInt(sport_id);
+    where.sport_id = parseInt(sport_id, 10);
   }
 
   if (status) {
@@ -55,9 +59,8 @@ export const createAttribute = async (academyId, userId, userRole, data) => {
   const existing = await prisma.performanceAttribute.findFirst({
     where: {
       academy_id: academyId,
-      sport_id: parseInt(sport_id),
-      name: name.trim(),
-      ...NOT_DELETED
+      sport_id: parseInt(sport_id, 10),
+      name: name.trim()
     }
   });
 
@@ -69,7 +72,7 @@ export const createAttribute = async (academyId, userId, userRole, data) => {
 
   const attributeData = {
     academy_id: academyId,
-    sport_id: parseInt(sport_id),
+    sport_id: parseInt(sport_id, 10),
     name: name.trim(),
     status: 'APPROVED'
   };
@@ -107,9 +110,8 @@ export const createAttribute = async (academyId, userId, userRole, data) => {
 export const approveAttribute = async (academyId, attributeId) => {
   const attribute = await prisma.performanceAttribute.findFirst({
     where: {
-      attribute_id: parseInt(attributeId),
-      academy_id: academyId,
-      ...NOT_DELETED
+      attribute_id: parseInt(attributeId, 10),
+      academy_id: academyId
     }
   });
 
@@ -120,7 +122,7 @@ export const approveAttribute = async (academyId, attributeId) => {
   }
 
   const updated = await prisma.performanceAttribute.update({
-    where: { attribute_id: parseInt(attributeId) },
+    where: { attribute_id: parseInt(attributeId, 10) },
     data: {
       status: 'APPROVED',
       reviewed_at: new Date()
@@ -146,9 +148,8 @@ export const approveAttribute = async (academyId, attributeId) => {
 export const rejectAttribute = async (academyId, attributeId) => {
   const attribute = await prisma.performanceAttribute.findFirst({
     where: {
-      attribute_id: parseInt(attributeId),
-      academy_id: academyId,
-      ...NOT_DELETED
+      attribute_id: parseInt(attributeId, 10),
+      academy_id: academyId
     }
   });
 
@@ -159,7 +160,7 @@ export const rejectAttribute = async (academyId, attributeId) => {
   }
 
   const updated = await prisma.performanceAttribute.update({
-    where: { attribute_id: parseInt(attributeId) },
+    where: { attribute_id: parseInt(attributeId, 10) },
     data: {
       status: 'REJECTED',
       reviewed_at: new Date()
@@ -183,18 +184,18 @@ export const rejectAttribute = async (academyId, attributeId) => {
 };
 
 export const getScores = async (academyId, query = {}) => {
-  const { student_id, batch_id, sport_id } = query;
+  const { student_id, batch_id } = query;
   
   const where = {
     academy_id: academyId
   };
 
   if (student_id) {
-    where.student_id = parseInt(student_id);
+    where.student_id = parseInt(student_id, 10);
   }
 
   if (batch_id) {
-    where.batch_id = parseInt(batch_id);
+    where.batch_id = parseInt(batch_id, 10);
   }
 
   const scores = await prisma.performanceScore.findMany({
@@ -255,10 +256,9 @@ export const createScore = async (academyId, coachId, userRole, data) => {
   // Verify attribute exists and is approved
   const attribute = await prisma.performanceAttribute.findFirst({
     where: {
-      attribute_id: parseInt(attribute_id),
+      attribute_id: parseInt(attribute_id, 10),
       academy_id: academyId,
-      status: 'APPROVED',
-      ...NOT_DELETED
+      status: 'APPROVED'
     }
   });
 
@@ -271,7 +271,7 @@ export const createScore = async (academyId, coachId, userRole, data) => {
   // Verify student exists
   const student = await prisma.student.findFirst({
     where: {
-      student_id: parseInt(student_id),
+      student_id: parseInt(student_id, 10),
       academy_id: academyId,
       ...NOT_DELETED
     }
@@ -285,15 +285,15 @@ export const createScore = async (academyId, coachId, userRole, data) => {
 
   const scoreData = {
     academy_id: academyId,
-    student_id: parseInt(student_id),
-    attribute_id: parseInt(attribute_id),
-    coach_id: parseInt(coachId),
-    score: parseInt(score),
+    student_id: parseInt(student_id, 10),
+    attribute_id: parseInt(attribute_id, 10),
+    coach_id: parseInt(coachId, 10),
+    score: parseInt(score, 10),
     scored_at: new Date()
   };
 
   if (batch_id) {
-    scoreData.batch_id = parseInt(batch_id);
+    scoreData.batch_id = parseInt(batch_id, 10);
   }
 
   if (notes) {
@@ -341,11 +341,9 @@ export const createScore = async (academyId, coachId, userRole, data) => {
 };
 
 export const getStudentPerformance = async (academyId, studentId, query = {}) => {
-  const { sport_id } = query;
-  
   const where = {
     academy_id: academyId,
-    student_id: parseInt(studentId)
+    student_id: parseInt(studentId, 10)
   };
 
   const scores = await prisma.performanceScore.findMany({
@@ -393,7 +391,7 @@ export const getStudentPerformance = async (academyId, studentId, query = {}) =>
   });
 
   return {
-    student_id: parseInt(studentId),
+    student_id: parseInt(studentId, 10),
     attributes: Object.values(grouped)
   };
 };
@@ -401,7 +399,7 @@ export const getStudentPerformance = async (academyId, studentId, query = {}) =>
 export const getBatchPerformance = async (academyId, batchId, query = {}) => {
   const where = {
     academy_id: academyId,
-    batch_id: parseInt(batchId)
+    batch_id: parseInt(batchId, 10)
   };
 
   const scores = await prisma.performanceScore.findMany({
@@ -437,7 +435,7 @@ export const getBatchPerformance = async (academyId, batchId, query = {}) => {
   });
 
   return {
-    batch_id: parseInt(batchId),
+    batch_id: parseInt(batchId, 10),
     scores
   };
 };
@@ -446,8 +444,7 @@ export const getApprovalQueue = async (academyId) => {
   const pendingAttributes = await prisma.performanceAttribute.findMany({
     where: {
       academy_id: academyId,
-      status: 'PENDING',
-      ...NOT_DELETED
+      status: 'PENDING'
     },
     include: {
       sport: {
@@ -469,4 +466,356 @@ export const getApprovalQueue = async (academyId) => {
   });
 
   return pendingAttributes;
+};
+
+export const submitWeeklyPerformance = async (academyId, coachId, data) => {
+  const { student_id, batch_id, ratings } = data;
+  const academyIdInt = parseInt(academyId, 10);
+  const coachIdInt = parseInt(coachId, 10);
+  const studentIdInt = parseInt(student_id, 10);
+  const batchIdInt = parseInt(batch_id, 10);
+
+  // Calculate week start date (Monday of current week)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const weekStartDate = new Date(now.setDate(diff));
+  weekStartDate.setHours(0, 0, 0, 0);
+
+  // Check for existing weekly report
+  const existingReport = await prisma.weeklyPerformanceReport.findFirst({
+    where: {
+      student_id: studentIdInt,
+      batch_id: batchIdInt,
+      week_start_date: weekStartDate
+    }
+  });
+
+  if (existingReport) {
+    const error = new Error('Performance report for this week has already been submitted.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Fetch student and parent info
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentIdInt,
+      academy_id: academyIdInt,
+      ...NOT_DELETED
+    },
+    include: {
+      parent: true
+    }
+  });
+
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Create report and ratings in transaction
+  const result = await prisma.$transaction(async (tx) => {
+    const report = await tx.weeklyPerformanceReport.create({
+      data: {
+        student_id: studentIdInt,
+        batch_id: batchIdInt,
+        coach_id: coachIdInt,
+        week_start_date: weekStartDate
+      }
+    });
+
+    const ratingRecords = await tx.performanceRating.createMany({
+      data: ratings.map(r => ({
+        report_id: report.report_id,
+        attribute_id: parseInt(r.attribute_id, 10),
+        score: parseInt(r.score, 10)
+      }))
+    });
+
+    return { report, ratingRecords };
+  });
+
+  // Send email with visual score indicators
+  try {
+    if (student.parent && student.parent.email) {
+      const attributes = await prisma.performanceAttribute.findMany({
+        where: {
+          attribute_id: { in: ratings.map(r => parseInt(r.attribute_id, 10)) }
+        },
+        select: { attribute_id: true, name: true }
+      });
+
+      const ratingRows = ratings.map(r => {
+        const attr = attributes.find(a => a.attribute_id === parseInt(r.attribute_id, 10));
+        const score = parseInt(r.score, 10);
+        const filledBlocks = '█'.repeat(score);
+        const emptyBlocks = '░'.repeat(10 - score);
+        return `<div style="margin: 8px 0; font-family: monospace; font-size: 14px;">
+          <span style="display: inline-block; width: 150px;">${attr?.name || 'Attribute'}:</span>
+          <span style="color: #4CAF50;">[${filledBlocks}${emptyBlocks}]</span>
+          <span style="font-weight: bold;">${score}/10</span>
+        </div>`;
+      }).join('');
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #1a56db;">Weekly Performance Report</h2>
+          <p>Hello <strong>${student.parent.name}</strong>,</p>
+          <p>Your child <strong>${student.name}</strong> has received their weekly performance evaluation:</p>
+          <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            ${ratingRows}
+          </div>
+          <p style="color: #6b7280; font-size: 12px;">This is an automated message from SAMS.</p>
+        </div>
+      `;
+
+      // ✉️ Using safe default import variant execution context
+      await sendMail({
+        to: student.parent.email,
+        subject: `Weekly Performance Report - ${student.name}`,
+        html,
+        text: `Weekly performance report for ${student.name} is now available.`
+      });
+    }
+  } catch (mailError) {
+    logger.error('Weekly performance email failed', {
+      student_id: studentIdInt,
+      parent_email: student.parent?.email,
+      error: mailError.message
+    });
+  }
+
+  return result;
+};
+
+export const getSportAttributes = async (academyId, sportId) => {
+  const academyIdInt = parseInt(academyId, 10);
+  const sportIdInt = parseInt(sportId, 10);
+
+  // First, try to fetch academy-specific approved attributes for this sport
+  const academyAttributes = await prisma.performanceAttribute.findMany({
+    where: {
+      academy_id: academyIdInt,
+      sport_id: sportIdInt,
+      status: 'APPROVED'
+    },
+    select: {
+      attribute_id: true,
+      name: true
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  });
+
+  // If academy has configured attributes, return them
+  if (academyAttributes.length > 0) {
+    return academyAttributes.map(attr => ({
+      id: attr.attribute_id,
+      name: attr.name
+    }));
+  }
+
+  // Fallback: Fetch global sport attributes from GlobalSport table
+  const globalSport = await prisma.globalSport.findFirst({
+    where: {
+      id: sportIdInt
+    },
+    select: {
+      attributes: true
+    }
+  });
+
+  if (globalSport && globalSport.attributes) {
+    try {
+      const parsedAttributes = JSON.parse(globalSport.attributes);
+      if (Array.isArray(parsedAttributes) && parsedAttributes.length > 0) {
+        return parsedAttributes.map((name, index) => ({
+          id: index,
+          name: name
+        }));
+      }
+    } catch (parseError) {
+      logger.warn('Failed to parse global sport attributes', {
+        sport_id: sportIdInt,
+        error: parseError.message
+      });
+    }
+  }
+
+  // Final fallback to default attributes
+  return [
+    { id: 1, name: 'Stamina' },
+    { id: 2, name: 'Skill' },
+    { id: 3, name: 'Performance' }
+  ];
+};
+
+export const rateStudent = async (academyId, coachId, userRole, data) => {
+  const { student_id, batch_id, sport_id, ratings } = data;
+  const academyIdInt = parseInt(academyId, 10);
+  const coachIdInt = parseInt(coachId, 10);
+  const studentIdInt = parseInt(student_id, 10);
+  const batchIdInt = batch_id ? parseInt(batch_id, 10) : null;
+  const sportIdInt = parseInt(sport_id, 10);
+
+  if (!student_id || !sport_id || !ratings) {
+    const error = new Error('student_id, sport_id, and ratings are required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!ratings || typeof ratings !== 'object' || Object.keys(ratings).length === 0) {
+    const error = new Error('ratings must be a non-empty object');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate each rating score is between 1 and 10
+  for (const [attributeName, score] of Object.entries(ratings)) {
+    const scoreNum = parseInt(score, 10);
+    if (isNaN(scoreNum) || scoreNum < 1 || scoreNum > 10) {
+      const error = new Error(`Rating for "${attributeName}" must be an integer between 1 and 10`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  // Verify student exists
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentIdInt,
+      academy_id: academyIdInt,
+      ...NOT_DELETED
+    }
+  });
+
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Verify sport exists in academy
+  const sport = await prisma.sport.findFirst({
+    where: {
+      sport_id: sportIdInt,
+      academy_id: academyIdInt
+    }
+  });
+
+  if (!sport) {
+    const error = new Error('Sport not found in academy');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Get approved attributes for this sport
+  const attributes = await prisma.performanceAttribute.findMany({
+    where: {
+      academy_id: academyIdInt,
+      sport_id: sportIdInt,
+      status: 'APPROVED'
+    }
+  });
+
+  // If no academy attributes, try to create them from global sport
+  let attributeMap = {};
+  if (attributes.length === 0) {
+    const globalSport = await prisma.globalSport.findFirst({
+      where: { id: sportIdInt },
+      select: { attributes: true }
+    });
+
+    let attributeNames = ['Stamina', 'Skill', 'Performance'];
+    if (globalSport && globalSport.attributes) {
+      try {
+        const parsed = JSON.parse(globalSport.attributes);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          attributeNames = parsed;
+        }
+      } catch (e) {
+        logger.warn('Failed to parse global attributes', { error: e.message });
+      }
+    }
+
+    // Create attributes
+    const createdAttributes = await prisma.$transaction(
+      attributeNames.map(name =>
+        prisma.performanceAttribute.create({
+          data: {
+            academy_id: academyIdInt,
+            sport_id: sportIdInt,
+            name: name.trim(),
+            status: 'APPROVED'
+          }
+        })
+      )
+    );
+
+    attributeMap = createdAttributes.reduce((map, attr) => {
+      map[attr.name] = attr.attribute_id;
+      return map;
+    }, {});
+  } else {
+    attributeMap = attributes.reduce((map, attr) => {
+      map[attr.name] = attr.attribute_id;
+      return map;
+    }, {});
+  }
+
+  // Create or update performance scores
+  const results = await prisma.$transaction(
+    Object.entries(ratings).map(([attributeName, score]) => {
+      const attributeId = attributeMap[attributeName.replace(/_/g, ' ')] || 
+                          attributeMap[attributeName];
+
+      if (!attributeId) {
+        const error = new Error(`Attribute "${attributeName}" not found for this sport`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      return prisma.performanceScore.upsert({
+        where: {
+          student_id_attribute_id: {
+            student_id: studentIdInt,
+            attribute_id: attributeId
+          }
+        },
+        update: {
+          score: parseInt(score, 10),
+          coach_id: coachIdInt,
+          batch_id: batchIdInt,
+          scored_at: new Date()
+        },
+        create: {
+          academy_id: academyIdInt,
+          student_id: studentIdInt,
+          attribute_id: attributeId,
+          coach_id: coachIdInt,
+          batch_id: batchIdInt,
+          score: parseInt(score, 10),
+          scored_at: new Date()
+        }
+      });
+    })
+  );
+
+  logger.info('Student performance ratings recorded', {
+    academy_id: academyIdInt,
+    student_id: studentIdInt,
+    sport_id: sportIdInt,
+    coach_id: coachIdInt,
+    ratings_count: results.length
+  });
+
+  return {
+    student_id: studentIdInt,
+    sport_id: sportIdInt,
+    scores: results,
+    total_ratings: results.length
+  };
 };

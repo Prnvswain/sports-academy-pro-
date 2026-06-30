@@ -14,6 +14,13 @@ export const validate = (method) => {
           .isIn(['pending', 'active', 'suspended', 'rejected'])
           .withMessage('Invalid status')
       ];
+    case 'updatePlanStatus':
+      return [
+        param('plan_id').isInt().withMessage('Invalid plan ID'),
+        body('status')
+          .isIn(['active', 'disabled'])
+          .withMessage('Invalid status')
+      ];
     case 'putSetting':
       return [
         body('setting_key').isString().trim().notEmpty(),

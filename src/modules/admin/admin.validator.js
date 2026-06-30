@@ -272,7 +272,7 @@ export const validate = (method) => {
         body('amount').isFloat({ min: 0 }).withMessage('Amount must be greater than 0'),
         body('payment_date').isISO8601().withMessage('Invalid date format'),
         body('method')
-          .isIn(['cash', 'cheque', 'online', 'upi'])
+          .isIn(['cash', 'cheque', 'online', 'upi', 'card', 'bank_transfer'])
           .withMessage('Invalid payment method'),
         body('status')
           .optional()

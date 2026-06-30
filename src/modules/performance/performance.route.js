@@ -35,4 +35,16 @@ router.get('/students/:studentId', performanceController.getStudentPerformance);
 // Get batch performance
 router.get('/batches/:batchId', performanceController.getBatchPerformance);
 
+// Submit weekly performance report
+router.post('/weekly-performance', performanceController.submitWeeklyPerformance);
+
+// Performance analytics endpoints
+router.get('/analytics/student/:studentId', performanceController.getStudentAnalytics);
+router.get('/analytics/batch/:batchId', performanceController.getBatchAnalytics);
+router.get('/analytics/academy', performanceController.getAcademyAnalytics);
+
+// Sport attributes synchronization endpoints
+router.get('/sport-attributes/:sportId', performanceController.getSportAttributes);
+router.post('/rate-student', performanceController.rateStudent);
+
 export default router;

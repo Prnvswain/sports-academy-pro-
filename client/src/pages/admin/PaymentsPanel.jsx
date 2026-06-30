@@ -35,8 +35,12 @@ export default function PaymentsPanel() {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // NEW: Image Modal Preview State
+  const [previewImage, setPreviewImage] = useState(null);
+
+  // Modifying loadData to accept a background flag so loaders don't flash every 5 seconds
+  const loadData = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const [paymentsRes, studentsRes] = await Promise.all([
         adminGet('/admin/accounts'),
@@ -48,17 +52,30 @@ export default function PaymentsPanel() {
 
       const studentsData = studentsRes.data?.data || studentsRes.data || [];
       setStudents(Array.isArray(studentsData) ? studentsData : []);
-      setMessage({ text: '', type: '' });
+      
+      if (!isBackground) setMessage({ text: '', type: '' });
     } catch (error) {
       console.error('Data load failure:', error);
-      setMessage({ text: error.message || 'Failed to contact backend API', type: 'error' });
+      if (!isBackground) {
+        setMessage({ text: error.message || 'Failed to contact backend API', type: 'error' });
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }, []);
 
+  // FIXED: Real-time update via 5-second background polling mechanism
   useEffect(() => {
-    loadData();
+    // Immediate initial load on component mount
+    loadData(false);
+
+    // Dynamic background checking every 5 seconds
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 5000);
+
+    // Cleanup hook on unmount
+    return () => clearInterval(interval);
   }, [loadData]);
 
   const handleChange = (event) => {
@@ -221,10 +238,9 @@ export default function PaymentsPanel() {
       setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
       setStudentSearchTerm('');
       setStudentFeeData(null);
-      loadData();
+      loadData(false);
     } catch (error) {
       console.error('[handleSubmit] Payment creation error:', error);
-      console.error('[handleSubmit] Error stack:', error.stack);
       setMessage({ text: error.message, type: 'error' });
     }
   };
@@ -258,7 +274,7 @@ export default function PaymentsPanel() {
         rejected_reason,
       });
       setMessage({ text: result.message || 'Status updated successfully', type: 'success' });
-      loadData();
+      loadData(true); // Background refresh silently
     } catch (error) {
       setMessage({ text: error.message || 'Failed to update payment status', type: 'error' });
     }
@@ -267,26 +283,26 @@ export default function PaymentsPanel() {
   const rejectPayment = async (paymentObj, fallbackId) => {
     const reason = window.prompt('Rejection reason (optional):');
     if (reason === null) return;
-    await updateStatus(paymentObj, fallbackId, 'FAILED', reason || undefined);
+    await updateStatus(paymentObj, fallbackId, 'rejected', reason || undefined);
   };
 
   // Calculate collection statistics
   const calculateStats = () => {
-    const total = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const total = payments.reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
     const collected = payments
-      .filter((p) => (p.status || '').toUpperCase() === 'COMPLETED')
-      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      .filter((p) => (p?.status || '').toUpperCase() === 'COMPLETED')
+      .reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
     const pending = payments
-      .filter((p) => (p.status || '').toUpperCase() === 'PENDING')
-      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      .filter((p) => (p?.status || '').toUpperCase() === 'PENDING')
+      .reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
     const overdue = payments
       .filter((p) => {
-        const status = (p.status || '').toUpperCase();
-        const dueDate = p.due_date ? new Date(p.due_date) : null;
+        const status = (p?.status || '').toUpperCase();
+        const dueDate = p?.due_date ? new Date(p.due_date) : null;
         const today = new Date();
         return status === 'PENDING' && dueDate && dueDate < today;
       })
-      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      .reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
 
     return { total, collected, pending, overdue };
   };
@@ -295,43 +311,43 @@ export default function PaymentsPanel() {
 
   // Filter payments
   const filteredPayments = payments.filter((payment) => {
-    const status = (payment.status || '').toUpperCase();
+    const status = (payment?.status || '').toUpperCase();
 
     if (statusFilter && status !== statusFilter.toUpperCase()) return false;
 
     if (methodFilter) {
-      const paymentMethod = (payment.method || '').toLowerCase();
+      const paymentMethod = (payment?.method || '').toLowerCase();
       if (paymentMethod !== methodFilter.toLowerCase()) return false;
     }
 
     if (dateFrom) {
-      const paymentDate = new Date(payment.payment_date || payment.date);
+      const paymentDate = new Date(payment?.payment_date || payment?.date);
       const fromDate = new Date(dateFrom);
       if (paymentDate < fromDate) return false;
     }
 
     if (dateTo) {
-      const paymentDate = new Date(payment.payment_date || payment.date);
+      const paymentDate = new Date(payment?.payment_date || payment?.date);
       const toDate = new Date(dateTo);
       if (paymentDate > toDate) return false;
     }
 
     if (globalSearch) {
       const searchTerm = globalSearch.toLowerCase();
-      const studentName = payment.student?.name || payment.student_name || '';
-      const parentName = payment.student?.parent_name || payment.student?.parentName || '';
-      const paymentMethod = payment.method || '';
-      const amount = payment.amount?.toString() || '';
-      const status = payment.status || '';
-      const transactionRef = payment.transaction_reference || payment.receipt_number || payment.payment_reference || '';
+      const studentName = payment?.student?.name || payment?.student_name || '';
+      const coachName = payment?.submittedByCoach?.name || payment?.coach_name || '';
+      const parentName = payment?.student?.parent_name || payment?.student?.parentName || '';
+      const paymentMethod = payment?.method || '';
+      const amount = payment?.amount?.toString() || '';
+      const pStatus = payment?.status || '';
 
       return (
-        studentName.toLowerCase().includes(searchTerm) ||
-        parentName.toLowerCase().includes(searchTerm) ||
-        paymentMethod.toLowerCase().includes(searchTerm) ||
-        amount.includes(searchTerm) ||
-        status.toLowerCase().includes(searchTerm) ||
-        transactionRef.toLowerCase().includes(searchTerm)
+        studentName?.toLowerCase()?.includes(searchTerm) ||
+        coachName?.toLowerCase()?.includes(searchTerm) ||
+        parentName?.toLowerCase()?.includes(searchTerm) ||
+        paymentMethod?.toLowerCase()?.includes(searchTerm) ||
+        amount?.includes(searchTerm) ||
+        pStatus?.toLowerCase()?.includes(searchTerm)
       );
     }
 
@@ -397,43 +413,43 @@ export default function PaymentsPanel() {
     <div className="space-y-6 w-full overflow-x-hidden">
       <div>
         <h2 className="text-2xl font-bold">Fee Management</h2>
-        <p className="text-muted">Track payments, due dates, and collection statistics.</p>
+        <p className="text-muted text-sm">Track payments, due dates, and collection statistics.</p>
       </div>
 
       {/* Collection Statistics */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="card">
-          <div className="text-2xl font-bold">₹{stats.total.toFixed(2)}</div>
-          <div className="text-muted text-sm">Total Amount</div>
+        <div className="card bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+          <div className="text-2xl font-bold text-slate-800">₹{stats.total.toFixed(2)}</div>
+          <div className="text-muted text-xs font-medium">Total Amount</div>
         </div>
-        <div className="card">
+        <div className="card bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
           <div className="text-success text-2xl font-bold">₹{stats.collected.toFixed(2)}</div>
-          <div className="text-muted text-sm">Collected</div>
+          <div className="text-muted text-xs font-medium">Collected</div>
         </div>
-        <div className="card">
+        <div className="card bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
           <div className="text-warning text-2xl font-bold">₹{stats.pending.toFixed(2)}</div>
-          <div className="text-muted text-sm">Pending</div>
+          <div className="text-muted text-xs font-medium">Pending</div>
         </div>
-        <div className="card">
+        <div className="card bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
           <div className="text-danger text-2xl font-bold">₹{stats.overdue.toFixed(2)}</div>
-          <div className="text-muted text-sm">Overdue</div>
+          <div className="text-muted text-xs font-medium">Overdue</div>
         </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         {/* RECORD PAYMENT CARD */}
-        <form className="card space-y-4" onSubmit={handleSubmit}>
+        <form className="card space-y-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm" onSubmit={handleSubmit}>
           <h3 className="text-base font-bold tracking-tight">Record Payment</h3>
 
           <div>
-            <label className="label" htmlFor="payStudent">
+            <label className="label text-xs font-semibold block mb-1" htmlFor="payStudent">
               Student
             </label>
             <div className="relative">
               <input
                 id="payStudent"
                 type="text"
-                className="input-field text-foreground bg-[var(--color-input)]"
+                className="input-field text-foreground bg-[var(--color-input)] w-full p-2 border rounded-lg text-sm"
                 placeholder="Search student by name, mobile or ID..."
                 value={studentSearchTerm}
                 onChange={(e) => {
@@ -497,7 +513,7 @@ export default function PaymentsPanel() {
 
           {/* COMPREHENSIVE FEE BREAKDOWN */}
           {form.student_id && (
-            <div className="bg-accent/10 border-accent/20 space-y-3 rounded-lg border p-4">
+            <div className="bg-accent/10 border-accent/20 space-y-3 rounded-lg border p-4 bg-slate-50/50">
               {loadingFeeData ? (
                 <div className="text-muted text-center text-sm">Loading fee data...</div>
               ) : studentFeeData ? (
@@ -526,8 +542,8 @@ export default function PaymentsPanel() {
                       ₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}
                     </span>
                   </div>
-                  <div className="bg-surface flex items-center justify-between rounded p-2 text-sm">
-                    <span className="text-muted font-bold">Pending Dues Outstanding:</span>
+                  <div className="bg-surface flex items-center justify-between rounded p-2 text-sm border bg-white">
+                    <span className="text-slate-600 font-bold">Pending Dues Outstanding:</span>
                     <span className="text-danger text-base font-bold">
                       ₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}
                     </span>
@@ -537,7 +553,7 @@ export default function PaymentsPanel() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted font-medium">Pending Dues Outstanding:</span>
                   <span className="text-danger text-base font-bold">
-                    ₹{form.pending_amount.toFixed(2)}
+                    ₹{parseFloat(form.pending_amount || 0).toFixed(2)}
                   </span>
                 </div>
               )}
@@ -545,7 +561,7 @@ export default function PaymentsPanel() {
           )}
 
           <div>
-            <label className="label" htmlFor="payAmount">
+            <label className="label text-xs font-semibold block mb-1" htmlFor="payAmount">
               Amount to Pay
             </label>
             <input
@@ -554,7 +570,7 @@ export default function PaymentsPanel() {
               type="number"
               min="0"
               step="0.01"
-              className="input-field"
+              className="input-field w-full p-2 border rounded-lg text-sm"
               value={form.amount}
               onChange={handleChange}
               required
@@ -563,28 +579,28 @@ export default function PaymentsPanel() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="payDate">
+              <label className="label text-xs font-semibold block mb-1" htmlFor="payDate">
                 Payment Date
               </label>
               <input
                 id="payDate"
                 name="payment_date"
                 type="date"
-                className="input-field"
+                className="input-field w-full p-2 border rounded-lg text-sm"
                 value={form.payment_date}
                 onChange={handleChange}
                 required
               />
             </div>
             <div>
-              <label className="label" htmlFor="dueDate">
+              <label className="label text-xs font-semibold block mb-1" htmlFor="dueDate">
                 Due Date (Optional)
               </label>
               <input
                 id="dueDate"
                 name="due_date"
                 type="date"
-                className="input-field"
+                className="input-field w-full p-2 border rounded-lg text-sm"
                 value={form.due_date}
                 onChange={handleChange}
               />
@@ -593,13 +609,13 @@ export default function PaymentsPanel() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="payMethod">
+              <label className="label text-xs font-semibold block mb-1" htmlFor="payMethod">
                 Method
               </label>
               <select
                 id="payMethod"
                 name="method"
-                className="input-field text-foreground bg-[var(--color-input)]"
+                className="input-field text-foreground bg-[var(--color-input)] w-full p-2 border rounded-lg text-sm"
                 value={form.method}
                 onChange={handleChange}
                 required
@@ -614,13 +630,13 @@ export default function PaymentsPanel() {
               </select>
             </div>
             <div>
-              <label className="label" htmlFor="payStatus">
+              <label className="label text-xs font-semibold block mb-1" htmlFor="payStatus">
                 Status
               </label>
               <select
                 id="payStatus"
                 name="status"
-                className="input-field text-foreground bg-[var(--color-input)]"
+                className="input-field text-foreground bg-[var(--color-input)] w-full p-2 border rounded-lg text-sm"
                 value={form.status}
                 onChange={handleChange}
               >
@@ -631,27 +647,27 @@ export default function PaymentsPanel() {
             </div>
           </div>
 
-          <button type="submit" className="btn-primary mt-2 w-full cursor-pointer">
+          <button type="submit" className="btn-primary mt-2 w-full bg-emerald-500 hover:bg-emerald-600 text-white p-2 rounded-lg font-medium text-sm transition cursor-pointer">
             Create Payment
           </button>
         </form>
 
         {/* FILTERS CARD */}
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="card space-y-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm h-fit">
+          <div className="flex items-center justify-between border-b pb-2">
             <h3 className="text-base font-bold tracking-tight">Filters</h3>
-            <button type="button" className="btn-secondary text-sm" onClick={clearFilters}>
+            <button type="button" className="text-xs text-slate-500 hover:text-slate-800 underline cursor-pointer" onClick={clearFilters}>
               Clear Filters
             </button>
           </div>
 
           <div>
-            <label className="label" htmlFor="statusFilter">
+            <label className="label text-xs font-medium block mb-1" htmlFor="statusFilter">
               Status
             </label>
             <select
               id="statusFilter"
-              className="input-field"
+              className="input-field w-full p-2 border rounded-lg text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -663,12 +679,12 @@ export default function PaymentsPanel() {
           </div>
 
           <div>
-            <label className="label" htmlFor="methodFilter">
+            <label className="label text-xs font-medium block mb-1" htmlFor="methodFilter">
               Payment Method
             </label>
             <select
               id="methodFilter"
-              className="input-field text-foreground bg-[var(--color-input)]"
+              className="input-field text-foreground bg-[var(--color-input)] w-full p-2 border rounded-lg text-sm"
               value={methodFilter}
               onChange={(e) => setMethodFilter(e.target.value)}
             >
@@ -682,27 +698,27 @@ export default function PaymentsPanel() {
             </select>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <div>
-              <label className="label" htmlFor="dateFrom">
+              <label className="label text-xs font-medium block mb-1" htmlFor="dateFrom">
                 From Date
               </label>
               <input
                 id="dateFrom"
                 type="date"
-                className="input-field"
+                className="input-field w-full p-2 border rounded-lg text-xs"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
               />
             </div>
             <div>
-              <label className="label" htmlFor="dateTo">
+              <label className="label text-xs font-medium block mb-1" htmlFor="dateTo">
                 To Date
               </label>
               <input
                 id="dateTo"
                 type="date"
-                className="input-field"
+                className="input-field w-full p-2 border rounded-lg text-xs"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
               />
@@ -712,12 +728,12 @@ export default function PaymentsPanel() {
       </div>
 
       {/* PAYMENT RECORDS LIST */}
-      <div className="card overflow-x-auto">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="card bg-white p-5 rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h3 className="text-base font-bold tracking-tight">Payment Records</h3>
           <input
             type="text"
-            className="input-field w-64"
+            className="input-field w-full sm:w-64 p-2 border rounded-lg text-xs"
             placeholder="Search payments..."
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
@@ -726,107 +742,159 @@ export default function PaymentsPanel() {
         {loading ? (
           <Loader />
         ) : (
-          <table className="w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-border text-muted border-b text-xs font-medium uppercase tracking-wider">
-                <th className="pb-3 pr-2">Student</th>
-                <th className="px-2 pb-3">Amount</th>
-                <th className="px-2 pb-3">Payment Date</th>
-                <th className="px-2 pb-3">Due Date</th>
-                <th className="px-2 pb-3">Method</th>
-                <th className="px-2 pb-3">Status</th>
-                <th className="pb-3 pl-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-border divide-y">
-              {paginatedPayments.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-muted py-8 text-center text-xs">
-                    No payments found.
-                  </td>
+          <div className="overflow-x-auto w-full">
+            <table className="w-full border-collapse text-left text-xs min-w-[800px] text-slate-600">
+              <thead>
+                <tr className="border-b text-slate-400 text-[11px] font-semibold uppercase tracking-wider bg-slate-50/70">
+                  <th className="p-3">Student</th>
+                  <th className="p-3">Collected By (Coach)</th> {/* FIXED: Column for tracking who sent it */}
+                  <th className="p-3">Amount</th>
+                  <th className="p-3">Remarks & Proof</th> {/* FIXED: Column for screenshot verification & metadata text */}
+                  <th className="p-3">Payment Date</th>
+                  <th className="p-3">Due Date</th>
+                  <th className="p-3">Method</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
-              ) : (
-                paginatedPayments.map((payment, index) => {
-                  const normalizedStatus = (payment.status || '').toUpperCase();
-                  const currentId = payment.id || payment.payment_id || index;
-                  const isOverdue =
-                    normalizedStatus === 'PENDING' &&
-                    payment.due_date &&
-                    new Date(payment.due_date) < new Date();
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-muted py-8 text-center text-xs italic">
+                      No payments found matching criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedPayments.map((payment, index) => {
+                    const normalizedStatus = (payment?.status || '').toUpperCase();
+                    const currentId = payment?.id || payment?._id || payment?.payment_id || index;
+                    const isOverdue =
+                      normalizedStatus === 'PENDING' &&
+                      payment?.due_date &&
+                      new Date(payment.due_date) < new Date();
 
-                  return (
-                    <tr
-                      key={currentId}
-                      className={`text-foreground ${isOverdue ? 'bg-danger/10' : ''}`}
-                    >
-                      <td className="py-3 pr-2 font-medium">
-                        {payment.student?.name ||
-                          payment.student_name ||
-                          `Student #${payment.student_id}`}
-                      </td>
-                      <td className="px-2 py-3">₹{parseFloat(payment.amount || 0).toFixed(2)}</td>
-                      <td className="px-2 py-3">
-                        {new Date(payment.payment_date || payment.date).toLocaleDateString()}
-                      </td>
-                      <td className="px-2 py-3">
-                        {payment.due_date ? new Date(payment.due_date).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-2 py-3 text-xs font-semibold uppercase">
-                        {payment.method}
-                      </td>
-                      <td className="px-2 py-3">
-                        <span
-                          className={`rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
-                            isOverdue
-                              ? 'bg-danger/10 text-danger border-danger/20 border'
-                              : normalizedStatus === 'COMPLETED'
-                                ? 'bg-success/10 text-success border-success/20 border'
-                                : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED'
-                                  ? 'bg-danger/10 text-danger border-danger/20 border'
-                                  : 'bg-warning/10 text-warning border-warning/20 border'
-                          }`}
-                        >
-                          {isOverdue ? 'OVERDUE' : payment.status}
-                        </span>
-                      </td>
-                      <td className="space-x-1 py-3 pl-2 text-right">
-                        {normalizedStatus !== 'COMPLETED' && (
-                          <button
-                            type="button"
-                            className="btn-success btn-sm"
-                            onClick={() => updateStatus(payment, currentId, 'completed')}
+                    return (
+                      <tr
+                        key={currentId}
+                        className={`hover:bg-slate-50/50 transition-colors ${isOverdue ? 'bg-rose-50/30' : ''}`}
+                      >
+                        {/* Student Name */}
+                        <td className="p-3 font-semibold text-slate-800">
+                          {payment?.student?.name ||
+                            payment?.student_name ||
+                            `Student #${payment?.student_id}`}
+                        </td>
+
+                        {/* FIXED: Collected By Coach UI handler */}
+                        <td className="p-3 font-medium text-slate-700 bg-slate-50/30">
+                          {payment?.submittedByCoach?.name ? (
+                            <span className="text-emerald-600 font-semibold">
+                              Coach: {payment.submittedByCoach.name}
+                            </span>
+                          ) : payment?.coach_name ? (
+                            <span className="text-emerald-600 font-semibold">Coach: {payment.coach_name}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">Admin Direct</span>
+                          )}
+                        </td>
+
+                        {/* Amount */}
+                        <td className="p-3 font-bold text-slate-800">₹{parseFloat(payment?.amount || 0).toFixed(2)}</td>
+
+                        {/* FIXED: Remarks & Document Evidence popups integrations */}
+                        <td className="p-3 max-w-xs">
+                          <div className="flex flex-col space-y-1">
+                            {payment?.remarks && (
+                              <span className="italic text-slate-500 text-[11px] block truncate">
+                                "{payment.remarks}"
+                              </span>
+                            )}
+                            {(payment?.attachmentUrl || payment?.receipt_image || payment?.proof) ? (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage(payment.attachmentUrl || payment.receipt_image || payment.proof)}
+                                className="text-blue-500 hover:text-blue-700 font-semibold underline text-left flex items-center gap-0.5 cursor-pointer"
+                              >
+                                📸 View Receipt Proof
+                              </button>
+                            ) : (
+                              <span className="text-slate-300 text-[10px] italic">No proof attached</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Dates */}
+                        <td className="p-3">
+                          {payment?.payment_date || payment?.date ? new Date(payment.payment_date || payment.date).toLocaleDateString('en-IN') : '-'}
+                        </td>
+                        <td className="p-3">
+                          {payment?.due_date ? new Date(payment.due_date).toLocaleDateString('en-IN') : '-'}
+                        </td>
+
+                        {/* Method */}
+                        <td className="p-3 text-xs font-semibold uppercase text-slate-500 tracking-wide">
+                          {payment?.method || 'N/A'}
+                        </td>
+
+                        {/* Status badging */}
+                        <td className="p-3">
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+                              isOverdue
+                                ? 'bg-rose-50 text-rose-600 border-rose-200'
+                                : normalizedStatus === 'COMPLETED'
+                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                  : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED'
+                                    ? 'bg-rose-50 text-rose-600 border-rose-200'
+                                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                            }`}
                           >
-                            Mark Paid
-                          </button>
-                        )}
-                        {normalizedStatus === 'PENDING' && (
-                          <button
-                            type="button"
-                            className="btn-danger btn-sm"
-                            onClick={() => rejectPayment(payment, currentId)}
-                          >
-                            Reject
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                            {isOverdue ? 'OVERDUE' : payment?.status || 'pending'}
+                          </span>
+                        </td>
+
+                        {/* Action buttons hooks */}
+                        <td className="p-3 text-right whitespace-nowrap space-x-1.5">
+                          {normalizedStatus !== 'COMPLETED' && (
+                            <button
+                              type="button"
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer shadow-sm"
+                              onClick={() => updateStatus(payment, currentId, 'completed')}
+                            >
+                              Mark Paid
+                            </button>
+                          )}
+                          {normalizedStatus === 'PENDING' && (
+                            <button
+                              type="button"
+                              className="border border-rose-200 bg-white hover:bg-rose-50 text-rose-500 px-2 py-1 rounded text-[11px] font-medium transition cursor-pointer"
+                              onClick={() => rejectPayment(payment, currentId)}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination Section */}
         {filteredPayments.length > 0 && (
-          <div className="mt-4 flex flex-col items-center justify-between gap-4 sm:flex-row sm:gap-0">
-            <div className="text-muted text-sm">
-              Showing {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} of {filteredPayments.length} records
+          <div className="mt-4 flex flex-col items-center justify-between gap-4 sm:flex-row sm:gap-0 border-t pt-4 border-slate-100">
+            <div className="text-slate-400 text-xs">
+              Showing <span className="font-medium text-slate-700">{startIndex + 1}</span>-
+              <span className="font-medium text-slate-700">{Math.min(endIndex, filteredPayments.length)}</span> of{' '}
+              <span className="font-medium text-slate-700">{filteredPayments.length}</span> records
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                className="btn-secondary btn-sm"
+                className="px-2.5 py-1 text-xs border rounded-lg bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
               >
@@ -834,17 +902,17 @@ export default function PaymentsPanel() {
               </button>
               {getPageNumbers().map((page, index) => (
                 page === '...' ? (
-                  <span key={`ellipsis-${index}`} className="text-muted px-2">
+                  <span key={`ellipsis-${index}`} className="text-slate-400 px-1 text-xs">
                     ...
                   </span>
                 ) : (
                   <button
                     key={page}
                     type="button"
-                    className={`btn-sm ${
+                    className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition cursor-pointer ${
                       currentPage === page
-                        ? 'btn-primary'
-                        : 'btn-secondary'
+                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
+                        : 'bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                     onClick={() => setCurrentPage(page)}
                   >
@@ -854,7 +922,7 @@ export default function PaymentsPanel() {
               ))}
               <button
                 type="button"
-                className="btn-secondary btn-sm"
+                className="px-2.5 py-1 text-xs border rounded-lg bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
               >
@@ -865,17 +933,60 @@ export default function PaymentsPanel() {
         )}
       </div>
 
+      {/* GLOBAL TOAST MESSAGE POPUP */}
       {message.text && (
         <div
-          className={`rounded-lg p-4 text-sm font-medium ${
+          className={`fixed bottom-4 right-4 z-50 rounded-lg p-4 text-sm font-medium shadow-lg border animate-fade-in ${
             message.type === 'success'
-              ? 'bg-success/10 text-success border-success/20 border'
-              : 'bg-danger/10 text-danger border-danger/20 border'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
           }`}
         >
           {message.text}
         </div>
       )}
+
+      {/* ==================== NEW: LIGHTBOX IMAGE PREVIEW MODAL OVERLAY ==================== */}
+      {previewImage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-4 relative space-y-4 shadow-2xl border">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h4 className="font-bold text-slate-800 text-sm">Coach Submitted Fee Proof Screenshot</h4>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg p-1 cursor-pointer focus:outline-none"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Image viewport holder */}
+            <div className="flex justify-center bg-slate-50 rounded-lg overflow-hidden border max-h-[65vh]">
+              <img
+                src={previewImage}
+                alt="Payment Receipt Verification Document"
+                className="object-contain max-w-full h-auto"
+                onError={(e) => {
+                  // Fallback string placeholder if server file loading returns 404
+                  e.target.src = "https://placehold.co/600x400?text=Receipt+Screenshot+File+Not+Found";
+                }}
+              />
+            </div>
+
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="px-4 py-1.5 bg-slate-100 text-slate-700 font-semibold text-xs rounded-lg hover:bg-slate-200 transition cursor-pointer"
+              >
+                Close Receipt View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

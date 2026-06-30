@@ -1,27 +1,22 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export default function ParentDashboard() {
-  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
-  const [studentsList, setStudentsList] = useState([]); // Multiple bache handle karne ke liye
+  const [studentsList, setStudentsList] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Pehle render par primary data load hoga
   useEffect(() => {
     fetchInitialData();
   }, []);
 
-  // Jab bhi user drop-down badlega, naya filtered data fetch hoga
   useEffect(() => {
     if (selectedStudentId) {
       fetchDashboardData(selectedStudentId);
     }
   }, [selectedStudentId]);
 
-  // Pehle call me parent ke saare students nikalenge
   const fetchInitialData = async () => {
     try {
       const token = localStorage.getItem('parent_token');
@@ -33,10 +28,9 @@ export default function ParentDashboard() {
         const data = await response.json();
         setDashboardData(data.data);
         
-        // Agar students list aa rahi hai toh use set karein
         if (data.data?.students && data.data.students.length > 0) {
           setStudentsList(data.data.students);
-          setSelectedStudentId(data.data.students[0].id); // Pehla student default active
+          setSelectedStudentId(data.data.students[0].student_id);
         }
       } else {
         const errorData = await response.json();
@@ -50,11 +44,9 @@ export default function ParentDashboard() {
     }
   };
 
-  // Student specific data fetch handler
   const fetchDashboardData = async (studentId) => {
     try {
       const token = localStorage.getItem('parent_token');
-      // Pass the studentId as query param to match backend configuration safely
       const response = await fetch(`/api/v1/parent/dashboard?studentId=${studentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -68,9 +60,18 @@ export default function ParentDashboard() {
     }
   };
 
+  const getInitials = (name) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-full bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
@@ -78,210 +79,147 @@ export default function ParentDashboard() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg m-4">
-        {error}
+      <div className="flex items-center justify-center h-full bg-gray-50">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+          {error}
+        </div>
       </div>
     );
   }
 
   if (!dashboardData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 m-4">
-        <p className="text-gray-600">No dashboard data available.</p>
+      <div className="flex items-center justify-center h-full bg-gray-50">
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-600">No dashboard data available.</p>
+        </div>
       </div>
     );
   }
 
-  // Safe destructuring using fallbacks to avoid 404/Crash behaviors
   const parent = dashboardData?.parent || {};
-  const metrics = dashboardData?.metrics || { attendanceRate: 0, avgPerformanceScore: 'N/A', pendingFees: 0, totalStudents: 0, recentNotes: [] };
-  const currentStudent = studentsList.find(s => s.id === selectedStudentId) || {};
+  const metrics = dashboardData?.metrics || { attendanceRate: 0, avgPerformanceScore: 0, pendingFees: 0, totalStudents: 0, recentNotes: [] };
+  const currentStudent = studentsList.find(s => s.student_id === selectedStudentId) || {};
 
   return (
-    <div className="space-y-6 p-4">
-      
-      {/* Top Navigation & Dynamic Dropdown Selector */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="text-xl font-bold text-gray-800">SAMS Parent Portal</span>
-          
-          {/* Dynamic Student Selector Dropdown */}
-          {studentsList.length > 1 && (
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 p-2 font-medium"
-            >
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Welcome Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Welcome back, {parent?.name || 'Parent'}!</h1>
+        <p className="text-gray-600 mt-1">Track your child's progress and achievements</p>
+      </div>
+
+          {/* Multi-Child Selector Grid */}
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-700 mb-4">Select Child</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {studentsList.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.name}
-                </option>
+                <button
+                  key={student.student_id}
+                  onClick={() => setSelectedStudentId(student.student_id)}
+                  className={`p-4 rounded-xl border-2 transition-all text-left ${
+                    selectedStudentId === student.student_id
+                      ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
+                      selectedStudentId === student.student_id ? 'bg-emerald-600' : 'bg-teal-500'
+                    }`}>
+                      {getInitials(student.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 truncate">{student.name}</h3>
+                      <p className="text-sm text-gray-500 truncate">
+                        {student.sport?.name || 'Sport'} • {student.batch?.name || 'Batch'}
+                      </p>
+                    </div>
+                    {selectedStudentId === student.student_id && (
+                      <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </button>
               ))}
-            </select>
-          )}
-        </div>
-        <div className="text-sm text-gray-600 font-medium">
-          Logged in as: <span className="text-emerald-600">{parent?.name || 'User'}</span>
-        </div>
-      </div>
-
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg shadow-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome, {parent?.name || 'Parent'}!</h1>
-        <p className="text-emerald-100">
-          Track your child's progress, attendance, and achievements all in one place.
-        </p>
-      </div>
-
-      {/* Current Viewing Profile Bar */}
-      <div className="bg-white border-l-4 border-emerald-500 rounded-lg shadow-sm p-4">
-        <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Viewing Profile</p>
-        <h3 className="text-lg font-bold text-gray-800">{currentStudent?.name || 'No Student Selected'}</h3>
-        <p className="text-xs text-gray-500 mt-1">
-          Sport: <span className="font-medium text-gray-700">{currentStudent?.sport?.name || 'Cricket'}</span> | Batch: <span className="font-medium text-gray-700">{currentStudent?.batch?.name || 'Not assigned'}</span>
-        </p>
-      </div>
-
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Attendance Card */}
-        <div className="bg-white rounded-lg shadow p-6 border-b-4 border-emerald-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-emerald-100 text-emerald-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-600">Attendance Rate</p>
-              <p className="text-2xl font-bold text-gray-900">{metrics.attendanceRate}%</p>
             </div>
           </div>
-        </div>
 
-        {/* Performance Score Card */}
-        <div className="bg-white rounded-lg shadow p-6 border-b-4 border-blue-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-600">Performance Score</p>
-              <p className="text-2xl font-bold text-gray-900">{metrics.avgPerformanceScore || 'A'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Fees Card */}
-        <div className="bg-white rounded-lg shadow p-6 border-b-4 border-yellow-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-600">Pending Fees</p>
-              <p className="text-2xl font-bold text-gray-900">₹{Number(metrics.pendingFees || 0).toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Children Config Card */}
-        <div className="bg-white rounded-lg shadow p-6 border-b-4 border-purple-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-600">Children Linked</p>
-              <p className="text-2xl font-bold text-gray-900">{studentsList.length}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity Section */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Coach Notes</h2>
-        </div>
-        <div className="p-6">
-          {metrics.recentNotes && metrics.recentNotes.length > 0 ? (
-            <div className="space-y-4">
-              {metrics.recentNotes.map((note, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2"></div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm text-gray-900">
-                      <span className="font-medium">Coach note:</span> {note.note_text || note.content || 'No content'}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(note.note_date || note.created_at || note.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
+          {/* Dynamic Metric Cards for Selected Child */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Attendance Rate */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-lg bg-emerald-100">
+                  <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              ))}
+                <span className="text-sm text-gray-500">Attendance</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{metrics.attendanceRate}%</p>
+              <p className="text-sm text-gray-500 mt-1">Overall attendance rate</p>
             </div>
-          ) : (
-            <p className="text-gray-600">No recent coach notes available for this student.</p>
-          )}
+
+            {/* Performance Score */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-lg bg-blue-100">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-500">Performance</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{metrics.avgPerformanceScore || 0}</p>
+              <p className="text-sm text-gray-500 mt-1">Average performance score</p>
+            </div>
+
+            {/* Pending Fees */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-lg bg-yellow-100">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-500">Pending Fees</span>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">₹{Number(metrics.pendingFees || 0).toLocaleString()}</p>
+              <p className="text-sm text-gray-500 mt-1">Total pending amount</p>
+            </div>
+          </div>
+
+          {/* Recent Coach Notes */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Recent Coach Notes</h2>
+            </div>
+            <div className="p-6">
+              {metrics.recentNotes && metrics.recentNotes.length > 0 ? (
+                <div className="space-y-4">
+                  {metrics.recentNotes.map((note, index) => (
+                    <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2 flex-shrink-0"></div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">
+                          <span className="font-medium">Coach note:</span> {note.note_text || note.content || 'No content'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(note.note_date || note.created_at || note.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-600">No recent coach notes available for this student.</p>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Quick Actions Panel */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-        </div>
-        <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button 
-            onClick={() => navigate('/parent/attendance')}
-            className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
-          >
-            <svg className="w-8 h-8 mx-auto text-emerald-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <span className="text-sm text-gray-700">View Attendance</span>
-          </button>
-
-          <button 
-            onClick={() => navigate('/parent/performance')}
-            className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
-          >
-            <svg className="w-8 h-8 mx-auto text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <span className="text-sm text-gray-700">Performance</span>
-          </button>
-
-          <button 
-            onClick={() => navigate('/parent/fees')}
-            className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
-          >
-            <svg className="w-8 h-8 mx-auto text-yellow-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span className="text-sm text-gray-700">Pay Fees</span>
-          </button>
-
-          <button 
-            onClick={() => navigate('/parent/profile')}
-            className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
-          >
-            <svg className="w-8 h-8 mx-auto text-purple-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span className="text-sm text-gray-700">Profile</span>
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

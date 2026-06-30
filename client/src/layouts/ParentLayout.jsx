@@ -88,122 +88,94 @@ export default function ParentLayout() {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <Link to="/parent/dashboard" className="text-xl font-bold text-emerald-600">
-                SAMS Parent
-              </Link>
-
-              {/* Child Switcher */}
-              {studentChildren.length > 1 && (
-                <select
-                  value={selectedChild?.student_id || ''}
-                  onChange={(e) => {
-                    const child = studentChildren.find((c) => c.student_id === parseInt(e.target.value));
-                    setSelectedChild(child);
-                  }}
-                  className="ml-4 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-                >
-                  {studentChildren.map((child) => (
-                    <option key={child.student_id} value={child.student_id}>
-                      {child.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user?.name}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 bg-white shadow-lg flex flex-col h-screen sticky top-0">
+        {/* Branding */}
+        <div className="p-6 border-b border-gray-200">
+          <h1 className="text-2xl font-bold text-emerald-600">SAMS Parent</h1>
+          <p className="text-sm text-gray-500 mt-1">Sports Academy Portal</p>
         </div>
-      </header>
 
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <Link
-              to="/parent/dashboard"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                isActive('/parent/dashboard')
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Dashboard
-            </Link>
-            <Link
-              to="/parent/attendance"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                isActive('/parent/attendance')
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Attendance
-            </Link>
-            <Link
-              to="/parent/performance"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                isActive('/parent/performance')
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Performance
-            </Link>
-            <Link
-              to="/parent/fees"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                isActive('/parent/fees')
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Fees
-            </Link>
-            <Link
-              to="/parent/profile"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                isActive('/parent/profile')
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Profile
-            </Link>
+        {/* Navigation Links */}
+        <nav className="flex-1 p-4 space-y-2">
+          <Link
+            to="/parent/dashboard"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              isActive('/parent/dashboard')
+                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-2 border-transparent'
+            }`}
+          >
+            <span className="text-xl">📊</span>
+            <span>Dashboard</span>
+          </Link>
+          <Link
+            to="/parent/attendance"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              isActive('/parent/attendance')
+                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-2 border-transparent'
+            }`}
+          >
+            <span className="text-xl">📅</span>
+            <span>Attendance</span>
+          </Link>
+          <Link
+            to="/parent/performance"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              isActive('/parent/performance')
+                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-2 border-transparent'
+            }`}
+          >
+            <span className="text-xl">⚡</span>
+            <span>Performance</span>
+          </Link>
+          <Link
+            to="/parent/fees"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              isActive('/parent/fees')
+                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-2 border-transparent'
+            }`}
+          >
+            <span className="text-xl">💰</span>
+            <span>Fees</span>
+          </Link>
+          <Link
+            to="/parent/settings"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              isActive('/parent/settings')
+                ? 'bg-emerald-50 text-emerald-700 border-2 border-emerald-500 font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-2 border-transparent'
+            }`}
+          >
+            <span className="text-xl">⚙️</span>
+            <span>Settings</span>
+          </Link>
+        </nav>
+
+        {/* User Info & Logout */}
+        <div className="p-4 border-t border-gray-200">
+          <div className="mb-4">
+            <p className="text-sm text-gray-500">Logged in as</p>
+            <p className="font-semibold text-gray-900 truncate">{user?.name || 'Parent'}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Logout
+          </button>
         </div>
-      </nav>
+      </aside>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {selectedChild ? (
-          <div className="mb-6 bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Viewing: {selectedChild.name}
-            </h2>
-            {selectedChild.sport && (
-              <p className="text-sm text-gray-600">
-                Sport: {selectedChild.sport.name} | Batch: {selectedChild.batch?.name || 'Not assigned'}
-              </p>
-            )}
-          </div>
-        ) : null}
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
     </div>

@@ -93,13 +93,13 @@ export default function BroadcastModal({ isOpen, onClose, batches }) {
     }));
   };
 
-  const filteredCoaches = coaches.filter((coach) =>
-    coach.name.toLowerCase().includes(coachSearchTerm.toLowerCase())
-  );
+  const filteredCoaches = coaches?.filter((coach) =>
+    coach?.name?.toLowerCase().includes(coachSearchTerm.toLowerCase())
+  ) || [];
 
-  const filteredStudents = students.filter((student) =>
-    student.name.toLowerCase().includes(studentSearchTerm.toLowerCase())
-  );
+  const filteredStudents = students?.filter((student) =>
+    student?.name?.toLowerCase().includes(studentSearchTerm.toLowerCase())
+  ) || [];
 
   return (
     <AnimatePresence>

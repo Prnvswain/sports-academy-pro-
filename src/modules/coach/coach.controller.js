@@ -13,6 +13,19 @@ export const getMyBatches = async (req, res, next) => {
   }
 };
 
+export const getBatchById = async (req, res, next) => {
+  try {
+    const data = await coachService.getCoachBatchById(
+      req.params.id,
+      req.user.coach_id,
+      req.user.academy_id
+    );
+    res.json(successResponse('Batch details retrieved successfully', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getDashboard = async (req, res, next) => {
   try {
     const data = await coachService.getCoachDashboard(
@@ -20,6 +33,18 @@ export const getDashboard = async (req, res, next) => {
       req.user.academy_id
     );
     res.json(successResponse('Coach dashboard loaded', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getPayments = async (req, res, next) => {
+  try {
+    const payments = await coachService.getCoachPayments(
+      req.user.coach_id,
+      req.user.academy_id
+    );
+    res.json(successResponse('Coach payments retrieved', payments));
   } catch (err) {
     next(err);
   }

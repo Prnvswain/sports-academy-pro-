@@ -90,6 +90,8 @@ export const sendCoachOnboardingEmail = async ({ email, name, temporaryPassword 
   const loginUrl = COACH_LOGIN_URL;
   const subject = 'Welcome to SAMS — Your Coach Portal Credentials';
 
+  console.log("Sending mail to:", email, "with temporary password:", temporaryPassword);
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1a56db;">Sports Academy Management System</h2>
@@ -116,7 +118,9 @@ export const sendCoachOnboardingEmail = async ({ email, name, temporaryPassword 
     'Please change your password after your first login.'
   ].join('\n');
 
-  return sendMail({ to, subject, html, text });
+  const info = await sendMail({ to: email, subject, html, text });
+  console.log("SMTP Response Info:", info.response, info.messageId, info.accepted);
+  return info;
 };
 
 export const sendAdminWelcomeEmail = async ({

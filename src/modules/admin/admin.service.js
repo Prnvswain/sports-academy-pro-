@@ -136,6 +136,23 @@ export const getSportsCatalog = async (academy_id) => {
   }
 };
 
+export const getGlobalSports = async () => {
+  try {
+    const sports = await prisma.globalSport.findMany({
+      orderBy: { name: 'asc' }
+    });
+    
+    return sports.map(sport => ({
+      id: sport.id,
+      name: sport.name,
+      icon: sport.icon,
+      attributes: sport.attributes ? JSON.parse(sport.attributes) : []
+    }));
+  } catch (error) {
+    return [];
+  }
+};
+
 export const getDurationPlans = async (academy_id) => {
   const academyId = parseInt(academy_id, 10);
 
@@ -407,27 +424,63 @@ export const createSport = async (academy_id, data) => {
   }
 
   // Support both camelCase and snake_case for base_fee
-  const { name, base_fee, baseFee, status, latitude, longitude, use_custom_location, sport_center } = data;
+  const {
+    name,
+    base_fee,
+    baseFee,
+    status,
+    latitude,
+    longitude,
+    use_custom_location,
+    sport_center,
+  } = data;
   const parsedFee = parseFloat(
     base_fee !== undefined ? base_fee : baseFee !== undefined ? baseFee : 0,
   );
 
-  const sport = await prisma.sport.create({
-    data: {
-      name: name,
-      base_fee: parsedFee,
-      status: status || 'ACTIVE',
-      academy_id: academyId,
-      is_custom: true,
-      sport_center: sport_center || null,
-      latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null,
-      use_custom_location: use_custom_location || false,
-    },
+  const defaultAttributes = [
+    "Stamina",
+    "Agility",
+    "Speed",
+    "Teamwork",
+    "Technical Skill",
+    "Focus/Discipline",
+    "Strength",
+    "Coordination",
+    "Tactical Awareness",
+    "Consistency"
+  ];
+
+  const result = await prisma.$transaction(async (tx) => {
+    const sport = await tx.sport.create({
+      data: {
+        name: name,
+        base_fee: parsedFee,
+        status: status || 'ACTIVE',
+        academy_id: academyId,
+        is_custom: true,
+        sport_center: sport_center || null,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
+        use_custom_location: use_custom_location || false,
+      },
+    });
+
+    // Seed default performance attributes
+    await tx.performanceAttribute.createMany({
+      data: defaultAttributes.map(attr => ({
+        academy_id: academyId,
+        sport_id: sport.sport_id,
+        name: attr,
+        status: 'APPROVED'
+      }))
+    });
+
+    return sport;
   });
 
-  logger.info('Sport created', { sport_id: sport.sport_id, academy_id: academyId });
-  return sport;
+  logger.info('Sport created with default attributes', { sport_id: result.sport_id, academy_id: academyId });
+  return result;
 };
 
 export const updateSportStatus = async (academy_id, sport_id, data) => {
@@ -614,15 +667,16 @@ export const getAllCoaches = async (academy_id) =>
 
 export const createCoach = async (academy_id, data) => {
   const academyId = parseInt(academy_id, 10);
-  const email = data.email.trim();
+  const email = data.email.trim().toLowerCase();
   const temporaryPassword = generateTempPassword(8);
   const password_hash = await bcrypt.hash(temporaryPassword, BCRYPT_SALT_ROUNDS);
 
+  // Check for existing active coach
   const existingCoach = await prisma.coach.findFirst({
     where: {
       email,
       academy_id: academyId,
-      ...NOT_DELETED,
+      is_deleted: false,
     },
   });
 
@@ -632,6 +686,7 @@ export const createCoach = async (academy_id, data) => {
     throw error;
   }
 
+  // Check for soft-deleted coach and auto-restore
   const deletedCoach = await prisma.coach.findFirst({
     where: {
       email,
@@ -640,25 +695,34 @@ export const createCoach = async (academy_id, data) => {
     },
   });
 
+  let coach;
   if (deletedCoach) {
-    const error = new Error(
-      'A coach with this email was previously removed. Restore or use a different email.',
-    );
-    error.statusCode = 409;
-    throw error;
+    // Auto-restore soft-deleted coach
+    coach = await prisma.coach.update({
+      where: { coach_id: deletedCoach.coach_id },
+      data: {
+        is_deleted: false,
+        deleted_at: null,
+        name: data.name,
+        specialization: data.specialization,
+        phone_number: data.phone_number,
+        password_hash,
+        status: 'ACTIVE',
+      },
+    });
+  } else {
+    // Create new coach
+    coach = await prisma.coach.create({
+      data: {
+        academy_id: academyId,
+        name: data.name,
+        specialization: data.specialization,
+        phone_number: data.phone_number,
+        email,
+        password_hash,
+      },
+    });
   }
-
-  const coach = await prisma.coach.create({
-    data: {
-      academy_id: academyId,
-      name: data.name,
-      specialization: data.specialization,
-      phone_number: data.phone_number,
-      email,
-      // ✅ FIXED: Explicitly maps hashed data to password_hash to populate MySQL DB columns accurately
-      password_hash,
-    },
-  });
 
   let credentials_sent = false;
 
@@ -682,12 +746,8 @@ export const createCoach = async (academy_id, data) => {
       smtp_code: mailError.code,
       message: mailError.message,
     });
-    const error = new Error(
-      'Coach account was created but the credentials email could not be sent. Check SMTP settings and try resending credentials.',
-    );
-    error.statusCode = 502;
-    error.coach_id = coach.coach_id;
-    throw error;
+    // Don't throw error - coach was created successfully, email is secondary
+    credentials_sent = false;
   }
 
   return {
@@ -774,15 +834,20 @@ export const updateCoach = async (academy_id, coach_id, data) => {
     throw error;
   }
 
+  const updateData = {
+    name: data.name ?? coach.name,
+    specialization: data.specialization ?? coach.specialization,
+    phone_number: data.phone_number ?? coach.phone_number,
+    status: data.status ?? coach.status,
+  };
+
+  if (data.email) {
+    updateData.email = data.email.trim().toLowerCase();
+  }
+
   return prisma.coach.update({
     where: { coach_id: coach.coach_id },
-    data: {
-      name: data.name ?? coach.name,
-      specialization: data.specialization ?? coach.specialization,
-      phone_number: data.phone_number ?? coach.phone_number,
-      email: data.email ?? coach.email,
-      status: data.status ?? coach.status,
-    },
+    data: updateData,
   });
 };
 
@@ -913,12 +978,15 @@ export const createStudent = async (academy_id, data) => {
 
   // Parent auto-creation logic
   let parent_id = null;
-  if (data.parent_email) {
-    // Check if parent account already exists (including inactive parents)
-    const existingParent = await prisma.parent.findFirst({
+  const parentEmail = data.parent_email?.trim().toLowerCase() || null;
+  if (parentEmail) {
+    // Resolve parent within the current academy only
+    const existingParent = await prisma.parent.findUnique({
       where: {
-        email: data.parent_email,
-        academy_id: academyId,
+        email_academy_id: {
+          email: parentEmail,
+          academy_id: academyId,
+        },
       },
     });
 
@@ -931,7 +999,7 @@ export const createStudent = async (academy_id, data) => {
         });
         logger.info('Reactivated inactive parent account', {
           parent_id: existingParent.parent_id,
-          parent_email: data.parent_email
+          parent_email: data.parent_email,
         });
       }
 
@@ -940,25 +1008,25 @@ export const createStudent = async (academy_id, data) => {
       logger.info('Linking student to existing parent account', {
         parent_id,
         student_name: data.name,
-        parent_email: data.parent_email
+        parent_email: data.parent_email,
       });
 
       // Send "new child linked" notification email
       try {
         await sendParentChildLinkedEmail({
-          to: data.parent_email,
+          to: parentEmail,
           parent_name: existingParent.name,
           student_name: data.name,
           login_url: `${process.env.APP_URL || 'http://localhost:3000'}/parent/login`,
         });
         logger.info('Sent new child linked email to parent', {
           parent_id,
-          parent_email: data.parent_email
+          parent_email: data.parent_email,
         });
       } catch (emailError) {
         logger.error('Failed to send new child linked email', {
           error: emailError.message,
-          parent_email: data.parent_email
+          parent_email: data.parent_email,
         });
       }
     } else {
@@ -967,7 +1035,7 @@ export const createStudent = async (academy_id, data) => {
       const parent = await parentService.createParentAccount({
         academy_id: academyId,
         name: data.parent_name || data.name + "'s Parent",
-        email: data.parent_email,
+        email: parentEmail,
         phone: data.parent_phone,
         password: tempPassword,
       });
@@ -976,13 +1044,13 @@ export const createStudent = async (academy_id, data) => {
       logger.info('Created new parent account for student', {
         parent_id,
         student_name: data.name,
-        parent_email: data.parent_email
+        parent_email: data.parent_email,
       });
 
       // Send credentials email
       try {
         await sendParentCredentialsEmail({
-          to: data.parent_email,
+          to: parentEmail,
           parent_name: parent.name,
           student_name: data.name,
           temp_password: tempPassword,
@@ -990,12 +1058,12 @@ export const createStudent = async (academy_id, data) => {
         });
         logger.info('Sent parent credentials email', {
           parent_id,
-          parent_email: data.parent_email
+          parent_email: data.parent_email,
         });
       } catch (emailError) {
         logger.error('Failed to send parent credentials email', {
           error: emailError.message,
-          parent_email: data.parent_email
+          parent_email: data.parent_email,
         });
       }
     }
@@ -1049,7 +1117,7 @@ export const createStudent = async (academy_id, data) => {
       batch_id: data.batch_id ? parseInt(data.batch_id, 10) : null,
       blood_group: data.blood_group,
       parent_name: data.parent_name || null,
-      parent_email: data.parent_email,
+      parent_email: parentEmail,
       parent_phone: data.parent_phone || null,
       joining_date: data.joining_date ? new Date(data.joining_date) : new Date(),
       fees_status: data.fees_status || 'unpaid',
@@ -1200,9 +1268,16 @@ export const updateStudent = async (academy_id, student_id, data) => {
       phone: data.phone ?? student.phone,
       fees_status: data.fees_status ?? student.fees_status,
       status: data.status ?? student.status,
-      joining_date: data.joining_date !== undefined ? (data.joining_date ? new Date(data.joining_date) : null) : student.joining_date,
-      height: data.height !== undefined ? (data.height ? Number(data.height) : null) : student.height,
-      weight: data.weight !== undefined ? (data.weight ? Number(data.weight) : null) : student.weight,
+      joining_date:
+        data.joining_date !== undefined
+          ? data.joining_date
+            ? new Date(data.joining_date)
+            : null
+          : student.joining_date,
+      height:
+        data.height !== undefined ? (data.height ? Number(data.height) : null) : student.height,
+      weight:
+        data.weight !== undefined ? (data.weight ? Number(data.weight) : null) : student.weight,
     },
     include: { batch: true, sport: true, receipts: true },
   });
@@ -1493,8 +1568,8 @@ export const deleteBatch = async (academy_id, batch_id) => {
   // Note: Use prisma.batch (singular model name) not prisma.batches
   await prisma.batch.delete({
     where: {
-      batch_id: parseInt(batch_id, 10)
-    }
+      batch_id: parseInt(batch_id, 10),
+    },
   });
 
   logger.info('Batch deleted permanently', { batch_id, academy_id });
@@ -1658,6 +1733,12 @@ export const getReceipts = async (academy_id) => {
     },
     include: {
       student: true,
+      collected_by: {
+        select: {
+          coach_id: true,
+          name: true
+        }
+      }
     },
     orderBy: { payment_date: 'desc' },
   });
@@ -1692,12 +1773,12 @@ export const createReceipt = async (academy_id, data) => {
       receipt_number: receiptNumber,
       academy_id: academyId,
       student_id: student.student_id,
-      amount: parseFloat(data.amount_paid),
+      amount: parseFloat(data.amount),
       discount: parseFloat(data.discount || 0),
       additional_charges: parseFloat(data.additional_charges || 0),
       payment_date: new Date(data.payment_date),
-      method: data.payment_method,
-      status: 'COMPLETED',
+      method: data.method,
+      status: data.status === 'completed' ? 'COMPLETED' : 'PENDING',
     },
     include: {
       student: true,
@@ -2607,7 +2688,9 @@ export const createAnnouncement = async (academy_id, data) => {
 
     case 'SPECIFIC_PARENTS':
       if (!selected_student_ids || selected_student_ids.length === 0) {
-        const error = new Error('selected_student_ids is required for SPECIFIC_PARENTS target type');
+        const error = new Error(
+          'selected_student_ids is required for SPECIFIC_PARENTS target type',
+        );
         error.statusCode = 400;
         throw error;
       }
@@ -2667,7 +2750,7 @@ export const createAnnouncement = async (academy_id, data) => {
         error: err.message,
       });
       return null;
-    })
+    }),
   );
 
   const emailResults = await Promise.all(emailPromises);
@@ -2764,7 +2847,7 @@ const sendBroadcastEmail = async ({ to, recipientName, title, message }) => {
     '',
     'If you have any questions, please contact the academy administration.',
     '',
-    'This is an automated message from SAMS Academy.'
+    'This is an automated message from SAMS Academy.',
   ].join('\n');
 
   const { sendMail } = await import('../../services/mail.service.js');

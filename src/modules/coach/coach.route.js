@@ -15,6 +15,8 @@ router.use(enforceActiveSubscription);
 
 router.get('/dashboard', coachController.getDashboard);
 router.get('/batches', coachController.getMyBatches);
+router.get('/batches/:id', coachController.getBatchById);
+router.get('/payments', coachController.getPayments);
 router.post('/attendance', verifyAttendanceLocation, validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
 router.post(
   '/payments',

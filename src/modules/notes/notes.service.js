@@ -30,8 +30,12 @@ export const createDailyNote = async (coach_id, academy_id, payload) => {
   const batch = await prisma.batch.findFirst({
     where: {
       batch_id: student.batch_id,
-      coach_id: coachId,
-      academy_id: academyId
+      academy_id: academyId,
+      coaches: {
+        some: {
+          coach_id: coachId
+        }
+      }
     }
   });
 

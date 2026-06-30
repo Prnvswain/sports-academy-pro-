@@ -1,86 +1,134 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
+import { MapContainer, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-geosearch/dist/geosearch.css';
 
-// Fix for default marker icon in Leaflet
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+const DEFAULT_CENTER = [19.076, 72.8777];
 
-function MapView({ position, onPositionChange }) {
-  const map = useMap();
+export default function MapLocationPicker({
+  isOpen,
+  onClose,
+  onSelect,
+  initialAddress,
+  initialLocation,
+}) {
+  const [inputValue, setInputValue] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
 
-  useEffect(() => {
-    if (position) {
-      map.setView(position, 13);
+  const mapRef = useRef(null);
+  const geocodeRequestIdRef = useRef(0);
+
+  // Reverse geocode using OpenStreetMap Nominatim API
+  const reverseGeocode = async (lat, lng) => {
+    const requestId = (geocodeRequestIdRef.current += 1);
+    setIsGeocoding(true);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'SportsAcademyMapPicker/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (requestId !== geocodeRequestIdRef.current) return;
+
+      if (data && data.display_name) {
+        setInputValue(data.display_name);
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+    } finally {
+      setIsGeocoding(false);
     }
-  }, [position, map]);
+  };
 
-  const handleMapClick = (e) => {
-    const { lat, lng } = e.latlng;
-    onPositionChange([lat, lng]);
+  // Forward geocode using OpenStreetMap Nominatim API
+  const forwardGeocode = async (address) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+        {
+          headers: {
+            'User-Agent': 'SportsAcademyMapPicker/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        const newCenter = [lat, lng];
+        setMapCenter(newCenter);
+        setSelectedLocation({ lat, lng });
+        
+        if (mapRef.current) {
+          mapRef.current.setView(newCenter, 16);
+        }
+      }
+    } catch (error) {
+      console.error('Forward geocoding error:', error);
+    }
   };
 
   useEffect(() => {
-    map.on('click', handleMapClick);
-    return () => {
-      map.off('click', handleMapClick);
-    };
-  }, [map, onPositionChange]);
-
-  return null;
-}
-
-export default function MapLocationPicker({ isOpen, onClose, onSelect, initialAddress }) {
-  const [position, setPosition] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const mapRef = useRef(null);
-
-  useEffect(() => {
-    if (isOpen && initialAddress) {
-      setSearchQuery(initialAddress);
-    }
-  }, [isOpen, initialAddress]);
-
-  const handleSearch = async (query) => {
-    if (!query || query.length < 3) {
-      setSearchResults([]);
+    if (!isOpen) {
+      setInputValue('');
+      setSelectedLocation(null);
+      setMapCenter(DEFAULT_CENTER);
       return;
     }
 
-    setLoading(true);
-    try {
-      const provider = new OpenStreetMapProvider();
-      const results = await provider.search({ query });
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
+    setInputValue(initialAddress || '');
+
+    if (initialLocation?.lat != null && initialLocation?.lng != null) {
+      const newCenter = [initialLocation.lat, initialLocation.lng];
+      setMapCenter(newCenter);
+      setSelectedLocation({ lat: initialLocation.lat, lng: initialLocation.lng });
+      
+      if (mapRef.current) {
+        mapRef.current.setView(newCenter, 16);
+      }
+    } else if (initialAddress) {
+      forwardGeocode(initialAddress);
     }
+  }, [isOpen, initialAddress, initialLocation]);
+
+  const handleMapLoad = (map) => {
+    mapRef.current = map;
+
+    // Listen to moveend event (when dragging stops)
+    map.on('moveend', () => {
+      const center = map.getCenter();
+      if (center) {
+        const lat = center.lat;
+        const lng = center.lng;
+        setSelectedLocation({ lat, lng });
+        reverseGeocode(lat, lng);
+      }
+    });
   };
 
-  const handleSelectResult = (result) => {
-    const { x, y, label } = result;
-    setPosition([y, x]);
-    setSearchQuery(label);
-    setSearchResults([]);
+  const handleClear = () => {
+    setInputValue('');
+    setSelectedLocation(null);
+    setMapCenter(DEFAULT_CENTER);
+    if (mapRef.current) {
+      mapRef.current.setView(DEFAULT_CENTER, 13);
+    }
   };
 
   const handleConfirm = () => {
-    if (searchQuery) {
-      onSelect(searchQuery);
-      onClose();
-    }
+    if (!inputValue || !selectedLocation) return;
+    onSelect({ address: inputValue, location: selectedLocation });
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -100,76 +148,71 @@ export default function MapLocationPicker({ isOpen, onClose, onSelect, initialAd
         </div>
 
         <div className="p-4">
-          {/* Search Input */}
           <div className="relative mb-4">
             <input
               type="text"
-              className="input-field w-full"
-              placeholder="Search for address..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                handleSearch(e.target.value);
+              className="input-field w-full pr-14"
+              placeholder="Search for an address..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && inputValue) {
+                  forwardGeocode(inputValue);
+                }
               }}
             />
-            {loading && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+
+            {inputValue ? (
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
+                onClick={handleClear}
+              >
+                ✖️
+              </button>
+            ) : null}
+
+            {isGeocoding ? (
+              <div className="absolute right-10 top-1/2 -translate-y-1/2">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
               </div>
-            )}
+            ) : null}
           </div>
 
-          {/* Search Results Dropdown */}
-          {searchResults.length > 0 && (
-            <div className="bg-surface border-border mb-4 max-h-48 overflow-y-auto rounded-lg border">
-              {searchResults.map((result, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className="w-full border-border border-b px-4 py-2 text-left hover:bg-accent/10 last:border-b-0"
-                  onClick={() => handleSelectResult(result)}
-                >
-                  <div className="font-medium">{result.label}</div>
-                </button>
-              ))}
+          <div className="border-border relative h-80 overflow-hidden rounded-lg border">
+            {/* Uber-style center pin marker - fixed position, doesn't move with map */}
+            <div className="pointer-events-none absolute left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-full text-3xl drop-shadow-lg">
+              📍
             </div>
-          )}
 
-          {/* Map */}
-          <div className="border-border h-80 rounded-lg border overflow-hidden">
             <MapContainer
-              center={position || [19.0760, 72.8777]}
+              center={mapCenter}
               zoom={13}
               style={{ height: '100%', width: '100%' }}
               ref={mapRef}
+              whenReady={(e) => handleMapLoad(e.target)}
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              {position && <Marker position={position} />}
-              <MapView position={position} onPositionChange={setPosition} />
             </MapContainer>
           </div>
 
           <p className="text-muted text-xs mt-2">
-            Click on the map or search to select a location
+            Drag the map to position the pin. The address will auto-fill.
           </p>
         </div>
 
         <div className="border-border flex justify-end gap-3 border-t p-4">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-          >
+          <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
             className="btn-primary"
             onClick={handleConfirm}
-            disabled={!searchQuery}
+            disabled={!inputValue || !selectedLocation}
           >
             Confirm Location
           </button>

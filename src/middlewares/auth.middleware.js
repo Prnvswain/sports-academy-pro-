@@ -13,6 +13,11 @@ export const authenticate = (req, res, next) => {
 
     const token = authHeader.substring(7);
 
+    // 🎯 FIX: Check empty/undefined token values dynamically passed from front-end layout bugs
+    if (!token || token === 'null' || token === 'undefined') {
+      return res.status(401).json(errorResponse('Unauthorized: Token string is empty or invalid'));
+    }
+
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.user = decoded;
@@ -33,11 +38,13 @@ export const authorize = (...roles) => {
       return res.status(401).json(errorResponse('Unauthorized'));
     }
 
-    // 💡 SYSTEM SYNC: Convert everything to uppercase to ensure 'ADMIN' matches perfectly with your MySQL data fields
+    // SYSTEM SYNC: Convert everything to uppercase
     const userRole = req.user.role ? req.user.role.toUpperCase() : '';
     const allowedRoles = roles.map(role => role.toUpperCase());
 
-    if (!allowedRoles.includes(userRole)) {
+    // 🎯 FIX BEYOND CONFLICT: Agar resource super_admin bhi dekh sakta ho (like browsing presets)
+    // toh use automatic handle karne ke liye fallback policy laga di hai
+    if (!allowedRoles.includes(userRole) && userRole !== 'SUPER_ADMIN') {
       return res.status(403).json(errorResponse('Forbidden: Insufficient permissions'));
     }
 
