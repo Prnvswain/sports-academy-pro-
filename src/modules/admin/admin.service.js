@@ -125,12 +125,44 @@ export const getSportsCatalog = async (academy_id) => {
   try {
     const academyId = parseInt(academy_id, 10);
 
-    const sports = await prisma.sport.findMany({
+    // Fetch academy's local sports
+    const academySports = await prisma.sport.findMany({
       where: { academy_id: academyId },
+      include: {
+        globalSport: true
+      },
       orderBy: { name: 'asc' },
     });
 
-    return sports || [];
+    // Fetch global sports
+    const globalSports = await prisma.globalSport.findMany({
+      orderBy: { name: 'asc' }
+    });
+
+    // Combine both: academy sports with their global sport data, plus global sports not yet added
+    const combinedSports = academySports.map(sport => ({
+      ...sport,
+      icon: sport.icon || sport.globalSport?.icon || '🏅',
+      attributes: sport.globalSport?.attributes ? JSON.parse(sport.globalSport.attributes) : [],
+      isAcademySport: true
+    }));
+
+    // Add global sports that are not yet in academy
+    const academySportNames = new Set(academySports.map(s => s.name));
+    const missingGlobalSports = globalSports
+      .filter(global => !academySportNames.has(global.name))
+      .map(global => ({
+        sport_id: null,
+        name: global.name,
+        icon: global.icon || '🏅',
+        base_fee: 0,
+        status: 'NOT_ADDED',
+        academy_id: academyId,
+        isAcademySport: false,
+        attributes: global.attributes ? JSON.parse(global.attributes) : []
+      }));
+
+    return [...combinedSports, ...missingGlobalSports];
   } catch (error) {
     return [];
   }

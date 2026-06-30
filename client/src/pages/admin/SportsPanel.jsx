@@ -57,11 +57,12 @@ export default function SportsPanel() {
     libraries: ['places'],
   });
 
-  // ─── Fetch super admin sports for Browse modal ──────────────────────────────
+  // ─── Fetch global sports for Browse modal ──────────────────────────────
   const loadSuperAdminSports = useCallback(async () => {
     setSuperAdminLoading(true);
     try {
-      const result = await adminGet('/admin/sports/global');
+      const response = await fetch('/api/v1/public/sports');
+      const result = await response.json();
       const data = result.data;
       let list = [];
       if (Array.isArray(data)) list = data;
@@ -76,10 +77,11 @@ export default function SportsPanel() {
   }, []);
 
   useEffect(() => {
-    if (showBrowseModal && superAdminSports.length === 0) {
+    // Load sports when component mounts so search dropdown has data
+    if (superAdminSports.length === 0) {
       loadSuperAdminSports();
     }
-  }, [showBrowseModal, superAdminSports.length, loadSuperAdminSports]);
+  }, [superAdminSports.length, loadSuperAdminSports]);
 
   // ─── Fetch academy sports (table) ──────────────────────────────────────────
   const loadSports = useCallback(async () => {
@@ -928,15 +930,15 @@ export default function SportsPanel() {
               {sports.length > 0 ? (
                 sports.map((sport, index) => (
                   <motion.tr
-                    key={sport.sport_id || sport.id}
+                    key={sport.sport_id || sport.id || sport.name}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                     whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                    className={`cursor-pointer border-b ${selectedIds.includes(sport.sport_id || sport.id) ? 'bg-surface-secondary/50' : ''}`}
-                    onClick={() => handleRowClick(sport.sport_id || sport.id)}
+                    className={`cursor-pointer border-b ${!sport.isAcademySport ? 'bg-surface-secondary/30' : ''} ${selectedIds.includes(sport.sport_id || sport.id) ? 'bg-surface-secondary/50' : ''}`}
+                    onClick={() => sport.isAcademySport && handleRowClick(sport.sport_id || sport.id)}
                   >
-                    {isBulkEditMode && (
+                    {isBulkEditMode && sport.isAcademySport && (
                       <td className="p-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -946,61 +948,79 @@ export default function SportsPanel() {
                         />
                       </td>
                     )}
+                    {isBulkEditMode && !sport.isAcademySport && (
+                      <td className="p-3"></td>
+                    )}
                     <td className="p-3 font-medium">
                       <span className="mr-2 text-lg">{sport.icon || '🏅'}</span>
                       {sport.name}
+                      {!sport.isAcademySport && (
+                        <span className="ml-2 text-xs text-muted bg-surface-secondary px-2 py-0.5 rounded">Available</span>
+                      )}
                     </td>
                     <td className="p-3">
                       <span className="text-muted text-sm">{sport.sport_center || '—'}</span>
                     </td>
                     <td className="p-3">
-                      {editingFeeId === (sport.sport_id || sport.id) ? (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            className="input-field w-24 px-2 py-1 text-sm"
-                            value={editingFeeValue}
-                            onChange={(e) => setEditingFeeValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
-                              if (e.key === 'Escape') handleCancelEditFee();
-                            }}
-                          />
-                          <button type="button" className="btn-success btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleSaveFee(sport.sport_id || sport.id); }}>✓</button>
-                          <button type="button" className="btn-secondary btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleCancelEditFee(); }}>✕</button>
-                        </div>
+                      {sport.isAcademySport ? (
+                        editingFeeId === (sport.sport_id || sport.id) ? (
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              className="input-field w-24 px-2 py-1 text-sm"
+                              value={editingFeeValue}
+                              onChange={(e) => setEditingFeeValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
+                                if (e.key === 'Escape') handleCancelEditFee();
+                              }}
+                            />
+                            <button type="button" className="btn-success btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleSaveFee(sport.sport_id || sport.id); }}>✓</button>
+                            <button type="button" className="btn-secondary btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleCancelEditFee(); }}>✕</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <span>${formatCurrency(sport.base_fee || sport.baseFee)}</span>
+                            <button
+                              type="button"
+                              className="text-muted hover:text-foreground"
+                              onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
+                              title="Edit Fee"
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        )
                       ) : (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <span>${formatCurrency(sport.base_fee || sport.baseFee)}</span>
-                          <button
-                            type="button"
-                            className="text-muted hover:text-foreground"
-                            onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
-                            title="Edit Fee"
-                          >
-                            ✏️
-                          </button>
-                        </div>
+                        <span className="text-muted text-sm">—</span>
                       )}
                     </td>
                     <td className="p-3">
-                      <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${sport.status === 'ACTIVE' ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}>
-                        {sport.status || 'ACTIVE'}
-                      </span>
+                      {sport.isAcademySport ? (
+                        <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${sport.status === 'ACTIVE' ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}>
+                          {sport.status || 'ACTIVE'}
+                        </span>
+                      ) : (
+                        <span className="text-muted text-sm">Not Added</span>
+                      )}
                     </td>
                     <td className="space-x-1 p-3" onClick={(e) => e.stopPropagation()}>
-                      {sport.status === 'ACTIVE' ? (
-                        <>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>Deactivate</button>
-                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
-                        </>
+                      {sport.isAcademySport ? (
+                        sport.status === 'ACTIVE' ? (
+                          <>
+                            <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>Deactivate</button>
+                            <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>Mark Active</button>
+                            <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
+                          </>
+                        )
                       ) : (
-                        <>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>Mark Active</button>
-                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
-                        </>
+                        <button type="button" className="btn-primary btn-sm" onClick={() => { setSearchQuery(sport.name); setShowDropdown(true); }}>Add</button>
                       )}
                     </td>
                   </motion.tr>

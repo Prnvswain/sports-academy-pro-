@@ -99,4 +99,24 @@ router.post(
   },
 );
 
+// Public endpoint to fetch global sports (no auth required)
+router.get('/sports', async (req, res, next) => {
+  try {
+    const sports = await prisma.globalSport.findMany({
+      orderBy: { name: 'asc' }
+    });
+
+    const formattedSports = sports.map(sport => ({
+      id: sport.id,
+      name: sport.name,
+      icon: sport.icon,
+      attributes: sport.attributes ? JSON.parse(sport.attributes) : []
+    }));
+
+    res.json(successResponse('Global sports retrieved', formattedSports));
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

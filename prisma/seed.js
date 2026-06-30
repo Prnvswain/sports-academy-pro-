@@ -4,14 +4,14 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 const GLOBAL_SPORTS = [
-  'Cricket',
-  'Football',
-  'Basketball',
-  'Tennis',
-  'Badminton',
-  'Swimming',
-  'Athletics',
-  'Hockey'
+  { name: 'Cricket', icon: '🏏', attributes: ["Batting Average", "Strike Rate", "Bowling Economy", "Wickets Taken", "Catches Dropped", "Run Out Direct Hits", "Dot Ball %", "Fitness Score", "Yo-Yo Test", "Matches Played"] },
+  { name: 'Football', icon: '⚽', attributes: ["Goals Scored", "Assists", "Pass Accuracy %", "Interceptions", "Tackles Won", "Sprints Completed", "Distance Covered (km)", "Yellow/Red Cards", "Shot Accuracy %", "Clean Sheets"] },
+  { name: 'Basketball', icon: '🏀', attributes: ["Points Per Game", "Rebounds", "Assists", "Steals", "Blocks", "Free Throw %", "3-Point %", "Turnovers", "Minutes Played", "Fouls"] },
+  { name: 'Tennis', icon: '🎾', attributes: ["Aces", "First Serve %", "Double Faults", "Break Points Won", "Unforced Errors", "Winners", "Return Points Won", "Net Points Won", "Match Win Rate", "Stamina Index"] },
+  { name: 'Badminton', icon: '🏸', attributes: ["Smash Winners", "Drop Shot Accuracy", "Rallies Won", "Errors at Net", "Serve Accuracy", "Footwork Speed", "Jump Smashes", "Matches Won", "Stamina Level", "Agility Score"] },
+  { name: 'Swimming', icon: '🏊', attributes: ["50m Freestyle Time", "100m Butterfly Time", "Turn Speed", "Dive Reaction Time", "Breath Control (sec)", "Stroke Rate", "Kick Efficiency", "Endurance Score", "Lap Consistency", "Personal Best Beats"] },
+  { name: 'Athletics', icon: '🏃', attributes: ["100m Sprint Time", "400m Time", "Long Jump Distance", "High Jump Height", "Javelin Throw Distance", "Reaction Time at Block", "Stride Length", "Endurance Score", "Personal Best Improvements", "Form Consistency"] },
+  { name: 'Hockey', icon: '🏑', attributes: ["Goals Scored", "Penalty Corner Conversion %", "Interceptions", "Pass Accuracy", "Tackles Won", "Saves (Goalie)", "Dribbles Completed", "Distance Covered", "Green/Yellow Cards", "Stamina Index"] }
 ];
 
 const DURATION_PLANS = [
@@ -24,16 +24,25 @@ const DURATION_PLANS = [
 async function main() {
   const passwordHash = await bcrypt.hash('123456', 12);
 
-  for (const name of GLOBAL_SPORTS) {
-    await prisma.sport.upsert({
-      where: { name_academy_id: { name, academy_id: null } },
+  // Seed GlobalSports table instead of sport table
+  for (const sportData of GLOBAL_SPORTS) {
+    await prisma.globalSport.upsert({
+      where: { name: sportData.name },
       update: {},
-      create: { name, academy_id: null, is_custom: false, status: RecordStatus.ACTIVE }
+      create: {
+        name: sportData.name,
+        icon: sportData.icon,
+        attributes: JSON.stringify(sportData.attributes)
+      }
     }).catch(async () => {
-      const existing = await prisma.sport.findFirst({ where: { name, academy_id: null } });
+      const existing = await prisma.globalSport.findFirst({ where: { name: sportData.name } });
       if (!existing) {
-        await prisma.sport.create({
-          data: { name, academy_id: null, is_custom: false, status: RecordStatus.ACTIVE }
+        await prisma.globalSport.create({
+          data: {
+            name: sportData.name,
+            icon: sportData.icon,
+            attributes: JSON.stringify(sportData.attributes)
+          }
         });
       }
     });

@@ -132,24 +132,19 @@ export const createSport = async ({ name, icon, attributes }) => {
       throw new Error('Sport name is required');
     }
 
-    // 1. Unique ID/Slug generate karo (e.g., "Table Tennis" -> "table_tennis")
-    // Yeh unique constraint error (P2002) ko solve karega
-    const sportId = name.toLowerCase().trim().replace(/\s+/g, '_');
-
-    // 2. Jo icon select kiya hai vahi save hoga, fallback tabhi chalega agar icon completely undefined ho
+    // Jo icon select kiya hai vahi save hoga, fallback tabhi chalega agar icon completely undefined ho
     const finalIcon = icon && icon.trim() !== '' ? icon.trim() : '🏅';
 
-    // 3. Prisma data create block
+    // Prisma data create block - id is auto-incremented
     const sport = await prisma.globalSport.create({
       data: {
-        id: sportId, // Prisma schema me string key required hoti hai
         name: name.trim(),
-        icon: finalIcon, // Selected icon exact mapping handle
+        icon: finalIcon,
         attributes: typeof attributes === 'string' ? attributes : JSON.stringify(attributes || [])
       }
     });
-    
-    // 4. Response format safely parsing back
+
+    // Response format safely parsing back
     return {
       id: sport.id,
       name: sport.name,

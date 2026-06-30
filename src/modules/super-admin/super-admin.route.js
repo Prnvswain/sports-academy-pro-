@@ -16,12 +16,16 @@ router.post(
 );
 
 router.use(authenticate);
+
+// GET /sports is accessible by both SUPER_ADMIN and ADMIN
+router.get('/sports', authorize(['SUPER_ADMIN', 'ADMIN']), superAdminController.getSports);
+
+// All other routes require SUPER_ADMIN
 router.use(authorize('SUPER_ADMIN'));
 
 router.get('/stats', superAdminController.getStats);
 router.get('/academies', superAdminController.getAcademies);
 router.get('/plans', superAdminController.getPlans);
-router.get('/sports', superAdminController.getSports);
 router.post('/sports', superAdminController.createSport);
 router.post('/sports/seed', superAdminController.seedSports);
 router.patch(
