@@ -186,6 +186,7 @@ router.get('/performance/attributes', adminController.getPerformanceApprovalQueu
 router.get('/performance/approval-queue', adminController.getPerformanceApprovalQueue);
 router.post('/performance/attributes', adminController.createPerformanceAttribute);
 router.patch('/performance/approve-attribute/:id', adminController.approvePerformanceAttribute);
+router.get('/performance/sport-attributes/:sportId', adminController.getPerformanceApprovalQueue);
 
 /* ─── SMART BROADCAST CENTER ─────────────────────────────────────────────── */
 router.get('/announcements', adminController.getAnnouncements);

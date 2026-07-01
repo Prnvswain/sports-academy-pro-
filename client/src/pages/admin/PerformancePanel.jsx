@@ -73,7 +73,7 @@ export default function PerformancePanel() {
     }
     try {
       setLoadingBatches(true);
-      const result = await adminGet(`/batches?sport_id=${sportId}`);
+      const result = await adminGet(`/admin/batches?sport_id=${sportId}`);
       const responseData = result.data;
       let batchesArray = [];
       if (Array.isArray(responseData)) {
@@ -100,7 +100,7 @@ export default function PerformancePanel() {
       return;
     }
     try {
-      const result = await adminGet(`/performance/sport-attributes/${sportId}`);
+      const result = await adminGet(`/admin/performance/sport-attributes/${sportId}`);
       const responseData = result.data;
       let attributesArray = [];
       if (Array.isArray(responseData)) {
@@ -158,8 +158,10 @@ export default function PerformancePanel() {
 
   useEffect(() => {
     if (selectedSport) {
-      loadBatches(selectedSport.sport_id);
-      loadAttributes(selectedSport.sport_id);
+      // Use sport_id for academy sports, id for global sports
+      const sportId = selectedSport.sport_id || selectedSport.id;
+      loadBatches(sportId);
+      loadAttributes(sportId);
       setSelectedBatchId(null);
       setStudents([]);
     }
@@ -227,7 +229,7 @@ export default function PerformancePanel() {
 
                 return (
                   <motion.button
-                    key={sport.sport_id}
+                    key={sport.sport_id || sport.id || sport.name || index}
                     type="button"
                     onClick={() => handleSportSelect(sport)}
                     initial={{ opacity: 0, y: 20 }}

@@ -271,6 +271,8 @@ model GlobalSport {
   attributes          String   @db.Text // JSON array of attributes
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
+
+  sports              Sport[]
 }
 
 model Sport {
@@ -285,10 +287,12 @@ model Sport {
   latitude            Decimal?     @db.Decimal(10, 7)
   longitude           Decimal?     @db.Decimal(10, 7)
   use_custom_location Boolean      @default(false)
+  global_sport_id     Int?
   created_at          DateTime     @default(now())
   updated_at          DateTime     @updatedAt
 
   academy     Academy?               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_academy_id_fk")
+  globalSport GlobalSport?          @relation(fields: [global_sport_id], references: [id], map: "sports_global_sport_id_fk")
   batches     Batch[]
   students    Student[]
   enrollments StudentEnrollment[]
@@ -296,6 +300,7 @@ model Sport {
 
   @@unique([name, academy_id])
   @@index([academy_id])
+  @@index([global_sport_id])
   @@map("sports")
 }
 

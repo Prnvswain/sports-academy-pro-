@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Activity, Target, PlusCircle, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Target, PlusCircle, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { superAdminGet, superAdminPost } from '../../api/client';
 
+// RENAME & REMOVE OPTIONS: Only keeping Sports Attributes as requested
 const CONTROL_CATEGORIES = [
-  { id: 'global-config', label: 'Global Config', icon: Settings },
   { id: 'sports-attributes', label: 'Sports Attributes', icon: Target },
-  { id: 'roles', label: 'Roles', icon: Activity },
 ];
 
 // Available sport icons for selection
@@ -42,7 +41,7 @@ const DEFAULT_SPORTS = [
   { id: 'wrestling', name: 'Wrestling', icon: '🤼', attributes: ["Takedowns", "Escapes", "Reversals", "Near Falls", "Pins / Falls", "Mat Control Time", "Defense Success %", "Stamina Index", "Flexibility", "Matches Won"] }
 ];
 
-export default function ControllerPanel() {
+export default function SportsSettingsPanel() {
   const [activeCategory, setActiveCategory] = useState('sports-attributes');
   const [sports, setSports] = useState([]);
   const [loadingSports, setLoadingSports] = useState(true);
@@ -66,14 +65,13 @@ export default function ControllerPanel() {
     const fetchSports = async () => {
       try {
         setLoadingSports(true);
-        const response = await superAdminGet('/sports');
+        const response = await superAdminGet('/super-admin/sports');
         if (response && response.data) {
           setSports(response.data);
         }
       } catch (error) {
         console.error('Failed to fetch sports:', error);
-        // Fallback to default sports if API fails
-        setSports(DEFAULT_SPORTS);
+        setSports([]);
       } finally {
         setLoadingSports(false);
       }
@@ -142,27 +140,28 @@ export default function ControllerPanel() {
     try {
       const payload = {
         name: newSportName.trim(),
-        icon: newSportIcon,           // Selected icon exact state pass ho raha hai
-        attributes: newSportAttributes // Dynamic list arrays strings ke sath
+        icon: newSportIcon,
+        attributes: newSportAttributes
       };
 
-      // 🎯 FIX: URL path ko badal kar '/super-admin/sports' kiya taaki 404 error na aaye
-      // 🎯 FINAL CLEAN CALL INSIDE CONTROLLER PANEL
       const response = await superAdminPost('/super-admin/sports', payload);
 
-      // successResponse utility ya unwrap check validation
-      if (response && (response.success || response.id)) {
+      // Parse response from new backend format: { success: true, id: sport.id, sport: sport }
+      if (response && response.success && response.sport) {
+        const savedSport = response.sport;
 
-        // Backend se return hone wala saved object extract karo safely
-        const savedSport = response.sport || response.data || response;
+        // Add fallback icon if missing
+        const sportWithFallback = {
+          ...savedSport,
+          icon: savedSport.icon || FALLBACK_ICON
+        };
 
-        // Main list custom hook/state me update sync karo (Bina refresh ke render hoga)
-        setSports((prevSports) => [...prevSports, savedSport]);
+        // Reactively update state without refresh
+        setSports((prevSports) => [...prevSports, sportWithFallback]);
 
-        // Reset layout states completely
         setIsAddSportModalOpen(false);
         setNewSportName('');
-        setNewSportIcon('🏏'); // Default status fallback
+        setNewSportIcon('🏏');
         setNewSportAttributes([]);
         setNewAttributeInput('');
 
@@ -189,10 +188,10 @@ export default function ControllerPanel() {
 
   return (
     <div className="bg-slate-50 min-h-screen flex w-full overflow-hidden">
-      {/* Left Sidebar - Control Categories */}
+      {/* Left Sidebar - Sports Settings Title */}
       <div className="w-64 bg-white/50 border-r border-slate-200/60 p-4 flex-shrink-0">
         <div className="mb-6">
-          <h2 className="text-slate-800 text-lg font-bold">Controller Panel</h2>
+          <h2 className="text-slate-800 text-lg font-bold">Sports Settings</h2>
           <p className="text-slate-400 text-xs mt-1">Global system configuration</p>
         </div>
 
@@ -220,7 +219,7 @@ export default function ControllerPanel() {
         </nav>
       </div>
 
-      {/* Right Main Area - Sports Attributes */}
+      {/* Right Main Area */}
       <div className="flex-1 p-6 overflow-y-auto">
         {activeCategory === 'sports-attributes' && (
           <motion.div
@@ -363,34 +362,6 @@ export default function ControllerPanel() {
             )}
           </motion.div>
         )}
-
-        {activeCategory === 'global-config' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center h-full"
-          >
-            <div className="text-center">
-              <Settings className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-slate-800 text-lg font-semibold">Global Configuration</h3>
-              <p className="text-slate-400 text-sm mt-2">Coming soon</p>
-            </div>
-          </motion.div>
-        )}
-
-        {activeCategory === 'roles' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center h-full"
-          >
-            <div className="text-center">
-              <Activity className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-slate-800 text-lg font-semibold">Roles Management</h3>
-              <p className="text-slate-400 text-sm mt-2">Coming soon</p>
-            </div>
-          </motion.div>
-        )}
       </div>
 
       {/* Add New Sport Modal */}
@@ -478,7 +449,7 @@ export default function ControllerPanel() {
                           handleAddSportAttribute();
                         }
                       }}
-                      className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"
                     />
                     <motion.button
                       type="button"

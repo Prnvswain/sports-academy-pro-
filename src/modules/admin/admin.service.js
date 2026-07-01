@@ -152,6 +152,7 @@ export const getSportsCatalog = async (academy_id) => {
     const missingGlobalSports = globalSports
       .filter(global => !academySportNames.has(global.name))
       .map(global => ({
+        id: global.id, // Include global sport ID for proper routing
         sport_id: null,
         name: global.name,
         icon: global.icon || '🏅',
@@ -465,10 +466,16 @@ export const createSport = async (academy_id, data) => {
     longitude,
     use_custom_location,
     sport_center,
+    icon,
   } = data;
   const parsedFee = parseFloat(
     base_fee !== undefined ? base_fee : baseFee !== undefined ? baseFee : 0,
   );
+
+  // Find matching global sport by name
+  const globalSport = await prisma.globalSport.findFirst({
+    where: { name: name }
+  });
 
   const defaultAttributes = [
     "Stamina",
@@ -490,11 +497,12 @@ export const createSport = async (academy_id, data) => {
         base_fee: parsedFee,
         status: status || 'ACTIVE',
         academy_id: academyId,
-        is_custom: true,
+        is_custom: globalSport ? false : true,
         sport_center: sport_center || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
         use_custom_location: use_custom_location || false,
+        global_sport_id: globalSport ? globalSport.id : null,
       },
     });
 

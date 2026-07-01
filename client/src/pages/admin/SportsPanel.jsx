@@ -241,6 +241,7 @@ export default function SportsPanel() {
       });
       setLocationCaptured(false);
       setSelectedLocation(null);
+      setShowDropdown(false);
       loadSports();
     } else {
       setMessage({ text: 'All sports failed to add. Please try again.', type: 'error' });
@@ -480,8 +481,10 @@ export default function SportsPanel() {
                   >
                     {superAdminLoading ? (
                       <p className="px-4 py-3 text-sm text-muted">Loading sports…</p>
-                    ) : filteredDropdown.length === 0 && !q ? (
-                      <p className="px-4 py-3 text-sm text-muted">No sports found. Type to add a custom sport.</p>
+                    ) : !q ? (
+                      <p className="px-4 py-3 text-sm text-muted">Start typing to search for sports…</p>
+                    ) : filteredDropdown.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-muted">No sports found. Press Enter to add as custom sport.</p>
                     ) : (
                       <>
                         {filteredDropdown.map((sport) => {

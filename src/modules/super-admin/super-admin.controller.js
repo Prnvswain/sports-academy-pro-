@@ -44,7 +44,11 @@ export const getSports = async (req, res, next) => {
 export const createSport = async (req, res, next) => {
   try {
     const sport = await superAdminService.createSport(req.body);
-    res.json(successResponse('Sport created successfully', sport));
+    res.json({
+      success: true,
+      id: sport.id,
+      sport: sport
+    });
   } catch (err) {
     next(err);
   }

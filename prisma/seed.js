@@ -24,28 +24,34 @@ const DURATION_PLANS = [
 async function main() {
   const passwordHash = await bcrypt.hash('123456', 12);
 
-  // Seed GlobalSports table instead of sport table
-  for (const sportData of GLOBAL_SPORTS) {
-    await prisma.globalSport.upsert({
-      where: { name: sportData.name },
-      update: {},
-      create: {
-        name: sportData.name,
-        icon: sportData.icon,
-        attributes: JSON.stringify(sportData.attributes)
-      }
-    }).catch(async () => {
-      const existing = await prisma.globalSport.findFirst({ where: { name: sportData.name } });
-      if (!existing) {
-        await prisma.globalSport.create({
-          data: {
-            name: sportData.name,
-            icon: sportData.icon,
-            attributes: JSON.stringify(sportData.attributes)
-          }
-        });
-      }
-    });
+  // Check if global sports already exist to prevent overwriting manually added sports
+  const existingSportsCount = await prisma.globalSport.count();
+  if (existingSportsCount > 0) {
+    console.log('ℹ️  Global sports already exist, skipping sports seeding');
+  } else {
+    // Seed GlobalSports table only if empty
+    for (const sportData of GLOBAL_SPORTS) {
+      await prisma.globalSport.upsert({
+        where: { name: sportData.name },
+        update: {},
+        create: {
+          name: sportData.name,
+          icon: sportData.icon,
+          attributes: JSON.stringify(sportData.attributes)
+        }
+      }).catch(async () => {
+        const existing = await prisma.globalSport.findFirst({ where: { name: sportData.name } });
+        if (!existing) {
+          await prisma.globalSport.create({
+            data: {
+              name: sportData.name,
+              icon: sportData.icon,
+              attributes: JSON.stringify(sportData.attributes)
+            }
+          });
+        }
+      });
+    }
   }
 
   for (const tier of [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.PLUS]) {
