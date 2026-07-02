@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
-import { adminGet, adminPost, adminDelete, TIMING_OPTIONS } from '../../api/client';
+import { adminGet, adminPost, adminDelete } from '../../api/client';
 
 const emptyBatchForm = {
   name: '',
@@ -22,17 +22,39 @@ export default function BatchesPanel() {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [editingBatchId, setEditingBatchId] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
-
-  // TIME OVERLAP DIALOG STATE
   const [overlapDetails, setOverlapDetails] = useState(null);
 
-  const setFieldError = (field, message) => {
-    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  // States for Searchable Coach Dropdown
+  const [coachSearch, setCoachSearch] = useState('');
+  const [coachDropdownOpen, setCoachDropdownOpen] = useState(false);
+  const coachRef = useRef(null);
+
+  // States for Searchable Sport Dropdown
+  const [sportSearch, setSportSearch] = useState('');
+  const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
+  const sportRef = useRef(null);
+
+  const setFieldError = (field, msg) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: msg }));
   };
 
   const clearFieldError = (field) => {
     setFieldErrors((prev) => ({ ...prev, [field]: '' }));
   };
+
+  // Close dropdowns on outside clicks
+  useEffect(() => {
+    function handleOutsideClick(event) {
+      if (coachRef.current && !coachRef.current.contains(event.target)) {
+        setCoachDropdownOpen(false);
+      }
+      if (sportRef.current && !sportRef.current.contains(event.target)) {
+        setSportDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const validateField = (field, value) => {
     let error = '';
@@ -41,10 +63,10 @@ export default function BatchesPanel() {
         if (!value || value.trim() === '') error = 'Batch name is required';
         break;
       case 'coach_id':
-        if (!value) error = 'Coach is required';
+        if (!value) error = 'Coach selection is required';
         break;
       case 'sport_id':
-        if (!value) error = 'Sport is required';
+        if (!value) error = 'Sport selection is strictly mandatory';
         break;
       case 'max_capacity':
         if (value && (isNaN(value) || parseInt(value, 10) < 1)) error = 'Capacity must be a positive number';
@@ -146,12 +168,14 @@ export default function BatchesPanel() {
     }
     setMessage({ text: '', type: '' });
 
-    const isValid =
-      validateField('name', batchForm.name) &&
-      validateField('coach_id', batchForm.coach_id) &&
-      validateField('sport_id', batchForm.sport_id);
+    const isNameValid = validateField('name', batchForm.name);
+    const isCoachValid = validateField('coach_id', batchForm.coach_id);
+    const isSportValid = validateField('sport_id', batchForm.sport_id);
 
-    if (!isValid) return;
+    if (!isNameValid || !isCoachValid || !isSportValid) {
+      setMessage({ text: 'Please complete all required fields correctly.', type: 'error' });
+      return;
+    }
 
     if (!forceSubmit) {
       const conflict = checkBatchConflicts(
@@ -193,6 +217,8 @@ export default function BatchesPanel() {
 
       setMessage({ text: result?.message || `Batch saved successfully`, type: 'success' });
       setBatchForm(emptyBatchForm);
+      setCoachSearch('');
+      setSportSearch('');
       setEditingBatchId(null);
       setOverlapDetails(null);
       loadData();
@@ -218,21 +244,22 @@ export default function BatchesPanel() {
       sport_id: batch.sport_id?.toString() || '',
       max_capacity: batch.max_capacity?.toString() || '',
     });
+
+    const currentCoach = coaches.find(c => c.coach_id === batch.coach_id);
+    setCoachSearch(currentCoach ? currentCoach.name : '');
+
+    const currentSport = sports.find(s => s.sport_id === batch.sport_id);
+    setSportSearch(currentSport ? currentSport.name : '');
+    
+    setFieldErrors({});
   };
 
   const handleDeleteBatch = async (batchId) => {
     if (!window.confirm("Are you sure you want to delete this batch?")) return;
     try {
-      // 1. Backend API hit karein
       await adminDelete(`/admin/batches/${batchId}`);
-
-      // 2. Success message set karein
       setMessage({ text: "Batch deleted successfully", type: "success" });
-
-      // 3. 🔥 Frontend State se turant filter out karein taaki screen se gayab ho jaye
       setBatches((prevBatches) => prevBatches.filter(b => b.batch_id !== batchId));
-
-      // 4. Background verification ke liye fresh load karein
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: "error" });
@@ -246,10 +273,16 @@ export default function BatchesPanel() {
       batch?.coach?.name?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const filteredCoaches = coaches.filter(c => 
+    c.name?.toLowerCase().includes(coachSearch.toLowerCase())
+  );
+
+  const filteredSports = sports.filter(s => 
+    s.name?.toLowerCase().includes(sportSearch.toLowerCase())
+  );
+
   return (
     <motion.div className="space-y-6 w-full relative" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-
-      {/* OVERLAP DIALOG */}
       {overlapDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
           <motion.div
@@ -300,6 +333,7 @@ export default function BatchesPanel() {
               onChange={handleBatchChange}
               required
             />
+            {fieldErrors.name && <p className="text-xs text-red-500 mt-1">{fieldErrors.name}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -313,30 +347,143 @@ export default function BatchesPanel() {
             </div>
           </div>
 
-          <div>
-            <label className="label">Coach</label>
-            <select name="coach_id" className="input-field bg-[var(--color-input)]" value={batchForm.coach_id} onChange={handleBatchChange} required>
-              <option value="">Select coach…</option>
-              {coaches.map(c => <option key={c.coach_id} value={c.coach_id}>{c.name}</option>)}
-            </select>
+          {/* Searchable Coach Picker Component */}
+          <div ref={coachRef} className="relative">
+            <label className="label">Coach Search</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search and select coach..."
+                className={`input-field pr-10 ${fieldErrors.coach_id ? 'border-red-500' : ''}`}
+                value={coachSearch}
+                onChange={(e) => {
+                  setCoachSearch(e.target.value);
+                  setCoachDropdownOpen(true);
+                  if (batchForm.coach_id) {
+                    setBatchForm(prev => ({ ...prev, coach_id: '' }));
+                  }
+                }}
+                onFocus={() => setCoachDropdownOpen(true)}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none text-xs">
+                {coachDropdownOpen ? '▲' : '▼'}
+              </div>
+            </div>
+            {fieldErrors.coach_id && <p className="text-xs text-red-500 mt-1">{fieldErrors.coach_id}</p>}
+            
+            <AnimatePresence>
+              {coachDropdownOpen && (
+                <motion.ul 
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg divide-y divide-zinc-100 dark:divide-zinc-800"
+                >
+                  {filteredCoaches.length === 0 ? (
+                    <li className="p-3 text-xs text-muted text-center">No coaches match search</li>
+                  ) : (
+                    filteredCoaches.map(c => (
+                      <li 
+                        key={c.coach_id}
+                        className={`p-2.5 text-sm cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${batchForm.coach_id === c.coach_id?.toString() ? 'bg-green-500/10 text-green-600 font-semibold' : ''}`}
+                        onClick={() => {
+                          setBatchForm(prev => ({ ...prev, coach_id: c.coach_id.toString() }));
+                          setCoachSearch(c.name);
+                          setCoachDropdownOpen(false);
+                          clearFieldError('coach_id');
+                        }}
+                      >
+                        {c.name}
+                      </li>
+                    ))
+                  )}
+                </motion.ul>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div>
-            <label className="label">Sport</label>
-            <select name="sport_id" className="input-field bg-[var(--color-input)]" value={batchForm.sport_id} onChange={handleBatchChange} required>
-              <option value="">Select sport…</option>
-              {sports.map(s => <option key={s.sport_id} value={s.sport_id}>{s.name}</option>)}
-            </select>
+          {/* Searchable & Mandatory Sport Picker Component */}
+          <div ref={sportRef} className="relative">
+            <div className="flex justify-between items-center">
+              <label className="label">Sports Search <span className="text-red-500 font-bold">*</span></label>
+              <span className="text-[10px] uppercase font-bold text-red-500 tracking-wider bg-red-500/10 px-2 py-0.5 rounded-sm">Mandatory</span>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search and select sport (Required)..."
+                className={`input-field pr-10 ${fieldErrors.sport_id ? 'border-red-500 bg-red-50/20' : ''}`}
+                value={sportSearch}
+                onChange={(e) => {
+                  setSportSearch(e.target.value);
+                  setSportDropdownOpen(true);
+                  if (batchForm.sport_id) {
+                    setBatchForm(prev => ({ ...prev, sport_id: '' }));
+                  }
+                }}
+                onFocus={() => setSportDropdownOpen(true)}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none text-xs">
+                {sportDropdownOpen ? '▲' : '▼'}
+              </div>
+            </div>
+            {fieldErrors.sport_id && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-semibold text-red-500 mt-1">
+                ⚠️ {fieldErrors.sport_id}
+              </motion.p>
+            )}
+            
+            <AnimatePresence>
+              {sportDropdownOpen && (
+                <motion.ul 
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg divide-y divide-zinc-100 dark:divide-zinc-800"
+                >
+                  {filteredSports.length === 0 ? (
+                    <li className="p-3 text-xs text-muted text-center">No active sports found</li>
+                  ) : (
+                    filteredSports.map(s => (
+                      <li 
+                        key={s.sport_id}
+                        className={`p-2.5 text-sm cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${batchForm.sport_id === s.sport_id?.toString() ? 'bg-green-500/10 text-green-600 font-semibold' : ''}`}
+                        onClick={() => {
+                          setBatchForm(prev => ({ ...prev, sport_id: s.sport_id.toString() }));
+                          setSportSearch(s.name);
+                          setSportDropdownOpen(false);
+                          clearFieldError('sport_id');
+                        }}
+                      >
+                        <span className="mr-2">{s.icon || '🏅'}</span>
+                        {s.name}
+                      </li>
+                    ))
+                  )}
+                </motion.ul>
+              )}
+            </AnimatePresence>
           </div>
 
           <div>
             <label className="label">Max Capacity (Optional)</label>
             <input name="max_capacity" type="number" min={1} className="input-field" value={batchForm.max_capacity} onChange={handleBatchChange} placeholder="e.g. 20" />
+            {fieldErrors.max_capacity && <p className="text-xs text-red-500 mt-1">{fieldErrors.max_capacity}</p>}
           </div>
 
           <div className="flex gap-3 pt-2">
             {editingBatchId && (
-              <button type="button" className="w-1/3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold py-2.5 text-sm" onClick={() => { setEditingBatchId(null); setBatchForm(emptyBatchForm); }}>
+              <button 
+                type="button" 
+                className="w-1/3 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-bold py-2.5 text-sm" 
+                onClick={() => { 
+                  setEditingBatchId(null); 
+                  setBatchForm(emptyBatchForm);
+                  setCoachSearch('');
+                  setSportSearch('');
+                  setFieldErrors({});
+                }}
+              >
                 Cancel
               </button>
             )}

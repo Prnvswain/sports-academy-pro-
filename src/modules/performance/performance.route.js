@@ -46,5 +46,6 @@ router.get('/analytics/academy', performanceController.getAcademyAnalytics);
 // Sport attributes synchronization endpoints
 router.get('/sport-attributes/:sportId', performanceController.getSportAttributes);
 router.post('/rate-student', performanceController.rateStudent);
+router.post('/sync-global-attributes/:sportId', performanceController.syncGlobalSportAttributes);
 
 export default router;

@@ -288,7 +288,11 @@ export const updateBatch = async (req, res, next) => {
 
 export const getAvailableBatches = async (req, res, next) => {
   try {
-    const batches = await adminService.getAvailableBatches(req.user.academy_id, req.query.sport_id);
+    const batches = await adminService.getAvailableBatches(
+      req.user.academy_id,
+      req.query.sport_id,
+      req.query.sport_ids
+    );
     res.json(successResponse('Available batches retrieved', batches));
   } catch (err) {
     next(err);
@@ -461,7 +465,7 @@ export const approvePerformanceAttribute = async (req, res, next) => {
     const result = await adminService.approvePerformanceAttribute(
       req.user.academy_id,
       req.params.id,
-      req.body,
+      { action: 'APPROVED' },
     );
     res.status(200).json({ success: true, data: result });
   } catch (err) {
@@ -475,6 +479,54 @@ export const createPerformanceAttribute = async (req, res, next) => {
     res
       .status(201)
       .json({ success: true, message: 'Performance attribute added cleanly', data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getStudentPerformanceHistory = async (req, res, next) => {
+  try {
+    const history = await adminService.getStudentPerformanceHistory(req.params.studentId, req.user.academy_id);
+    res.json(successResponse('Student performance history retrieved successfully', history));
+  } catch (err) {
+    next(err)
+  }
+};
+
+export const getStudentPerformanceAnalytics = async (req, res, next) => {
+  try {
+    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
+    const data = await performanceAnalytics.getStudentPerformanceAnalytics(
+      req.user.academy_id,
+      req.params.studentId
+    );
+    res.json(successResponse('Student performance analytics retrieved successfully', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getBatchPerformanceAnalytics = async (req, res, next) => {
+  try {
+    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
+    const data = await performanceAnalytics.getBatchPerformanceAnalytics(
+      req.user.academy_id,
+      req.params.batchId
+    );
+    res.json(successResponse('Batch performance analytics retrieved successfully', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAcademyPerformanceAnalytics = async (req, res, next) => {
+  try {
+    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
+    const data = await performanceAnalytics.getAcademyPerformanceAnalytics(
+      req.user.academy_id,
+      req.query
+    );
+    res.json(successResponse('Academy performance analytics retrieved successfully', data));
   } catch (err) {
     next(err);
   }

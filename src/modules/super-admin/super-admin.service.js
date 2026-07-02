@@ -129,13 +129,13 @@ export const listSports = async () => {
 export const createSport = async ({ name, icon, attributes }) => {
   try {
     if (!name) {
-      throw new Error('Sport name is required');
+      const error = new Error('Sport name is required');
+      error.statusCode = 400;
+      throw error;
     }
 
-    // Jo icon select kiya hai vahi save hoga, fallback tabhi chalega agar icon completely undefined ho
     const finalIcon = icon && icon.trim() !== '' ? icon.trim() : '🏅';
 
-    // Prisma data create block - id is auto-incremented
     const sport = await prisma.globalSport.create({
       data: {
         name: name.trim(),
@@ -144,7 +144,6 @@ export const createSport = async ({ name, icon, attributes }) => {
       }
     });
 
-    // Response format safely parsing back
     return {
       id: sport.id,
       name: sport.name,
@@ -152,11 +151,98 @@ export const createSport = async ({ name, icon, attributes }) => {
       attributes: typeof sport.attributes === 'string' ? JSON.parse(sport.attributes) : sport.attributes
     };
   } catch (error) {
-    // Agar Prisma unique constraint hit ho (P2002)
     if (error.code === 'P2002') {
-      throw new Error('This sport already exists in global records');
+      const duplicateError = new Error('This sport already exists in global records');
+      duplicateError.statusCode = 409;
+      throw duplicateError;
     }
-    throw new Error('Failed to create sport: ' + error.message);
+    throw error;
+  }
+};
+
+export const deleteSport = async (id) => {
+  try {
+    const sportId = parseInt(id, 10);
+    
+    // Check if sport exists
+    const sport = await prisma.globalSport.findUnique({
+      where: { id: sportId }
+    });
+
+    if (!sport) {
+      const error = new Error('Sport not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Check if sport is being used in any academy
+    const sportUsage = await prisma.sport.findMany({
+      where: { global_sport_id: sportId }
+    });
+
+    if (sportUsage.length > 0) {
+      const error = new Error('This sport is currently in use by academies and cannot be deleted');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    // Delete the sport
+    await prisma.globalSport.delete({
+      where: { id: sportId }
+    });
+
+    return { id: sportId, name: sport.name };
+  } catch (error) {
+    if (error.statusCode) {
+      throw error;
+    }
+    throw new Error('Failed to delete sport: ' + error.message);
+  }
+};
+
+export const updateGlobalSportAttributes = async (id, attributes) => {
+  console.log('=== updateGlobalSportAttributes DEBUG ===');
+  console.log('id:', id, 'type:', typeof id);
+  console.log('attributes:', attributes);
+
+  try {
+    const sportId = parseInt(id, 10);
+    
+    // Check if sport exists
+    const sport = await prisma.globalSport.findUnique({
+      where: { id: sportId }
+    });
+
+    console.log('Found GlobalSport:', sport);
+
+    if (!sport) {
+      const error = new Error('Sport not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Update attributes
+    const updated = await prisma.globalSport.update({
+      where: { id: sportId },
+      data: {
+        attributes: JSON.stringify(attributes || [])
+      }
+    });
+
+    console.log('Updated GlobalSport:', updated);
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      icon: updated.icon,
+      attributes: JSON.parse(updated.attributes)
+    };
+  } catch (error) {
+    console.error('updateGlobalSportAttributes error:', error);
+    if (error.statusCode) {
+      throw error;
+    }
+    throw new Error('Failed to update sport attributes: ' + error.message);
   }
 };
 export const seedDefaultSports = async () => {

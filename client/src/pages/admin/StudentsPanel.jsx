@@ -129,6 +129,7 @@ export default function StudentsPanel() {
   const [sports, setSports] = useState([]);
   const [durationPlans, setDurationPlans] = useState([]);
   const [availableBatches, setAvailableBatches] = useState([]);
+  const [editAvailableBatches, setEditAvailableBatches] = useState([]);
   const [selectedSports, setSelectedSports] = useState([]);
   const [isSportsDropdownOpen, setIsSportsDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -158,6 +159,11 @@ export default function StudentsPanel() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  
+  // Search query states for dropdowns
+  const [sportSearchQuery, setSportSearchQuery] = useState('');
+  const [batchSearchQuery, setBatchSearchQuery] = useState('');
+  const [isBatchesDropdownOpen, setIsBatchesDropdownOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -222,6 +228,27 @@ export default function StudentsPanel() {
 
     loadBatches();
   }, [selectedSports, setForm]);
+
+  // Load batches for Edit Student modal when sport changes
+  useEffect(() => {
+    if (!editStudentForm.sport_id) {
+      setEditAvailableBatches([]);
+      return;
+    }
+
+    const loadEditBatches = async () => {
+      try {
+        const result = await adminGet(
+          `/admin/batches/available?sport_id=${editStudentForm.sport_id}`
+        );
+        setEditAvailableBatches(result.data || []);
+      } catch (error) {
+        setMessage({ text: error.message, type: 'error' });
+      }
+    };
+
+    loadEditBatches();
+  }, [editStudentForm.sport_id]);
 
   const handleBatchSelect = (batchId) => {
     const selectedBatch = availableBatches.find(b => b.batch_id === parseInt(batchId));
@@ -467,6 +494,7 @@ export default function StudentsPanel() {
 
   const handleEditStudent = (student) => {
     const batchIds = student.enrollments?.map(e => e.batch_id).filter(Boolean) || [];
+    const firstEnrollment = student.enrollments?.[0] || {};
     setEditStudentForm({
       student_id: student.student_id,
       name: student.name,
@@ -475,8 +503,10 @@ export default function StudentsPanel() {
       parent_phone: student.parent_phone || '',
       phone: student.phone || '',
       batch_ids: batchIds,
-      duration_plan_id: student.enrollments?.[0]?.duration_plan_id || '',
+      batch_id: firstEnrollment.batch_id || '',
+      duration_plan_id: firstEnrollment.duration_plan_id || '',
       sport_ids: student.enrollments?.map((e) => e.sport_id) || [],
+      sport_id: firstEnrollment.sport_id || '',
       age: student.age || '',
       gender: student.gender || '',
       blood_group: student.blood_group || '',
@@ -499,8 +529,8 @@ export default function StudentsPanel() {
         parent_email: editStudentForm.parent_email,
         parent_phone: editStudentForm.parent_phone,
         phone: editStudentForm.phone,
-        batch_ids: editStudentForm.batch_ids ? editStudentForm.batch_ids.map(id => parseInt(id, 10)) : [],
-        sport_ids: editSelectedSports,
+        batch_id: editStudentForm.batch_id ? parseInt(editStudentForm.batch_id) : null,
+        sport_id: editStudentForm.sport_id ? parseInt(editStudentForm.sport_id) : null,
         duration_plan_id: editStudentForm.duration_plan_id
           ? parseInt(editStudentForm.duration_plan_id)
           : null,
@@ -1636,566 +1666,624 @@ export default function StudentsPanel() {
         </p>
       )}
 
-      {/* Add Student Modal */}
-      {showAddStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
-          <div className="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold">Add New Student</h3>
-              <div className="flex gap-2">
-                {draftSavedAt && <span className="text-muted text-xs">Draft saved</span>}
-                <button
-                  type="button"
-                  className="text-muted hover:text-foreground"
-                  onClick={() => setShowAddStudentModal(false)}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="label" htmlFor="firstName">
-                    First Name
-                  </label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    className={`input-field ${fieldErrors.firstName ? 'border-red-500' : ''}`}
-                    value={form.firstName}
-                    onChange={(e) => {
-                      setForm({ ...form, firstName: e.target.value });
-                      clearFieldError('firstName');
-                    }}
-                    onBlur={() => validateField('firstName', form.firstName)}
-                    required
-                  />
-                  {fieldErrors.firstName && (
-                    <p className="mt-1 text-xs text-red-500">{fieldErrors.firstName}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="label" htmlFor="middleName">
-                    Middle Name (Optional)
-                  </label>
-                  <input
-                    id="middleName"
-                    type="text"
-                    className="input-field"
-                    value={form.middleName}
-                    onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="lastName">
-                    Last Name
-                  </label>
-                  <input
-                    id="lastName"
-                    type="text"
-                    className={`input-field ${fieldErrors.lastName ? 'border-red-500' : ''}`}
-                    value={form.lastName}
-                    onChange={(e) => {
-                      setForm({ ...form, lastName: e.target.value });
-                      clearFieldError('lastName');
-                    }}
-                    onBlur={() => validateField('lastName', form.lastName)}
-                    required
-                  />
-                  {fieldErrors.lastName && (
-                    <p className="mt-1 text-xs text-red-500">{fieldErrors.lastName}</p>
-                  )}
-                </div>
-              </div>
-              <div className="mb-4">
-                <label className="label" htmlFor="profilePhoto">
-                  Profile Photo (Optional)
-                </label>
-                <input
-                  id="profilePhoto"
-                  name="profile_photo"
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                  className="input-field"
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      // Validate file type
-                      const allowedTypes = [
-                        'image/jpeg',
-                        'image/jpg',
-                        'image/png',
-                        'image/gif',
-                        'image/webp',
-                      ];
-                      if (!allowedTypes.includes(file.type)) {
-                        setFieldError(
-                          'profile_photo',
-                          'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-                        );
-                        e.target.value = '';
-                        return;
-                      }
-                      // Validate file size (5MB max)
-                      if (file.size > 5 * 1024 * 1024) {
-                        alert('File size exceeds the 5MB limit. Please choose a smaller file.');
-                        e.target.value = '';
-                        return;
-                      }
-                      clearFieldError('profile_photo');
-                      setForm({ ...form, profile_photo: file });
-                    }
-                  }}
-                />
-                <p className="text-muted mt-1 text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
-                {fieldErrors.profile_photo && (
-                  <p className="mt-1 text-xs text-red-500">{fieldErrors.profile_photo}</p>
-                )}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor="studentDob">
-                    Date of Birth
-                  </label>
-                  <input
-                    id="studentDob"
-                    name="dob"
-                    type="date"
-                    className={`input-field ${fieldErrors.dob ? 'border-red-500' : ''}`}
-                    value={form.dob}
-                    onChange={(e) => {
-                      const dob = e.target.value;
-                      setForm({ ...form, dob });
-                      clearFieldError('dob');
-                    }}
-                    onBlur={() => validateField('dob', form.dob)}
-                    required
-                    max={new Date().toISOString().split('T')[0]}
-                  />
-                  {fieldErrors.dob && (
-                    <p className="mt-1 text-xs text-red-500">{fieldErrors.dob}</p>
-                  )}
-                  <p className="text-muted mt-1 text-xs">Age will be calculated automatically</p>
-                </div>
-                <div>
-                  <label className="label" htmlFor="calculatedAge">
-                    Age (Calculated)
-                  </label>
-                  <input
-                    id="calculatedAge"
-                    type="text"
-                    className="input-field bg-muted"
-                    value={form.dob ? `${calculateAgeFromDOB(form.dob)} years` : ''}
-                    readOnly
-                    disabled
-                  />
-                  <p className="text-muted mt-1 text-xs">Auto-calculated from DOB</p>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="label" htmlFor="studentGender">
-                    Gender
-                  </label>
-                  <select
-                    id="studentGender"
-                    name="gender"
-                    className="input-field"
-                    value={form.gender}
-                    onChange={updateField}
-                    required
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="studentHeight">
-                    HEIGHT (cm)
-                  </label>
-                  <input
-                    id="studentHeight"
-                    name="height"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    className="input-field"
-                    value={form.height}
-                    onChange={updateField}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="studentWeight">
-                    WEIGHT (kg)
-                  </label>
-                  <input
-                    id="studentWeight"
-                    name="weight"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    className="input-field"
-                    value={form.weight}
-                    onChange={updateField}
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor="studentPhone">
-                    Phone
-                  </label>
-                  <input
-                    id="studentPhone"
-                    name="phone"
-                    type="tel"
-                    className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
-                    value={form.phone}
-                    onChange={(e) => {
-                      setForm({ ...form, phone: e.target.value });
-                      clearFieldError('phone');
-                    }}
-                    onBlur={() => validateField('phone', form.phone)}
-                  />
-                  {fieldErrors.phone && (
-                    <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="label" htmlFor="joiningDate">
-                    Joining Date
-                  </label>
-                  <input
-                    id="joiningDate"
-                    name="joining_date"
-                    type="date"
-                    className="input-field"
-                    value={form.joining_date}
-                    onChange={updateField}
-                  />
-                </div>
-              </div>
-              <div className="mb-4 mt-4">
-                <label className="label" htmlFor="studentBlood">
-                  Blood Group
-                </label>
-                <select
-                  id="studentBlood"
-                  name="blood_group"
-                  className="input-field"
-                  value={form.blood_group}
-                  onChange={updateField}
-                >
-                  <option value="">Select…</option>
-                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
-                    <option key={bg} value={bg}>
-                      {bg}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="label" htmlFor="parentName">
-                  Parent Name
-                </label>
-                <input
-                  id="parentName"
-                  name="parent_name"
-                  className="input-field"
-                  value={form.parent_name}
-                  onChange={updateField}
-                />
-              </div>
-              <div className="mb-4">
-                <label className="label" htmlFor="parentEmail">
-                  Parent Email
-                </label>
-                <input
-                  id="parentEmail"
-                  name="parent_email"
-                  type="email"
-                  className={`input-field ${fieldErrors.parent_email ? 'border-red-500' : ''}`}
-                  value={form.parent_email}
-                  onChange={(e) => {
-                    setForm({ ...form, parent_email: e.target.value });
-                    clearFieldError('parent_email');
-                  }}
-                  onBlur={() => validateField('parent_email', form.parent_email)}
-                  required
-                />
-                {fieldErrors.parent_email && (
-                  <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_email}</p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label className="label" htmlFor="parentPhone">
-                  Parent Phone
-                </label>
-                <input
-                  id="parentPhone"
-                  name="parent_phone"
-                  type="tel"
-                  className={`input-field ${fieldErrors.parent_phone ? 'border-red-500' : ''}`}
-                  value={form.parent_phone}
-                  onChange={(e) => {
-                    setForm({ ...form, parent_phone: e.target.value });
-                    clearFieldError('parent_phone');
-                  }}
-                  onBlur={() => validateField('parent_phone', form.parent_phone)}
-                />
-                {fieldErrors.parent_phone && (
-                  <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_phone}</p>
-                )}
-              </div>
-              <div className="relative">
-                <label className="label">Sports Selection</label>
-                <button
-                  type="button"
-                  className={`input-field bg-background flex w-full items-center justify-between border text-left ${fieldErrors.sport_ids ? 'border-red-500' : ''}`}
-                  onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
-                >
-                  <span className="truncate text-sm">
-                    {selectedSports.length === 0
-                      ? 'Select sports...'
-                      : sports
-                          ?.filter((s) => selectedSports.includes(s.id || s.sport_id))
-                          ?.map((s) => s.name)
-                          ?.join(', ')}
-                  </span>
-                  <span className="text-muted-foreground ml-2 text-xs">▼</span>
-                </button>
-
-                {isSportsDropdownOpen && (
-                  <div className="bg-surface border-border absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border p-2 shadow-lg">
-                    {sports && sports.length > 0 ? (
-                      sports.map((sport) => {
-                        const sportId = sport.id || sport.sport_id;
-                        const isChecked = selectedSports.includes(sportId);
-                        return (
-                          <label
-                            key={sportId}
-                            className="hover:bg-surface-secondary flex w-full cursor-pointer items-center space-x-3 rounded-md p-2 text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              className="border-border text-primary h-4 w-4 rounded"
-                              checked={isChecked}
-                              onChange={() => {
-                                if (isChecked) {
-                                  setSelectedSports(selectedSports.filter((id) => id !== sportId));
-                                } else {
-                                  setSelectedSports([...selectedSports, sportId]);
-                                }
-                              }}
-                            />
-                            <span className="text-foreground font-medium">{sport.name}</span>
-                          </label>
-                        );
-                      })
-                    ) : (
-                      <p className="text-muted-foreground p-2 text-center text-xs">
-                        No sports configured.
-                      </p>
-                    )}
-                  </div>
-                )}
-                {fieldErrors.sport_ids && (
-                  <p className="mt-1 text-xs text-red-500">{fieldErrors.sport_ids}</p>
-                )}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor="durationPlan">
-                    Duration Plan
-                  </label>
-                  <select
-                    id="durationPlan"
-                    name="duration_plan_id"
-                    className="input-field"
-                    value={form.duration_plan_id}
-                    onChange={updateField}
-                  >
-                    <option value="">Select plan…</option>
-                    {(durationPlans || []).map((p) => (
-                      <option key={p.plan_id} value={p.plan_id}>
-                        {p.name} ({p.duration_months} months) - {p.multiplier}x
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="studentBatch">
-                    Batch Assignment
-                  </label>
-                  <select
-                    id="studentBatch"
-                    className="input-field"
-                    value=""
-                    onChange={(e) => e.target.value && handleBatchSelect(e.target.value)}
-                    disabled={!selectedSports || selectedSports.length === 0}
-                  >
-                    <option value="">
-                      {!selectedSports || selectedSports.length === 0
-                        ? 'Select sport first…'
-                        : 'Select batch…'}
-                    </option>
-                    {(availableBatches || []).map((b) => {
-                      const sport = sports.find(s => s.sport_id === b.sport_id);
-                      return (
-                        <option key={b.batch_id} value={b.batch_id}>
-                          {b.name} ({sport?.name || 'Unknown'})
-                        </option>
-                      );
-                    })}
-                  </select>
-                  
-                  {form.batch_ids && form.batch_ids.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {form.batch_ids.map(batchId => {
-                        const batch = availableBatches.find(b => b.batch_id === batchId);
-                        const sport = sports.find(s => s.sport_id === batch?.sport_id);
-                        return (
-                          <span
-                            key={batchId}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm"
-                          >
-                            {batch?.name} ({sport?.name || 'Unknown'})
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveBatch(batchId)}
-                              className="ml-1 text-emerald-600 hover:text-emerald-900"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
-                  <p className="text-muted mt-1 text-xs">
-                    One batch per sport. Click × to remove.
-                  </p>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="label" htmlFor="registrationFee">
-                    Registration Fee
-                  </label>
-                  <input
-                    id="registrationFee"
-                    name="registration_fee"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    className="input-field"
-                    value={form.registration_fee}
-                    onChange={updateField}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="additionalCharges">
-                    Additional Charges
-                  </label>
-                  <input
-                    id="additionalCharges"
-                    name="additional_charges"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    className="input-field"
-                    value={form.additional_charges}
-                    onChange={updateField}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="discount">
-                    Discount
-                  </label>
-                  <input
-                    id="discount"
-                    name="discount"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    className="input-field"
-                    value={form.discount}
-                    onChange={updateField}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              {/* Live Fee Preview Card */}
-              <div className="border-accent/20 bg-accent/10 mt-4 rounded-lg border-2 p-4">
-                <h4 className="text-accent mb-3 font-bold">Live Fee Preview</h4>
-                <div className="text-foreground space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Sports Base Fee:</span>
-                    <span className="font-semibold">
-                      ${formatCurrency(calculateLiveFee().totalSportsFee)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Plan Multiplier:</span>
-                    <span className="font-semibold">{calculateLiveFee().multiplier}x</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sports Fee (with multiplier):</span>
-                    <span className="font-semibold">
-                      ${formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Registration Fee:</span>
-                    <span className="font-semibold">
-                      ${formatCurrency(calculateLiveFee().registrationFee)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Additional Charges:</span>
-                    <span className="font-semibold">
-                      ${formatCurrency(calculateLiveFee().additionalCharges)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Discount:</span>
-                    <span className="text-danger font-semibold">
-                      -${formatCurrency(calculateLiveFee().discount)}
-                    </span>
-                  </div>
-                  <div className="border-accent/20 mt-2 flex justify-between border-t pt-2">
-                    <span className="font-bold">Final Fee:</span>
-                    <span className="text-success text-lg font-bold">
-                      ${formatCurrency(calculateLiveFee().finalFee)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="submit" className="btn-primary flex-1">
-                  Enroll Student
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowClearConfirm(true)}
-                >
-                  Clear Form
-                </button>
-              </div>
-            </form>
+ {/* Add Student Modal */}
+{showAddStudentModal && (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+  >
+    <div className="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-bold">Add New Student</h3>
+        <div className="flex gap-2">
+          {draftSavedAt && <span className="text-muted text-xs">Draft saved</span>}
+          <button
+            type="button"
+            className="text-muted hover:text-foreground"
+            onClick={() => {
+              setShowAddStudentModal(false);
+              setSelectedSports([]);
+              setSportSearchQuery('');
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
+        {/* Name Fields */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="firstName">
+              First Name
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              className={`input-field ${fieldErrors.firstName ? 'border-red-500' : ''}`}
+              value={form.firstName}
+              onChange={(e) => {
+                setForm({ ...form, firstName: e.target.value });
+                clearFieldError('firstName');
+              }}
+              onBlur={() => validateField('firstName', form.firstName)}
+              required
+            />
+            {fieldErrors.firstName && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.firstName}</p>
+            )}
+          </div>
+          <div>
+            <label className="label" htmlFor="middleName">
+              Middle Name (Optional)
+            </label>
+            <input
+              id="middleName"
+              type="text"
+              className="input-field"
+              value={form.middleName}
+              onChange={(e) => setForm({ ...form, middleName: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="lastName">
+              Last Name
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              className={`input-field ${fieldErrors.lastName ? 'border-red-500' : ''}`}
+              value={form.lastName}
+              onChange={(e) => {
+                setForm({ ...form, lastName: e.target.value });
+                clearFieldError('lastName');
+              }}
+              onBlur={() => validateField('lastName', form.lastName)}
+              required
+            />
+            {fieldErrors.lastName && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.lastName}</p>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Profile Photo */}
+        <div className="mb-4 mt-4">
+          <label className="label" htmlFor="profilePhoto">
+            Profile Photo (Optional)
+          </label>
+          <input
+            id="profilePhoto"
+            name="profile_photo"
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            className="input-field"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const allowedTypes = [
+                  'image/jpeg',
+                  'image/jpg',
+                  'image/png',
+                  'image/gif',
+                  'image/webp',
+                ];
+                if (!allowedTypes.includes(file.type)) {
+                  setFieldError(
+                    'profile_photo',
+                    'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                  );
+                  e.target.value = '';
+                  return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                  alert('File size exceeds the 5MB limit. Please choose a smaller file.');
+                  e.target.value = '';
+                  return;
+                }
+                clearFieldError('profile_photo');
+                setForm({ ...form, profile_photo: file });
+              }
+            }}
+          />
+          <p className="text-muted mt-1 text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
+          {fieldErrors.profile_photo && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.profile_photo}</p>
+          )}
+        </div>
+
+        {/* DOB & Age */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor="studentDob">
+              Date of Birth
+            </label>
+            <input
+              id="studentDob"
+              name="dob"
+              type="date"
+              className={`input-field ${fieldErrors.dob ? 'border-red-500' : ''}`}
+              value={form.dob}
+              onChange={(e) => {
+                const dob = e.target.value;
+                setForm({ ...form, dob });
+                clearFieldError('dob');
+              }}
+              onBlur={() => validateField('dob', form.dob)}
+              required
+              max={new Date().toISOString().split('T')[0]}
+            />
+            {fieldErrors.dob && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.dob}</p>
+            )}
+            <p className="text-muted mt-1 text-xs">Age will be calculated automatically</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="calculatedAge">
+              Age (Calculated)
+            </label>
+            <input
+              id="calculatedAge"
+              type="text"
+              className="input-field bg-muted"
+              value={form.dob ? `${calculateAgeFromDOB(form.dob)} years` : ''}
+              readOnly
+              disabled
+            />
+            <p className="text-muted mt-1 text-xs">Auto-calculated from DOB</p>
+          </div>
+        </div>
+
+        {/* Gender, Height, Weight */}
+        <div className="grid gap-4 sm:grid-cols-3 mt-4">
+          <div>
+            <label className="label" htmlFor="studentGender">
+              Gender
+            </label>
+            <select
+              id="studentGender"
+              name="gender"
+              className="input-field"
+              value={form.gender}
+              onChange={updateField}
+              required
+            >
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="studentHeight">
+              HEIGHT (cm)
+            </label>
+            <input
+              id="studentHeight"
+              name="height"
+              type="number"
+              step="0.1"
+              min="0"
+              className="input-field"
+              value={form.height}
+              onChange={updateField}
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="studentWeight">
+              WEIGHT (kg)
+            </label>
+            <input
+              id="studentWeight"
+              name="weight"
+              type="number"
+              step="0.1"
+              min="0"
+              className="input-field"
+              value={form.weight}
+              onChange={updateField}
+              placeholder="Optional"
+            />
+          </div>
+        </div>
+
+        {/* Phone & Joining Date */}
+        <div className="grid gap-4 sm:grid-cols-2 mt-4">
+          <div>
+            <label className="label" htmlFor="studentPhone">
+              Phone
+            </label>
+            <input
+              id="studentPhone"
+              name="phone"
+              type="tel"
+              className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
+              value={form.phone}
+              onChange={(e) => {
+                setForm({ ...form, phone: e.target.value });
+                clearFieldError('phone');
+              }}
+              onBlur={() => validateField('phone', form.phone)}
+            />
+            {fieldErrors.phone && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
+            )}
+          </div>
+          <div>
+            <label className="label" htmlFor="joiningDate">
+              Joining Date
+            </label>
+            <input
+              id="joiningDate"
+              name="joining_date"
+              type="date"
+              className="input-field"
+              value={form.joining_date}
+              onChange={updateField}
+            />
+          </div>
+        </div>
+
+        {/* Blood Group */}
+        <div className="mb-4 mt-4">
+          <label className="label" htmlFor="studentBlood">
+            Blood Group
+          </label>
+          <select
+            id="studentBlood"
+            name="blood_group"
+            className="input-field"
+            value={form.blood_group}
+            onChange={updateField}
+          >
+            <option value="">Select…</option>
+            {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+              <option key={bg} value={bg}>
+                {bg}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Parent Fields */}
+        <div className="mb-4">
+          <label className="label" htmlFor="parentName">
+            Parent Name
+          </label>
+          <input
+            id="parentName"
+            name="parent_name"
+            className="input-field"
+            value={form.parent_name}
+            onChange={updateField}
+          />
+        </div>
+        <div className="mb-4">
+          <label className="label" htmlFor="parentEmail">
+            Parent Email
+          </label>
+          <input
+            id="parentEmail"
+            name="parent_email"
+            type="email"
+            className={`input-field ${fieldErrors.parent_email ? 'border-red-500' : ''}`}
+            value={form.parent_email}
+            onChange={(e) => {
+              setForm({ ...form, parent_email: e.target.value });
+              clearFieldError('parent_email');
+            }}
+            onBlur={() => validateField('parent_email', form.parent_email)}
+            required
+          />
+          {fieldErrors.parent_email && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_email}</p>
+          )}
+        </div>
+        <div className="mb-4">
+          <label className="label" htmlFor="parentPhone">
+            Parent Phone
+          </label>
+          <input
+            id="parentPhone"
+            name="parent_phone"
+            type="tel"
+            className={`input-field ${fieldErrors.parent_phone ? 'border-red-500' : ''}`}
+            value={form.parent_phone}
+            onChange={(e) => {
+              setForm({ ...form, parent_phone: e.target.value });
+              clearFieldError('parent_phone');
+            }}
+            onBlur={() => validateField('parent_phone', form.parent_phone)}
+          />
+          {fieldErrors.parent_phone && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_phone}</p>
+          )}
+        </div>
+
+        {/* Sport Selection (Single Select Searchable Dropdown) */}
+        <div className="relative mb-4">
+          <label className="label">Search & Select Sport</label>
+          <div className="relative">
+            <input
+              type="text"
+              className={`input-field w-full pr-16 text-sm ${fieldErrors.sport_ids ? 'border-red-500' : ''}`}
+              placeholder={
+                selectedSports.length > 0
+                  ? sports?.find(s => (s.id || s.sport_id) === selectedSports[0])?.name || "Sport Selected"
+                  : "Type to search sport..."
+              }
+              value={sportSearchQuery}
+              onFocus={() => setIsSportsDropdownOpen(true)}
+              onChange={(e) => {
+                setSportSearchQuery(e.target.value);
+                setIsSportsDropdownOpen(true);
+              }}
+            />
+            {selectedSports.length > 0 && (
+              <button
+                type="button"
+                className="absolute right-2 top-1.5 text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded hover:bg-slate-300 transition-colors"
+                onClick={() => {
+                  setSelectedSports([]);
+                  setSportSearchQuery('');
+                  setForm(prev => ({ ...prev, batch_ids: [] }));
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {fieldErrors.sport_ids && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.sport_ids}</p>
+          )}
+
+          {/* Search Dropdown Panel */}
+          {isSportsDropdownOpen && (
+            <div className="bg-surface border-border absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border p-2 shadow-lg text-black bg-white">
+              {(() => {
+                const query = sportSearchQuery.toLowerCase();
+                const filteredSports = sports?.filter(s => s.name?.toLowerCase().includes(query)) || [];
+
+                if (filteredSports.length > 0) {
+                  return filteredSports.map((sport) => {
+                    const sportId = sport.id || sport.sport_id;
+                    const isSelected = selectedSports.includes(sportId);
+                    return (
+                      <div
+                        key={sportId}
+                        className={`hover:bg-slate-100 flex w-full cursor-pointer items-center justify-between rounded-md p-2 text-sm ${
+                          isSelected ? 'bg-slate-50 font-semibold' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedSports([sportId]);
+                          setSportSearchQuery('');
+                          setIsSportsDropdownOpen(false);
+                          clearFieldError('sport_ids');
+                          setForm(prev => ({ ...prev, batch_ids: [] }));
+                        }}
+                      >
+                        <span className="text-foreground">{sport.name}</span>
+                        {isSelected && <span className="text-emerald-600 text-xs">✓ Active</span>}
+                      </div>
+                    );
+                  });
+                } else {
+                  return (
+                    <p className="text-muted-foreground p-2 text-center text-xs italic">
+                      No sports matches found.
+                    </p>
+                  );
+                }
+              })()}
+            </div>
+          )}
+          {isSportsDropdownOpen && (
+            <div className="fixed inset-0 z-40" onClick={() => setIsSportsDropdownOpen(false)} />
+          )}
+        </div>
+
+        {/* Duration Plan & Batch Grid */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor="durationPlan">
+              Duration Plan
+            </label>
+            <select
+              id="durationPlan"
+              name="duration_plan_id"
+              className="input-field"
+              value={form.duration_plan_id}
+              onChange={updateField}
+            >
+              <option value="">Select plan…</option>
+              {(durationPlans || []).map((p) => (
+                <option key={p.plan_id || p.id} value={p.plan_id || p.id}>
+                  {p.name || p.plan_name} ({p.duration_months} months)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="studentBatch">
+              Batch Assignment
+            </label>
+            <select
+              id="studentBatch"
+              className="input-field"
+              value=""
+              onChange={(e) => e.target.value && handleBatchSelect(e.target.value)}
+              disabled={selectedSports.length === 0}
+            >
+              <option value="">
+                {selectedSports.length === 0
+                  ? 'Select sport first…'
+                  : 'Select batch…'}
+              </option>
+              {(availableBatches || [])
+                .filter(b => selectedSports.includes(b.sport_id))
+                .map((b) => (
+                  <option key={b.batch_id} value={b.batch_id}>
+                    {b.name || b.batch_name}
+                  </option>
+                ))}
+            </select>
+            
+            {form.batch_ids && form.batch_ids.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {form.batch_ids.map(batchId => {
+                  const batch = availableBatches.find(b => b.batch_id === batchId);
+                  const sport = sports.find(s => (s.id || s.sport_id) === batch?.sport_id);
+                  return (
+                    <span
+                      key={batchId}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-medium"
+                    >
+                      {batch?.name || batch?.batch_name} ({sport?.name || 'Selected Sport'})
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBatch(batchId)}
+                        className="ml-1 text-emerald-600 hover:text-emerald-900 font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-muted mt-1 text-xs">
+              One active batch per selected sport.
+            </p>
+          </div>
+        </div>
+
+        {/* Financial Fields */}
+        <div className="grid gap-4 sm:grid-cols-3 mt-4">
+          <div>
+            <label className="label" htmlFor="registrationFee">
+              Registration Fee
+            </label>
+            <input
+              id="registrationFee"
+              name="registration_fee"
+              type="number"
+              min={0}
+              step={0.01}
+              className="input-field"
+              value={form.registration_fee}
+              onChange={updateField}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="additionalCharges">
+              Additional Charges
+            </label>
+            <input
+              id="additionalCharges"
+              name="additional_charges"
+              type="number"
+              min={0}
+              step={0.01}
+              className="input-field"
+              value={form.additional_charges}
+              onChange={updateField}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="discount">
+              Discount
+            </label>
+            <input
+              id="discount"
+              name="discount"
+              type="number"
+              min={0}
+              step={0.01}
+              className="input-field"
+              value={form.discount}
+              onChange={updateField}
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        {/* Live Fee Preview Card */}
+        <div className="border-accent/20 bg-accent/10 mt-4 rounded-lg border-2 p-4">
+          <h4 className="text-accent mb-3 font-bold">Live Fee Preview</h4>
+          <div className="text-foreground space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Sports Base Fee:</span>
+              <span className="font-semibold">
+                ${formatCurrency(calculateLiveFee().totalSportsFee)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Plan Multiplier:</span>
+              <span className="font-semibold">{calculateLiveFee().multiplier}x</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Sports Fee (with multiplier):</span>
+              <span className="font-semibold">
+                ${formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Registration Fee:</span>
+              <span className="font-semibold">
+                ${formatCurrency(calculateLiveFee().registrationFee)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Additional Charges:</span>
+              <span className="font-semibold">
+                ${formatCurrency(calculateLiveFee().additionalCharges)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Discount:</span>
+              <span className="text-danger font-semibold">
+                -${formatCurrency(calculateLiveFee().discount)}
+              </span>
+            </div>
+            <div className="border-accent/20 mt-2 flex justify-between border-t pt-2">
+              <span className="font-bold">Final Fee:</span>
+              <span className="text-success text-lg font-bold">
+                ${formatCurrency(calculateLiveFee().finalFee)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="mt-6 flex justify-end gap-3 border-t pt-4">
+          <button
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+            onClick={() => {
+              setShowAddStudentModal(false);
+              setSelectedSports([]);
+              setSportSearchQuery('');
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm"
+          >
+            Save Student
+          </button>
+        </div>
+      </form>
+    </div>
+  </motion.div>
+)}
 
       {showClearConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
@@ -3331,338 +3419,427 @@ export default function StudentsPanel() {
         </div>
       )}
 
-      {/* Edit Student Modal */}
-      {isEditingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
-          <div className="card animate-premiumModal max-h-[90vh] w-full max-w-2xl overflow-y-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold">Edit Student Profile</h3>
-              <button
-                type="button"
-                className="text-muted hover:text-foreground"
-                onClick={() => setIsEditingStudent(false)}
-              >
-                ✕
-              </button>
+  {/* Edit Student Modal */}
+  {isEditingStudent && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
+      <div className="card animate-premiumModal max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-white p-6 rounded-lg shadow-xl relative">
+        <div className="mb-4 flex items-center justify-between border-b pb-3">
+          <h3 className="font-bold text-lg text-slate-800">Edit Student Profile</h3>
+          <button
+            type="button"
+            className="text-muted hover:text-foreground text-slate-400 hover:text-slate-600 transition-colors"
+            onClick={() => {
+              setIsEditingStudent(false);
+              setSportSearchQuery('');
+              setBatchSearchQuery('');
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleEditStudentSubmit}>
+          <div className="space-y-4">
+            {/* Student Name */}
+            <div>
+              <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editName">
+                Student Name
+              </label>
+              <input
+                id="editName"
+                type="text"
+                className="input-field w-full p-2 border rounded-md"
+                value={editStudentForm.name || ''}
+                onChange={(e) =>
+                  setEditStudentForm({ ...editStudentForm, name: e.target.value })
+                }
+                required
+              />
             </div>
-            <form onSubmit={handleEditStudentSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label className="label" htmlFor="editName">
-                    Student Name
-                  </label>
-                  <input
-                    id="editName"
-                    type="text"
-                    className="input-field"
-                    value={editStudentForm.name || ''}
-                    onChange={(e) =>
-                      setEditStudentForm({ ...editStudentForm, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="label" htmlFor="editParentName">
-                      Parent Name
-                    </label>
-                    <input
-                      id="editParentName"
-                      type="text"
-                      className="input-field"
-                      value={editStudentForm.parent_name || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, parent_name: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="editParentEmail">
-                      Parent Email
-                    </label>
-                    <input
-                      id="editParentEmail"
-                      type="email"
-                      className="input-field"
-                      value={editStudentForm.parent_email || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, parent_email: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
+            {/* Parent Details */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editParentName">
+                  Parent Name
+                </label>
+                <input
+                  id="editParentName"
+                  type="text"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.parent_name || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, parent_name: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editParentEmail">
+                  Parent Email
+                </label>
+                <input
+                  id="editParentEmail"
+                  type="email"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.parent_email || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, parent_email: e.target.value })
+                  }
+                />
+              </div>
+            </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="label" htmlFor="editParentPhone">
-                      Parent Phone
-                    </label>
-                    <input
-                      id="editParentPhone"
-                      type="tel"
-                      className="input-field"
-                      value={editStudentForm.parent_phone || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, parent_phone: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="editPhone">
-                      Student Phone
-                    </label>
-                    <input
-                      id="editPhone"
-                      type="tel"
-                      className="input-field"
-                      value={editStudentForm.phone || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, phone: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
+            {/* Contact Details */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editParentPhone">
+                  Parent Phone
+                </label>
+                <input
+                  id="editParentPhone"
+                  type="tel"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.parent_phone || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, parent_phone: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editPhone">
+                  Student Phone
+                </label>
+                <input
+                  id="editPhone"
+                  type="tel"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.phone || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, phone: e.target.value })
+                  }
+                />
+              </div>
+            </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="label" htmlFor="editAge">
-                      Age
-                    </label>
-                    <input
-                      id="editAge"
-                      type="number"
-                      className="input-field"
-                      value={editStudentForm.age || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, age: e.target.value })
-                      }
-                      min="1"
-                      max="100"
-                    />
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="editGender">
-                      Gender
-                    </label>
-                    <select
-                      id="editGender"
-                      className="input-field"
-                      value={editStudentForm.gender || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, gender: e.target.value })
-                      }
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="editBloodGroup">
-                      Blood Group
-                    </label>
-                    <select
-                      id="editBloodGroup"
-                      className="input-field"
-                      value={editStudentForm.blood_group || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, blood_group: e.target.value })
-                      }
-                    >
-                      <option value="">Select Blood Group</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                    </select>
-                  </div>
-                </div>
+            {/* Demographics Row */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editAge">
+                  Age
+                </label>
+                <input
+                  id="editAge"
+                  type="number"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.age || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, age: e.target.value })
+                  }
+                  min="1"
+                  max="100"
+                />
+              </div>
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editGender">
+                  Gender
+                </label>
+                <select
+                  id="editGender"
+                  className="input-field w-full p-2 border rounded-md bg-white"
+                  value={editStudentForm.gender || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, gender: e.target.value })
+                  }
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editBloodGroup">
+                  Blood Group
+                </label>
+                <select
+                  id="editBloodGroup"
+                  className="input-field w-full p-2 border rounded-md bg-white"
+                  value={editStudentForm.blood_group || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, blood_group: e.target.value })
+                  }
+                >
+                  <option value="">Select Blood Group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
+              </div>
+            </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="label" htmlFor="editHeight">
-                      Height (cm)
-                    </label>
-                    <input
-                      id="editHeight"
-                      type="number"
-                      className="input-field"
-                      value={editStudentForm.height || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, height: e.target.value })
-                      }
-                      min="50"
-                      max="250"
-                      step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="editWeight">
-                      Weight (kg)
-                    </label>
-                    <input
-                      id="editWeight"
-                      type="number"
-                      className="input-field"
-                      value={editStudentForm.weight || ''}
-                      onChange={(e) =>
-                        setEditStudentForm({ ...editStudentForm, weight: e.target.value })
-                      }
-                      min="10"
-                      max="200"
-                      step="0.1"
-                    />
-                  </div>
-                </div>
+            {/* Physical Attributes */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editHeight">
+                  Height (cm)
+                </label>
+                <input
+                  id="editHeight"
+                  type="number"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.height || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, height: e.target.value })
+                  }
+                  min="50"
+                  max="250"
+                  step="0.1"
+                />
+              </div>
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editWeight">
+                  Weight (kg)
+                </label>
+                <input
+                  id="editWeight"
+                  type="number"
+                  className="input-field w-full p-2 border rounded-md"
+                  value={editStudentForm.weight || ''}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, weight: e.target.value })
+                  }
+                  min="10"
+                  max="200"
+                  step="0.1"
+                />
+              </div>
+            </div>
 
-                <div>
-                  <label className="label" htmlFor="editJoiningDate">
-                    Joining Date
-                  </label>
-                  <input
-                    id="editJoiningDate"
-                    type="date"
-                    className="input-field"
-                    value={editStudentForm.joining_date || ''}
-                    onChange={(e) =>
-                      setEditStudentForm({ ...editStudentForm, joining_date: e.target.value })
-                    }
-                  />
-                </div>
+            {/* Date Options */}
+            <div>
+              <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editJoiningDate">
+                Joining Date
+              </label>
+              <input
+                id="editJoiningDate"
+                type="date"
+                className="input-field w-full p-2 border rounded-md"
+                value={editStudentForm.joining_date ? editStudentForm.joining_date.split('T')[0] : ''}
+                onChange={(e) =>
+                  setEditStudentForm({ ...editStudentForm, joining_date: e.target.value })
+                }
+              />
+            </div>
 
-                <div>
-                  <label className="label" htmlFor="editBatch">
-                    Batch Assignment
-                  </label>
-                  <select
-                    id="editBatch"
-                    className="input-field"
-                    value=""
-                    onChange={(e) => e.target.value && handleEditBatchSelect(e.target.value)}
-                    disabled={!editSelectedSports || editSelectedSports.length === 0}
-                  >
-                    <option value="">
-                      {!editSelectedSports || editSelectedSports.length === 0
-                        ? 'Select sport first…'
-                        : 'Select batch…'}
-                    </option>
-                    {(availableBatches || []).map((b) => {
-                      const sport = sports.find(s => s.sport_id === b.sport_id);
-                      return (
-                        <option key={b.batch_id} value={b.batch_id}>
-                          {b.name} ({sport?.name || 'Unknown'})
-                        </option>
-                      );
-                    })}
-                  </select>
-                  
-                  {editStudentForm.batch_ids && editStudentForm.batch_ids.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {editStudentForm.batch_ids.map(batchId => {
-                        const batch = availableBatches.find(b => b.batch_id === batchId);
-                        const sport = sports.find(s => s.sport_id === batch?.sport_id);
-                        return (
-                          <span
-                            key={batchId}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm"
-                          >
-                            {batch?.name} ({sport?.name || 'Unknown'})
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditStudentForm(prev => ({
-                                  ...prev,
-                                  batch_ids: (prev.batch_ids || []).filter(id => id !== batchId)
-                                }));
-                              }}
-                              className="ml-1 text-emerald-600 hover:text-emerald-900"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
-                  <p className="text-muted mt-1 text-xs">
-                    One batch per sport. Click × to remove.
-                  </p>
-                </div>
+            <hr className="my-2 border-slate-200" />
 
-                <div>
-                  <label className="label" htmlFor="editDurationPlan">
-                    Duration Plan
-                  </label>
-                  <select
-                    id="editDurationPlan"
-                    className="input-field"
-                    value={editStudentForm.duration_plan_id || ''}
-                    onChange={(e) =>
-                      setEditStudentForm({ ...editStudentForm, duration_plan_id: e.target.value })
-                    }
-                  >
-                    <option value="">Select Duration Plan</option>
-                    {durationPlans.map((plan) => (
-                      <option key={plan.plan_id} value={plan.plan_id}>
-                        {plan.name} ({plan.duration_months} months)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label">Assigned Sports</label>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {sports.map((sport) => (
-                      <label
-                        key={sport.sport_id}
-                        className="border-border hover:bg-surface-secondary flex cursor-pointer items-center gap-2 rounded border p-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editSelectedSports.includes(sport.sport_id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEditSelectedSports([...editSelectedSports, sport.sport_id]);
-                            } else {
-                              setEditSelectedSports(
-                                editSelectedSports.filter((id) => id !== sport.sport_id),
-                              );
-                            }
-                          }}
-                          className="h-4 w-4"
-                        />
-                        <span className="text-sm">{sport.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
+            {/* 1. SEARCH & SELECT SPORT */}
+            <div className="relative">
+              <label className="label block text-sm font-medium text-slate-700 mb-1">
+                Search & Select Sport
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  className="input-field w-full p-2 pr-16 border rounded-md text-sm"
+                  placeholder={
+                    editStudentForm.sport_id
+                      ? sports?.find(s => (s.sport_id || s.id) == editStudentForm.sport_id)?.name || "Sport Selected"
+                      : "Type to search sport..."
+                  }
+                  value={sportSearchQuery || ''}
+                  onFocus={() => setIsSportsDropdownOpen(true)}
+                  onChange={(e) => {
+                    setSportSearchQuery(e.target.value);
+                    setIsSportsDropdownOpen(true);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {editStudentForm.sport_id && (
                   <button
                     type="button"
-                    className="btn-secondary"
-                    onClick={() => setIsEditingStudent(false)}
+                    className="absolute right-2 top-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-slate-200 transition-colors"
+                    onClick={() => {
+                      setEditStudentForm(prev => ({ ...prev, sport_id: '', batch_id: '' }));
+                      setSportSearchQuery('');
+                      setBatchSearchQuery('');
+                    }}
                   >
-                    Cancel
+                    Clear
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Save Changes
-                  </button>
-                </div>
+                )}
               </div>
-            </form>
+
+              {/* Sports Dropdown */}
+              {isSportsDropdownOpen && (
+                <div 
+                  className="absolute left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {(() => {
+                    const query = (sportSearchQuery || '').toLowerCase();
+                    const filtered = sports?.filter(s => s.name?.toLowerCase().includes(query)) || [];
+                    
+                    if (filtered.length > 0) {
+                      return filtered.map((sport) => {
+                        const currentSportId = sport.sport_id || sport.id;
+                        const isSelected = editStudentForm.sport_id == currentSportId;
+                        return (
+                          <div
+                            key={currentSportId}
+                            className={`flex items-center justify-between rounded-md p-2 text-sm cursor-pointer hover:bg-slate-50 ${
+                              isSelected ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-700'
+                            }`}
+                            onClick={() => {
+                              setEditStudentForm(prev => ({ ...prev, sport_id: currentSportId, batch_id: '' }));
+                              setSportSearchQuery('');
+                              setBatchSearchQuery('');
+                              setIsSportsDropdownOpen(false);
+                            }}
+                          >
+                            <span>{sport.name}</span>
+                            {isSelected && <span className="text-emerald-600 text-xs">✓ Active</span>}
+                          </div>
+                        );
+                      });
+                    } else {
+                      return <p className="p-2 text-center text-xs italic text-slate-400">No sports found.</p>;
+                    }
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* 2. SEARCH & SELECT BATCH */}
+            <div className="relative">
+              <label className="label block text-sm font-medium text-slate-700 mb-1">
+                Search & Assign Batch
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  className="input-field w-full p-2 pr-16 border rounded-md text-sm disabled:bg-slate-50 disabled:cursor-not-allowed"
+                  placeholder={
+                    !editStudentForm.sport_id
+                      ? "Select a sport first..."
+                      : editStudentForm.batch_id
+                        ? editAvailableBatches?.find(b => b.batch_id == editStudentForm.batch_id)?.name || "Batch Assigned"
+                        : "Type to search batch..."
+                  }
+                  value={batchSearchQuery || ''}
+                  disabled={!editStudentForm.sport_id}
+                  onFocus={() => setIsBatchesDropdownOpen(true)}
+                  onChange={(e) => {
+                    setBatchSearchQuery(e.target.value);
+                    setIsBatchesDropdownOpen(true);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {editStudentForm.batch_id && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-slate-200 transition-colors"
+                    onClick={() => {
+                      setEditStudentForm(prev => ({ ...prev, batch_id: '' }));
+                      setBatchSearchQuery('');
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Batches Dropdown */}
+              {isBatchesDropdownOpen && editStudentForm.sport_id && (
+                <div 
+                  className="absolute left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {(() => {
+                    const query = (batchSearchQuery || '').toLowerCase();
+                    const filteredBatches = (editAvailableBatches || [])
+                      .filter(b => (b.name || b.batch_name || '').toLowerCase().includes(query));
+
+                    if (filteredBatches.length > 0) {
+                      return filteredBatches.map((batch) => {
+                        const isSelected = editStudentForm.batch_id == batch.batch_id;
+                        return (
+                          <div
+                            key={batch.batch_id}
+                            className={`flex items-center justify-between rounded-md p-2 text-sm cursor-pointer hover:bg-slate-50 ${
+                              isSelected ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-700'
+                            }`}
+                            onClick={() => {
+                              setEditStudentForm(prev => ({ ...prev, batch_id: batch.batch_id }));
+                              setBatchSearchQuery('');
+                              setIsBatchesDropdownOpen(false);
+                            }}
+                          >
+                            <span>{batch.name || batch.batch_name}</span>
+                            {isSelected && <span className="text-emerald-600 text-xs">✓ Assigned</span>}
+                          </div>
+                        );
+                      });
+                    } else {
+                      return <p className="p-2 text-center text-xs italic text-slate-400">No matching batches found.</p>;
+                    }
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Duration Plan */}
+            <div>
+              <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editDurationPlan">
+                Duration Plan
+              </label>
+              <select
+                id="editDurationPlan"
+                className="input-field w-full p-2 border rounded-md bg-white text-sm"
+                value={editStudentForm.duration_plan_id || ''}
+                onChange={(e) =>
+                  setEditStudentForm({ ...editStudentForm, duration_plan_id: e.target.value })
+                }
+              >
+                <option value="">Select Duration Plan</option>
+                {(durationPlans || []).map((plan) => (
+                  <option key={plan.plan_id || plan.id} value={plan.plan_id || plan.id}>
+                    {plan.name} ({plan.duration_months} months)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Action Footer */}
+            <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+                onClick={() => {
+                  setIsEditingStudent(false);
+                  setSportSearchQuery('');
+                  setBatchSearchQuery('');
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </div>
+    </div>
+  )}
     </motion.div>
   );
-}
+};

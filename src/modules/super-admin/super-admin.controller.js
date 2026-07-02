@@ -34,9 +34,15 @@ export const getPlans = async (req, res, next) => {
 
 export const getSports = async (req, res, next) => {
   try {
+    console.log('=== Super Admin getSports Controller ===');
+    console.log('req.user:', req.user);
+    console.log('req.user.role:', req.user?.role);
+    
     const sports = await superAdminService.listSports();
+    console.log('Sports retrieved from service:', sports.length);
     res.json(successResponse('Global sports retrieved', sports));
   } catch (err) {
+    console.error('Error in getSports controller:', err);
     next(err);
   }
 };
@@ -44,11 +50,28 @@ export const getSports = async (req, res, next) => {
 export const createSport = async (req, res, next) => {
   try {
     const sport = await superAdminService.createSport(req.body);
-    res.json({
-      success: true,
-      id: sport.id,
-      sport: sport
-    });
+    res.json(successResponse('Sport created successfully', sport));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteSport = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await superAdminService.deleteSport(id);
+    res.json(successResponse('Sport deleted successfully', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateSportAttributes = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { attributes } = req.body;
+    const result = await superAdminService.updateGlobalSportAttributes(id, attributes);
+    res.json(successResponse('Sport attributes updated successfully', result));
   } catch (err) {
     next(err);
   }

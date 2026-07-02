@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, PlusCircle, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
-import { superAdminGet, superAdminPost } from '../../api/client';
+import {
+  superAdminGet,
+  superAdminPost,
+  superAdminPut,
+  superAdminDelete
+} from '../../api/client';
 
 // RENAME & REMOVE OPTIONS: Only keeping Sports Attributes as requested
 const CONTROL_CATEGORIES = [
@@ -56,18 +61,28 @@ export default function SportsSettingsPanel() {
   const [newAttributeInput, setNewAttributeInput] = useState('');
   const [isSavingSport, setIsSavingSport] = useState(false);
 
+  // Delete Sport Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [sportToDelete, setSportToDelete] = useState(null);
+  const [isDeletingSport, setIsDeletingSport] = useState(false);
+
   const handleCategoryChange = (categoryId) => {
     setActiveCategory(categoryId);
   };
-
   // Fetch sports from API on mount
   useEffect(() => {
     const fetchSports = async () => {
       try {
         setLoadingSports(true);
         const response = await superAdminGet('/super-admin/sports');
-        if (response && response.data) {
+
+        // Backend returns: { success: true, message: '...', data: [sports] }
+        // After unwrap, response is: { success: true, message: '...', data: [sports] }
+        if (response && response.data && Array.isArray(response.data)) {
           setSports(response.data);
+        } else {
+          console.error('Unexpected response structure:', response);
+          setSports([]);
         }
       } catch (error) {
         console.error('Failed to fetch sports:', error);
@@ -79,41 +94,94 @@ export default function SportsSettingsPanel() {
 
     fetchSports();
   }, []);
-
   const toggleSportExpansion = (sportId) => {
     setExpandedSportId(expandedSportId === sportId ? null : sportId);
   };
 
-  const handleAddAttribute = (sportId) => {
+  const handleAddAttribute = async (sportId) => {
     const attributeName = newAttributeInputs[sportId]?.trim();
+
     if (!attributeName) return;
 
-    setSports((prevSports) =>
-      prevSports.map((sport) =>
-        sport.id === sportId
-          ? {
-            ...sport,
-            attributes: [...sport.attributes, attributeName]
-          }
-          : sport
-      )
-    );
-    setNewAttributeInputs((prev) => ({ ...prev, [sportId]: '' }));
-  };
+    const sport = sports.find((s) => s.id === sportId);
 
-  const handleRemoveAttribute = (sportId, attributeIndex) => {
-    setSports((prevSports) =>
-      prevSports.map((sport) =>
-        sport.id === sportId
-          ? {
-            ...sport,
-            attributes: sport.attributes.filter((_, index) => index !== attributeIndex)
-          }
-          : sport
-      )
-    );
-  };
+    if (!sport) return;
 
+    const updatedAttributes = [
+      ...(sport.attributes || []),
+      attributeName
+    ];
+
+    try {
+      await superAdminPut(
+        `/super-admin/sports/${sportId}/attributes`,
+        {
+          attributes: updatedAttributes
+        }
+      );
+
+      setSports((prev) =>
+        prev.map((s) =>
+          s.id === sportId
+            ? {
+              ...s,
+              attributes: updatedAttributes
+            }
+            : s
+        )
+      );
+
+      setNewAttributeInputs((prev) => ({
+        ...prev,
+        [sportId]: ""
+      }));
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save attribute.");
+    }
+  };
+  const handleRemoveAttribute = async (
+    sportId,
+    attributeIndex
+  ) => {
+
+    const sport = sports.find(
+      s => s.id === sportId
+    );
+
+    if (!sport) return;
+
+    const updatedAttributes =
+      sport.attributes.filter(
+        (_, i) => i !== attributeIndex
+      );
+
+    try {
+
+      await superAdminPut(
+        `/super-admin/sports/${sportId}/attributes`,
+        {
+          attributes: updatedAttributes
+        }
+      );
+
+      setSports(prev =>
+        prev.map(s =>
+          s.id === sportId
+            ? {
+              ...s,
+              attributes: updatedAttributes
+            }
+            : s
+        )
+      );
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update attributes.");
+    }
+  };
   const handleAttributeInputChange = (sportId, value) => {
     setNewAttributeInputs((prev) => ({ ...prev, [sportId]: value }));
   };
@@ -146,14 +214,14 @@ export default function SportsSettingsPanel() {
 
       const response = await superAdminPost('/super-admin/sports', payload);
 
-      // Parse response from new backend format: { success: true, id: sport.id, sport: sport }
-      if (response && response.success && response.sport) {
-        const savedSport = response.sport;
+      // Parse response from successResponse format: { success: true, message: '...', data: sport }
+      if (response && response.success && response.data) {
+        const savedSport = response.data;
 
         // Add fallback icon if missing
         const sportWithFallback = {
           ...savedSport,
-          icon: savedSport.icon || FALLBACK_ICON
+          icon: savedSport.icon || '🏅'
         };
 
         // Reactively update state without refresh
@@ -171,7 +239,13 @@ export default function SportsSettingsPanel() {
       }
     } catch (error) {
       console.error('Failed to create sport:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Please try again.';
+      let errorMessage = error.message || 'Please try again.';
+
+      // Handle specific error cases
+      if (error.message?.includes('already exists') || error.response?.status === 409) {
+        errorMessage = `A sport named "${newSportName}" already exists. Please choose a different name.`;
+      }
+
       alert(`Failed to create sport: ${errorMessage}`);
     } finally {
       setIsSavingSport(false);
@@ -184,6 +258,41 @@ export default function SportsSettingsPanel() {
     setNewSportIcon('🏏');
     setNewSportAttributes([]);
     setNewAttributeInput('');
+  };
+
+  const handleDeleteSportClick = (sport) => {
+    setSportToDelete(sport);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setSportToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sportToDelete) return;
+
+    setIsDeletingSport(true);
+    try {
+      const response = await superAdminDelete(`/super-admin/sports/${sportToDelete.id}`);
+
+      if (response && response.success) {
+        // Remove the deleted sport from the UI
+        setSports((prevSports) => prevSports.filter((sport) => sport.id !== sportToDelete.id));
+        alert('Sport deleted successfully.');
+        setIsDeleteModalOpen(false);
+        setSportToDelete(null);
+      } else {
+        alert(response?.message || 'Failed to delete sport.');
+      }
+    } catch (error) {
+      console.error('Failed to delete sport:', error);
+      const errorMessage = error.message || 'Please try again.';
+      alert(`Failed to delete sport: ${errorMessage}`);
+    } finally {
+      setIsDeletingSport(false);
+    }
   };
 
   return (
@@ -281,11 +390,25 @@ export default function SportsSettingsPanel() {
                           </p>
                         </div>
                       </div>
-                      {expandedSportId === sport.id ? (
-                        <ChevronUp className="w-5 h-5 text-slate-400" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-slate-400" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        <motion.button
+                          type="button"
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSportClick(sport);
+                          }}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </motion.button>
+                        {expandedSportId === sport.id ? (
+                          <ChevronUp className="w-5 h-5 text-slate-400" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-slate-400" />
+                        )}
+                      </div>
                     </motion.button>
 
                     {/* Expanded Content */}
@@ -510,6 +633,68 @@ export default function SportsSettingsPanel() {
             </motion.div>
           </motion.div>
         )}
+
+        {/* Delete Confirmation Modal */}
+        <AnimatePresence>
+          {isDeleteModalOpen && sportToDelete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  handleCancelDelete();
+                }
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+              >
+                {/* Modal Header */}
+                <div className="px-6 py-4 border-b border-slate-200">
+                  <h3 className="text-lg font-semibold text-slate-800">Delete Sport</h3>
+                </div>
+
+                {/* Modal Body */}
+                <div className="px-6 py-4">
+                  <p className="text-slate-600 mb-2">
+                    Are you sure you want to delete <span className="font-semibold text-slate-800">"{sportToDelete.name}"</span>?
+                  </p>
+                  <p className="text-slate-400 text-sm">This action cannot be undone.</p>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                  <motion.button
+                    type="button"
+                    className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all text-sm font-medium"
+                    onClick={handleCancelDelete}
+                    disabled={isDeletingSport}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    className="px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all text-sm font-medium"
+                    onClick={handleConfirmDelete}
+                    disabled={isDeletingSport}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {isDeletingSport ? 'Deleting...' : 'Delete'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </AnimatePresence>
     </div>
   );

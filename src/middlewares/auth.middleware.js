@@ -38,9 +38,24 @@ export const authorize = (...roles) => {
       return res.status(401).json(errorResponse('Unauthorized'));
     }
 
+    console.log('=== Authorize Middleware Debug ===');
+    console.log('req.user:', req.user);
+    console.log('req.user.role:', req.user.role);
+    console.log('typeof req.user.role:', typeof req.user.role);
+    console.log('roles parameter:', roles);
+
+    // Handle both authorize('ROLE') and authorize(['ROLE1', 'ROLE2'])
+    // Flatten nested array if authorize(['ROLE1', 'ROLE2']) is used
+    const flatRoles = roles.length === 1 && Array.isArray(roles[0]) ? roles[0] : roles;
+
+    console.log('flatRoles:', flatRoles);
+
     // SYSTEM SYNC: Convert everything to uppercase
     const userRole = req.user.role ? req.user.role.toUpperCase() : '';
-    const allowedRoles = roles.map(role => role.toUpperCase());
+    const allowedRoles = flatRoles.map(role => role.toUpperCase());
+
+    console.log('userRole (uppercase):', userRole);
+    console.log('allowedRoles (uppercase):', allowedRoles);
 
     // 🎯 FIX BEYOND CONFLICT: Agar resource super_admin bhi dekh sakta ho (like browsing presets)
     // toh use automatic handle karne ke liye fallback policy laga di hai

@@ -122,51 +122,43 @@ const assertStudentSportBatch = async (academy_id, sport_id, batch_id) => {
 // ==================== SPORTS ====================
 
 export const getSportsCatalog = async (academy_id) => {
-  try {
-    const academyId = parseInt(academy_id, 10);
+  const academyId = parseInt(academy_id, 10);
 
-    // Fetch academy's local sports
-    const academySports = await prisma.sport.findMany({
-      where: { academy_id: academyId },
-      include: {
-        globalSport: true
-      },
-      orderBy: { name: 'asc' },
-    });
+  // Fetch academy's local sports
+  const academySports = await prisma.sport.findMany({
+    where: { academy_id: academyId },
+    include: { globalSport: true },
+    orderBy: { name: 'asc' },
+  });
 
-    // Fetch global sports
-    const globalSports = await prisma.globalSport.findMany({
-      orderBy: { name: 'asc' }
-    });
+  // Fetch global sports
+  const globalSports = await prisma.globalSport.findMany({
+    orderBy: { name: 'asc' }
+  });
 
-    // Combine both: academy sports with their global sport data, plus global sports not yet added
-    const combinedSports = academySports.map(sport => ({
-      ...sport,
-      icon: sport.icon || sport.globalSport?.icon || '🏅',
-      attributes: sport.globalSport?.attributes ? JSON.parse(sport.globalSport.attributes) : [],
-      isAcademySport: true
+  const combinedSports = academySports.map(sport => ({
+    ...sport,
+    icon: sport.icon || sport.globalSport?.icon || '🏅',
+    attributes: sport.globalSport?.attributes ? JSON.parse(sport.globalSport.attributes) : [],
+    isAcademySport: true
+  }));
+
+  const academySportNames = new Set(academySports.map(s => s.name));
+  const missingGlobalSports = globalSports
+    .filter(global => !academySportNames.has(global.name))
+    .map(global => ({
+      id: global.id,
+      sport_id: null,
+      name: global.name,
+      icon: global.icon || '🏅',
+      base_fee: 0,
+      status: 'NOT_ADDED',
+      academy_id: academyId,
+      isAcademySport: false,
+      attributes: global.attributes ? JSON.parse(global.attributes) : []
     }));
 
-    // Add global sports that are not yet in academy
-    const academySportNames = new Set(academySports.map(s => s.name));
-    const missingGlobalSports = globalSports
-      .filter(global => !academySportNames.has(global.name))
-      .map(global => ({
-        id: global.id, // Include global sport ID for proper routing
-        sport_id: null,
-        name: global.name,
-        icon: global.icon || '🏅',
-        base_fee: 0,
-        status: 'NOT_ADDED',
-        academy_id: academyId,
-        isAcademySport: false,
-        attributes: global.attributes ? JSON.parse(global.attributes) : []
-      }));
-
-    return [...combinedSports, ...missingGlobalSports];
-  } catch (error) {
-    return [];
-  }
+  return [...combinedSports, ...missingGlobalSports];
 };
 
 export const getGlobalSports = async () => {
@@ -506,15 +498,37 @@ export const createSport = async (academy_id, data) => {
       },
     });
 
-    // Seed default performance attributes
-    await tx.performanceAttribute.createMany({
-      data: defaultAttributes.map(attr => ({
+    // Use global sport attributes if available, otherwise use defaults
+    let attributesToCreate = defaultAttributes;
+    if (globalSport && globalSport.attributes) {
+      try {
+        const parsedAttributes = JSON.parse(globalSport.attributes);
+        if (Array.isArray(parsedAttributes) && parsedAttributes.length > 0) {
+          attributesToCreate = parsedAttributes;
+        }
+      } catch (e) {
+        // If parsing fails, use defaults
+        console.warn('Failed to parse global sport attributes, using defaults');
+      }
+    }
+
+    console.log('=== createSport (admin) DEBUG ===');
+    console.log('academyId:', academyId);
+    console.log('sport.sport_id:', sport.sport_id);
+    console.log('attributesToCreate:', attributesToCreate);
+    console.log('globalSport:', globalSport);
+
+    // Seed performance attributes
+    const createResult = await tx.performanceAttribute.createMany({
+      data: attributesToCreate.map(attr => ({
         academy_id: academyId,
         sport_id: sport.sport_id,
         name: attr,
         status: 'APPROVED'
       }))
     });
+
+    console.log('createMany result:', createResult);
 
     return sport;
   });
@@ -915,8 +929,6 @@ export const getAllStudents = async (academy_id) => {
     const students = await prisma.student.findMany({
       where: academyScope(academy_id),
       include: {
-        batch: true,
-        sport: true,
         enrollments: {
           include: {
             sport: true,
@@ -934,6 +946,7 @@ export const getAllStudents = async (academy_id) => {
     });
     return students || [];
   } catch (error) {
+    console.error('Error in getAllStudents:', error);
     return [];
   }
 };
@@ -1437,6 +1450,48 @@ export const exitStudent = async (academy_id, student_id, data, admin_user_id) =
   return updated;
 };
 
+export const getStudentPerformanceHistory = async (studentId, academyId) => {
+  try {
+    const history = await prisma.performanceScore.findMany({
+      where: {
+        student_id: parseInt(studentId, 10),
+        academy_id: parseInt(academyId, 10),
+      },
+      include: {
+        attribute: {
+          include: {
+            sport: true,
+          },
+        },
+        coach: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    // Group by evaluation session (same timestamp and coach)
+    const groupedHistory = {};
+    history.forEach((score) => {
+      const sessionKey = `${score.created_at.toISOString().split('T')[0]}_${score.coach_id}`;
+      if (!groupedHistory[sessionKey]) {
+        groupedHistory[sessionKey] = {
+          date: score.created_at.toISOString().split('T')[0],
+          coach: score.coach?.name || 'Unknown Coach',
+          metrics: {},
+          remarks: score.remarks || '',
+        };
+      }
+      groupedHistory[sessionKey].metrics[score.attribute.name] = score.score;
+    });
+
+    return Object.values(groupedHistory);
+  } catch (error) {
+    console.error('Error fetching student performance history:', error);
+    return [];
+  }
+};
+
 export const deleteStudent = async (academy_id, student_id) => {
   const student = await getStudentForAcademy(academy_id, student_id);
 
@@ -1479,14 +1534,20 @@ export const getAllBatches = async (academy_id) => {
   });
 };
 
-export const getAvailableBatches = async (academy_id, sport_id) => {
-  const sportId = parseInt(sport_id, 10);
+export const getAvailableBatches = async (academy_id, sport_id, sport_ids) => {
   const batches = await getAllBatches(academy_id);
+
+  // Handle both single sport_id and multiple sport_ids
+  const targetSportIds = sport_ids
+    ? sport_ids.split(',').map(id => parseInt(id.trim(), 10))
+    : sport_id
+      ? [parseInt(sport_id, 10)]
+      : null;
 
   return batches.filter(
     (batch) =>
       batch.status === 'ACTIVE' &&
-      batch.sport_id === sportId &&
+      (targetSportIds === null || targetSportIds.includes(batch.sport_id)) &&
       (batch.max_capacity == null || batch.students.length < batch.max_capacity),
   );
 };

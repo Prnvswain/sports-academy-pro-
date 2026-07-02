@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleMap, Autocomplete, Marker, Circle, useJsApiLoader } from '@react-google-maps/api';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
@@ -27,8 +26,6 @@ export default function SportsPanel() {
   const [superAdminLoading, setSuperAdminLoading] = useState(false);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [browseSearch, setBrowseSearch] = useState('');
-  const searchRef = useRef(null);
-  const dropdownRef = useRef(null);
 
   // ─── Shared form fields (apply to all selected sports on submit) ────────────
   const [sharedForm, setSharedForm] = useState({
@@ -42,20 +39,9 @@ export default function SportsPanel() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ─── Location picker ────────────────────────────────────────────────────────
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  // ─── Academy Location (browser geolocation) ─────────────────────────────────
   const [locationCaptured, setLocationCaptured] = useState(false);
-  const [mapCenter, setMapCenter] = useState({ lat: 19.076, lng: 72.8777 });
-  const [selectedLocation, setSelectedLocation] = useState(null);
-  const [selectedAddress, setSelectedAddress] = useState('');
-  const [autocompleteSessionToken, setAutocompleteSessionToken] = useState(null);
-  const autocompleteRef = useRef(null);
-  const mapRef = useRef(null);
-
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-    libraries: ['places'],
-  });
+  const [capturedCoords, setCapturedCoords] = useState({ lat: null, lng: null });
 
   // ─── Fetch global sports for Browse modal ──────────────────────────────
   const loadSuperAdminSports = useCallback(async () => {
@@ -106,41 +92,11 @@ export default function SportsPanel() {
     loadSports();
   }, [loadSports]);
 
-  // ─── Geolocation on mount ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setMapCenter(coords);
-          setSelectedLocation(coords);
-        },
-        () => {},
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    if (showLocationPicker && window.google) {
-      setAutocompleteSessionToken(new window.google.maps.places.AutocompleteSessionToken());
-    }
-  }, [showLocationPicker]);
-
-  useEffect(() => {
-    return () => {
-      autocompleteRef.current = null;
-      mapRef.current = null;
-    };
-  }, []);
-
   // ─── Close dropdown on outside click ───────────────────────────────────────
   useEffect(() => {
     const handleClick = (e) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target) &&
-        !searchRef.current?.contains(e.target)
-      ) {
+      const searchInput = document.querySelector('input[placeholder="Search or type a sport name…"]');
+      if (searchInput && !searchInput.contains(e.target) && !e.target.closest('.absolute.left-0.right-0.top-full')) {
         setShowDropdown(false);
       }
     };
@@ -240,7 +196,7 @@ export default function SportsPanel() {
         longitude: '',
       });
       setLocationCaptured(false);
-      setSelectedLocation(null);
+      setCapturedCoords({ lat: null, lng: null });
       setShowDropdown(false);
       loadSports();
     } else {
@@ -364,58 +320,30 @@ export default function SportsPanel() {
     }
   };
 
-  // ─── Location handlers (unchanged) ─────────────────────────────────────────
-  const handlePlaceSelect = () => {
-    if (autocompleteRef.current) {
-      const place = autocompleteRef.current.getPlace();
-      if (place.geometry?.location) {
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        setSelectedLocation({ lat, lng });
-        setMapCenter({ lat, lng });
-        setSelectedAddress(place.formatted_address || '');
-        if (window.google) {
-          setAutocompleteSessionToken(new window.google.maps.places.AutocompleteSessionToken());
-        }
-      }
+  // ─── Academy Location handlers (browser geolocation) ─────────────────────────────
+  const handleSetAcademyLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
     }
-  };
-
-  const handleMapClick = (event) => {
-    const lat = event.latLng.lat();
-    const lng = event.latLng.lng();
-    setSelectedLocation({ lat, lng });
-    setMapCenter({ lat, lng });
-  };
-
-  const handleMarkerDrag = (event) => {
-    setSelectedLocation({ lat: event.latLng.lat(), lng: event.latLng.lng() });
-  };
-
-  const handleConfirmLocation = () => {
-    if (selectedLocation) {
-      setSharedForm((prev) => ({
-        ...prev,
-        sport_center: selectedAddress || 'Selected location',
-        latitude: selectedLocation.lat.toFixed(7),
-        longitude: selectedLocation.lng.toFixed(7),
-      }));
-      setLocationCaptured(true);
-      setShowLocationPicker(false);
-    }
-  };
-
-  const handleSetCurrentLocation = () => {
-    if (!navigator.geolocation) return alert('Geolocation not supported');
+    
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setSelectedLocation(coords);
-        setMapCenter(coords);
-        mapRef.current?.panTo(coords);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCapturedCoords({ lat, lng });
+        setSharedForm((prev) => ({
+          ...prev,
+          latitude: lat.toFixed(7),
+          longitude: lng.toFixed(7),
+          sport_center: 'Academy Location',
+        }));
+        setLocationCaptured(true);
       },
-      () => alert('Unable to retrieve your location'),
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
+      (error) => {
+        alert('Unable to retrieve your location. Please enable location services and try again.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -441,7 +369,7 @@ export default function SportsPanel() {
           <label className="label">Search Sport</label>
           <div className="flex gap-2">
             {/* Search input with dropdown */}
-            <div className="relative flex-1" ref={searchRef}>
+            <div className="relative flex-1">
               <input
                 type="text"
                 className={`input-field pr-10 ${fieldErrors.search ? 'border-red-500' : ''}`}
@@ -472,7 +400,6 @@ export default function SportsPanel() {
               <AnimatePresence>
                 {showDropdown && (
                   <motion.div
-                    ref={dropdownRef}
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -564,26 +491,34 @@ export default function SportsPanel() {
           </div>
         )}
 
-        {/* Shared fields: Sport Center, Radius, Fee, Status */}
+        {/* Shared fields: Academy Location, Radius, Fee, Status */}
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="relative">
-            <label className="label" htmlFor="sportCenter">Sport Center</label>
-            <div className="space-y-2">
-              <motion.input
-                id="sportCenter"
-                type="text"
-                className="input-field"
-                value={sharedForm.sport_center}
-                onClick={() => setShowLocationPicker(true)}
-                onFocus={() => setShowLocationPicker(true)}
-                placeholder="Click to select location"
-                readOnly
-                whileFocus={{ scale: 1.01 }}
-              />
-              {locationCaptured && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 border-2 border-emerald-600 rounded">
-                  ✓ Location Captured
-                </span>
+          {/* Academy Location */}
+          <div className="md:col-span-2">
+            <div className="card p-4">
+              <h4 className="font-bold text-slate-800 mb-2">Academy Location</h4>
+              {!locationCaptured ? (
+                <div>
+                  <p className="text-slate-500 text-sm mb-3">
+                    Click 'Set Academy Location' to capture GPS coordinates for attendance verification
+                  </p>
+                  <motion.button
+                    type="button"
+                    className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all text-sm font-medium"
+                    onClick={handleSetAcademyLocation}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Set Academy Location
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <p className="text-emerald-800 font-medium text-sm mb-1">Location captured:</p>
+                  <p className="text-emerald-700 text-sm font-mono">
+                    Lat: {capturedCoords.lat?.toFixed(7)} | Lon: {capturedCoords.lng?.toFixed(7)}
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -753,120 +688,6 @@ export default function SportsPanel() {
         )}
       </AnimatePresence>
 
-      {/* ── Location Picker Modal (unchanged UI) ── */}
-      {showLocationPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="bg-white border-2 border-zinc-950 w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg shadow-[8px_8px_0_0_#09090b]">
-            <div className="flex items-center justify-between border-b-2 border-zinc-950 p-4 bg-zinc-50">
-              <h3 className="font-bold text-lg">Select Sport Center Location</h3>
-              <button
-                type="button"
-                className="text-zinc-600 hover:text-zinc-900 font-bold text-xl transition-colors"
-                onClick={() => setShowLocationPicker(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-zinc-700 mb-2">Search Location</label>
-                {isLoaded ? (
-                  <Autocomplete
-                    onLoad={(ac) => {
-                      autocompleteRef.current = ac;
-                      if (autocompleteSessionToken) {
-                        ac.setOptions({
-                          sessionToken: autocompleteSessionToken,
-                          fields: ['geometry.location', 'formatted_address', 'name'],
-                        });
-                      }
-                    }}
-                    onPlaceChanged={handlePlaceSelect}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Search for a location..."
-                      className="w-full px-4 py-3 border-2 border-zinc-950 rounded-lg shadow-[4px_4px_0_0_#09090b] focus:outline-none focus:shadow-[2px_2px_0_0_#09090b] focus:translate-x-[2px] focus:translate-y-[2px] transition-all"
-                    />
-                  </Autocomplete>
-                ) : (
-                  <input type="text" placeholder="Loading maps..." disabled className="w-full px-4 py-3 border-2 border-zinc-300 rounded-lg bg-zinc-100" />
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="px-4 py-2.5 font-bold text-white bg-emerald-600 border-2 border-emerald-800 rounded-lg shadow-[4px_4px_0_0_#065f46] hover:shadow-[2px_2px_0_0_#065f46] hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center gap-2"
-                onClick={handleSetCurrentLocation}
-              >
-                📍 Set Current Location
-              </button>
-
-              <div className="h-96 border-2 border-zinc-950 rounded-lg overflow-hidden shadow-[4px_4px_0_0_#09090b]">
-                {isLoaded ? (
-                  <GoogleMap
-                    mapContainerStyle={{ width: '100%', height: '100%' }}
-                    center={mapCenter}
-                    zoom={15}
-                    onClick={handleMapClick}
-                    onLoad={(map) => { mapRef.current = map; }}
-                  >
-                    {selectedLocation && (
-                      <>
-                        <Marker position={selectedLocation} draggable onDragEnd={handleMarkerDrag} />
-                        {sharedForm.attendance_radius && (
-                          <Circle
-                            center={selectedLocation}
-                            radius={parseFloat(sharedForm.attendance_radius)}
-                            options={{ fillColor: '#10b981', fillOpacity: 0.2, strokeColor: '#10b981', strokeOpacity: 0.8, strokeWeight: 2 }}
-                          />
-                        )}
-                      </>
-                    )}
-                  </GoogleMap>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-100">
-                    <p className="text-zinc-500">Loading map…</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-emerald-50 border-2 border-emerald-600 rounded-lg p-4 shadow-[4px_4px_0_0_#059669]">
-                <h4 className="font-bold text-emerald-800 mb-3">Captured Coordinates</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-700 mb-1">Latitude</label>
-                    <p className="text-emerald-900 font-mono text-sm">{selectedLocation ? selectedLocation.lat.toFixed(7) : '—'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-700 mb-1">Longitude</label>
-                    <p className="text-emerald-900 font-mono text-sm">{selectedLocation ? selectedLocation.lng.toFixed(7) : '—'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  className="px-6 py-2.5 font-bold text-zinc-700 bg-white border-2 border-zinc-950 rounded-lg shadow-[4px_4px_0_0_#09090b] hover:shadow-[2px_2px_0_0_#09090b] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
-                  onClick={() => setShowLocationPicker(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="px-6 py-2.5 font-bold text-white bg-emerald-600 border-2 border-emerald-800 rounded-lg shadow-[4px_4px_0_0_#065f46] hover:shadow-[2px_2px_0_0_#065f46] hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleConfirmLocation}
-                  disabled={!selectedLocation}
-                >
-                  Confirm Location
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Alert message ── */}
       {message.text && (
         <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
@@ -931,17 +752,19 @@ export default function SportsPanel() {
             </thead>
             <tbody>
               {sports.length > 0 ? (
-                sports.map((sport, index) => (
+                sports
+                  .filter((sport) => sport.isAcademySport)
+                  .map((sport, index) => (
                   <motion.tr
                     key={sport.sport_id || sport.id || sport.name}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                     whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                    className={`cursor-pointer border-b ${!sport.isAcademySport ? 'bg-surface-secondary/30' : ''} ${selectedIds.includes(sport.sport_id || sport.id) ? 'bg-surface-secondary/50' : ''}`}
-                    onClick={() => sport.isAcademySport && handleRowClick(sport.sport_id || sport.id)}
+                    className={`cursor-pointer border-b ${selectedIds.includes(sport.sport_id || sport.id) ? 'bg-surface-secondary/50' : ''}`}
+                    onClick={() => handleRowClick(sport.sport_id || sport.id)}
                   >
-                    {isBulkEditMode && sport.isAcademySport && (
+                    {isBulkEditMode && (
                       <td className="p-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -951,79 +774,61 @@ export default function SportsPanel() {
                         />
                       </td>
                     )}
-                    {isBulkEditMode && !sport.isAcademySport && (
-                      <td className="p-3"></td>
-                    )}
                     <td className="p-3 font-medium">
                       <span className="mr-2 text-lg">{sport.icon || '🏅'}</span>
                       {sport.name}
-                      {!sport.isAcademySport && (
-                        <span className="ml-2 text-xs text-muted bg-surface-secondary px-2 py-0.5 rounded">Available</span>
-                      )}
                     </td>
                     <td className="p-3">
                       <span className="text-muted text-sm">{sport.sport_center || '—'}</span>
                     </td>
                     <td className="p-3">
-                      {sport.isAcademySport ? (
-                        editingFeeId === (sport.sport_id || sport.id) ? (
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              className="input-field w-24 px-2 py-1 text-sm"
-                              value={editingFeeValue}
-                              onChange={(e) => setEditingFeeValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
-                                if (e.key === 'Escape') handleCancelEditFee();
-                              }}
-                            />
-                            <button type="button" className="btn-success btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleSaveFee(sport.sport_id || sport.id); }}>✓</button>
-                            <button type="button" className="btn-secondary btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleCancelEditFee(); }}>✕</button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <span>${formatCurrency(sport.base_fee || sport.baseFee)}</span>
-                            <button
-                              type="button"
-                              className="text-muted hover:text-foreground"
-                              onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
-                              title="Edit Fee"
-                            >
-                              ✏️
-                            </button>
-                          </div>
-                        )
+                      {editingFeeId === (sport.sport_id || sport.id) ? (
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            className="input-field w-24 px-2 py-1 text-sm"
+                            value={editingFeeValue}
+                            onChange={(e) => setEditingFeeValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
+                              if (e.key === 'Escape') handleCancelEditFee();
+                            }}
+                          />
+                          <button type="button" className="btn-success btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleSaveFee(sport.sport_id || sport.id); }}>✓</button>
+                          <button type="button" className="btn-secondary btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleCancelEditFee(); }}>✕</button>
+                        </div>
                       ) : (
-                        <span className="text-muted text-sm">—</span>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <span>${formatCurrency(sport.base_fee || sport.baseFee)}</span>
+                          <button
+                            type="button"
+                            className="text-muted hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
+                            title="Edit Fee"
+                          >
+                            ✏️
+                          </button>
+                        </div>
                       )}
                     </td>
                     <td className="p-3">
-                      {sport.isAcademySport ? (
-                        <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${sport.status === 'ACTIVE' ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}>
-                          {sport.status || 'ACTIVE'}
-                        </span>
-                      ) : (
-                        <span className="text-muted text-sm">Not Added</span>
-                      )}
+                      <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${sport.status === 'ACTIVE' ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}>
+                        {sport.status || 'ACTIVE'}
+                      </span>
                     </td>
                     <td className="space-x-1 p-3" onClick={(e) => e.stopPropagation()}>
-                      {sport.isAcademySport ? (
-                        sport.status === 'ACTIVE' ? (
-                          <>
-                            <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>Deactivate</button>
-                            <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
-                          </>
-                        ) : (
-                          <>
-                            <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>Mark Active</button>
-                            <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
-                          </>
-                        )
+                      {sport.status === 'ACTIVE' ? (
+                        <>
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>Deactivate</button>
+                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
+                        </>
                       ) : (
-                        <button type="button" className="btn-primary btn-sm" onClick={() => { setSearchQuery(sport.name); setShowDropdown(true); }}>Add</button>
+                        <>
+                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>Mark Active</button>
+                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
+                        </>
                       )}
                     </td>
                   </motion.tr>

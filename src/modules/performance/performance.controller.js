@@ -16,9 +16,11 @@ export const getAttributes = async (req, res, next) => {
 
 export const createAttribute = async (req, res, next) => {
   try {
+    // For Super Admin, user_id is super_admin_id; for Coach/Admin, it's their ID
+    const userId = req.user.user_id || req.user.coach_id || req.user.super_admin_id;
     const attribute = await performanceService.createAttribute(
       req.user.academy_id,
-      req.user.user_id,
+      userId,
       req.user.role,
       req.body
     );
@@ -49,6 +51,43 @@ export const rejectAttribute = async (req, res, next) => {
       req.params.attributeId
     );
     res.json(successResponse('Performance attribute rejected successfully', attribute));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateAttribute = async (req, res, next) => {
+  try {
+    const attribute = await performanceService.updateAttribute(
+      req.user.academy_id,
+      req.params.attributeId,
+      req.body
+    );
+    res.json(successResponse('Performance attribute updated successfully', attribute));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteAttribute = async (req, res, next) => {
+  try {
+    const attribute = await performanceService.deleteAttribute(
+      req.user.academy_id,
+      req.params.attributeId
+    );
+    res.json(successResponse('Performance attribute deleted successfully', attribute));
+  } catch (err) {
+    next(err)
+  }
+};
+
+export const syncGlobalSportAttributes = async (req, res, next) => {
+  try {
+    const result = await performanceService.syncGlobalSportAttributes(
+      req.user.academy_id,
+      req.params.sportId
+    );
+    res.json(successResponse('Global sport attributes synced successfully', result));
   } catch (err) {
     next(err);
   }

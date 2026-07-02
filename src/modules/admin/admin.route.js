@@ -15,13 +15,20 @@ router.use(authenticate);
 // 🎯 FIX 1: Allow SUPER_ADMIN inside roles matrix to smoothly fetch configurations
 router.use(authorize('ADMIN', 'ACADEMY_ADMIN', 'SUPER_ADMIN'));
 
-// 🎯 FIX 2: Dynamic Subscription Bypass Policy 
+// 🎯 FIX 2: Dynamic Subscription Bypass Policy
 // If the token belongs to a SUPER_ADMIN, completely bypass subscription checks!
 router.use((req, res, next) => {
-  if (req.user && req.user.role && req.user.role.toUpperCase() === 'SUPER_ADMIN') {
+  console.log('=== Admin Route Subscription Check Debug ===');
+  console.log('req.user:', req.user);
+  console.log('req.user.role:', req.user.role);
+  console.log('typeof req.user.role:', typeof req.user.role);
+
+  if (req.user && req.user.role && typeof req.user.role === 'string' && req.user.role.toUpperCase() === 'SUPER_ADMIN') {
+    console.log('SUPER_ADMIN bypassing subscription check');
     return next(); // Pass without subscription check
   }
   // For standard academy admins, apply normal subscription rule
+  console.log('Applying normal subscription check');
   return enforceActiveSubscription(req, res, next);
 });
 
@@ -187,6 +194,10 @@ router.get('/performance/approval-queue', adminController.getPerformanceApproval
 router.post('/performance/attributes', adminController.createPerformanceAttribute);
 router.patch('/performance/approve-attribute/:id', adminController.approvePerformanceAttribute);
 router.get('/performance/sport-attributes/:sportId', adminController.getPerformanceApprovalQueue);
+router.get('/performance/student-history/:studentId', adminController.getStudentPerformanceHistory);
+router.get('/performance/analytics/student/:studentId', adminController.getStudentPerformanceAnalytics);
+router.get('/performance/analytics/batch/:batchId', adminController.getBatchPerformanceAnalytics);
+router.get('/performance/analytics/academy', adminController.getAcademyPerformanceAnalytics);
 
 /* ─── SMART BROADCAST CENTER ─────────────────────────────────────────────── */
 router.get('/announcements', adminController.getAnnouncements);

@@ -11,7 +11,8 @@ export const getAttributes = async (academyId, query = {}) => {
   const { sport_id, status } = query;
   
   const where = {
-    academy_id: academyId
+    academy_id: academyId,
+    is_deleted: false
   };
 
   if (sport_id) {
@@ -21,6 +22,12 @@ export const getAttributes = async (academyId, query = {}) => {
   if (status) {
     where.status = status.toUpperCase();
   }
+
+  console.log('=== getAttributes DEBUG ===');
+  console.log('academyId:', academyId, 'type:', typeof academyId);
+  console.log('sport_id:', sport_id, 'parsed:', sport_id ? parseInt(sport_id, 10) : null);
+  console.log('status:', status);
+  console.log('where clause:', where);
 
   const attributes = await prisma.performanceAttribute.findMany({
     where,
@@ -43,11 +50,23 @@ export const getAttributes = async (academyId, query = {}) => {
     }
   });
 
+  console.log('getAttributes result count:', attributes.length);
+  if (attributes.length > 0) {
+    console.log('Sample attribute:', attributes[0]);
+  }
+
   return attributes;
 };
 
 export const createAttribute = async (academyId, userId, userRole, data) => {
   const { sport_id, name } = data;
+
+  console.log('=== createAttribute DEBUG ===');
+  console.log('academyId:', academyId, 'type:', typeof academyId);
+  console.log('userId:', userId, 'type:', typeof userId);
+  console.log('userRole:', userRole);
+  console.log('sport_id:', sport_id, 'type:', typeof sport_id);
+  console.log('name:', name);
 
   if (!sport_id || !name) {
     const error = new Error('sport_id and name are required');
@@ -63,6 +82,8 @@ export const createAttribute = async (academyId, userId, userRole, data) => {
       name: name.trim()
     }
   });
+
+  console.log('existing attribute check:', existing);
 
   if (existing) {
     const error = new Error('Attribute with this name already exists for this sport');
@@ -81,7 +102,10 @@ export const createAttribute = async (academyId, userId, userRole, data) => {
   if (userRole === 'COACH') {
     attributeData.status = 'PENDING';
     attributeData.requested_by_coach_id = userId;
+    console.log('Setting requested_by_coach_id to:', userId, 'type:', typeof userId);
   }
+
+  console.log('attributeData before create:', attributeData);
 
   const attribute = await prisma.performanceAttribute.create({
     data: attributeData,
@@ -94,6 +118,8 @@ export const createAttribute = async (academyId, userId, userRole, data) => {
       }
     }
   });
+
+  console.log('Created attribute:', attribute);
 
   logger.info('Performance attribute created', {
     attribute_id: attribute.attribute_id,
@@ -181,6 +207,177 @@ export const rejectAttribute = async (academyId, attributeId) => {
   });
 
   return updated;
+};
+
+export const updateAttribute = async (academyId, attributeId, data) => {
+  const { name, sport_id } = data;
+
+  const attribute = await prisma.performanceAttribute.findFirst({
+    where: {
+      attribute_id: parseInt(attributeId, 10),
+      academy_id: academyId
+    }
+  });
+
+  if (!attribute) {
+    const error = new Error('Performance attribute not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Check if new name conflicts with existing attribute for this sport
+  if (name && name.trim() !== attribute.name) {
+    const existing = await prisma.performanceAttribute.findFirst({
+      where: {
+        academy_id: academyId,
+        sport_id: sport_id ? parseInt(sport_id, 10) : attribute.sport_id,
+        name: name.trim(),
+        attribute_id: { not: parseInt(attributeId, 10) }
+      }
+    });
+
+    if (existing) {
+      const error = new Error('Attribute with this name already exists for this sport');
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
+  const updateData = {};
+  if (name) updateData.name = name.trim();
+  if (sport_id) updateData.sport_id = parseInt(sport_id, 10);
+
+  const updated = await prisma.performanceAttribute.update({
+    where: { attribute_id: parseInt(attributeId, 10) },
+    data: updateData,
+    include: {
+      sport: {
+        select: {
+          sport_id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  logger.info('Performance attribute updated', {
+    attribute_id: attribute.attribute_id,
+    academy_id: academyId
+  });
+
+  return updated;
+};
+
+export const deleteAttribute = async (academyId, attributeId) => {
+  const attribute = await prisma.performanceAttribute.findFirst({
+    where: {
+      attribute_id: parseInt(attributeId, 10),
+      academy_id: academyId
+    }
+  });
+
+  if (!attribute) {
+    const error = new Error('Performance attribute not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Soft delete
+  const deleted = await prisma.performanceAttribute.update({
+    where: { attribute_id: parseInt(attributeId, 10) },
+    data: {
+      is_deleted: true
+    }
+  });
+
+  logger.info('Performance attribute deleted', {
+    attribute_id: attribute.attribute_id,
+    academy_id: academyId
+  });
+
+  return deleted;
+};
+
+// Sync GlobalSport attributes to PerformanceAttribute for an academy
+export const syncGlobalSportAttributes = async (academyId, sportId) => {
+  console.log('=== syncGlobalSportAttributes DEBUG ===');
+  console.log('academyId:', academyId, 'type:', typeof academyId);
+  console.log('sportId:', sportId, 'type:', typeof sportId);
+
+  try {
+    // Get the sport to find its global_sport_id
+    const sport = await prisma.sport.findUnique({
+      where: { sport_id: parseInt(sportId, 10) },
+      include: { globalSport: true }
+    });
+
+    console.log('Found sport:', sport);
+
+    if (!sport || !sport.globalSport) {
+      console.log('Sport or GlobalSport not found');
+      return { success: false, message: 'Sport or GlobalSport not found' };
+    }
+
+    // Parse global attributes
+    const globalAttributes = sport.globalSport.attributes 
+      ? JSON.parse(sport.globalSport.attributes) 
+      : [];
+
+    console.log('Global attributes:', globalAttributes);
+
+    if (globalAttributes.length === 0) {
+      return { success: true, message: 'No global attributes to sync' };
+    }
+
+    // Create PerformanceAttribute entries for each global attribute
+    const createdAttributes = [];
+    for (const attrName of globalAttributes) {
+      // Check if attribute already exists
+      const existing = await prisma.performanceAttribute.findFirst({
+        where: {
+          academy_id: academyId,
+          sport_id: parseInt(sportId, 10),
+          name: attrName
+        }
+      });
+
+      console.log(`Attribute "${attrName}" exists:`, existing ? 'YES' : 'NO');
+
+      if (!existing) {
+        const attribute = await prisma.performanceAttribute.create({
+          data: {
+            academy_id: academyId,
+            sport_id: parseInt(sportId, 10),
+            name: attrName,
+            status: 'APPROVED'
+          },
+          include: {
+            sport: {
+              select: {
+                sport_id: true,
+                name: true
+              }
+            }
+          }
+        });
+        createdAttributes.push(attribute);
+        console.log('Created attribute:', attribute);
+      }
+    }
+
+    logger.info('Global sport attributes synced', {
+      academy_id: academyId,
+      sport_id: sportId,
+      count: createdAttributes.length
+    });
+
+    console.log('Sync complete. Created:', createdAttributes.length);
+    return { success: true, created: createdAttributes.length };
+  } catch (error) {
+    logger.error('Failed to sync global sport attributes', error);
+    console.error('Sync error:', error);
+    throw error;
+  }
 };
 
 export const getScores = async (academyId, query = {}) => {

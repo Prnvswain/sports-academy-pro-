@@ -214,6 +214,24 @@ export async function superAdminPatch(path, body) {
     .then(unwrap);
 }
 
+export async function superAdminPut(path, body) {
+  return api
+    .put(path, body, {
+      headers: {
+        Authorization: `Bearer ${getSuperAdminToken()}`
+      }
+    })
+    .then(unwrap);
+}
+
+export async function superAdminDelete(path) {
+  return api
+    .delete(path, {
+      headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
+    })
+    .then(unwrap);
+}
+
 export async function publicPost(path, body) {
   return api.post(path, body).then(unwrap);
 }
