@@ -3,33 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPatch, adminDelete } from '../../api/client';
 
-const SPORT_ICONS = {
-  Cricket: '🏏',
-  Football: '⚽',
-  Basketball: '🏀',
-  Tennis: '🎾',
-  Badminton: '🏸',
-  Swimming: '🏊',
-  Volleyball: '🏐',
-  Rugby: '🏉',
-  Hockey: '🏑',
-  TableTennis: '🏓',
-  PingPong: '🏓',
-  Squash: '🏓',
-  Baseball: '⚾',
-  Softball: '🥎',
-  Golf: '🏌️‍♂️',
-  Boxing: '🥊',
-  Karate: '🥋',
-  Taekwondo: '🥋',
-  Judo: '🥋',
-  Gymnastics: '🤸',
-  Athletics: '🏃‍♂️',
-  Running: '🏃‍♂️',
-  Archery: '🏹',
-  Shooting: '🎯',
-  Skating: '🛼',
-  Cycling: '🚴',
+// Helper function to get sport icon from database or fallback
+const getSportIcon = (sport) => {
+  return sport?.icon || '🏅';
 };
 
 export default function PerformancePanel() {
@@ -658,8 +634,7 @@ export default function PerformancePanel() {
           <h3 className="text-lg font-black tracking-tight">Active Sports Catalog</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sports.map((sport, index) => {
-              const cleanKey = sport.name.replace(/\s+/g, '');
-              const icon = SPORT_ICONS[cleanKey] || SPORT_ICONS[sport.name] || '🏆';
+              const icon = getSportIcon(sport);
 
               return (
                 <motion.button
@@ -702,10 +677,7 @@ export default function PerformancePanel() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="text-4xl">
-                  {(() => {
-                    const cleanKey = selectedSport.name.replace(/\s+/g, '');
-                    return SPORT_ICONS[cleanKey] || SPORT_ICONS[selectedSport.name] || '🏆';
-                  })()}
+                  {getSportIcon(selectedSport)}
                 </div>
                 <div>
                   <h3 className="text-foreground text-2xl font-black tracking-tight">

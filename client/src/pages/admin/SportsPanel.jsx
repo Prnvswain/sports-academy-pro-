@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Search, X, CheckCircle, AlertCircle, Plus, MapPin, Grid, Lock, Unlock, Trash2, Edit2, Check, LayoutDashboard } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
@@ -8,6 +9,9 @@ const formatCurrency = (value) =>
 
 // Fallback icons if super admin API doesn't return icon field
 const FALLBACK_ICON = '🏅';
+
+// Array for empty state animations
+const ANIMATION_ICONS = ['⚽', '🏀', '🎾', '🏐', '🏸', '🥊', '🏏'];
 
 export default function SportsPanel() {
   const [sports, setSports] = useState([]);
@@ -336,7 +340,7 @@ export default function SportsPanel() {
           ...prev,
           latitude: lat.toFixed(7),
           longitude: lng.toFixed(7),
-          sport_center: 'Academy Location',
+          sport_center: 'Sport Center Location',
         }));
         setLocationCaptured(true);
       },
@@ -350,308 +354,471 @@ export default function SportsPanel() {
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <motion.div
-      className="space-y-6 w-full overflow-x-hidden"
+      className="w-full space-y-6 font-sans"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div>
-        <h2 className="text-2xl font-bold">Sports Catalog</h2>
-        <p className="text-muted">Create and manage sports for your academy workspace.</p>
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-[#111814] p-6 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+            Sports <span className="text-emerald-600 dark:text-emerald-400">Catalog</span>
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-gray-400 dark:text-gray-500">
+            Create and manage sports available in your academy workspace.
+          </p>
+        </div>
       </div>
 
-      {/* ── Add Sport Form ── */}
-      <form className="card" onSubmit={handleCreateSports}>
-        <h3 className="mb-4 font-bold">Add Sport</h3>
-
-        {/* Search + Browse Sports row */}
-        <div className="mb-4">
-          <label className="label">Search Sport</label>
-          <div className="flex gap-2">
-            {/* Search input with dropdown */}
-            <div className="relative flex-1">
-              <input
-                type="text"
-                className={`input-field pr-10 ${fieldErrors.search ? 'border-red-500' : ''}`}
-                placeholder="Search or type a sport name…"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowDropdown(true);
-                  if (superAdminSports.length === 0) loadSuperAdminSports();
-                }}
-                onFocus={() => {
-                  setShowDropdown(true);
-                  if (superAdminSports.length === 0) loadSuperAdminSports();
-                }}
-                autoComplete="off"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-lg leading-none"
-                  onClick={() => { setSearchQuery(''); setShowDropdown(false); }}
-                >
-                  ✕
-                </button>
-              )}
-
-              {/* Dropdown */}
-              <AnimatePresence>
-                {showDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-surface shadow-lg"
-                  >
-                    {superAdminLoading ? (
-                      <p className="px-4 py-3 text-sm text-muted">Loading sports…</p>
-                    ) : !q ? (
-                      <p className="px-4 py-3 text-sm text-muted">Start typing to search for sports…</p>
-                    ) : filteredDropdown.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-muted">No sports found. Press Enter to add as custom sport.</p>
-                    ) : (
-                      <>
-                        {filteredDropdown.map((sport) => {
-                          const sel = isSelectedInDraft(sport.name);
-                          return (
-                            <button
-                              key={sport.name}
-                              type="button"
-                              className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-secondary ${sel ? 'bg-accent/10' : ''}`}
-                              onClick={() => { toggleDraftSport(sport); }}
-                            >
-                              <span className="text-xl">{sport.icon || FALLBACK_ICON}</span>
-                              <span className="flex-1 font-medium">{sport.name}</span>
-                              {sel && <span className="text-accent font-bold">✓</span>}
-                            </button>
-                          );
-                        })}
-
-                        {/* Add custom option if typed name not in list */}
-                        {q && !superAdminSports.some((s) => s.name.toLowerCase() === q) && (
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-accent hover:bg-accent/10 border-t border-border"
-                            onClick={addCustomSport}
-                          >
-                            <span className="text-xl">➕</span>
-                            <span>Add "<strong>{searchQuery.trim()}</strong>" as new sport</span>
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Browse Sports button */}
-            <button
-              type="button"
-              className="btn-secondary flex items-center gap-2 whitespace-nowrap"
-              onClick={() => { setShowBrowseModal(true); setBrowseSearch(''); }}
-            >
-              <span>🏟️</span> Browse Sports
+      {/* ── Global Alert Message ── */}
+      <AnimatePresence>
+        {message.text && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`flex items-center gap-3 rounded-2xl p-4 shadow-sm ring-1 ${
+              message.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-900/50'
+                : 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:ring-rose-900/50'
+            }`}
+          >
+            {message.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+            <p className="text-sm font-medium">{message.text}</p>
+            <button type="button" onClick={() => setMessage({text: '', type: ''})} className="ml-auto opacity-70 hover:opacity-100">
+              <X className="h-4 w-4" />
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Add Sport Form Section ── */}
+      <div className="rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 overflow-visible p-6 lg:p-8">
+        {/* <div className="mb-6 flex items-center gap-3 border-b border-gray-100 dark:border-gray-800/60 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
+            <Plus className="h-5 w-5 stroke-[3]" />
           </div>
+          <h3 className="font-bold text-xl text-gray-900 dark:text-white">Add New Sports</h3>
+        </div> */}
 
-          {fieldErrors.search && (
-            <p className="mt-1 text-xs text-red-500">{fieldErrors.search}</p>
-          )}
-        </div>
+        <form onSubmit={handleCreateSports}>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12">
+            
+            {/* Left Column: Search & Select */}
+            <div className="space-y-6">
+              <div className="relative">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Search Sport</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {/* Search Input with Dropdown */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      className={`w-full rounded-xl border pl-10 pr-10 py-3 text-sm outline-none transition-all focus:ring-4 dark:bg-gray-900/50 ${
+                        fieldErrors.search 
+                          ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/10' 
+                          : 'border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/10 dark:border-gray-800'
+                      }`}
+                      placeholder="Search or type a sport name…"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setShowDropdown(true);
+                        if (superAdminSports.length === 0) loadSuperAdminSports();
+                      }}
+                      onFocus={() => {
+                        setShowDropdown(true);
+                        if (superAdminSports.length === 0) loadSuperAdminSports();
+                      }}
+                      autoComplete="off"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        onClick={() => { setSearchQuery(''); setShowDropdown(false); }}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
 
-        {/* Selected sports tags */}
-        {selectedSports.length > 0 && (
-          <div className="mb-4">
-            <p className="label mb-2">Selected ({selectedSports.length})</p>
-            <div className="flex flex-wrap gap-2">
-              {selectedSports.map((sport) => (
-                <motion.span
-                  key={sport.name}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.85 }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-sm font-medium text-accent"
-                >
-                  <span>{sport.icon}</span>
-                  <span>{sport.name}</span>
+                    {/* Dropdown Box */}
+                    <AnimatePresence>
+                      {showDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-[#161f19]"
+                        >
+                          {superAdminLoading ? (
+                            <p className="px-4 py-3 text-sm text-gray-500">Loading sports catalog…</p>
+                          ) : !q ? (
+                            <p className="px-4 py-3 text-sm text-gray-500">Start typing to search for sports…</p>
+                          ) : filteredDropdown.length === 0 ? (
+                            <p className="px-4 py-3 text-sm text-gray-500">No sports found. Press Enter to add as custom sport.</p>
+                          ) : (
+                            <>
+                              {filteredDropdown.map((sport) => {
+                                const sel = isSelectedInDraft(sport.name);
+                                return (
+                                  <button
+                                    key={sport.name}
+                                    type="button"
+                                    className={`flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm transition-colors ${
+                                      sel 
+                                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 font-bold' 
+                                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                                    }`}
+                                    onClick={() => toggleDraftSport(sport)}
+                                  >
+                                    <span className="text-xl">{sport.icon || FALLBACK_ICON}</span>
+                                    <span className="flex-1">{sport.name}</span>
+                                    {sel && <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />}
+                                  </button>
+                                );
+                              })}
+
+                              {q && !superAdminSports.some((s) => s.name.toLowerCase() === q) && (
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 border-t border-gray-100 dark:border-gray-800 mt-1"
+                                  onClick={addCustomSport}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  <span>Add "<strong className="text-indigo-700 dark:text-indigo-300">{searchQuery.trim()}</strong>" as new custom sport</span>
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Browse Button */}
                   <button
                     type="button"
-                    className="ml-1 text-accent/60 hover:text-accent leading-none"
-                    onClick={() => removeDraftSport(sport.name)}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-[#111814] dark:text-gray-300 dark:hover:bg-gray-800"
+                    onClick={() => { setShowBrowseModal(true); setBrowseSearch(''); }}
                   >
-                    ✕
+                    <Grid className="h-4 w-4" /> Browse Catalog
                   </button>
-                </motion.span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Shared fields: Academy Location, Radius, Fee, Status */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Academy Location */}
-          <div className="md:col-span-2">
-            <div className="card p-4">
-              <h4 className="font-bold text-slate-800 mb-2">Academy Location</h4>
-              {!locationCaptured ? (
-                <div>
-                  <p className="text-slate-500 text-sm mb-3">
-                    Click 'Set Academy Location' to capture GPS coordinates for attendance verification
-                  </p>
-                  <motion.button
-                    type="button"
-                    className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all text-sm font-medium"
-                    onClick={handleSetAcademyLocation}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Set Academy Location
-                  </motion.button>
                 </div>
-              ) : (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                  <p className="text-emerald-800 font-medium text-sm mb-1">Location captured:</p>
-                  <p className="text-emerald-700 text-sm font-mono">
-                    Lat: {capturedCoords.lat?.toFixed(7)} | Lon: {capturedCoords.lng?.toFixed(7)}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+                {fieldErrors.search && <p className="mt-1.5 text-xs font-medium text-rose-500">{fieldErrors.search}</p>}
+              </div>
 
-          <div>
-            <label className="label" htmlFor="attendanceRadius">Attendance Radius (Meters)</label>
-            <motion.input
-              id="attendanceRadius"
-              type="number"
-              min={0}
-              className="input-field"
-              value={sharedForm.attendance_radius}
-              onChange={(e) => setSharedForm({ ...sharedForm, attendance_radius: e.target.value })}
-              placeholder="Enter radius in meters"
-              whileFocus={{ scale: 1.01 }}
-            />
-          </div>
+  {/* Selected Sports / Empty State */}
+  <div
+    className={`relative overflow-hidden rounded-2xl transition-all ${
+      selectedSports.length > 0
+        ? "border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/40"
+        : "border border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-[#161f19]/30"
+    }`}
+  >
 
-          <div>
-            <label className="label" htmlFor="baseFee">Base Fee</label>
-            <motion.input
-              id="baseFee"
-              type="number"
-              min={0}
-              step={0.01}
-              className="input-field"
-              value={sharedForm.base_fee}
-              onChange={(e) => setSharedForm({ ...sharedForm, base_fee: e.target.value })}
-              placeholder="0.00"
-              whileFocus={{ scale: 1.01 }}
-            />
-          </div>
+    {selectedSports.length > 0 ? (
+      <>
+        <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+          Selected Sports ({selectedSports.length})
+        </p>
 
-          <div>
-            <label className="label" htmlFor="status">Status</label>
-            <motion.select
-              id="status"
-              className="input-field"
-              value={sharedForm.status}
-              onChange={(e) => setSharedForm({ ...sharedForm, status: e.target.value })}
-              whileFocus={{ scale: 1.01 }}
-            >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-            </motion.select>
-          </div>
-        </div>
+        <div className="flex flex-wrap gap-2">
+          <AnimatePresence>
+            {selectedSports.map((sport) => (
+              <motion.span
+                key={sport.name}
+                initial={{ opacity: 0, scale: .9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: .9 }}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+              >
+                <span>{sport.icon}</span>
 
-        <div className="mt-4">
-          <motion.button
-            type="submit"
-            className="btn-primary"
-            disabled={isSubmitting}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {isSubmitting
-              ? 'Adding…'
-              : selectedSports.length > 1
-              ? `Add ${selectedSports.length} Sports`
-              : 'Add Sport'}
-          </motion.button>
-        </div>
-      </form>
+                <span>{sport.name}</span>
 
-      {/* ── Browse Sports Modal ── */}
-      <AnimatePresence>
-        {showBrowseModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="bg-surface border-border max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl flex flex-col"
-            >
-              {/* Header */}
-              <div className="border-border flex items-center justify-between border-b p-4">
-                <div>
-                  <h3 className="font-bold text-lg">Browse Sports</h3>
-                  <p className="text-muted text-xs mt-0.5">Select one or more sports to add</p>
-                </div>
                 <button
                   type="button"
-                  className="text-muted hover:text-foreground transition-colors text-xl"
-                  onClick={() => setShowBrowseModal(false)}
+                  onClick={() => removeDraftSport(sport.name)}
                 >
-                  ✕
+                  <X className="h-4 w-4" />
+                </button>
+              </motion.span>
+            ))}
+          </AnimatePresence>
+        </div>
+      </>
+    ) : (
+      <div className="relative flex min-h-[170px] flex-col items-center justify-center overflow-hidden">
+
+        {/* Animation */}
+        <div className="absolute inset-0 flex items-center justify-around opacity-20 pointer-events-none">
+
+          {ANIMATION_ICONS.map((icon, i) => (
+            <motion.div
+              key={i}
+              className="text-3xl"
+              animate={{
+                y:[0,-15,0],
+                rotate:[0,10,-10,0]
+              }}
+              transition={{
+                repeat:Infinity,
+                duration:3+i*.3
+              }}
+            >
+              {icon}
+            </motion.div>
+          ))}
+
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 text-center">
+
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow">
+            <Grid className="h-5 w-5 text-gray-400"/>
+          </div>
+
+          <p className="font-bold">
+            No sports selected yet
+          </p>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Search or browse sports to start.
+          </p>
+
+        </div>
+
+      </div>
+    )}
+
+  </div>
+
+  {/* Quick Guide */}
+  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-[#111814]">
+
+    <div className="flex justify-between gap-6">
+
+      <div className="flex-1">
+
+        <div className="mb-4 flex items-center gap-2">
+          💡
+          <h4 className="font-bold">
+            Quick Guide
+          </h4>
+        </div>
+
+        <div className="space-y-3">
+
+          {[
+            "Search or Browse sports.",
+            "Fetch Sport Center Location.",
+            "Enter Attendance radius & fee.",
+            "Click Deploy Sport."
+          ].map((step,index)=>(
+            <div
+              key={index}
+              className="flex items-center gap-3"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
+                {index+1}
+              </div>
+
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                {step}
+              </span>
+
+            </div>
+          ))}
+
+        </div>
+
+      </div>
+
+      <div className="hidden md:flex items-center">
+
+        <div className="relative">
+
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/20">
+            <MapPin className="h-10 w-10 text-emerald-600"/>
+          </div>
+
+          <div className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-300 opacity-30"/>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+            {/* Right Column: Settings */}
+            <div className="space-y-6 relative z-0">
+              
+              {/* Geolocation Card */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#111814] relative overflow-hidden group">
+                <div className="absolute right-0 top-0 opacity-5 pointer-events-none transition-transform group-hover:scale-110">
+                   <MapPin className="h-32 w-32 -mr-8 -mt-8 text-emerald-600" />
+                </div>
+                <h4 className="mb-2 text-sm font-bold text-gray-900 dark:text-white relative z-10">Sport Center Location</h4>
+                {!locationCaptured ? (
+                  <div className="relative z-10">
+                    <p className="text-gray-500 text-xs mb-4">Capture GPS coordinates to enable strict attendance verification.</p>
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                      onClick={handleSetAcademyLocation}
+                    >
+                      <MapPin className="h-4 w-4" /> Fetch Location
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative z-10 rounded-xl bg-emerald-50 border border-emerald-100 p-3.5 dark:bg-emerald-900/20 dark:border-emerald-800/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <p className="text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">Location Locked</p>
+                    </div>
+                    <p className="text-emerald-700 dark:text-emerald-400 text-xs font-mono bg-white/50 dark:bg-black/20 p-2 rounded-lg inline-block">
+                      Lat: {capturedCoords.lat?.toFixed(7)} <br/>
+                      Lon: {capturedCoords.lng?.toFixed(7)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" htmlFor="attendanceRadius">Radius (Meters)</label>
+                  <input
+                    id="attendanceRadius"
+                    type="number"
+                    min={0}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:focus:border-emerald-500"
+                    value={sharedForm.attendance_radius}
+                    onChange={(e) => setSharedForm({ ...sharedForm, attendance_radius: e.target.value })}
+                    placeholder="e.g. 50"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" htmlFor="baseFee">Base Fee</label>
+                  <input
+                    id="baseFee"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:focus:border-emerald-500"
+                    value={sharedForm.base_fee}
+                    onChange={(e) => setSharedForm({ ...sharedForm, base_fee: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" htmlFor="status">Initial Status</label>
+                  <select
+                    id="status"
+                    className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:focus:border-emerald-500"
+                    value={sharedForm.status}
+                    onChange={(e) => setSharedForm({ ...sharedForm, status: e.target.value })}
+                  >
+                    <option value="ACTIVE">Active (Live Immediately)</option>
+                    <option value="INACTIVE">Inactive (Draft/Hidden)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  type="submit"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-[0_4px_14px_0_rgb(16,185,129,0.39)] transition-all hover:bg-emerald-700 hover:shadow-[0_6px_20px_rgb(16,185,129,0.23)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting
+                    ? <Loader message="" />
+                    : selectedSports.length > 1
+                    ? `Deploy ${selectedSports.length} Sports`
+                    : 'Deploy Sport'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* ── Browse Sports Full Modal ── */}
+      <AnimatePresence>
+        {showBrowseModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowBrowseModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", bounce: 0.3 }}
+              className="relative w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-[#111814] dark:ring-gray-800"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800/60 dark:bg-gray-900/50 shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Global Sports Catalog</h3>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">Select multiple sports to import to your academy</p>
+                </div>
+                <button type="button" className="rounded-xl p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowBrowseModal(false)}>
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              {/* Search inside modal */}
-              <div className="border-b border-border px-4 py-3">
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Search sports…"
-                  value={browseSearch}
-                  onChange={(e) => setBrowseSearch(e.target.value)}
-                  autoFocus
-                />
+              {/* Modal Search */}
+              <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-800/60 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-10 pr-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:text-white dark:focus:border-emerald-500"
+                    placeholder="Search the global catalog…"
+                    value={browseSearch}
+                    onChange={(e) => setBrowseSearch(e.target.value)}
+                    autoFocus
+                  />
+                </div>
               </div>
 
-              {/* Grid */}
-              <div className="overflow-y-auto flex-1 p-4">
+              {/* Modal Grid Content */}
+              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
                 {superAdminLoading ? (
-                  <div className="flex justify-center py-10">
-                    <Loader message="Loading sports…" />
-                  </div>
+                  <div className="flex justify-center py-20"><Loader message="Loading catalog…" /></div>
                 ) : filteredBrowse.length === 0 ? (
-                  <p className="py-8 text-center text-muted text-sm">No sports found.</p>
+                  <p className="py-20 text-center text-gray-500 font-medium">No sports found matching your search.</p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     {filteredBrowse.map((sport) => {
                       const sel = isSelectedInDraft(sport.name);
                       return (
                         <button
                           key={sport.name}
                           type="button"
-                          className={`relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-all hover:border-accent hover:bg-accent/10 ${
+                          className={`group relative flex flex-col items-center justify-center gap-3 rounded-2xl border p-4 transition-all ${
                             sel
-                              ? 'border-accent bg-accent/10 ring-2 ring-accent/20'
-                              : 'border-border bg-surface-secondary'
+                              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-900/20'
+                              : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-800 dark:bg-[#111814] dark:hover:border-emerald-700/50 dark:hover:bg-emerald-900/10'
                           }`}
                           onClick={() => toggleBrowseSport(sport)}
                         >
                           {sel && (
-                            <span className="absolute top-1.5 right-1.5 text-accent text-xs font-bold bg-accent/20 rounded-full w-4 h-4 flex items-center justify-center">
-                              ✓
-                            </span>
+                            <div className="absolute right-2 top-2 rounded-full bg-emerald-500 text-white p-0.5">
+                              <Check className="h-3 w-3" />
+                            </div>
                           )}
-                          <span className="text-3xl">{sport.icon || FALLBACK_ICON}</span>
-                          <span className="text-muted text-xs text-center leading-tight">{sport.name}</span>
+                          <span className="text-4xl transition-transform group-hover:scale-110">{sport.icon || FALLBACK_ICON}</span>
+                          <span className={`text-xs font-bold leading-tight text-center ${sel ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                            {sport.name}
+                          </span>
                         </button>
                       );
                     })}
@@ -659,27 +826,17 @@ export default function SportsPanel() {
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="border-t border-border p-4 flex items-center justify-between">
-                <p className="text-sm text-muted">
-                  {selectedSports.length > 0
-                    ? `${selectedSports.length} sport${selectedSports.length > 1 ? 's' : ''} selected`
-                    : 'None selected'}
+              {/* Modal Footer */}
+              <div className="border-t border-gray-100 bg-gray-50/80 px-6 py-4 backdrop-blur-md dark:border-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between shrink-0">
+                <p className="text-sm font-bold text-gray-500">
+                  {selectedSports.length > 0 ? <span className="text-emerald-600 dark:text-emerald-400">{selectedSports.length} selected</span> : 'No sports selected'}
                 </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    onClick={() => setShowBrowseModal(false)}
-                  >
-                    Cancel
+                <div className="flex gap-3">
+                  <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowBrowseModal(false)}>
+                    Close
                   </button>
-                  <button
-                    type="button"
-                    className="btn-primary btn-sm"
-                    onClick={() => setShowBrowseModal(false)}
-                  >
-                    Done
+                  <button type="button" className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors" onClick={() => setShowBrowseModal(false)}>
+                    Confirm Selection
                   </button>
                 </div>
               </div>
@@ -688,161 +845,215 @@ export default function SportsPanel() {
         )}
       </AnimatePresence>
 
-      {/* ── Alert message ── */}
-      {message.text && (
-        <p className={message.type === 'success' ? 'alert-success' : 'alert-error'}>
-          {message.text}
-        </p>
-      )}
-
-      {/* ── Available Sports Table ── */}
-      <div className="card overflow-x-auto">
-        <div className="mb-4 flex items-center justify-between">
+      {/* ── Active Sports Table Section ── */}
+      <div className="rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 overflow-hidden">
+        
+        <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800/60 px-6 py-4">
           <div className="flex items-center gap-3">
-            <h3 className="font-bold">Available Sports</h3>
-            <button
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+              <LayoutDashboard className="h-5 w-5" />
+            </div>
+            <h3 className="font-bold text-gray-900 dark:text-white">Active Academy Sports</h3>
+          </div>
+          
+          <div className="mt-4 sm:mt-0">
+             <button
               type="button"
-              className={`btn-sm ${isBulkEditMode ? 'btn-primary' : 'btn-secondary'}`}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all shadow-sm ${
+                isBulkEditMode 
+                  ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900' 
+                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-[#111814] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/50'
+              }`}
               onClick={toggleBulkEditMode}
             >
-              {isBulkEditMode ? 'Exit Bulk Mode' : 'Bulk Actions'}
+              {isBulkEditMode ? <><X className="h-4 w-4" /> Cancel Bulk</> : <><CheckCircle className="h-4 w-4" /> Bulk Actions</>}
             </button>
           </div>
+        </div>
+
+        <AnimatePresence>
           {isBulkEditMode && selectedIds.length > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex gap-2"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-800/30 px-6 py-3 flex flex-wrap items-center gap-3"
             >
-              <button type="button" className="btn-secondary btn-sm" onClick={() => handleBulkAction('activate', 'activated')}>
-                Bulk Activate ({selectedIds.length})
+              <span className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mr-2">{selectedIds.length} selected</span>
+              <button type="button" className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-700" onClick={() => handleBulkAction('activate', 'activated')}>
+                <Unlock className="mr-1.5 h-3.5 w-3.5" /> Activate
               </button>
-              <button type="button" className="btn-secondary btn-sm" onClick={() => handleBulkAction('deactivate', 'deactivated')}>
-                Bulk Deactivate ({selectedIds.length})
+              <button type="button" className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-700" onClick={() => handleBulkAction('deactivate', 'deactivated')}>
+                <Lock className="mr-1.5 h-3.5 w-3.5" /> Deactivate
               </button>
-              <button type="button" className="btn-danger btn-sm" onClick={() => handleBulkAction('delete', 'removed')}>
-                Bulk Delete ({selectedIds.length})
+              <button type="button" className="inline-flex items-center justify-center rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:ring-rose-800/50" onClick={() => handleBulkAction('delete', 'removed')}>
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
               </button>
             </motion.div>
           )}
-        </div>
+        </AnimatePresence>
 
-        {loading ? (
-          <Loader message="Loading sports catalog…" />
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                {isBulkEditMode && (
-                  <th className="w-10">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.length === sports.length && sports.length > 0}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="border-border accent-accent h-4 w-4 rounded"
-                    />
-                  </th>
-                )}
-                <th>Name</th>
-                <th>Sport Center</th>
-                <th>Base Fee</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sports.length > 0 ? (
-                sports
-                  .filter((sport) => sport.isAcademySport)
-                  .map((sport, index) => (
-                  <motion.tr
-                    key={sport.sport_id || sport.id || sport.name}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                    className={`cursor-pointer border-b ${selectedIds.includes(sport.sport_id || sport.id) ? 'bg-surface-secondary/50' : ''}`}
-                    onClick={() => handleRowClick(sport.sport_id || sport.id)}
-                  >
-                    {isBulkEditMode && (
-                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(sport.sport_id || sport.id)}
-                          onChange={(e) => handleSelectOne(sport.sport_id || sport.id, e.target.checked)}
-                          className="border-border accent-accent h-4 w-4 rounded"
-                        />
-                      </td>
-                    )}
-                    <td className="p-3 font-medium">
-                      <span className="mr-2 text-lg">{sport.icon || '🏅'}</span>
-                      {sport.name}
-                    </td>
-                    <td className="p-3">
-                      <span className="text-muted text-sm">{sport.sport_center || '—'}</span>
-                    </td>
-                    <td className="p-3">
-                      {editingFeeId === (sport.sport_id || sport.id) ? (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            className="input-field w-24 px-2 py-1 text-sm"
-                            value={editingFeeValue}
-                            onChange={(e) => setEditingFeeValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
-                              if (e.key === 'Escape') handleCancelEditFee();
-                            }}
-                          />
-                          <button type="button" className="btn-success btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleSaveFee(sport.sport_id || sport.id); }}>✓</button>
-                          <button type="button" className="btn-secondary btn-sm px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); handleCancelEditFee(); }}>✕</button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <span>${formatCurrency(sport.base_fee || sport.baseFee)}</span>
-                          <button
-                            type="button"
-                            className="text-muted hover:text-foreground"
-                            onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
-                            title="Edit Fee"
-                          >
-                            ✏️
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${sport.status === 'ACTIVE' ? 'bg-success/10 text-success border-success/20 border' : 'bg-danger/10 text-danger border-danger/20 border'}`}>
-                        {sport.status || 'ACTIVE'}
-                      </span>
-                    </td>
-                    <td className="space-x-1 p-3" onClick={(e) => e.stopPropagation()}>
-                      {sport.status === 'ACTIVE' ? (
-                        <>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleDeactivate(sport.sport_id || sport.id)}>Deactivate</button>
-                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
-                        </>
-                      ) : (
-                        <>
-                          <button type="button" className="btn-secondary btn-sm" onClick={() => handleMarkActive(sport.sport_id || sport.id)}>Mark Active</button>
-                          <button type="button" className="btn-danger btn-sm" onClick={() => handleRemoveSport(sport.sport_id || sport.id)}>Remove</button>
-                        </>
-                      )}
-                    </td>
-                  </motion.tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={isBulkEditMode ? 6 : 5} className="text-muted-foreground py-8 text-center">
-                    No sports available. Add a sport above.
-                  </td>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="py-20 flex justify-center"><Loader /></div>
+          ) : (
+            <table className="min-w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800/60">
+                <tr className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {isBulkEditMode && (
+                    <th className="px-6 py-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === sports.filter(s=>s.isAcademySport).length && sports.filter(s=>s.isAcademySport).length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
+                      />
+                    </th>
+                  )}
+                  <th className="px-6 py-4">Sport Details</th>
+                  <th className="px-6 py-4">Location Center</th>
+                  <th className="px-6 py-4">Base Fee</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800/40">
+                {sports.filter((sport) => sport.isAcademySport).length > 0 ? (
+                  sports
+                    .filter((sport) => sport.isAcademySport)
+                    .map((sport, index) => {
+                      const isSelected = selectedIds.includes(sport.sport_id || sport.id);
+                      const isInactive = sport.status !== 'ACTIVE';
+                      return (
+                        <motion.tr
+                          key={sport.sport_id || sport.id || sport.name}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.2) }}
+                          className={`group transition-colors duration-200 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 ${
+                            isSelected ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
+                          } ${isInactive ? 'opacity-60 grayscale-[0.2]' : ''}`}
+                          onClick={() => handleRowClick(sport.sport_id || sport.id)}
+                        >
+                          {isBulkEditMode && (
+                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => handleSelectOne(sport.sport_id || sport.id, e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
+                              />
+                            </td>
+                          )}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                {sport.icon || FALLBACK_ICON}
+                              </div>
+                              <span className="font-bold text-gray-900 dark:text-white">{sport.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-medium text-gray-600 dark:text-gray-400">{sport.sport_center || '—'}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {editingFeeId === (sport.sport_id || sport.id) ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="number"
+                                  min={0} step={0.01}
+                                  className="w-24 rounded-lg border border-emerald-300 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
+                                  value={editingFeeValue}
+                                  onChange={(e) => setEditingFeeValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
+                                    if (e.key === 'Escape') handleCancelEditFee();
+                                  }}
+                                  autoFocus
+                                />
+                                <button type="button" className="rounded-lg bg-emerald-100 p-1.5 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 transition-colors" onClick={() => handleSaveFee(sport.sport_id || sport.id)}>
+                                  <Check className="h-4 w-4" />
+                                </button>
+                                <button type="button" className="rounded-lg bg-gray-100 p-1.5 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors" onClick={handleCancelEditFee}>
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3 font-bold text-gray-900 dark:text-white">
+                                ${formatCurrency(sport.base_fee || sport.baseFee)}
+                                <button
+                                  type="button"
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all p-1"
+                                  onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
+                                  title="Edit Base Fee"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wide ${
+                                !isInactive 
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                              }`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${!isInactive ? 'bg-emerald-500' : 'bg-gray-500'}`}></span>
+                                {!isInactive ? 'ACTIVE' : 'INACTIVE'}
+                              </span>
+                          </td>
+                          <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                {!isInactive ? (
+                                  <button
+                                    type="button"
+                                    className="rounded-lg p-2 text-gray-400 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/30 dark:hover:text-orange-400 transition-colors"
+                                    onClick={() => handleDeactivate(sport.sport_id || sport.id)}
+                                    title="Deactivate Sport"
+                                  >
+                                    <Unlock className="h-4 w-4" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="rounded-lg p-2 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 transition-colors"
+                                    onClick={() => handleMarkActive(sport.sport_id || sport.id)}
+                                    title="Activate Sport"
+                                  >
+                                    <Lock className="h-4 w-4" />
+                                  </button>
+                                )}
+
+                                <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+                                <button
+                                  type="button"
+                                  className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors"
+                                  onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
+                                  title="Delete Sport"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                             </div>
+                          </td>
+                        </motion.tr>
+                      );
+                    })
+                ) : (
+                  <tr>
+                    <td colSpan={isBulkEditMode ? 6 : 5} className="py-16 text-center text-gray-500 dark:text-gray-400">
+                      <div className="flex flex-col items-center justify-center">
+                        <Grid className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+                        <p className="font-bold text-lg text-gray-900 dark:text-white">No active sports.</p>
+                        <p className="mt-1 text-sm">Add a sport from the catalog above to get started.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </motion.div>
   );

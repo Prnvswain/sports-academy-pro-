@@ -524,8 +524,22 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     scoreData.notes = notes.trim();
   }
 
-  const newScore = await prisma.performanceScore.create({
-    data: scoreData,
+  const newScore = await prisma.performanceScore.upsert({
+    where: {
+      student_id_attribute_id: {
+        student_id: parseInt(student_id, 10),
+        attribute_id: parseInt(attribute_id, 10)
+      }
+    },
+    update: {
+      score: parseInt(score, 10),
+      coach_id: parseInt(coachId, 10),
+      batch_id: batch_id ? parseInt(batch_id, 10) : null,
+      notes: notes ? notes.trim() : null,
+      scored_at: new Date(),
+      updated_at: new Date()
+    },
+    create: scoreData,
     include: {
       student: {
         select: {
@@ -561,7 +575,172 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     coach_id: coachId
   });
 
+  // Generate or update weekly performance report and notify parent
+  try {
+    await generateWeeklyReportAndNotify(academyId, parseInt(student_id, 10), parseInt(coachId, 10), batch_id ? parseInt(batch_id, 10) : null);
+  } catch (error) {
+    // Log error but don't fail the score submission
+    logger.error('Failed to generate weekly report or notify parent', { error: error.message, student_id, attribute_id });
+  }
+
   return newScore;
+};
+
+// Helper function to generate weekly report and notify parent
+const generateWeeklyReportAndNotify = async (academyId, studentId, coachId, batchId) => {
+  if (!batchId) {
+    logger.info('No batch_id provided, skipping weekly report generation');
+    return;
+  }
+
+  // Calculate week start date (Monday of current week)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const weekStartDate = new Date(now.setDate(diff));
+  weekStartDate.setHours(0, 0, 0, 0);
+
+  // Fetch student and parent info
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      ...NOT_DELETED
+    },
+    include: {
+      parent: true
+    }
+  });
+
+  if (!student || !student.parent) {
+    logger.info('Student or parent not found, skipping notification');
+    return;
+  }
+
+  // Fetch all performance scores for this student in the current week
+  const scores = await prisma.performanceScore.findMany({
+    where: {
+      student_id: studentId,
+      batch_id: batchId,
+      scored_at: {
+        gte: weekStartDate
+      }
+    },
+    include: {
+      attribute: {
+        select: {
+          attribute_id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  if (scores.length === 0) {
+    logger.info('No scores found for current week, skipping report generation');
+    return;
+  }
+
+  // Check for existing weekly report
+  const existingReport = await prisma.weeklyPerformanceReport.findFirst({
+    where: {
+      student_id: studentId,
+      batch_id: batchId,
+      week_start_date: weekStartDate
+    }
+  });
+
+  let report;
+
+  if (existingReport) {
+    // Update existing report
+    report = await prisma.weeklyPerformanceReport.update({
+      where: { report_id: existingReport.report_id },
+      data: {
+        updated_at: new Date()
+      }
+    });
+
+    // Delete existing ratings and recreate
+    await prisma.performanceRating.deleteMany({
+      where: { report_id: report.report_id }
+    });
+
+    await prisma.performanceRating.createMany({
+      data: scores.map(s => ({
+        report_id: report.report_id,
+        attribute_id: s.attribute_id,
+        score: s.score
+      }))
+    });
+
+    logger.info('Updated existing weekly performance report', { report_id: report.report_id });
+  } else {
+    // Create new report
+    report = await prisma.weeklyPerformanceReport.create({
+      data: {
+        student_id: studentId,
+        batch_id: batchId,
+        coach_id: coachId,
+        week_start_date: weekStartDate
+      }
+    });
+
+    await prisma.performanceRating.createMany({
+      data: scores.map(s => ({
+        report_id: report.report_id,
+        attribute_id: s.attribute_id,
+        score: s.score
+      }))
+    });
+
+    logger.info('Created new weekly performance report', { report_id: report.report_id });
+  }
+
+  // Create notification for parent
+  await prisma.notification.create({
+    data: {
+      academy_id: academyId,
+      user_id: student.parent.parent_id,
+      type: 'PERFORMANCE_REPORT',
+      title: 'New Performance Report Available',
+      body: `A new performance report is available for ${student.name}. View the detailed assessment in the Parent Portal.`,
+      metadata: JSON.stringify({
+        student_id: studentId,
+        student_name: student.name,
+        report_id: report.report_id,
+        week_start_date: weekStartDate.toISOString()
+      })
+    }
+  });
+
+  logger.info('Created parent notification for performance report', {
+    parent_id: student.parent.parent_id,
+    report_id: report.report_id
+  });
+
+  // Send email notification (if email service is available)
+  try {
+    const sendMail = mailService.sendMail || mailService.default?.sendMail || mailService.default;
+    if (sendMail && student.parent.email) {
+      await sendMail({
+        to: student.parent.email,
+        subject: `Performance Report Available for ${student.name}`,
+        html: `
+          <h2>Performance Report Available</h2>
+          <p>Dear Parent,</p>
+          <p>A new performance report has been generated for <strong>${student.name}</strong>.</p>
+          <p><strong>Week Starting:</strong> ${weekStartDate.toLocaleDateString()}</p>
+          <p><strong>Number of Attributes Evaluated:</strong> ${scores.length}</p>
+          <p>Please log in to the Parent Portal to view the detailed assessment.</p>
+          <p>Best regards,<br>Sports Academy Team</p>
+        `
+      });
+      logger.info('Performance report email sent', { parent_email: student.parent.email });
+    }
+  } catch (emailError) {
+    logger.error('Failed to send performance report email', { error: emailError.message });
+  }
 };
 
 export const getStudentPerformance = async (academyId, studentId, query = {}) => {
