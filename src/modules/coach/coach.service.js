@@ -98,6 +98,10 @@ export const clockOut = async (coach_id, academy_id) => {
 };
 
 export const getCoachBatches = async (coach_id, academy_id) => {
+  console.log('=== getCoachBatches DEBUG ===');
+  console.log('coach_id:', coach_id, 'type:', typeof coach_id);
+  console.log('academy_id:', academy_id, 'type:', typeof academy_id);
+
   const academy = await prisma.academy.findUnique({
     where: { academy_id: parseInt(academy_id, 10) },
     select: { name: true }
@@ -118,6 +122,26 @@ export const getCoachBatches = async (coach_id, academy_id) => {
       students: { where: { ...NOT_DELETED, status: 'ACTIVE' } }
     }
   });
+
+  console.log('Batches found:', batches.length);
+  if (batches.length > 0) {
+    console.log('Sample batch:', batches[0]);
+    console.log('Sample batch sport_id:', batches[0].sport_id);
+    console.log('Sample batch sport:', batches[0].sport);
+  }
+
+  // Debug: Check if any batches have NULL sport_id
+  const batchesWithNullSport = batches.filter(b => b.sport_id === null);
+  if (batchesWithNullSport.length > 0) {
+    console.log('WARNING: Found batches with NULL sport_id:', batchesWithNullSport.map(b => ({ batch_id: b.batch_id, name: b.name })));
+    
+    // Debug: Check what sports exist in this academy
+    const academySports = await prisma.sport.findMany({
+      where: { academy_id: parseInt(academy_id, 10) },
+      select: { sport_id: true, name: true }
+    });
+    console.log('Academy sports available:', academySports);
+  }
 
   return {
     coach_context: {

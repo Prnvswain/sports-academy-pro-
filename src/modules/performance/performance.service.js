@@ -10,6 +10,12 @@ const sendMail = mailService.sendMail || mailService.default?.sendMail || mailSe
 export const getAttributes = async (academyId, query = {}) => {
   const { sport_id, status } = query;
   
+  console.log('=== getAttributes DEBUG ===');
+  console.log('academyId:', academyId, 'type:', typeof academyId);
+  console.log('sport_id:', sport_id, 'type:', typeof sport_id);
+  console.log('status:', status);
+  console.log('query:', query);
+  
   const where = {
     academy_id: academyId,
     is_deleted: false
@@ -23,11 +29,11 @@ export const getAttributes = async (academyId, query = {}) => {
     where.status = status.toUpperCase();
   }
 
-  console.log('=== getAttributes DEBUG ===');
-  console.log('academyId:', academyId, 'type:', typeof academyId);
-  console.log('sport_id:', sport_id, 'parsed:', sport_id ? parseInt(sport_id, 10) : null);
-  console.log('status:', status);
   console.log('where clause:', where);
+  console.log('where.sport_id:', where.sport_id, 'type:', typeof where.sport_id);
+  console.log('where.academy_id:', where.academy_id, 'type:', typeof where.academy_id);
+  console.log('where.status:', where.status);
+  console.log('where.is_deleted:', where.is_deleted);
 
   const attributes = await prisma.performanceAttribute.findMany({
     where,
@@ -53,6 +59,27 @@ export const getAttributes = async (academyId, query = {}) => {
   console.log('getAttributes result count:', attributes.length);
   if (attributes.length > 0) {
     console.log('Sample attribute:', attributes[0]);
+    console.log('Sample attribute sport_id:', attributes[0].sport_id);
+    console.log('Sample attribute academy_id:', attributes[0].academy_id);
+    console.log('Sample attribute status:', attributes[0].status);
+  } else {
+    console.log('No attributes found. Checking database directly...');
+    
+    // Debug: Check what attributes exist for this academy
+    const allAcademyAttrs = await prisma.performanceAttribute.findMany({
+      where: { academy_id: academyId },
+      select: { attribute_id: true, name: true, sport_id: true, status: true, is_deleted: true }
+    });
+    console.log('All academy attributes (without filters):', allAcademyAttrs);
+    
+    // Debug: Check what attributes exist for this sport
+    if (sport_id) {
+      const allSportAttrs = await prisma.performanceAttribute.findMany({
+        where: { sport_id: parseInt(sport_id, 10) },
+        select: { attribute_id: true, name: true, academy_id: true, status: true, is_deleted: true }
+      });
+      console.log('All sport attributes (without filters):', allSportAttrs);
+    }
   }
 
   return attributes;

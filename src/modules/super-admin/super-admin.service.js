@@ -231,6 +231,29 @@ export const updateGlobalSportAttributes = async (id, attributes) => {
 
     console.log('Updated GlobalSport:', updated);
 
+    // Sync attributes to all academies that have this global sport
+    const academySports = await prisma.sport.findMany({
+      where: { global_sport_id: sportId },
+      select: { sport_id: true, academy_id: true }
+    });
+
+    console.log('Found academy sports using this global sport:', academySports);
+
+    // Import sync function dynamically to avoid circular dependency
+    const { syncGlobalSportAttributes } = await import('../performance/performance.service.js');
+
+    for (const academySport of academySports) {
+      console.log(`Syncing attributes to academy ${academySport.academy_id}, sport ${academySport.sport_id}`);
+      try {
+        await syncGlobalSportAttributes(academySport.academy_id, academySport.sport_id);
+      } catch (error) {
+        console.error(`Failed to sync to academy ${academySport.academy_id}:`, error);
+        // Continue with other academies even if one fails
+      }
+    }
+
+    console.log('Sync complete for all academies');
+
     return {
       id: updated.id,
       name: updated.name,

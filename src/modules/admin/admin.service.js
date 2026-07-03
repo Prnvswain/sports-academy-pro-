@@ -512,14 +512,8 @@ export const createSport = async (academy_id, data) => {
       }
     }
 
-    console.log('=== createSport (admin) DEBUG ===');
-    console.log('academyId:', academyId);
-    console.log('sport.sport_id:', sport.sport_id);
-    console.log('attributesToCreate:', attributesToCreate);
-    console.log('globalSport:', globalSport);
-
     // Seed performance attributes
-    const createResult = await tx.performanceAttribute.createMany({
+    await tx.performanceAttribute.createMany({
       data: attributesToCreate.map(attr => ({
         academy_id: academyId,
         sport_id: sport.sport_id,
@@ -527,8 +521,6 @@ export const createSport = async (academy_id, data) => {
         status: 'APPROVED'
       }))
     });
-
-    console.log('createMany result:', createResult);
 
     return sport;
   });

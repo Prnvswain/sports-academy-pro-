@@ -4,6 +4,11 @@ import { successResponse } from '../../utils/response.js';
 
 export const getAttributes = async (req, res, next) => {
   try {
+    console.log('=== getAttributes CONTROLLER DEBUG ===');
+    console.log('req.user:', req.user);
+    console.log('req.user.academy_id:', req.user.academy_id, 'type:', typeof req.user.academy_id);
+    console.log('req.query:', req.query);
+    
     const data = await performanceService.getAttributes(
       req.user.academy_id,
       req.query

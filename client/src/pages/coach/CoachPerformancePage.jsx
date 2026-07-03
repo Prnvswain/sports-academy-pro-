@@ -65,23 +65,35 @@ export default function CoachPerformancePage() {
   }, []);
 
   const loadAttributes = useCallback(async (sportId) => {
+    console.log('=== loadAttributes DEBUG ===');
+    console.log('sportId received:', sportId, 'type:', typeof sportId);
+    
     if (!sportId) {
+      console.log('No sportId provided, setting attributes to empty');
       setAttributes([]);
       return;
     }
     try {
-      const result = await coachGet(
-        `/coach/performance/attributes?sport_id=${sportId}&status=APPROVED`,
-      );
+      const url = `/coach/performance/attributes?sport_id=${sportId}&status=APPROVED`;
+      console.log('API URL:', url);
+      
+      const result = await coachGet(url);
+      console.log('API result:', result);
+      console.log('result.data:', result.data);
+      
       const responseData = result.data;
       if (Array.isArray(responseData)) {
+        console.log('Setting attributes from responseData array, count:', responseData.length);
         setAttributes(responseData);
       } else if (responseData && Array.isArray(responseData.data)) {
+        console.log('Setting attributes from responseData.data array, count:', responseData.data.length);
         setAttributes(responseData.data);
       } else {
+        console.log('No array found in response, setting attributes to empty');
         setAttributes([]);
       }
     } catch (error) {
+      console.error('loadAttributes error:', error);
       setMessage({ text: error.message, type: 'error' });
       setAttributes([]);
     }
@@ -139,14 +151,15 @@ export default function CoachPerformancePage() {
     }
   }, [selectedStudent, loadStudentPerformance]);
 
-  const handleBatchSelect = (batch) => {
-    setSelectedBatch(batch);
-    setSelectedStudent(null);
-    setScores({});
-    setRemarks('');
-    setMessage({ text: '', type: '' });
-  };
+const handleBatchSelect = (batch) => {
+  console.log("Selected Batch:", batch);
+  console.log("batch.sport_id:", batch.sport_id);
+  console.log("batch.sport:", batch.sport);
 
+  setSelectedBatch(batch);
+  setSelectedStudent(null);
+  setScores({});
+};
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
     setMessage({ text: '', type: '' });
