@@ -57,43 +57,47 @@ export default function AdminLayout() {
   const closeMobileSidebar = () => setSidebarOpen(false);
 
   return (
-    <div className="bg-surface flex h-screen w-screen overflow-hidden transition-colors duration-200">
+    <div className="bg-background text-foreground flex h-screen w-screen overflow-hidden transition-colors duration-300">
+      {/* Sidebar */}
       <motion.aside
-        initial={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
-        animate={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`border-border bg-surface-secondary flex-shrink-0 flex flex-col border-r transition-all duration-300 ease-in-out transition-colors duration-200 overflow-x-hidden fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
+        initial={{ width: sidebarCollapsed ? '5rem' : '17rem' }}
+        animate={{ width: sidebarCollapsed ? '5rem' : '17rem' }}
+        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+        className={`bg-card/80 backdrop-blur-2xl border-r border-border/50 flex-shrink-0 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
-        <div className="border-border flex items-center justify-between border-b p-4">
+        {/* Sidebar Header / Logo */}
+        <div className="flex h-16 items-center justify-between border-b border-border/50 px-4">
           <Link
             to="/admin/dashboard"
-            className="text-foreground flex items-center gap-2 font-extrabold no-underline"
+            className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary/50"
           >
-            <span className="bg-accent text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs">
+            <span className="bg-primary/10 text-primary border border-primary/20 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-sm transition-transform hover:scale-105">
               SA
             </span>
             <motion.span
               initial={{ opacity: 1 }}
-              animate={{ opacity: sidebarCollapsed ? 0 : 1 }}
+              animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
               transition={{ duration: 0.2 }}
-              className={!sidebarCollapsed ? '' : 'hidden'}
+              className="font-bold tracking-wide text-foreground whitespace-nowrap"
             >
               SAMS Admin
             </motion.span>
           </Link>
           <motion.button
             type="button"
-            className="btn-ghost hidden text-sm lg:inline-flex"
+            className="btn-ghost hidden h-8 w-8 items-center justify-center rounded-lg border border-transparent text-muted-foreground hover:bg-surface-secondary hover:text-foreground lg:inline-flex"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             {sidebarCollapsed ? '»' : '«'}
           </motion.button>
         </div>
-        <nav className="flex-1 overflow-y-auto p-3" aria-label="Admin sections">
-          {ADMIN_NAV_ITEMS.map((item, index) => (
+
+        {/* Navigation Links */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar" aria-label="Admin sections">
+          {ADMIN_NAV_ITEMS.map((item) => (
             <NavLink
               key={item.path}
               to={`/admin/${item.path}`}
@@ -101,110 +105,132 @@ export default function AdminLayout() {
               title={sidebarCollapsed ? item.label : undefined}
               data-nav={item.path}
               className={({ isActive }) =>
-                `${isActive ? 'sidebar-link-active' : 'sidebar-link'} ${sidebarCollapsed ? 'justify-center px-2' : ''}`
+                `${isActive ? 'sidebar-link-active bg-primary/5 text-primary border-primary/20' : 'sidebar-link text-muted-foreground hover:text-foreground'} ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl group relative overflow-hidden`
               }
               onClick={closeMobileSidebar}
             >
               <motion.span
-                whileHover={{ scale: 1.2 }}
-                transition={{ duration: 0.15 }}
+                className="relative z-10 text-[1.1rem]"
+                whileHover={{ scale: 1.15 }}
+                transition={{ duration: 0.2 }}
                 aria-hidden="true"
               >
                 {item.icon}
               </motion.span>
               <motion.span
                 initial={{ opacity: 1 }}
-                animate={{ opacity: sidebarCollapsed ? 0 : 1 }}
+                animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
                 transition={{ duration: 0.2 }}
-                className={!sidebarCollapsed ? '' : 'hidden'}
+                className="relative z-10 font-medium whitespace-nowrap"
               >
                 {item.label}
               </motion.span>
             </NavLink>
           ))}
         </nav>
-        <div className="border-border border-t p-3">
+
+        {/* Sidebar Footer / Actions */}
+        <div className="border-t border-border/50 p-4 space-y-3 bg-surface-secondary/30 backdrop-blur-sm">
           <motion.button
             type="button"
-            className="btn-secondary mb-2 w-full text-center"
+            className="btn-secondary w-full justify-center rounded-xl text-sm font-semibold shadow-sm transition-all"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <Link to="/" className="text-foreground no-underline">
-              Back to Home
+            <Link to="/" className="text-foreground/90 no-underline flex items-center justify-center gap-2 w-full">
+              {!sidebarCollapsed && 'Back to Home'}
+              {sidebarCollapsed && '🏠'}
             </Link>
           </motion.button>
           <motion.button
             type="button"
-            className="btn-danger w-full"
+            className="btn-danger w-full justify-center rounded-xl text-sm font-semibold shadow-sm"
             onClick={handleLogout}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            title={sidebarCollapsed ? "Sign Out" : undefined}
           >
-            Sign Out
+            {sidebarCollapsed ? '🚪' : 'Sign Out'}
           </motion.button>
         </div>
       </motion.aside>
 
+      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3 }}
             type="button"
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden cursor-default outline-none"
             aria-label="Close sidebar"
             onClick={closeMobileSidebar}
           />
         )}
       </AnimatePresence>
 
-      <motion.div
-        className="flex min-w-0 flex-1 flex-col overflow-y-auto"
-      >
-        <header className="border-border bg-surface/95 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur lg:px-8 transition-colors duration-200 flex-shrink-0">
+      {/* Main Content Area */}
+      <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background/50">
+        
+        {/* Top Header */}
+        <header className="bg-background/80 backdrop-blur-xl border-b border-border/40 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-[0_4px_24px_rgba(0,0,0,0.01)]">
+          <div className="flex items-center gap-4">
+            <motion.button
+              type="button"
+              className="btn-ghost flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </motion.button>
+            <h1 className="text-xl font-extrabold tracking-tight text-foreground/90">
+              {pageTitle}
+            </h1>
+          </div>
           <div className="flex items-center gap-3">
             <motion.button
               type="button"
-              className="btn-ghost lg:hidden"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              ☰
-            </motion.button>
-            <h1 className="text-lg font-bold">{pageTitle}</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <motion.button
-              type="button"
-              className="btn-ghost h-10 w-10 rounded-full p-0 text-lg"
+              className="btn-ghost flex h-10 w-10 items-center justify-center rounded-full border border-transparent bg-surface-secondary/50 text-[1.1rem] shadow-sm transition-all hover:bg-surface-secondary hover:border-border/50 hover:shadow-md"
               onClick={() => setBroadcastModalOpen(true)}
               aria-label="Send broadcast"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               📢
             </motion.button>
+            <div className="h-6 w-px bg-border/60 mx-1 hidden sm:block"></div>
             <ThemeToggle />
           </div>
         </header>
-        <main className="flex-1 min-w-0 p-4 lg:p-8 transition-colors duration-200 overflow-x-hidden">
+
+        {/* Route Outlet */}
+        <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
+          {/* Optional Ambient Background Glow */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden flex justify-center z-0">
+             <div className="w-full max-w-5xl h-full bg-[radial-gradient(ellipse_at_top,rgba(var(--color-accent-primary),0.03)_0%,transparent_70%)]"></div>
+          </div>
+          
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="w-full min-w-0"
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+            className="w-full min-w-0 relative z-10"
           >
             <Outlet />
           </motion.div>
         </main>
       </motion.div>
+
       <BroadcastModal
         isOpen={broadcastModalOpen}
         onClose={() => setBroadcastModalOpen(false)}

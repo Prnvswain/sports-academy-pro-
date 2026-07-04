@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, CheckCircle, AlertCircle, Plus, MapPin, Grid, Lock, Unlock, Trash2, Edit2, Check, LayoutDashboard } from 'lucide-react';
 import Loader from '../../components/Loader';
+import GPSCapture from '../../components/GPSCapture';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
 const formatCurrency = (value) =>
@@ -39,13 +40,13 @@ export default function SportsPanel() {
     attendance_radius: '',
     latitude: '',
     longitude: '',
+    use_custom_location: false,
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ─── Academy Location (browser geolocation) ─────────────────────────────────
-  const [locationCaptured, setLocationCaptured] = useState(false);
-  const [capturedCoords, setCapturedCoords] = useState({ lat: null, lng: null });
+  // ─── Academy Location (from registration) ─────────────────────────────────
+  const [academyLocation, setAcademyLocation] = useState(null);
 
   // ─── Fetch global sports for Browse modal ──────────────────────────────
   const loadSuperAdminSports = useCallback(async () => {
@@ -73,6 +74,22 @@ export default function SportsPanel() {
     }
   }, [superAdminSports.length, loadSuperAdminSports]);
 
+  // ─── Fetch academy location (for default sport location) ─────────────────────
+  const loadAcademyLocation = useCallback(async () => {
+    try {
+      const result = await adminGet('/admin/academy');
+      const academyData = result.data || result;
+      if (academyData?.latitude && academyData?.longitude) {
+        setAcademyLocation({
+          latitude: parseFloat(academyData.latitude),
+          longitude: parseFloat(academyData.longitude)
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load academy location:', error);
+    }
+  }, []);
+
   // ─── Fetch academy sports (table) ──────────────────────────────────────────
   const loadSports = useCallback(async () => {
     setLoading(true);
@@ -94,7 +111,8 @@ export default function SportsPanel() {
 
   useEffect(() => {
     loadSports();
-  }, [loadSports]);
+    loadAcademyLocation();
+  }, [loadSports, loadAcademyLocation]);
 
   // ─── Close dropdown on outside click ───────────────────────────────────────
   useEffect(() => {
@@ -164,7 +182,7 @@ export default function SportsPanel() {
 
     for (const sport of selectedSports) {
       try {
-        await adminPost('/admin/sports', {
+        const payload = {
           name: sport.name,
           icon: sport.icon,
           base_fee: parseFloat(sharedForm.base_fee || 0),
@@ -173,9 +191,16 @@ export default function SportsPanel() {
           attendance_radius: sharedForm.attendance_radius
             ? parseFloat(sharedForm.attendance_radius)
             : undefined,
-          latitude: sharedForm.latitude ? parseFloat(sharedForm.latitude) : undefined,
-          longitude: sharedForm.longitude ? parseFloat(sharedForm.longitude) : undefined,
-        });
+          use_custom_location: sharedForm.use_custom_location,
+        };
+
+        // Only send GPS coordinates if using custom location
+        if (sharedForm.use_custom_location && sharedForm.latitude && sharedForm.longitude) {
+          payload.latitude = parseFloat(sharedForm.latitude);
+          payload.longitude = parseFloat(sharedForm.longitude);
+        }
+
+        await adminPost('/admin/sports', payload);
         successCount++;
       } catch {
         failCount++;
@@ -198,9 +223,8 @@ export default function SportsPanel() {
         attendance_radius: '',
         latitude: '',
         longitude: '',
+        use_custom_location: false,
       });
-      setLocationCaptured(false);
-      setCapturedCoords({ lat: null, lng: null });
       setShowDropdown(false);
       loadSports();
     } else {
@@ -324,31 +348,32 @@ export default function SportsPanel() {
     }
   };
 
-  // ─── Academy Location handlers (browser geolocation) ─────────────────────────────
-  const handleSetAcademyLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
-      return;
+  // ─── Handle GPS location capture from GPSCapture component ─────────────────────
+  const handleLocationCapture = (locationData) => {
+    if (locationData) {
+      setSharedForm((prev) => ({
+        ...prev,
+        latitude: locationData.latitude.toFixed(7),
+        longitude: locationData.longitude.toFixed(7),
+      }));
+    } else {
+      setSharedForm((prev) => ({
+        ...prev,
+        latitude: '',
+        longitude: '',
+      }));
     }
-    
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setCapturedCoords({ lat, lng });
-        setSharedForm((prev) => ({
-          ...prev,
-          latitude: lat.toFixed(7),
-          longitude: lng.toFixed(7),
-          sport_center: 'Sport Center Location',
-        }));
-        setLocationCaptured(true);
-      },
-      (error) => {
-        alert('Unable to retrieve your location. Please enable location services and try again.');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+  };
+
+  // ─── Toggle between default academy location and custom location ───────────────
+  const handleLocationToggle = (useCustom) => {
+    setSharedForm((prev) => ({
+      ...prev,
+      use_custom_location: useCustom,
+      // If switching to default, clear custom coordinates
+      latitude: useCustom ? prev.latitude : '',
+      longitude: useCustom ? prev.longitude : '',
+    }));
   };
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -660,33 +685,72 @@ export default function SportsPanel() {
             {/* Right Column: Settings */}
             <div className="space-y-6 relative z-0">
               
-              {/* Geolocation Card */}
+              {/* Location Selection Card */}
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#111814] relative overflow-hidden group">
                 <div className="absolute right-0 top-0 opacity-5 pointer-events-none transition-transform group-hover:scale-110">
                    <MapPin className="h-32 w-32 -mr-8 -mt-8 text-emerald-600" />
                 </div>
-                <h4 className="mb-2 text-sm font-bold text-gray-900 dark:text-white relative z-10">Sport Center Location</h4>
-                {!locationCaptured ? (
-                  <div className="relative z-10">
-                    <p className="text-gray-500 text-xs mb-4">Capture GPS coordinates to enable strict attendance verification.</p>
-                    <button
-                      type="button"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
-                      onClick={handleSetAcademyLocation}
-                    >
-                      <MapPin className="h-4 w-4" /> Fetch Location
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative z-10 rounded-xl bg-emerald-50 border border-emerald-100 p-3.5 dark:bg-emerald-900/20 dark:border-emerald-800/50">
+                <h4 className="mb-3 text-sm font-bold text-gray-900 dark:text-white relative z-10">Sport Center Location</h4>
+                
+                {/* Location Type Toggle */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => handleLocationToggle(false)}
+                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                      !sharedForm.use_custom_location
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    Default Academy Location
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLocationToggle(true)}
+                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                      sharedForm.use_custom_location
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    Custom Location
+                  </button>
+                </div>
+
+                {/* Default Academy Location Display */}
+                {!sharedForm.use_custom_location && (
+                  <div className="relative z-10 rounded-xl bg-blue-50 border border-blue-100 p-3.5 dark:bg-blue-900/20 dark:border-blue-800/50">
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      <p className="text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">Location Locked</p>
+                      <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <p className="text-blue-800 dark:text-blue-300 font-bold text-xs uppercase tracking-wider">Using Academy Location</p>
                     </div>
-                    <p className="text-emerald-700 dark:text-emerald-400 text-xs font-mono bg-white/50 dark:bg-black/20 p-2 rounded-lg inline-block">
-                      Lat: {capturedCoords.lat?.toFixed(7)} <br/>
-                      Lon: {capturedCoords.lng?.toFixed(7)}
-                    </p>
+                    {academyLocation ? (
+                      <p className="text-blue-700 dark:text-blue-400 text-xs font-mono bg-white/50 dark:bg-black/20 p-2 rounded-lg inline-block">
+                        Lat: {academyLocation.latitude.toFixed(7)} <br/>
+                        Lon: {academyLocation.longitude.toFixed(7)}
+                      </p>
+                    ) : (
+                      <p className="text-blue-700 dark:text-blue-400 text-xs">
+                        Academy location not set during registration. Please contact admin.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Location Capture */}
+                {sharedForm.use_custom_location && (
+                  <div className="relative z-10">
+                    <GPSCapture
+                      onLocationCapture={handleLocationCapture}
+                      initialLocation={sharedForm.latitude && sharedForm.longitude ? {
+                        latitude: parseFloat(sharedForm.latitude),
+                        longitude: parseFloat(sharedForm.longitude)
+                      } : null}
+                      required={false}
+                      label="Custom Sport Center Location"
+                      placeholder="Capture custom GPS coordinates"
+                    />
                   </div>
                 )}
               </div>

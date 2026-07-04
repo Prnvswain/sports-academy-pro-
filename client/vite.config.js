@@ -48,6 +48,7 @@ export default defineConfig({
         globDirectory: '../public',
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,woff,ttf,eot}'],
         navigateFallback: '/index.html',
+        navigateFallbackAllowlist: [/^\//], // FIX: Allows SPA routing (like /admin/dashboard) to correctly fallback to index.html
         runtimeCaching: [
           {
             urlPattern: /^\/api\/v1\/.*/i,

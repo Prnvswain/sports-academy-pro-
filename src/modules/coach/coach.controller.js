@@ -78,6 +78,28 @@ export const markSelfAttendance = async (req, res, next) => {
   }
 };
 
+export const markCoachAbsent = async (req, res, next) => {
+  try {
+    const { batch_id, reason } = req.body;
+    
+    if (!batch_id) {
+      const error = new Error('Batch ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const record = await coachService.markCoachAbsent(
+      req.user.coach_id,
+      req.user.academy_id,
+      batch_id,
+      reason
+    );
+    res.json(successResponse('Coach absence recorded and admin notified', record));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const markAttendance = async (req, res, next) => {
   try {
     // Include GPS verification data from middleware

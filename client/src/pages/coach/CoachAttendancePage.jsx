@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
+import GPSCapture from '../../components/GPSCapture';
+import MapPreview from '../../components/MapPreview';
 import { coachPost } from '../../api/client';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
-import { MapPin, AlertTriangle } from 'lucide-react';
+import { MapPin, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function CoachAttendancePage() {
   const { batches, loading } = useCoachBatches();
@@ -13,11 +15,93 @@ export default function CoachAttendancePage() {
   const [remarksMap, setRemarksMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
-  const [gpsCoords, setGpsCoords] = useState({ latitude: null, longitude: null });
+  const [gpsCoords, setGpsCoords] = useState({ latitude: null, longitude: null, accuracy: null });
   const [gpsError, setGpsError] = useState('');
-  const [gettingLocation, setGettingLocation] = useState(false);
+  const [gpsVerified, setGpsVerified] = useState(false);
+  const [distanceFromCenter, setDistanceFromCenter] = useState(null);
+  const [sportCenter, setSportCenter] = useState(null);
+  const [attendanceRadius, setAttendanceRadius] = useState(100);
 
   const selectedBatch = batches.find((b) => String(b.batch_id) === String(selectedBatchId));
+
+  // Load sport center location when batch is selected
+  useEffect(() => {
+    if (selectedBatch?.sport) {
+      // Use sport location if custom, otherwise use academy location
+      if (selectedBatch.sport.use_custom_location && selectedBatch.sport.latitude && selectedBatch.sport.longitude) {
+        setSportCenter({
+          latitude: parseFloat(selectedBatch.sport.latitude),
+          longitude: parseFloat(selectedBatch.sport.longitude)
+        });
+      } else if (selectedBatch.academy?.latitude && selectedBatch.academy?.longitude) {
+        setSportCenter({
+          latitude: parseFloat(selectedBatch.academy.latitude),
+          longitude: parseFloat(selectedBatch.academy.longitude)
+        });
+      } else {
+        setSportCenter(null);
+      }
+      
+      // Set attendance radius (sport-specific or academy default)
+      setAttendanceRadius(selectedBatch.sport.attendance_radius_meters || selectedBatch.academy.attendance_radius_meters || 100);
+    }
+  }, [selectedBatch]);
+
+  // Calculate distance when GPS coordinates are captured
+  useEffect(() => {
+    if (gpsCoords.latitude && gpsCoords.longitude && sportCenter) {
+      const distance = calculateDistance(
+        gpsCoords.latitude,
+        gpsCoords.longitude,
+        sportCenter.latitude,
+        sportCenter.longitude
+      );
+      setDistanceFromCenter(distance);
+      
+      // Verify if within radius
+      const isWithinRadius = distance <= attendanceRadius;
+      setGpsVerified(isWithinRadius);
+      
+      if (!isWithinRadius) {
+        setGpsError(`You are ${Math.round(distance)}m from the sport center. Attendance requires being within ${attendanceRadius}m.`);
+      } else {
+        setGpsError('');
+      }
+    }
+  }, [gpsCoords, sportCenter, attendanceRadius]);
+
+  // Haversine formula for distance calculation
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  };
+
+  // Handle GPS location capture from GPSCapture component
+  const handleLocationCapture = (locationData) => {
+    if (locationData) {
+      setGpsCoords({
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        accuracy: locationData.accuracy
+      });
+      setMessage({ text: 'Location captured successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    } else {
+      setGpsCoords({ latitude: null, longitude: null, accuracy: null });
+      setGpsVerified(false);
+      setDistanceFromCenter(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedBatch?.students) {
@@ -35,51 +119,6 @@ export default function CoachAttendancePage() {
     setRemarksMap(initialRemarks);
   }, [selectedBatchId, selectedBatch]);
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setGpsError('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setGettingLocation(true);
-    setGpsError('');
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setGpsCoords({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        });
-        setGettingLocation(false);
-        setMessage({ text: 'Location captured successfully', type: 'success' });
-        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
-      },
-      (error) => {
-        setGettingLocation(false);
-        let errorMessage = 'Failed to get location';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission denied. Please enable GPS to mark attendance.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out.';
-            break;
-          default:
-            errorMessage = 'An unknown error occurred getting location.';
-        }
-        setGpsError(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!selectedBatch) {
@@ -88,6 +127,14 @@ export default function CoachAttendancePage() {
     }
     if (!selectedBatch.students?.length) {
       setMessage({ text: 'This batch has no active students.', type: 'error' });
+      return;
+    }
+    if (!gpsCoords.latitude || !gpsCoords.longitude) {
+      setMessage({ text: 'Please capture your location before marking attendance.', type: 'error' });
+      return;
+    }
+    if (!gpsVerified) {
+      setMessage({ text: 'You are outside the attendance radius. Please move closer to the sport center.', type: 'error' });
       return;
     }
 
@@ -106,7 +153,8 @@ export default function CoachAttendancePage() {
         date: attendanceDate,
         records,
         latitude: gpsCoords.latitude,
-        longitude: gpsCoords.longitude
+        longitude: gpsCoords.longitude,
+        accuracy: gpsCoords.accuracy
       });
       setMessage({
         text: `${result.message} Parent notifications are being sent where email is on file.`,
@@ -171,34 +219,60 @@ export default function CoachAttendancePage() {
 
       {/* GPS Location Section */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-semibold">Location Verification</h3>
-          </div>
-          <button
-            type="button"
-            onClick={getCurrentLocation}
-            disabled={gettingLocation}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-400 flex items-center gap-2"
-          >
-            {gettingLocation ? 'Getting Location...' : 'Capture Current Location'}
-          </button>
+        <div className="flex items-center gap-2 mb-4">
+          <MapPin className="w-5 h-5 text-emerald-600" />
+          <h3 className="font-semibold">Location Verification</h3>
         </div>
         
+        {!sportCenter && selectedBatch && (
+          <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 mb-4">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">
+              Sport center location not configured. Please contact admin to set up GPS verification.
+            </p>
+          </div>
+        )}
+        
+        <GPSCapture
+          onLocationCapture={handleLocationCapture}
+          initialLocation={gpsCoords.latitude && gpsCoords.longitude ? {
+            latitude: gpsCoords.latitude,
+            longitude: gpsCoords.longitude
+          } : null}
+          required={true}
+          label="Current Location"
+          placeholder="Capture your current GPS location"
+        />
+        
         {gpsError && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 mt-4">
             <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <p className="text-sm">{gpsError}</p>
           </div>
         )}
 
-        {gpsCoords.latitude && gpsCoords.longitude && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-700">
-              <span className="font-medium">Location captured:</span> 
-              Lat: {gpsCoords.latitude.toFixed(7)}, Lon: {gpsCoords.longitude.toFixed(7)}
+        {gpsVerified && sportCenter && distanceFromCenter !== null && (
+          <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 mt-4">
+            <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">
+              <span className="font-medium">Location verified:</span> You are {Math.round(distanceFromCenter)}m from the sport center (within {attendanceRadius}m radius).
             </p>
+          </div>
+        )}
+
+        {/* Map Preview for visual validation */}
+        {gpsCoords.latitude && gpsCoords.longitude && sportCenter && (
+          <div className="mt-4">
+            <MapPreview
+              sportCenter={sportCenter}
+              currentLocation={{
+                latitude: gpsCoords.latitude,
+                longitude: gpsCoords.longitude
+              }}
+              distance={distanceFromCenter || 0}
+              radius={attendanceRadius}
+              verified={gpsVerified}
+            />
           </div>
         )}
       </div>

@@ -42,5 +42,14 @@ router.post(
   validationErrorHandler,
   coachController.markSelfAttendance
 );
+router.post(
+  '/mark-absent',
+  [
+    body('batch_id').isInt(),
+    body('reason').optional().isString()
+  ],
+  validationErrorHandler,
+  coachController.markCoachAbsent
+);
 
 export default router;

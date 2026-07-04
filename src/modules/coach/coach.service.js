@@ -9,6 +9,170 @@ import logger from '../../utils/logger.js';
 
 const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
+// Helper function to create attendance audit log
+const createAttendanceAuditLog = async (auditData) => {
+  try {
+    await prisma.attendanceAuditLog.create({
+      data: auditData
+    });
+  } catch (error) {
+    logger.error('Failed to create attendance audit log', { error: error.message });
+  }
+};
+
+export const markCoachAbsent = async (coach_id, academy_id, batch_id, reason = null) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const batchId = parseInt(batch_id, 10);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Verify batch belongs to coach's academy
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: batchId,
+      academy_id: academyId,
+      status: 'ACTIVE'
+    },
+    include: {
+      sport: true
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not active');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Check if coach is assigned to this batch
+  const coachAssignment = await prisma.batchCoach.findFirst({
+    where: {
+      batch_id: batchId,
+      coach_id: coachId
+    }
+  });
+
+  if (!coachAssignment) {
+    const error = new Error('Coach is not assigned to this batch');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Check if attendance already marked for today
+  const existingAttendance = await prisma.coachAttendance.findFirst({
+    where: {
+      coach_id: coachId,
+      academy_id: academyId,
+      date: today,
+      batch_id: batchId
+    }
+  });
+
+  if (existingAttendance) {
+    const error = new Error('Attendance already marked for this batch today');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Create absent attendance record
+  const attendance = await prisma.coachAttendance.create({
+    data: {
+      coach_id: coachId,
+      academy_id: academyId,
+      batch_id: batchId,
+      date: today,
+      status: 'ABSENT',
+      is_clocked_in: false,
+      remarks: reason || 'Coach marked absent',
+      latitude: null,
+      longitude: null,
+      location_verified: false
+    },
+    include: {
+      coach: {
+        select: {
+          name: true,
+          email: true
+        }
+      },
+      batch: {
+        select: {
+          name: true,
+          sport: {
+            select: {
+              name: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  logger.info('Coach marked absent', {
+    coach_id: coachId,
+    academy_id: academyId,
+    batch_id: batchId,
+    reason
+  });
+
+  // Create attendance audit log
+  await createAttendanceAuditLog({
+    academy_id: academyId,
+    coach_id: coachId,
+    batch_id: batchId,
+    sport_id: batch.sport_id,
+    gps_latitude: null,
+    gps_longitude: null,
+    sport_center_latitude: null,
+    sport_center_longitude: null,
+    distance_meters: null,
+    gps_accuracy_meters: null,
+    attendance_radius_meters: null,
+    batch_start_time: batch.timing,
+    batch_end_time: batch.timing,
+    attendance_start_time: new Date(),
+    attendance_submit_time: new Date(),
+    status: 'Absent',
+    reason: reason || 'Coach marked absent',
+    location_verified: false,
+    location_source: null,
+    ip_address: null
+  });
+
+  // Notify admin about coach absence
+  try {
+    await prisma.notification.create({
+      data: {
+        academy_id: academyId,
+        type: 'COACH_ABSENT',
+        title: 'Coach Absent Alert',
+        body: `Coach ${attendance.coach.name} marked themselves absent for batch "${attendance.batch.name}" (${attendance.batch.sport.name}).${reason ? ` Reason: ${reason}` : ''}`,
+        metadata: JSON.stringify({
+          coach_id: coachId,
+          coach_name: attendance.coach.name,
+          batch_id: batchId,
+          batch_name: attendance.batch.name,
+          sport_name: attendance.batch.sport.name,
+          reason: reason,
+          date: today.toISOString()
+        })
+      }
+    });
+
+    logger.info('Admin notification created for coach absence', {
+      coach_id: coachId,
+      batch_id: batchId
+    });
+  } catch (notificationError) {
+    logger.error('Failed to create admin notification for coach absence', {
+      error: notificationError.message
+    });
+  }
+
+  return attendance;
+};
+
 export const clockIn = async (coach_id, academy_id, location_data = {}) => {
   const coachId = parseInt(coach_id, 10);
   const academyId = parseInt(academy_id, 10);
@@ -104,7 +268,12 @@ export const getCoachBatches = async (coach_id, academy_id) => {
 
   const academy = await prisma.academy.findUnique({
     where: { academy_id: parseInt(academy_id, 10) },
-    select: { name: true }
+    select: { 
+      name: true,
+      latitude: true,
+      longitude: true,
+      attendance_radius_meters: true
+    }
   });
 
   const batches = await prisma.batch.findMany({
@@ -118,7 +287,15 @@ export const getCoachBatches = async (coach_id, academy_id) => {
       status: 'ACTIVE'
     },
     include: {
-      sport: true,
+      sport: {
+        select: {
+          sport_id: true,
+          name: true,
+          latitude: true,
+          longitude: true,
+          use_custom_location: true
+        }
+      },
       students: { where: { ...NOT_DELETED, status: 'ACTIVE' } }
     }
   });
@@ -147,7 +324,14 @@ export const getCoachBatches = async (coach_id, academy_id) => {
     coach_context: {
       academy_name: academy?.name || 'Academy'
     },
-    batches
+    batches: batches.map(batch => ({
+      ...batch,
+      academy: {
+        latitude: academy?.latitude ? parseFloat(academy.latitude) : null,
+        longitude: academy?.longitude ? parseFloat(academy.longitude) : null,
+        attendance_radius_meters: academy?.attendance_radius_meters || 100
+      }
+    }))
   };
 };
 
