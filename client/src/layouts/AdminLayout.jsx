@@ -211,7 +211,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        {/* Route Outlet */}
+       {/* Route Outlet */}
         <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
           {/* Optional Ambient Background Glow */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden flex justify-center z-0">
@@ -220,10 +220,9 @@ export default function AdminLayout() {
           
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             className="w-full min-w-0 relative z-10"
           >
             <Outlet />

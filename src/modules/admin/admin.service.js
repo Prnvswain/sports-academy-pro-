@@ -1680,11 +1680,67 @@ export const markCoachAttendance = async (academy_id, marked_by_admin_id, data) 
     throw error;
   }
 
+  // Validate batch exists and belongs to academy
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: data.batch_id,
+      academy_id: parseInt(academy_id, 10),
+      status: 'ACTIVE'
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not active');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validate coach is assigned to this batch
+  const coachAssignment = await prisma.batchCoach.findFirst({
+    where: {
+      batch_id: data.batch_id,
+      coach_id: coach.coach_id
+    }
+  });
+
+  if (!coachAssignment) {
+    const error = new Error('Coach is not assigned to this batch');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Normalize date to start of day for consistent comparison
+  const attendanceDate = new Date(data.date);
+  const startOfDay = new Date(attendanceDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(attendanceDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  // Check if attendance already exists for this coach, batch, and date
+  const existingAttendance = await prisma.coachAttendance.findFirst({
+    where: {
+      coach_id: coach.coach_id,
+      batch_id: data.batch_id,
+      date: {
+        gte: startOfDay,
+        lte: endOfDay
+      }
+    }
+  });
+
+  if (existingAttendance) {
+    const error = new Error('Attendance already marked for this coach on this batch and date');
+    error.statusCode = 400;
+    throw error;
+  }
+
   return prisma.coachAttendance.create({
     data: {
       academy_id: parseInt(academy_id, 10),
       coach_id: coach.coach_id,
-      date: new Date(data.date),
+      batch_id: data.batch_id,
+      date: startOfDay,
       status: data.status,
       marked_by_admin_id,
       remarks: data.remarks || null,

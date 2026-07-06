@@ -30,7 +30,6 @@ import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
 import CoachNotesPage from './pages/coach/CoachNotesPage';
 import CoachFeesPage from './pages/coach/CoachFeesPage';
-import CoachMyAttendancePage from './pages/coach/CoachMyAttendancePage';
 import CoachPerformancePage from './pages/coach/CoachPerformancePage';
 import IntakeForm from './pages/public/IntakeForm';
 import PublicEnquiryForm from './pages/public/PublicEnquiryForm';
@@ -119,7 +118,6 @@ export default function App() {
             <Route path="attendance" element={<CoachAttendancePage />} />
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
-            <Route path="my-attendance" element={<CoachMyAttendancePage />} />
             <Route path="performance" element={<CoachPerformancePage />} />
           </Route>
 

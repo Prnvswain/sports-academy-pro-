@@ -351,6 +351,7 @@ model Batch {
   announcements       Announcement[]
   weekly_reports      WeeklyPerformanceReport[]
   attendanceAuditLogs AttendanceAuditLog[]
+  coachAttendances    CoachAttendance[] @relation("coachAttendances")
 
   @@index([academy_id])
   @@index([sport_id])
@@ -557,6 +558,7 @@ model CoachAttendance {
   attendance_id                 Int                   @id @default(autoincrement())
   coach_id                      Int
   academy_id                    Int
+  batch_id                      Int
   date                          DateTime              @db.Date
   status                        CoachAttendanceStatus
   clock_in_time                 DateTime?
@@ -573,9 +575,10 @@ model CoachAttendance {
 
   coach   Coach   @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "coach_att_coach_id_fk")
   academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "coach_att_academy_id_fk")
+  batch   Batch   @relation("coachAttendances", fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "coach_att_batch_id_fk")
   admin   User?   @relation(fields: [marked_by_admin_id], references: [user_id], map: "coach_att_admin_id_fk")
 
-  @@unique([coach_id, date])
+  @@unique([coach_id, batch_id, date])
   @@map("coach_attendance")
 }
 

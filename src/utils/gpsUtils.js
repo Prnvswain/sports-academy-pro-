@@ -64,13 +64,14 @@ function verifyLocation(currentLat, currentLon, targetLat, targetLon, radiusMete
  * Returns either custom sport location or academy location
  * @param {object} sport - Sport object with GPS data
  * @param {object} academy - Academy object with GPS data
- * @returns {object} Location coordinates
+ * @returns {object} Location coordinates with radius
  */
 function getAttendanceLocation(sport, academy) {
   if (sport?.use_custom_location && sport?.latitude && sport?.longitude) {
     return {
       latitude: sport.latitude,
       longitude: sport.longitude,
+      radius: sport.attendance_radius_meters || 200,
       source: 'sport'
     };
   }
@@ -79,6 +80,7 @@ function getAttendanceLocation(sport, academy) {
     return {
       latitude: academy.latitude,
       longitude: academy.longitude,
+      radius: academy.attendance_radius_meters || 100,
       source: 'academy'
     };
   }

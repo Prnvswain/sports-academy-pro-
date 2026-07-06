@@ -31,6 +31,7 @@ router.post(
   validationErrorHandler,
   coachController.recordPayment
 );
+router.get('/self-attendance', coachController.getSelfAttendance);
 router.post(
   '/self-attendance',
   optionalGpsVerification,

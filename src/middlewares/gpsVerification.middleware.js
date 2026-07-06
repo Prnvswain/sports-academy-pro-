@@ -273,8 +273,9 @@ export const verifyAttendanceLocation = async (req, res, next) => {
       return next(error);
     }
 
+    // Use the radius from the location (sport-specific or academy default)
     // Apply grace buffer to radius (5% tolerance)
-    const effectiveRadius = gpsSettings.attendance_radius_meters * (1 + GRACE_BUFFER_PERCENTAGE);
+    const effectiveRadius = attendanceLocation.radius * (1 + GRACE_BUFFER_PERCENTAGE);
 
     // Verify location is within allowed radius
     const verification = verifyLocation(
@@ -398,7 +399,7 @@ export const optionalGpsVerification = async (req, res, next) => {
       longitude,
       attendanceLocation.latitude,
       attendanceLocation.longitude,
-      gpsSettings.attendance_radius_meters
+      attendanceLocation.radius
     );
 
     // Attach verification result

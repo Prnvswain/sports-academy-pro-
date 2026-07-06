@@ -65,6 +65,33 @@ export const recordPayment = async (req, res, next) => {
   }
 };
 
+export const getSelfAttendance = async (req, res, next) => {
+  try {
+    const { date, batch_id } = req.query;
+    
+    if (!batch_id) {
+      const error = new Error('Batch ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+    
+    const record = await coachService.getCoachSelfAttendanceByDate(
+      req.user.coach_id,
+      req.user.academy_id,
+      batch_id,
+      date
+    );
+    
+    if (!record) {
+      return res.json(successResponse('No attendance record found for this batch and date', null));
+    }
+    
+    res.json(successResponse('Coach attendance retrieved', record));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const markSelfAttendance = async (req, res, next) => {
   try {
     const record = await coachService.markCoachSelfAttendance(
@@ -72,7 +99,8 @@ export const markSelfAttendance = async (req, res, next) => {
       req.user.academy_id,
       req.body
     );
-    res.json(successResponse('Coach attendance recorded', record));
+
+    res.json(successResponse("Coach attendance recorded", record));
   } catch (err) {
     next(err);
   }

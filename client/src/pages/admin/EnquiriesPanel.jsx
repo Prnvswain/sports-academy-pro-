@@ -33,15 +33,23 @@ const SPORTS_OPTIONS = [
   'Other',
 ];
 
-// Status color mapping
+// Enhanced Status color mapping with lively colors and glow effects
 const STATUS_COLORS = {
-  NEW: 'badge-info',
-  CONTACTED: 'badge-warning',
-  TRIAL_SCHEDULED: 'badge-purple',
-  TRIAL_COMPLETED: 'badge-cyan',
-  CONVERTED: 'badge-success',
-  CLOSED: 'badge-muted bg-surface-secondary text-muted border-border',
-  NOT_INTERESTED: 'badge-danger',
+  NEW: 'badge bg-blue/15 text-blue border border-blue/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]',
+  CONTACTED: 'badge bg-amber/15 text-amber border border-amber/30',
+  TRIAL_SCHEDULED: 'badge bg-purple/15 text-purple border border-purple/30 shadow-[0_0_10px_rgba(167,139,250,0.2)]',
+  TRIAL_COMPLETED: 'badge bg-cyan/15 text-cyan border border-cyan/30',
+  CONVERTED: 'badge bg-success/15 text-success border border-success/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]',
+  CLOSED: 'badge bg-surface-secondary text-muted-foreground border border-border',
+  NOT_INTERESTED: 'badge bg-danger/15 text-danger border border-danger/30',
+};
+
+// Helper for Pulse Dot based on status urgency
+const getStatusDot = (status) => {
+  if (['NEW', 'TRIAL_SCHEDULED'].includes(status)) {
+    return <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current shadow-[0_0_5px_currentColor]"></span>;
+  }
+  return null;
 };
 
 export default function EnquiriesPanel() {
@@ -202,16 +210,13 @@ export default function EnquiriesPanel() {
     e.preventDefault();
     setFieldErrors({});
 
-    // Validate all fields
     const isValid =
       validateField('student_name', formData.student_name) &&
       validateField('phone', formData.phone) &&
       validateField('email', formData.email) &&
       validateField('interested_sports', formData.interested_sports);
 
-    if (!isValid) {
-      return;
-    }
+    if (!isValid) return;
 
     setSubmitting(true);
     try {
@@ -223,7 +228,6 @@ export default function EnquiriesPanel() {
       fetchDashboardStats();
       showToast('Enquiry added successfully', 'success');
     } catch (err) {
-      // Handle structured validation errors from backend
       if (err.data && err.data.errors) {
         setBackendFieldErrors(err.data.errors);
         showToast('Please fix the validation errors below.', 'error');
@@ -239,16 +243,13 @@ export default function EnquiriesPanel() {
     e.preventDefault();
     setFieldErrors({});
 
-    // Validate all fields
     const isValid =
       validateField('student_name', formData.student_name) &&
       validateField('phone', formData.phone) &&
       validateField('email', formData.email) &&
       validateField('interested_sports', formData.interested_sports);
 
-    if (!isValid) {
-      return;
-    }
+    if (!isValid) return;
 
     setSubmitting(true);
     try {
@@ -261,7 +262,6 @@ export default function EnquiriesPanel() {
       fetchDashboardStats();
       showToast('Enquiry updated successfully', 'success');
     } catch (err) {
-      // Handle structured validation errors from backend
       if (err.data && err.data.errors) {
         setBackendFieldErrors(err.data.errors);
         showToast('Please fix the validation errors below.', 'error');
@@ -290,7 +290,6 @@ export default function EnquiriesPanel() {
   };
 
   const handleScheduleFollowUp = async () => {
-    // Prevent follow-up for already converted enquiries
     if (selectedEnquiry?.status === 'CONVERTED') {
       showToast('Cannot schedule follow-up for converted enquiries', 'error');
       return;
@@ -311,7 +310,6 @@ export default function EnquiriesPanel() {
   };
 
   const handleConvertToStudent = async () => {
-    // Prevent conversion for already converted enquiries
     if (selectedEnquiry?.status === 'CONVERTED') {
       showToast('Enquiry is already converted', 'error');
       return;
@@ -351,7 +349,6 @@ export default function EnquiriesPanel() {
 
   const openEditModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    // Parse interested_sports from JSON if available
     let interestedSports = [];
     if (enquiry.interested_sports) {
       try {
@@ -412,62 +409,88 @@ export default function EnquiriesPanel() {
     });
   };
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
   // ==================== RENDER ====================
 
   return (
     <motion.div
-      className="bg-surface text-foreground min-h-screen space-y-6 p-6 w-full overflow-x-hidden"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 p-6 w-full overflow-x-hidden bg-transparent"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
       {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`fixed right-4 top-4 z-50 rounded-xl px-6 py-3 shadow-lg ${
-              toast.type === 'success' ? 'bg-success text-foreground' : 'bg-danger text-foreground'
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className={`fixed right-6 top-6 z-[100] flex items-center gap-3 rounded-xl px-6 py-3.5 font-medium shadow-xl backdrop-blur-md border ${
+              toast.type === 'success' 
+                ? 'bg-success/20 text-success border-success/30 shadow-success/10' 
+                : 'bg-danger/20 text-danger border-danger/30 shadow-danger/10'
             }`}
           >
+            {toast.type === 'success' ? '✨ ' : '🚨 '}
             {toast.message}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Header */}
-      <div className="border-border flex flex-col items-start justify-between gap-4 border-b pb-6 md:flex-row md:items-center">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/50 pb-6 relative">
+        <div className="absolute top-0 left-0 w-32 h-32 bg-primary/20 rounded-full blur-[80px] -z-10 pointer-events-none"></div>
         <div>
-          <h1 className="text-foreground text-3xl font-black tracking-tight">Enquiries Desk</h1>
-          <p className="text-muted mt-1 text-sm">Manage enquiries, follow-ups, and conversions</p>
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+            Enquiries Desk
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+            </span>
+          </h1>
+          <p className="text-sm font-medium text-muted-foreground mt-1">
+            Manage incoming leads, follow-ups, and student conversions.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <motion.button
-            onClick={handleCopyFormLink}
-            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors flex-1 md:flex-none text-sm md:text-base"
-            whileHover={{ scale: 1.02 }}
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto z-10">
+          <motion.button 
+            whileHover={{ scale: 1.02 }} 
             whileTap={{ scale: 0.98 }}
+            onClick={handleCopyFormLink} 
+            className="btn-secondary flex-1 md:flex-none border-border/50 bg-surface/50 backdrop-blur-md hover:bg-surface"
           >
-            Copy Form Link
+            🔗 Copy Link
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.02 }} 
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowQRModal(true)} 
+            className="btn-secondary flex-1 md:flex-none border-border/50 bg-surface/50 backdrop-blur-md hover:bg-surface"
+          >
+            📱 QR Code
           </motion.button>
           <motion.button
-            onClick={() => setShowQRModal(true)}
-            className="border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl border px-4 py-3 font-bold transition-colors flex-1 md:flex-none text-sm md:text-base"
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(var(--color-accent-primary), 0.3)" }} 
             whileTap={{ scale: 0.98 }}
-          >
-            Show QR Code
-          </motion.button>
-          <motion.button
             onClick={() => {
               resetForm();
               setShowAddModal(true);
             }}
-            className="bg-accent hover:bg-accent-hover text-foreground shadow-accent/10 rounded-xl px-6 py-3 font-bold shadow-md flex-1 md:flex-none text-sm md:text-base"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className="btn-primary flex-1 md:flex-none bg-gradient-to-r from-primary to-accent-hover border-transparent"
           >
             + Add Enquiry
           </motion.button>
@@ -475,131 +498,175 @@ export default function EnquiriesPanel() {
       </div>
 
       {/* Dashboard Stats */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
-          <div className="text-accent text-2xl font-black">{stats.totalEnquiries}</div>
-          <div className="text-muted text-xs font-semibold">Total Enquiries</div>
-        </div>
-        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
-          <div className="text-blue text-2xl font-black">{stats.newEnquiries}</div>
-          <div className="text-muted text-xs font-semibold">New Enquiries</div>
-        </div>
-        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
-          <div className="text-warning text-2xl font-black">{stats.followUpsDueToday}</div>
-          <div className="text-muted text-xs font-semibold">Follow-ups Due Today</div>
-        </div>
-        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
-          <div className="text-success text-2xl font-black">{stats.convertedEnquiries}</div>
-          <div className="text-muted text-xs font-semibold">Converted</div>
-        </div>
-        <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
-          <div className="text-purple text-2xl font-black">{stats.conversionRate}%</div>
-          <div className="text-muted text-xs font-semibold">Conversion Rate</div>
-        </div>
-      </div>
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5"
+      >
+        <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="card p-5 flex flex-col justify-center gap-1 border-t-4 border-t-primary/80 bg-gradient-to-br from-surface to-primary/5 hover:border-primary transition-all">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total Enquiries</span>
+          <span className="text-3xl font-black text-foreground drop-shadow-sm">{stats.totalEnquiries}</span>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="card p-5 flex flex-col justify-center gap-1 border-t-4 border-t-blue/80 bg-gradient-to-br from-surface to-blue/5 hover:border-blue transition-all">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-blue animate-pulse"></span> New Enquiries
+          </span>
+          <span className="text-3xl font-black text-blue drop-shadow-sm">{stats.newEnquiries}</span>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="card p-5 flex flex-col justify-center gap-1 border-t-4 border-t-warning/80 bg-gradient-to-br from-surface to-warning/5 hover:border-warning transition-all">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-warning"></span> Follow-ups Due
+          </span>
+          <span className="text-3xl font-black text-warning drop-shadow-sm">{stats.followUpsDueToday}</span>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="card p-5 flex flex-col justify-center gap-1 border-t-4 border-t-success/80 bg-gradient-to-br from-surface to-success/5 hover:border-success transition-all">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-success"></span> Converted
+          </span>
+          <span className="text-3xl font-black text-success drop-shadow-sm">{stats.convertedEnquiries}</span>
+        </motion.div>
+        
+        <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="card p-5 flex flex-col justify-center gap-1 border-t-4 border-t-purple/80 bg-gradient-to-br from-surface to-purple/5 hover:border-purple transition-all">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Conversion Rate</span>
+          <span className="text-3xl font-black text-purple drop-shadow-sm">{stats.conversionRate}%</span>
+        </motion.div>
+      </motion.div>
 
       {/* Filters */}
-      <div className="card bg-surface-secondary border-border border p-4 shadow-sm">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="card p-5 border border-border/40 bg-surface/40 backdrop-blur-sm"
+      >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <input
-            type="text"
-            placeholder="Search enquiries..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="input-field py-2"
-          />
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="input-field py-2"
-          >
-            <option value="">All Statuses</option>
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {status.replace('_', ' ')}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Sport interested"
-            value={filters.sportInterested}
-            onChange={(e) => setFilters({ ...filters, sportInterested: e.target.value })}
-            className="input-field py-2"
-          />
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="input-field py-2"
-          />
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="input-field py-2"
-          />
+          <div className="flex flex-col gap-1.5 relative">
+             <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search</label>
+             <input
+              type="text"
+              placeholder="Search name, phone..."
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              className="input-field bg-background/50 border-border/60"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 relative">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</label>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="input-field bg-background/50 border-border/60"
+            >
+              <option value="">All Statuses</option>
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5 relative">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Sport Interested</label>
+            <input
+              type="text"
+              placeholder="e.g. Football"
+              value={filters.sportInterested}
+              onChange={(e) => setFilters({ ...filters, sportInterested: e.target.value })}
+              className="input-field bg-background/50 border-border/60"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 relative">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From Date</label>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              className="input-field bg-background/50 border-border/60"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 relative">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To Date</label>
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              className="input-field bg-background/50 border-border/60"
+            />
+          </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Enquiries Table */}
-      <div className="card bg-surface-secondary border-border border p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-black tracking-tight">All Enquiries</h2>
-          <div className="flex gap-2">
-            <motion.button
+      <div className="card p-0 overflow-hidden border border-border/50 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center justify-between border-b border-border/50 p-5 bg-surface-secondary/20">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <span className="text-xl">📋</span> Enquiries Database
+          </h2>
+          <div className="flex gap-2 bg-surface p-1 rounded-lg border border-border/50">
+            <button
               onClick={() => setViewFilter('all')}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 ${
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-300 ${
                 viewFilter === 'all'
-                  ? 'bg-accent text-foreground shadow-md'
-                  : 'bg-surface text-muted hover:bg-surface-secondary'
+                  ? 'bg-primary/10 text-primary shadow-sm border border-primary/20'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
             >
               All Enquiries
-            </motion.button>
-            <motion.button
+            </button>
+            <button
               onClick={() => setViewFilter('converted')}
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 ${
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-300 ${
                 viewFilter === 'converted'
-                  ? 'bg-accent text-foreground shadow-md'
-                  : 'bg-surface text-muted hover:bg-surface-secondary'
+                  ? 'bg-success/10 text-success shadow-sm border border-success/20'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
             >
               Converted Only
-            </motion.button>
+            </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-muted animate-pulse py-12 text-center font-bold">
-            Loading enquiries...
+          <div className="flex flex-col items-center justify-center py-20 text-sm font-semibold text-muted-foreground">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+            Loading database records...
           </div>
         ) : error ? (
-          <div className="alert-error border-danger/20 rounded-xl border p-4 text-sm">{error}</div>
+          <div className="p-6">
+             <div className="alert-error border-danger/30 bg-danger/10 text-danger rounded-xl p-4">{error}</div>
+          </div>
         ) : enquiries.length === 0 ? (
-          <div className="border-border rounded-xl border border-dashed py-16 text-center">
-            <p className="text-muted font-medium">No enquiries found</p>
+          <div className="flex flex-col items-center justify-center py-24 px-4 text-center bg-surface-secondary/10">
+            <div className="h-20 w-20 mb-5 rounded-full bg-surface shadow-inner border border-border/50 flex items-center justify-center text-3xl">
+              📥
+            </div>
+            <h3 className="text-xl font-bold text-foreground">No enquiries found</h3>
+            <p className="text-sm text-muted-foreground mt-2 max-w-sm">Try adjusting your search filters or add a new enquiry to get started.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
-                <tr>
+                <tr className="bg-surface-secondary/40 backdrop-blur-md">
                   <th>ID</th>
                   <th>Student Name</th>
                   <th>Parent Name</th>
                   <th>Phone</th>
                   <th>Interested Sports</th>
                   <th>Status</th>
-                  <th>Follow-up Date</th>
+                  <th>Follow-up</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <motion.tbody 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+              >
                 {enquiries
                   .filter((enq) => {
                     if (viewFilter === 'converted') {
@@ -607,98 +674,100 @@ export default function EnquiriesPanel() {
                     }
                     return true;
                   })
-                  .map((enq, index) => (
+                  .map((enq) => (
                   <motion.tr
+                    variants={itemVariants}
                     key={enq.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    className="hover:bg-surface/40 transition-colors"
+                    className="group transition-colors duration-200"
                   >
-                    <td className="font-mono text-xs">{enq.id}</td>
-                    <td className="font-bold">{enq.student_name}</td>
-                    <td className="text-sm">{enq.parent_name || '-'}</td>
-                    <td className="text-sm">{enq.phone}</td>
-                    <td className="text-sm">
+                    <td className="font-mono text-xs text-muted-foreground/70">{enq.id}</td>
+                    <td className="font-semibold text-foreground group-hover:text-primary transition-colors">{enq.student_name}</td>
+                    <td className="text-muted-foreground text-sm">{enq.parent_name || '—'}</td>
+                    <td className="font-mono text-sm tracking-tight">{enq.phone}</td>
+                    <td>
                       {enq.interested_sports ? (
                         (() => {
                           try {
                             const sports = JSON.parse(enq.interested_sports);
                             return sports.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
+                              <div className="flex flex-wrap gap-1.5">
                                 {sports.map((sport, idx) => (
-                                  <span key={idx} className="badge-info badge text-xs">
+                                  <span key={idx} className="badge bg-surface-secondary text-foreground/80 border border-border shadow-sm text-[10px]">
                                     {sport}
                                   </span>
                                 ))}
                               </div>
-                            ) : enq.sport_interested || '-';
+                            ) : <span className="text-muted-foreground">—</span>;
                           } catch (e) {
-                            return enq.sport_interested || '-';
+                            return <span className="text-muted-foreground">{enq.sport_interested || '—'}</span>;
                           }
                         })()
                       ) : (
-                        enq.sport_interested || '-'
+                        <span className="text-muted-foreground">{enq.sport_interested || '—'}</span>
                       )}
                     </td>
                     <td>
                       <span className={STATUS_COLORS[enq.status] || 'badge'}>
+                        {getStatusDot(enq.status)}
                         {enq.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="text-sm">{formatDate(enq.follow_up_date)}</td>
+                    <td className="font-medium text-foreground/80 text-sm">
+                      {enq.follow_up_date ? (
+                         <span className="flex items-center gap-1.5">
+                           <span className="text-muted-foreground/60 text-xs">📅</span>
+                           {formatDate(enq.follow_up_date)}
+                         </span>
+                      ) : '—'}
+                    </td>
                     <td>
-                      <div className="flex items-center gap-2 justify-start">
+                      <div className="flex items-center gap-2 justify-start opacity-80 group-hover:opacity-100 transition-opacity">
                         <motion.button
+                          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                           onClick={() => openEditModal(enq)}
-                          className="btn-secondary btn-sm px-3 py-1 text-xs"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                          className="btn-ghost btn-sm text-[11px] font-bold px-2.5 py-1"
                         >
                           Edit
                         </motion.button>
                         {enq.status !== 'CONVERTED' && (
                           <>
                             <motion.button
+                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                               onClick={() => {
                                 setSelectedEnquiry(enq);
                                 setShowFollowUpModal(true);
                               }}
-                              className="bg-blue hover:bg-blue/80 text-foreground btn-sm px-3 py-1 text-xs"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              className="btn-sm text-[11px] font-bold bg-blue/10 text-blue hover:bg-blue hover:text-white border border-transparent hover:border-blue transition-colors px-2.5 py-1"
                             >
                               Follow-up
                             </motion.button>
                             <motion.button
+                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                               onClick={() => {
                                 setSelectedEnquiry(enq);
                                 setShowConvertModal(true);
                               }}
-                              className="bg-success hover:bg-success/80 text-foreground btn-sm px-3 py-1 text-xs"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              className="btn-sm text-[11px] font-bold bg-success/10 text-success hover:bg-success hover:text-white border border-transparent hover:border-success transition-colors px-2.5 py-1"
                             >
                               Convert
                             </motion.button>
                           </>
                         )}
                         <motion.button
+                          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                           onClick={() => {
                             setSelectedEnquiry(enq);
                             setShowDeleteModal(true);
                           }}
-                          className="bg-danger hover:bg-danger/80 text-foreground btn-sm px-3 py-1 text-xs"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                          className="btn-sm text-[11px] font-bold text-muted-foreground hover:bg-danger hover:text-white transition-colors px-2.5 py-1"
                         >
-                          Delete
+                          Del
                         </motion.button>
                       </div>
                     </td>
                   </motion.tr>
                 ))}
-              </tbody>
+              </motion.tbody>
             </table>
           </div>
         )}
@@ -711,188 +780,179 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="card bg-surface border-border max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto border p-6 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl border border-primary/20"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black">Add New Enquiry</h3>
+              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-primary/5">
+                <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                  <span className="text-primary text-2xl">+</span> Add New Enquiry
+                </h3>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="text-muted hover:text-foreground text-xl font-bold"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={handleCreateEnquiry} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+                <form id="add-form" onSubmit={handleCreateEnquiry} className="space-y-5">
+                  {/* Keep exact existing form fields, just with your global classes */}
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="label">Student Name *</label>
+                      <input
+                        type="text"
+                        required
+                        className={`input-field ${fieldErrors.student_name ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.student_name}
+                        onChange={(e) => {
+                          setFormData({ ...formData, student_name: e.target.value });
+                          clearFieldError('student_name');
+                        }}
+                        onBlur={() => validateField('student_name', formData.student_name)}
+                      />
+                      {fieldErrors.student_name && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.student_name}</p>}
+                    </div>
+                    <div>
+                      <label className="label">Parent Name</label>
+                      <input
+                        type="text"
+                        value={formData.parent_name}
+                        onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Phone *</label>
+                      <input
+                        type="tel"
+                        required
+                        className={`input-field ${fieldErrors.phone ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.phone}
+                        onChange={(e) => {
+                          setFormData({ ...formData, phone: e.target.value });
+                          clearFieldError('phone');
+                        }}
+                        onBlur={() => validateField('phone', formData.phone)}
+                      />
+                      {fieldErrors.phone && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.phone}</p>}
+                    </div>
+                    <div>
+                      <label className="label">Email</label>
+                      <input
+                        type="email"
+                        className={`input-field ${fieldErrors.email ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.email}
+                        onChange={(e) => {
+                          setFormData({ ...formData, email: e.target.value });
+                          clearFieldError('email');
+                        }}
+                        onBlur={() => validateField('email', formData.email)}
+                      />
+                      {fieldErrors.email && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.email}</p>}
+                    </div>
+                    <div>
+                      <label className="label">Interested Sports *</label>
+                      <select
+                        multiple
+                        className={`input-field min-h-[120px] custom-scrollbar ${fieldErrors.interested_sports ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.interested_sports}
+                        onChange={(e) => {
+                          const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+                          setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                          clearFieldError('interested_sports');
+                        }}
+                        onBlur={() => validateField('interested_sports', formData.interested_sports)}
+                        required
+                      >
+                        {SPORTS_OPTIONS.map((sport) => (
+                          <option key={sport} value={sport} className="py-1">
+                            {sport}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-muted-foreground mt-1.5 text-[10px] uppercase font-bold tracking-wider">
+                        Hold Ctrl/Cmd to select multiple
+                      </p>
+                      {fieldErrors.interested_sports && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.interested_sports}</p>}
+                    </div>
+                    
+                    <div className="space-y-5">
+                        <div>
+                          <label className="label">Age</label>
+                          <input
+                            type="number"
+                            value={formData.age}
+                            onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                            className="input-field"
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Gender</label>
+                          <select
+                            value={formData.gender}
+                            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                            className="input-field"
+                          >
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                    </div>
+
+                    <div>
+                      <label className="label">Source</label>
+                      <select
+                        value={formData.enquiry_source}
+                        onChange={(e) => setFormData({ ...formData, enquiry_source: e.target.value })}
+                        className="input-field"
+                      >
+                        <option value="">Select Source</option>
+                        {SOURCE_OPTIONS.map((source) => (
+                          <option key={source} value={source}>
+                            {source.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Follow-up Date</label>
+                      <input
+                        type="date"
+                        value={formData.follow_up_date}
+                        onChange={(e) => setFormData({ ...formData, follow_up_date: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <label className="label">Student Name *</label>
-                    <input
-                      type="text"
-                      required
-                      className={`input-field ${fieldErrors.student_name ? 'border-red-500' : ''}`}
-                      value={formData.student_name}
-                      onChange={(e) => {
-                        setFormData({ ...formData, student_name: e.target.value });
-                        clearFieldError('student_name');
-                      }}
-                      onBlur={() => validateField('student_name', formData.student_name)}
+                    <label className="label">Notes</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="input-field min-h-[100px]"
+                      placeholder="Add any additional context or remarks..."
                     />
-                    {fieldErrors.student_name && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.student_name}</p>
-                    )}
                   </div>
-                  <div>
-                    <label className="label">Parent Name</label>
-                    <input
-                      type="text"
-                      value={formData.parent_name}
-                      onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Phone *</label>
-                    <input
-                      type="tel"
-                      required
-                      className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
-                      value={formData.phone}
-                      onChange={(e) => {
-                        setFormData({ ...formData, phone: e.target.value });
-                        clearFieldError('phone');
-                      }}
-                      onBlur={() => validateField('phone', formData.phone)}
-                    />
-                    {fieldErrors.phone && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label">Email</label>
-                    <input
-                      type="email"
-                      className={`input-field ${fieldErrors.email ? 'border-red-500' : ''}`}
-                      value={formData.email}
-                      onChange={(e) => {
-                        setFormData({ ...formData, email: e.target.value });
-                        clearFieldError('email');
-                      }}
-                      onBlur={() => validateField('email', formData.email)}
-                    />
-                    {fieldErrors.email && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label">Interested Sports *</label>
-                    <select
-                      multiple
-                      className={`input-field min-h-[120px] ${fieldErrors.interested_sports ? 'border-red-500' : ''}`}
-                      value={formData.interested_sports}
-                      onChange={(e) => {
-                        const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-                        setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
-                        clearFieldError('interested_sports');
-                      }}
-                      onBlur={() => validateField('interested_sports', formData.interested_sports)}
-                      required
-                    >
-                      {SPORTS_OPTIONS.map((sport) => (
-                        <option key={sport} value={sport}>
-                          {sport}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-muted mt-1 text-xs">
-                      Hold Ctrl/Cmd to select multiple sports
-                    </p>
-                    {fieldErrors.interested_sports && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.interested_sports}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label">Age</label>
-                    <input
-                      type="number"
-                      value={formData.age}
-                      onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Gender</label>
-                    <select
-                      value={formData.gender}
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      className="input-field"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Source</label>
-                    <select
-                      value={formData.enquiry_source}
-                      onChange={(e) => setFormData({ ...formData, enquiry_source: e.target.value })}
-                      className="input-field"
-                    >
-                      <option value="">Select Source</option>
-                      {SOURCE_OPTIONS.map((source) => (
-                        <option key={source} value={source}>
-                          {source.replace('_', ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Follow-up Date</label>
-                    <input
-                      type="date"
-                      value={formData.follow_up_date}
-                      onChange={(e) => setFormData({ ...formData, follow_up_date: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="input-field min-h-[100px] resize-none"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-4">
-                  <motion.button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="btn-secondary px-6 py-2"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
+                </form>
+              </div>
+              <div className="flex justify-end gap-3 border-t border-border/50 bg-surface-secondary p-6">
+                  <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
                     Cancel
-                  </motion.button>
-                  <motion.button
-                    type="submit"
-                    disabled={submitting}
-                    className="bg-accent hover:bg-accent-hover text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {submitting ? 'Adding...' : 'Add Enquiry'}
-                  </motion.button>
-                </div>
-              </form>
+                  </button>
+                  <button type="submit" form="add-form" disabled={submitting} className="btn-primary shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)]">
+                    {submitting ? 'Adding...' : 'Save Enquiry'}
+                  </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -905,202 +965,189 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="card bg-surface border-border max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto border p-6 shadow-2xl"
+               initial={{ opacity: 0, scale: 0.95, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+               transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black">Edit Enquiry</h3>
+              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-blue/5">
+                <h3 className="text-xl font-bold text-foreground">Edit Enquiry</h3>
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="text-muted hover:text-foreground text-xl font-bold"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={handleUpdateEnquiry} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+                <form id="edit-form" onSubmit={handleUpdateEnquiry} className="space-y-5">
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="label">Student Name *</label>
+                      <input
+                        type="text"
+                        required
+                        className={`input-field ${fieldErrors.student_name ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.student_name}
+                        onChange={(e) => {
+                          setFormData({ ...formData, student_name: e.target.value });
+                          clearFieldError('student_name');
+                        }}
+                        onBlur={() => validateField('student_name', formData.student_name)}
+                      />
+                      {fieldErrors.student_name && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.student_name}</p>}
+                    </div>
+                    <div>
+                      <label className="label">Parent Name</label>
+                      <input
+                        type="text"
+                        value={formData.parent_name}
+                        onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Phone *</label>
+                      <input
+                        type="tel"
+                        required
+                        className={`input-field ${fieldErrors.phone ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.phone}
+                        onChange={(e) => {
+                          setFormData({ ...formData, phone: e.target.value });
+                          clearFieldError('phone');
+                        }}
+                        onBlur={() => validateField('phone', formData.phone)}
+                      />
+                      {fieldErrors.phone && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.phone}</p>}
+                    </div>
+                    <div>
+                      <label className="label">Email</label>
+                      <input
+                        type="email"
+                        className={`input-field ${fieldErrors.email ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.email}
+                        onChange={(e) => {
+                          setFormData({ ...formData, email: e.target.value });
+                          clearFieldError('email');
+                        }}
+                        onBlur={() => validateField('email', formData.email)}
+                      />
+                      {fieldErrors.email && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.email}</p>}
+                    </div>
+                    <div>
+                      <label className="label">Interested Sports *</label>
+                      <select
+                        multiple
+                        className={`input-field min-h-[120px] custom-scrollbar ${fieldErrors.interested_sports ? 'border-danger focus:ring-danger/20' : ''}`}
+                        value={formData.interested_sports}
+                        onChange={(e) => {
+                          const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
+                          setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                          clearFieldError('interested_sports');
+                        }}
+                        onBlur={() => validateField('interested_sports', formData.interested_sports)}
+                        required
+                      >
+                        {SPORTS_OPTIONS.map((sport) => (
+                          <option key={sport} value={sport} className="py-1">
+                            {sport}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-muted-foreground mt-1.5 text-[10px] uppercase font-bold tracking-wider">
+                        Hold Ctrl/Cmd to select multiple
+                      </p>
+                      {fieldErrors.interested_sports && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.interested_sports}</p>}
+                    </div>
+                    
+                    <div className="space-y-5">
+                        <div>
+                          <label className="label">Age</label>
+                          <input
+                            type="number"
+                            value={formData.age}
+                            onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                            className="input-field"
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Gender</label>
+                          <select
+                            value={formData.gender}
+                            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                            className="input-field"
+                          >
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                    </div>
+
+                    <div>
+                      <label className="label">Source</label>
+                      <select
+                        value={formData.enquiry_source}
+                        onChange={(e) => setFormData({ ...formData, enquiry_source: e.target.value })}
+                        className="input-field"
+                      >
+                        <option value="">Select Source</option>
+                        {SOURCE_OPTIONS.map((source) => (
+                          <option key={source} value={source}>
+                            {source.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Status</label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        className="input-field font-semibold"
+                      >
+                        {STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {status.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Follow-up Date</label>
+                      <input
+                        type="date"
+                        value={formData.follow_up_date}
+                        onChange={(e) => setFormData({ ...formData, follow_up_date: e.target.value })}
+                        className="input-field w-full md:w-1/2"
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <label className="label">Student Name *</label>
-                    <input
-                      type="text"
-                      required
-                      className={`input-field ${fieldErrors.student_name ? 'border-red-500' : ''}`}
-                      value={formData.student_name}
-                      onChange={(e) => {
-                        setFormData({ ...formData, student_name: e.target.value });
-                        clearFieldError('student_name');
-                      }}
-                      onBlur={() => validateField('student_name', formData.student_name)}
+                    <label className="label">Notes</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="input-field min-h-[100px]"
                     />
-                    {fieldErrors.student_name && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.student_name}</p>
-                    )}
                   </div>
-                  <div>
-                    <label className="label">Parent Name</label>
-                    <input
-                      type="text"
-                      value={formData.parent_name}
-                      onChange={(e) => setFormData({ ...formData, parent_name: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Phone *</label>
-                    <input
-                      type="tel"
-                      required
-                      className={`input-field ${fieldErrors.phone ? 'border-red-500' : ''}`}
-                      value={formData.phone}
-                      onChange={(e) => {
-                        setFormData({ ...formData, phone: e.target.value });
-                        clearFieldError('phone');
-                      }}
-                      onBlur={() => validateField('phone', formData.phone)}
-                    />
-                    {fieldErrors.phone && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label">Email</label>
-                    <input
-                      type="email"
-                      className={`input-field ${fieldErrors.email ? 'border-red-500' : ''}`}
-                      value={formData.email}
-                      onChange={(e) => {
-                        setFormData({ ...formData, email: e.target.value });
-                        clearFieldError('email');
-                      }}
-                      onBlur={() => validateField('email', formData.email)}
-                    />
-                    {fieldErrors.email && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label">Interested Sports *</label>
-                    <select
-                      multiple
-                      className={`input-field min-h-[120px] ${fieldErrors.interested_sports ? 'border-red-500' : ''}`}
-                      value={formData.interested_sports}
-                      onChange={(e) => {
-                        const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-                        setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
-                        clearFieldError('interested_sports');
-                      }}
-                      onBlur={() => validateField('interested_sports', formData.interested_sports)}
-                      required
-                    >
-                      {SPORTS_OPTIONS.map((sport) => (
-                        <option key={sport} value={sport}>
-                          {sport}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-muted mt-1 text-xs">
-                      Hold Ctrl/Cmd to select multiple sports
-                    </p>
-                    {fieldErrors.interested_sports && (
-                      <p className="mt-1 text-xs text-red-500">{fieldErrors.interested_sports}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label">Age</label>
-                    <input
-                      type="number"
-                      value={formData.age}
-                      onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Gender</label>
-                    <select
-                      value={formData.gender}
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      className="input-field"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Source</label>
-                    <select
-                      value={formData.enquiry_source}
-                      onChange={(e) => setFormData({ ...formData, enquiry_source: e.target.value })}
-                      className="input-field"
-                    >
-                      <option value="">Select Source</option>
-                      {SOURCE_OPTIONS.map((source) => (
-                        <option key={source} value={source}>
-                          {source.replace('_', ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="input-field"
-                    >
-                      {STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {status.replace('_', ' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Follow-up Date</label>
-                    <input
-                      type="date"
-                      value={formData.follow_up_date}
-                      onChange={(e) => setFormData({ ...formData, follow_up_date: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="input-field min-h-[100px] resize-none"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-4">
-                  <motion.button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="btn-secondary px-6 py-2"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
+                </form>
+              </div>
+              <div className="flex justify-end gap-3 border-t border-border/50 bg-surface-secondary p-6">
+                  <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary">
                     Cancel
-                  </motion.button>
-                  <motion.button
-                    type="submit"
-                    disabled={submitting}
-                    className="bg-accent hover:bg-accent-hover text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {submitting ? 'Updating...' : 'Update Enquiry'}
-                  </motion.button>
-                </div>
-              </form>
+                  </button>
+                  <button type="submit" form="edit-form" disabled={submitting} className="btn-primary">
+                    {submitting ? 'Updating...' : 'Save Changes'}
+                  </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -1113,62 +1160,47 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="card bg-surface border-border w-full max-w-md space-y-4 border p-6 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-blue/80"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black">Schedule Follow-up</h3>
-                <button
-                  onClick={() => setShowFollowUpModal(false)}
-                  className="text-muted hover:text-foreground text-xl font-bold"
-                >
-                  ✕
-                </button>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-bold text-foreground">Schedule Follow-up</h3>
+                <button onClick={() => setShowFollowUpModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
 
-              <div className="bg-surface-secondary rounded-xl p-4">
-                <p className="text-sm">
-                  <strong>Student:</strong> {selectedEnquiry.student_name}
+              <div className="bg-surface rounded-xl p-4 mb-5 border border-border/50 shadow-sm">
+                <p className="text-sm mb-2 flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Student</span>
+                  <span className="font-bold">{selectedEnquiry.student_name}</span>
                 </p>
-                <p className="text-sm">
-                  <strong>Current Status:</strong> {selectedEnquiry.status.replace('_', ' ')}
+                <p className="text-sm flex justify-between items-center pt-1">
+                  <span className="text-muted-foreground font-semibold">Current Status</span>
+                  <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>{selectedEnquiry.status.replace('_', ' ')}</span>
                 </p>
               </div>
 
-              <div>
-                <label className="label">Follow-up Date *</label>
+              <div className="mb-6">
+                <label className="label text-blue">Next Follow-up Date *</label>
                 <input
                   type="date"
                   required
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="input-field"
+                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <motion.button
-                  onClick={() => setShowFollowUpModal(false)}
-                  className="btn-secondary px-6 py-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={handleScheduleFollowUp}
-                  disabled={submitting}
-                  className="bg-accent text-foreground hover:bg-accent-hover rounded-xl px-6 py-2 font-bold disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {submitting ? 'Scheduling...' : 'Schedule Follow-up'}
-                </motion.button>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowFollowUpModal(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleScheduleFollowUp} disabled={submitting} className="btn-primary bg-blue hover:bg-blue-hover shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                  {submitting ? 'Scheduling...' : 'Confirm Date'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1182,74 +1214,66 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="card bg-surface border-border w-full max-w-md space-y-4 border p-6 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-success/80 relative overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black">Convert to Student</h3>
-                <button
-                  onClick={() => setShowConvertModal(false)}
-                  className="text-muted hover:text-foreground text-xl font-bold"
-                >
-                  ✕
-                </button>
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-success/10 rounded-full blur-2xl"></div>
+
+              <div className="flex items-center justify-between mb-5 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="bg-success/20 p-2.5 rounded-xl text-success shadow-inner">🎓</div>
+                  <h3 className="text-xl font-bold text-foreground">Convert to Student</h3>
+                </div>
+                <button onClick={() => setShowConvertModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
 
-              <div className="bg-surface-secondary space-y-2 rounded-xl p-4">
-                <p className="text-sm">
-                  <strong>Student:</strong> {selectedEnquiry.student_name}
-                </p>
-                <p className="text-sm">
-                  <strong>Parent:</strong> {selectedEnquiry.parent_name || '-'}
-                </p>
-                <p className="text-sm">
-                  <strong>Phone:</strong> {selectedEnquiry.phone}
-                </p>
-                <p className="text-sm">
-                  <strong>Interested Sports:</strong>{' '}
-                  {selectedEnquiry.interested_sports ? (
-                    (() => {
-                      try {
-                        const sports = JSON.parse(selectedEnquiry.interested_sports);
-                        return sports.length > 0 ? sports.join(', ') : selectedEnquiry.sport_interested || '-';
-                      } catch (e) {
-                        return selectedEnquiry.sport_interested || '-';
-                      }
-                    })()
-                  ) : (
-                    selectedEnquiry.sport_interested || '-'
-                  )}
-                </p>
+              <div className="bg-surface space-y-3 rounded-xl p-5 mb-5 border border-border/50 text-sm relative z-10 shadow-sm">
+                <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Student Name</span>
+                  <span className="font-bold text-[15px]">{selectedEnquiry.student_name}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Parent</span>
+                  <span className="font-medium">{selectedEnquiry.parent_name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Phone</span>
+                  <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded">{selectedEnquiry.phone}</span>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 pt-1">
+                  <span className="text-muted-foreground font-semibold w-full text-left">Interested Sports</span>
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {selectedEnquiry.interested_sports ? (
+                      (() => {
+                        try {
+                          const sports = JSON.parse(selectedEnquiry.interested_sports);
+                          return sports.length > 0 ? sports.map(s => <span key={s} className="badge bg-background shadow-sm border-border border">{s}</span>) : <span>{selectedEnquiry.sport_interested || '—'}</span>;
+                        } catch (e) {
+                          return <span>{selectedEnquiry.sport_interested || '—'}</span>;
+                        }
+                      })()
+                    ) : (
+                      <span>{selectedEnquiry.sport_interested || '—'}</span>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <p className="text-muted text-sm">
-                This will create a new student record and mark the enquiry as converted. The
-                original enquiry will be preserved.
+              <p className="text-muted-foreground text-xs leading-relaxed mb-6 p-3.5 bg-success/5 border border-success/20 rounded-lg text-success/90 relative z-10">
+                This action will provision a new active student record in the system and automatically update the enquiry lifecycle status to <strong>CONVERTED</strong>. The original historic timeline will be safely preserved.
               </p>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <motion.button
-                  onClick={() => setShowConvertModal(false)}
-                  className="btn-secondary px-6 py-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={handleConvertToStudent}
-                  disabled={submitting}
-                  className="bg-success hover:bg-success/80 text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {submitting ? 'Converting...' : 'Convert to Student'}
-                </motion.button>
+              <div className="flex justify-end gap-3 relative z-10">
+                <button onClick={() => setShowConvertModal(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleConvertToStudent} disabled={submitting} className="btn-success shadow-[0_0_15px_rgba(16,185,129,0.3)] w-full sm:w-auto">
+                  {submitting ? 'Processing...' : 'Confirm Conversion'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1263,47 +1287,35 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="card bg-surface border-border w-full max-w-md space-y-4 border p-6 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-danger/80 relative overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black text-red-600">Delete Enquiry</h3>
-                <button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="text-muted hover:text-foreground text-xl font-bold"
-                >
-                  ✕
-                </button>
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-danger/10 rounded-full blur-2xl"></div>
+
+              <div className="flex items-center justify-between mb-5 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="bg-danger/20 p-2.5 rounded-xl text-danger shadow-inner">⚠️</div>
+                  <h3 className="text-xl font-bold text-foreground">Delete Record</h3>
+                </div>
+                <button onClick={() => setShowDeleteModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
 
-              <p className="text-sm">
-                Are you sure you want to delete the enquiry for{' '}
-                <strong>{selectedEnquiry.student_name}</strong>? This action cannot be undone.
+              <p className="text-sm text-muted-foreground mb-6 leading-relaxed relative z-10 p-4 bg-surface rounded-xl border border-border/50">
+                You are about to permanently delete the enquiry record for <strong className="text-foreground text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
+                <br/>This action is irreversible and removes all associated historic logs. Proceed?
               </p>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <motion.button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="btn-secondary px-6 py-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={handleDeleteEnquiry}
-                  disabled={submitting}
-                  className="bg-danger hover:bg-danger/80 text-foreground rounded-xl px-6 py-2 font-bold disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {submitting ? 'Deleting...' : 'Delete'}
-                </motion.button>
+              <div className="flex justify-end gap-3 relative z-10">
+                <button onClick={() => setShowDeleteModal(false)} className="btn-secondary">Keep Record</button>
+                <button onClick={handleDeleteEnquiry} disabled={submitting} className="btn-danger shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                  {submitting ? 'Deleting...' : 'Delete Permanently'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1317,58 +1329,48 @@ export default function EnquiriesPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="card bg-surface border-border w-full max-w-sm space-y-4 border p-6 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-sm p-8 shadow-2xl flex flex-col items-center text-center bg-gradient-to-b from-surface to-surface-secondary border border-border/50"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black">Enquiry Form QR Code</h3>
-                <button
-                  onClick={() => setShowQRModal(false)}
-                  className="text-muted hover:text-foreground text-xl font-bold"
-                >
-                  ✕
-                </button>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="absolute right-5 top-5 text-muted-foreground hover:text-foreground transition-colors w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border/50 hover:bg-surface-secondary"
+              >
+                ✕
+              </button>
+              
+              <div className="bg-primary/10 p-3 rounded-full mb-4">
+                <span className="text-2xl">📱</span>
+              </div>
+              <h3 className="text-xl font-black text-foreground mb-1">Public Intake Form</h3>
+              <p className="text-sm text-muted-foreground mb-6">Scan to submit a new remote enquiry</p>
+
+              <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-surface ring-1 ring-border/50">
+                {typeof window !== 'undefined' && (
+                  <QRCodeSVG
+                    value={`${window.location.origin}/enquiry-form`}
+                    size={200}
+                    level="H"
+                    includeMargin={false}
+                    fgColor="#0a0f0d" 
+                  />
+                )}
               </div>
 
-              <div className="flex flex-col items-center space-y-4">
-                <div ref={qrCodeRef} className="rounded-xl bg-white p-4">
-                  {typeof window !== 'undefined' && (
-                    <QRCodeSVG
-                      value={`${window.location.origin}/enquiry-form`}
-                      size={200}
-                      level="H"
-                      includeMargin={true}
-                    />
-                  )}
-                </div>
-                <p className="text-muted text-center text-sm">
-                  Scan this QR code to access the public enquiry form
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <motion.button
-                  onClick={() => setShowQRModal(false)}
-                  className="btn-secondary px-6 py-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Close
-                </motion.button>
-                <motion.button
-                  onClick={handleDownloadQR}
-                  className="bg-accent hover:bg-accent-hover text-foreground rounded-xl px-6 py-2 font-bold"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Download QR
-                </motion.button>
-              </div>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleDownloadQR}
+                className="btn-primary mt-8 w-full shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)]"
+              >
+                Download PNG Graphic
+              </motion.button>
             </motion.div>
           </motion.div>
         )}

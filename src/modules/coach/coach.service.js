@@ -59,13 +59,21 @@ export const markCoachAbsent = async (coach_id, academy_id, batch_id, reason = n
     throw error;
   }
 
-  // Check if attendance already marked for today
+  // Check if attendance already marked for this coach, batch, and date
+  const startOfDay = new Date(today);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(today);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const existingAttendance = await prisma.coachAttendance.findFirst({
     where: {
       coach_id: coachId,
-      academy_id: academyId,
-      date: today,
-      batch_id: batchId
+      batch_id: batchId,
+      date: {
+        gte: startOfDay,
+        lte: endOfDay
+      }
     }
   });
 
@@ -81,7 +89,7 @@ export const markCoachAbsent = async (coach_id, academy_id, batch_id, reason = n
       coach_id: coachId,
       academy_id: academyId,
       batch_id: batchId,
-      date: today,
+      date: startOfDay,
       status: 'ABSENT',
       is_clocked_in: false,
       remarks: reason || 'Coach marked absent',
@@ -173,23 +181,63 @@ export const markCoachAbsent = async (coach_id, academy_id, batch_id, reason = n
   return attendance;
 };
 
-export const clockIn = async (coach_id, academy_id, location_data = {}) => {
+export const clockIn = async (coach_id, academy_id, batch_id, location_data = {}) => {
   const coachId = parseInt(coach_id, 10);
   const academyId = parseInt(academy_id, 10);
+  const batchId = parseInt(batch_id, 10);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Validate batch exists and belongs to academy
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: batchId,
+      academy_id: academyId,
+      status: 'ACTIVE'
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not active');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validate coach is assigned to this batch
+  const coachAssignment = await prisma.batchCoach.findFirst({
+    where: {
+      batch_id: batchId,
+      coach_id: coachId
+    }
+  });
+
+  if (!coachAssignment) {
+    const error = new Error('Coach is not assigned to this batch');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Use date range for consistent comparison
+  const startOfDay = new Date(today);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(today);
+  endOfDay.setHours(23, 59, 59, 999);
 
   const existingAttendance = await prisma.coachAttendance.findFirst({
     where: {
       coach_id: coachId,
-      academy_id: academyId,
-      date: today,
+      batch_id: batchId,
+      date: {
+        gte: startOfDay,
+        lte: endOfDay
+      },
       is_clocked_in: true
     }
   });
 
   if (existingAttendance) {
-    const error = new Error('Already clocked in today');
+    const error = new Error('Already clocked in for this batch today');
     error.statusCode = 400;
     throw error;
   }
@@ -198,7 +246,8 @@ export const clockIn = async (coach_id, academy_id, location_data = {}) => {
     data: {
       coach_id: coachId,
       academy_id: academyId,
-      date: today,
+      batch_id: batchId,
+      date: startOfDay,
       status: 'PRESENT',
       clock_in_time: new Date(),
       is_clocked_in: true,
@@ -220,23 +269,63 @@ export const clockIn = async (coach_id, academy_id, location_data = {}) => {
   return attendance;
 };
 
-export const clockOut = async (coach_id, academy_id) => {
+export const clockOut = async (coach_id, academy_id, batch_id) => {
   const coachId = parseInt(coach_id, 10);
   const academyId = parseInt(academy_id, 10);
+  const batchId = parseInt(batch_id, 10);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Validate batch exists and belongs to academy
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: batchId,
+      academy_id: academyId,
+      status: 'ACTIVE'
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not active');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validate coach is assigned to this batch
+  const coachAssignment = await prisma.batchCoach.findFirst({
+    where: {
+      batch_id: batchId,
+      coach_id: coachId
+    }
+  });
+
+  if (!coachAssignment) {
+    const error = new Error('Coach is not assigned to this batch');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Use date range for consistent comparison
+  const startOfDay = new Date(today);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(today);
+  endOfDay.setHours(23, 59, 59, 999);
 
   const attendance = await prisma.coachAttendance.findFirst({
     where: {
       coach_id: coachId,
-      academy_id: academyId,
-      date: today,
+      batch_id: batchId,
+      date: {
+        gte: startOfDay,
+        lte: endOfDay
+      },
       is_clocked_in: true
     }
   });
 
   if (!attendance) {
-    const error = new Error('No active clock-in found for today');
+    const error = new Error('No active clock-in found for this batch today');
     error.statusCode = 400;
     throw error;
   }
@@ -688,75 +777,172 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
   return receipt;
 };
 
-export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => {
+export const getCoachSelfAttendanceByDate = async (coach_id, academy_id, batch_id, date) => {
   const coachId = parseInt(coach_id, 10);
   const academyId = parseInt(academy_id, 10);
-  const attendanceDate = payload.date ? new Date(payload.date) : new Date();
-  attendanceDate.setHours(0, 0, 0, 0);
-  const status = String(payload.status || 'PRESENT').toUpperCase();
+  const batchId = parseInt(batch_id, 10);
+  const attendanceDate = date ? new Date(date) : new Date();
+  
+  // Normalize date to start of day for consistent comparison
+  const startOfDay = new Date(attendanceDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(attendanceDate);
+  endOfDay.setHours(23, 59, 59, 999);
 
-  const attendance = await prisma.coachAttendance.upsert({
+  const attendance = await prisma.coachAttendance.findFirst({
     where: {
-      coach_id_date: {
-        coach_id: coachId,
-        date: attendanceDate
-      }
-    },
-    create: {
       coach_id: coachId,
-      academy_id: academyId,
-      date: attendanceDate,
-      status,
-      remarks: payload.remarks || null
-    },
-    update: {
-      status,
-      remarks: payload.remarks || null
+      batch_id: batchId,
+      date: {
+        gte: startOfDay,
+        lte: endOfDay
+      }
     }
   });
 
-  if (status === 'ABSENT') {
-    // FIXED: Using standard relation schemas consistent with the rest of this file
-    const coach = await prisma.coach.findUnique({
-      where: { coach_id: coachId },
-      include: {
-        academy: {
-          include: {
-            users: { where: { ...NOT_DELETED, role: 'ACADEMY_ADMIN' }, take: 1 }
-          }
+  return attendance;
+};
+
+export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const batchId = parseInt(payload.batch_id, 10);
+  const attendanceDate = payload.date ? new Date(payload.date) : new Date();
+  
+  // Validate batch exists and belongs to academy
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: batchId,
+      academy_id: academyId,
+      status: 'ACTIVE'
+    },
+    include: {
+      sport: true
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not active');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validate coach is assigned to this batch
+  const coachAssignment = await prisma.batchCoach.findFirst({
+    where: {
+      batch_id: batchId,
+      coach_id: coachId
+    }
+  });
+
+  if (!coachAssignment) {
+    const error = new Error('Coach is not assigned to this batch');
+    error.statusCode = 403;
+    throw error;
+  }
+  
+  // Normalize date to start of day for consistent comparison
+  const startOfDay = new Date(attendanceDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(attendanceDate);
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  const status = String(payload.status || 'PRESENT').toUpperCase();
+
+  try {
+    // Check if attendance already exists for this coach, batch, and date
+    const existingAttendance = await prisma.coachAttendance.findFirst({
+      where: {
+        coach_id: coachId,
+        batch_id: batchId,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay
         }
       }
     });
 
-    const adminEmail = coach?.academy?.users?.[0]?.email;
-    if (adminEmail) {
-      // Safely pull active batches using the direct many-to-many lookup logic
-      const activeBatches = await prisma.batch.findMany({
-        where: {
-          coaches: { some: { coach_id: coachId } },
-          academy_id: academyId,
-          status: 'ACTIVE'
+    // If attendance already exists, return it without creating a new one
+    if (existingAttendance) {
+      logger.info('Coach attendance already exists for this batch and date', { coachId, batchId, date: attendanceDate });
+      return existingAttendance;
+    }
+
+    // Create new attendance record
+    const attendance = await prisma.coachAttendance.create({
+      data: {
+        coach_id: coachId,
+        academy_id: academyId,
+        batch_id: batchId,
+        date: startOfDay,
+        status,
+        remarks: payload.remarks || null,
+        latitude: payload.latitude || null,
+        longitude: payload.longitude || null,
+        distance_from_location_meters: payload.distance_from_location_meters || null,
+        location_verified: payload.location_verified || false
+      }
+    });
+
+    if (status === 'ABSENT') {
+      const coach = await prisma.coach.findUnique({
+        where: { coach_id: coachId },
+        include: {
+          academy: {
+            include: {
+              users: { where: { ...NOT_DELETED, role: 'ACADEMY_ADMIN' }, take: 1 }
+            }
+          }
         }
       });
 
-      await sendCoachAbsenceAlertToAdmin({
-        adminEmail,
-        coachName: coach.name,
-        date: attendanceDate.toISOString().slice(0, 10),
-        batches: activeBatches
-      }).catch((err) => {
-        logger.error('Coach absence alert failed', { message: err.message });
-      });
+      const adminEmail = coach?.academy?.users?.[0]?.email;
+      if (adminEmail) {
+        await sendCoachAbsenceAlertToAdmin({
+          adminEmail,
+          coachName: coach.name,
+          date: startOfDay.toISOString().slice(0, 10),
+          batches: [batch]
+        }).catch((err) => {
+          logger.error('Coach absence alert failed', { message: err.message });
+        });
+      }
     }
+
+    await logAudit({
+      academy_id: academyId,
+      actor_type: 'COACH',
+      actor_id: coachId,
+      action: 'COACH_SELF_ATTENDANCE',
+      metadata: { 
+        status, 
+        date: startOfDay,
+        batch_id: batchId,
+        sport_id: batch.sport_id
+      }
+    });
+
+    return attendance;
+  } catch (error) {
+    // If it's a unique constraint error (P2002), try to fetch and return existing record
+    if (error.code === 'P2002') {
+      logger.warn('Duplicate attendance attempt due to race condition, fetching existing record', { coachId, batchId, date: attendanceDate });
+      const existingAttendance = await prisma.coachAttendance.findFirst({
+        where: {
+          coach_id: coachId,
+          batch_id: batchId,
+          date: {
+            gte: startOfDay,
+            lte: endOfDay
+          }
+        }
+      });
+      if (existingAttendance) {
+        return existingAttendance;
+      }
+    }
+    throw error;
   }
-
-  await logAudit({
-    academy_id: academyId,
-    actor_type: 'COACH',
-    actor_id: coachId,
-    action: 'COACH_SELF_ATTENDANCE',
-    metadata: { status, date: attendanceDate }
-  });
-
-  return attendance;
 };

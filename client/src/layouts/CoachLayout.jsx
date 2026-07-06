@@ -11,7 +11,6 @@ const COACH_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: '📈' },
   { path: 'notes', label: 'Daily Notes', icon: '📝' },
   { path: 'fees', label: 'Fees', icon: '💳' },
-  { path: 'my-attendance', label: 'My Attendance', icon: '👤' },
 ];
 
 const PAGE_TITLES = Object.fromEntries(COACH_NAV_ITEMS.map((item) => [item.path, item.label]));
