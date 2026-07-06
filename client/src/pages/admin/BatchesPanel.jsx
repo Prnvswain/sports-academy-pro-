@@ -343,7 +343,7 @@ export default function BatchesPanel() {
         {/* Overlap Conflict Modal */}
         <AnimatePresence>
           {overlapDetails && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4">
+            <div className="fixed inset-0 z-[999] flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4">
               <motion.div
                 className="bg-white dark:bg-[#111814] p-8 rounded-[2rem] shadow-2xl max-w-md w-full border border-amber-200 dark:border-amber-900/50"
                 initial={{ scale: 0.95, opacity: 0, y: 20 }}

@@ -127,7 +127,7 @@ export const AnimatedModal = ({ children, isOpen, onClose, className = '' }) => 
       animate={{ opacity: isOpen ? 1 : 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className={`bg-surface/40 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md ${className}`}
+      className={`bg-surface/40 fixed inset-0 z-[999] flex items-center justify-center p-4 backdrop-blur-md ${className}`}
       onClick={onClose}
     >
       <motion.div

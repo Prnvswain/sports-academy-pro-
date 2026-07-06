@@ -517,7 +517,7 @@ export default function CoachesPanel() {
       {/* --- Add Coach Modal --- */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md" onClick={closeModal}>
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md" onClick={closeModal}>
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -619,7 +619,7 @@ export default function CoachesPanel() {
       {/* --- Bulk Import Modal --- */}
       <AnimatePresence>
         {showBulkImportModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4" onClick={() => setShowBulkImportModal(false)}>
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4" onClick={() => setShowBulkImportModal(false)}>
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}

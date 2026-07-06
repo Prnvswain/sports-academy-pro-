@@ -134,7 +134,7 @@ export default function MapLocationPicker({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="bg-surface border-border max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl border shadow-2xl">
         <div className="border-border flex items-center justify-between border-b p-4">
           <h3 className="font-bold text-lg">Select Sport Center Location</h3>
@@ -181,7 +181,7 @@ export default function MapLocationPicker({
 
           <div className="border-border relative h-80 overflow-hidden rounded-lg border">
             {/* Uber-style center pin marker - fixed position, doesn't move with map */}
-            <div className="pointer-events-none absolute left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-full text-3xl drop-shadow-lg">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-full text-3xl drop-shadow-lg">
               📍
             </div>
 

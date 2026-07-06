@@ -63,7 +63,7 @@ export default function AdminLayout() {
         initial={{ width: sidebarCollapsed ? '5rem' : '17rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '17rem' }}
         transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-        className={`bg-card/80 backdrop-blur-2xl border-r border-border/50 flex-shrink-0 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
+        className={`bg-card/80 backdrop-blur-2xl border-r border-border/50 flex-shrink-0 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-20 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
         {/* Sidebar Header / Logo */}
         <div className="flex h-16 items-center justify-between border-b border-border/50 px-4">
@@ -85,7 +85,7 @@ export default function AdminLayout() {
           </Link>
           <motion.button
             type="button"
-            className="btn-ghost hidden h-8 w-8 items-center justify-center rounded-lg border border-transparent text-muted-foreground hover:bg-surface-secondary hover:text-foreground lg:inline-flex"
+            className="btn-ghost sidebar-toggle-button hidden h-8 w-8 items-center justify-center rounded-lg border border-transparent text-muted-foreground hover:bg-surface-secondary hover:text-foreground lg:inline-flex"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             whileHover={{ scale: 1.05 }}
@@ -164,7 +164,7 @@ export default function AdminLayout() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             type="button"
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden cursor-default outline-none"
+            className="fixed inset-0 z-10 bg-background/80 backdrop-blur-sm lg:hidden cursor-default outline-none"
             aria-label="Close sidebar"
             onClick={closeMobileSidebar}
           />
@@ -179,7 +179,7 @@ export default function AdminLayout() {
           <div className="flex items-center gap-4">
             <motion.button
               type="button"
-              className="btn-ghost flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground"
+              className="btn-ghost sidebar-toggle-button flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
               whileHover={{ scale: 1.05 }}

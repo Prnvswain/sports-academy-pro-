@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 
-export default function ParentLayout() {
+function ParentLayoutShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
@@ -179,5 +179,11 @@ export default function ParentLayout() {
         <Outlet />
       </main>
     </div>
+  );
+}
+
+export default function ParentLayout() {
+  return (
+    <ParentLayoutShell />
   );
 }

@@ -3,7 +3,7 @@ import ThemeToggle from './ThemeToggle';
 
 export default function Navbar({ children, brandTo = '/' }) {
   return (
-    <header className="bg-background/80 backdrop-blur-xl border-b border-border/40 sticky top-0 z-50 transition-all duration-300 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+    <header className="bg-background/80 backdrop-blur-xl border-b border-border/40 sticky top-0 z-30 transition-all duration-300 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 lg:px-8">
         <Link
           to={brandTo}

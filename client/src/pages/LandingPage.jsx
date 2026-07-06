@@ -461,7 +461,7 @@ export default function LandingPage() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
-                  className="bg-surface border-border absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border shadow-xl"
+                  className="bg-surface border-border absolute right-0 top-full z-[1000] mt-2 w-48 overflow-hidden rounded-xl border shadow-xl"
                 >
                   <div className="p-1">
                     <Link
@@ -1502,7 +1502,7 @@ export default function LandingPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.94, y: 12 }}

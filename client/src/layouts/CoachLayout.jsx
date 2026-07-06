@@ -43,7 +43,7 @@ function CoachLayoutShell() {
         initial={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         animate={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`border-border bg-surface-secondary fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-all duration-300 ease-in-out transition-colors duration-200 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`border-border bg-surface-secondary fixed inset-y-0 left-0 z-20 flex flex-col border-r transition-all duration-300 ease-in-out transition-colors duration-200 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="border-border flex items-center justify-between border-b p-4">
           <Link
@@ -64,7 +64,7 @@ function CoachLayoutShell() {
           </Link>
           <motion.button
             type="button"
-            className="btn-ghost hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm lg:inline-flex"
+            className="btn-ghost sidebar-toggle-button hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm lg:inline-flex"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             whileHover={{ scale: 1.1 }}
@@ -125,7 +125,7 @@ function CoachLayoutShell() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             type="button"
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-10 bg-black/50 lg:hidden"
             aria-label="Close sidebar"
             onClick={closeMobileSidebar}
           />
@@ -142,7 +142,7 @@ function CoachLayoutShell() {
           <div className="flex items-center gap-3">
             <motion.button
               type="button"
-              className="btn-ghost lg:hidden"
+              className="btn-ghost sidebar-toggle-button lg:hidden"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
               whileHover={{ scale: 1.1 }}

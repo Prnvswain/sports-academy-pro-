@@ -45,7 +45,7 @@ export default function SuperAdminLayout() {
         initial={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         animate={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`bg-slate-50/90 backdrop-blur-md border-r border-slate-200/80 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
+        className={`bg-slate-50/90 backdrop-blur-md border-r border-slate-200/80 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden fixed inset-y-0 left-0 z-20 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
         <div className="border-b border-slate-200/60 flex items-center justify-between p-4 bg-white/50">
           <Link
@@ -66,7 +66,7 @@ export default function SuperAdminLayout() {
           </Link>
           <motion.button
             type="button"
-            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/70 rounded-md p-1 hidden lg:inline-flex transition-all"
+            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/70 rounded-md p-1 sidebar-toggle-button hidden lg:inline-flex transition-all"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             whileHover={{ scale: 1.1 }}
@@ -153,7 +153,7 @@ export default function SuperAdminLayout() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             type="button"
-            className="fixed inset-0 z-40 bg-slate-900/10 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-10 bg-slate-900/10 backdrop-blur-sm lg:hidden"
             aria-label="Close sidebar"
             onClick={closeMobileSidebar}
           />
@@ -167,7 +167,7 @@ export default function SuperAdminLayout() {
           <div className="flex items-center gap-3">
             <motion.button
               type="button"
-              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/70 rounded-md p-2 lg:hidden transition-all"
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/70 rounded-md p-2 sidebar-toggle-button lg:hidden transition-all"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
               whileHover={{ scale: 1.1 }}
