@@ -45,7 +45,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globDirectory: '../public',
+        
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,woff,ttf,eot}'],
         navigateFallback: '/index.html',
         navigateFallbackAllowlist: [/^\//], // FIX: Allows SPA routing (like /admin/dashboard) to correctly fallback to index.html
@@ -78,7 +78,7 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module'
       }
     })
@@ -100,7 +100,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: '../public',
+    outDir: 'dist',
     emptyOutDir: true
   }
 });

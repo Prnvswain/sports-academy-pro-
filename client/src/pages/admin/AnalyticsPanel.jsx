@@ -5,9 +5,9 @@ import { adminGet } from '../../api/client';
 function formatCurrency(value) {
   const num = parseFloat(value);
   if (Number.isNaN(num)) {
-    return '$0.00';
+    return '₹0.00';
   }
-  return `$${num.toFixed(2)}`;
+  return `₹${num.toFixed(2)}`;
 }
 
 export default function AnalyticsPanel() {

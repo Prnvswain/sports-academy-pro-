@@ -1044,7 +1044,7 @@ export default function SportsPanel() {
                               </div>
                             ) : (
                               <div className="flex items-center gap-3 font-bold text-gray-900 dark:text-white">
-                                ${formatCurrency(sport.base_fee || sport.baseFee)}
+                                ₹{formatCurrency(sport.base_fee || sport.baseFee)}
                                 <button
                                   type="button"
                                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all p-1"

@@ -1,6 +1,8 @@
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 import { JWT_SECRET, JWT_EXPIRE, BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
 import { RESET_CODE_EXPIRE_MINUTES } from '../../config/mail.config.js';
 import {
@@ -21,6 +23,29 @@ import {
 } from '../../services/mail.service.js';
 import logger from '../../utils/logger.js';
 
+const ACADEMY_LOGO_DIR = path.join(process.cwd(), 'uploads', 'academy-logos');
+
+const ensureAcademyLogoDir = () => {
+  if (!fs.existsSync(ACADEMY_LOGO_DIR)) {
+    fs.mkdirSync(ACADEMY_LOGO_DIR, { recursive: true });
+  }
+};
+
+const saveAcademyLogo = async (file, academyId) => {
+  if (!file) return null;
+
+  ensureAcademyLogoDir();
+
+  const ext = path.extname(file.name || file.originalname);
+  const filename = `academy-${academyId}-${Date.now()}${ext}`;
+  const filePath = path.join(ACADEMY_LOGO_DIR, filename);
+
+  const buffer = file.buffer || (await file.arrayBuffer());
+  fs.writeFileSync(filePath, Buffer.from(buffer));
+
+  return `/uploads/academy-logos/${filename}`;
+};
+
 export const signupAcademy = async ({
   name,
   email,
@@ -33,7 +58,8 @@ export const signupAcademy = async ({
   state,
   latitude,
   longitude,
-  attendance_radius_meters
+  attendance_radius_meters,
+  logo
 }) => {
   // Validate password length before hashing
   if (!password || password.length < 6) {
@@ -93,15 +119,27 @@ export const signupAcademy = async ({
           subscription_expires_at,
           status: 'ACTIVE',
 
-          latitude: latitude ? Number(latitude) : null,
-          longitude: longitude ? Number(longitude) : null,
+          latitude: latitude ? parseFloat(latitude) : null,
+          longitude: longitude ? parseFloat(longitude) : null,
           city: city || null,
           state: state || null,
           address: address || null,
-          attendance_radius_meters:
-            attendance_radius_meters || 100
+
+          attendance_radius_meters: attendance_radius_meters
+            ? parseInt(attendance_radius_meters, 10)
+            : 100,
         }
       });
+
+      // Save logo if provided
+      let logo_url = null;
+      if (logo) {
+        logo_url = await saveAcademyLogo(logo, academy.academy_id);
+        await tx.academy.update({
+          where: { academy_id: academy.academy_id },
+          data: { logo_url }
+        });
+      }
 
       const user = await tx.user.create({
         data: {
@@ -268,11 +306,11 @@ export const loginCoach = async ({ email, password, ip }) => {
     console.log("4. Plain Password Input:", password);
     console.log("5. Password Hash in DB:", coach.password_hash);
     console.log("6. Password Hash Length:", coach.password_hash?.length);
-    
+
     // Check if bcrypt is comparing properly
     const isMatch = await bcrypt.compare(password, coach.password_hash);
     console.log("7. Bcrypt Match Result:", isMatch);
-    
+
     // Strict check if password was mistakenly saved as plaintext
     console.log("8. Is Plaintext Equal?:", password === coach.password_hash);
   }

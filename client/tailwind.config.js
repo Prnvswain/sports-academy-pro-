@@ -4,6 +4,22 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    'hover:bg-accent/10',
+    'hover:bg-accent/5',
+    'hover:bg-secondary',
+    'hover:text-accent',
+    'hover:text-foreground',
+    'hover:bg-surface-secondary',
+    'hover:bg-surface',
+    'hover:bg-primary/10',
+    'hover:text-primary',
+    'hover:bg-accent/20',
+    'hover:bg-accent/30',
+    'hover:border-accent',
+    'hover:border-accent/40',
+    'hover:border-accent/50',
+  ],
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
@@ -21,6 +37,7 @@ export default {
         secondary: {
           DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
           foreground: "hsl(var(--secondary-foreground) / <alpha-value>)",
+          hover: "rgb(var(--color-bg-tertiary) / <alpha-value>)",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
@@ -33,6 +50,7 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent) / <alpha-value>)",
           foreground: "hsl(var(--accent-foreground) / <alpha-value>)",
+          hover: "rgb(var(--color-accent-hover) / <alpha-value>)",
         },
         popover: {
           DEFAULT: "hsl(var(--popover) / <alpha-value>)",
@@ -47,12 +65,14 @@ export default {
         surface: "rgb(var(--color-bg-secondary) / <alpha-value>)",
         "surface-secondary": "rgb(var(--color-bg-tertiary) / <alpha-value>)",
         success: "rgb(var(--color-accent-primary) / <alpha-value>)",
-        danger: "rgb(239 68 68 / <alpha-value>)",
+        danger: "rgb(var(--color-danger) / <alpha-value>)",
         blue: "rgb(var(--color-blue-primary) / <alpha-value>)",
         purple: "rgb(var(--color-purple-primary) / <alpha-value>)",
         amber: "rgb(var(--color-amber-primary) / <alpha-value>)",
         orange: "rgb(var(--color-orange-primary) / <alpha-value>)",
         cyan: "rgb(var(--color-cyan-primary) / <alpha-value>)",
+        text: "rgb(var(--color-text) / <alpha-value>)",
+        "text-muted": "rgb(var(--color-text-muted) / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -67,5 +87,7 @@ export default {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    require('tailwindcss-animate'),
+  ],
 }

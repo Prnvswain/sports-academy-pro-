@@ -1,4 +1,5 @@
 import * as coachService from './coach.service.js';
+import * as adminService from '../admin/admin.service.js';
 import { successResponse } from '../../utils/response.js';
 
 export const getMyBatches = async (req, res, next) => {
@@ -50,16 +51,60 @@ export const getPayments = async (req, res, next) => {
   }
 };
 
+export const getStudentLedger = async (req, res, next) => {
+  try {
+    const ledger = await adminService.getStudentLedger(req.user.academy_id, req.params.student_id);
+    res.json(successResponse('Student ledger retrieved successfully', ledger));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const recordPayment = async (req, res, next) => {
   try {
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
+
+    const payload = { ...req.body };
+
+    if (req.file) {
+      payload.proof_url = req.file.path;
+      console.log("Saved proof:", req.file.path);
+    } else {
+      console.log("❌ No file received");
+    }
+
     const payment = await coachService.recordCoachPayment(
       req.user.coach_id,
       req.user.academy_id,
-      req.body
+      payload
     );
+
     res.status(201).json(
-      successResponse('Payment recorded and pending admin approval', payment)
+      successResponse("Payment recorded and pending admin approval", payment)
     );
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePaymentProof = async (req, res, next) => {
+  try {
+    const payload = { ...req.body };
+    
+    // If a file was uploaded, set the proof_url to the file path
+    if (req.file) {
+      payload.proof_url = req.file.path;
+    }
+    
+    const updatedPayment = await coachService.updatePaymentProof(
+      req.user.coach_id,
+      req.user.academy_id,
+      req.params.receiptId,
+      payload.proof_url
+    );
+    
+    res.json(successResponse('Payment proof updated successfully', updatedPayment));
   } catch (err) {
     next(err);
   }

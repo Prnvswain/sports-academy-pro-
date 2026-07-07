@@ -1,4 +1,5 @@
 import multer from 'multer';
+import path from 'path';
 
 const upload = multer({
   dest: 'uploads/',
@@ -6,10 +7,22 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
+    // Allow CSV files for imports
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
       cb(null, true);
+    }
+    // Allow image files for payment proofs
+    else if (
+      file.mimetype.startsWith('image/') ||
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(file.originalname)
+    ) {
+      cb(null, true);
+    }
+    // Allow PDF files for payment proofs
+    else if (file.mimetype === 'application/pdf' || file.originalname.endsWith('.pdf')) {
+      cb(null, true);
     } else {
-      cb(new Error('Only CSV files are allowed'), false);
+      cb(new Error('Only CSV, image, and PDF files are allowed'), false);
     }
   },
 });

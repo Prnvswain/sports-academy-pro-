@@ -63,16 +63,19 @@ export default function PerformancePanel() {
       setLoadingBatches(true);
       const result = await adminGet(`/admin/batches?sport_id=${sportId}`);
       const responseData = result.data;
+
       let batchesArray = [];
+
       if (Array.isArray(responseData)) {
-        responseData = responseData;
-      } else if (responseData && Array.isArray(responseData.data)) {
+        batchesArray = responseData;
+      } else if (responseData?.data && Array.isArray(responseData.data)) {
         batchesArray = responseData.data;
-      } else if (responseData && Array.isArray(responseData.batches)) {
+      } else if (responseData?.batches && Array.isArray(responseData.batches)) {
         batchesArray = responseData.batches;
       } else {
         batchesArray = [];
       }
+
       setBatches(batchesArray);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -126,7 +129,14 @@ export default function PerformancePanel() {
       } else {
         studentsArray = [];
       }
-      setStudents(studentsArray);
+      
+      // Client-side filtering to ensure only batch-assigned students are shown
+      const filteredStudents = studentsArray.filter(student => {
+        const studentBatchId = student.batch_id || student.batch?.batch_id || student.batch?.id;
+        return String(studentBatchId) === String(batchId);
+      });
+      
+      setStudents(filteredStudents);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
       setStudents([]);
@@ -307,7 +317,7 @@ export default function PerformancePanel() {
 
   const filteredBatches = batches.filter((batch) => {
     if (!selectedSport) return true;
-    
+
     const targetSportId = String(selectedSport.sport_id || selectedSport.id || '').toLowerCase();
     const targetSportName = String(selectedSport.name || '').toLowerCase();
 
@@ -315,7 +325,7 @@ export default function PerformancePanel() {
     const batchSportName = String(batch.sport?.name || (typeof batch.sport === 'string' ? batch.sport : '') || '').toLowerCase();
 
     return (
-      (batchSportId && batchSportId === targetSportId) || 
+      (batchSportId && batchSportId === targetSportId) ||
       (batchSportName && batchSportName === targetSportName) ||
       batchSportName.includes(targetSportName) ||
       targetSportName.includes(batchSportName)
@@ -376,11 +386,10 @@ export default function PerformancePanel() {
               <button
                 type="button"
                 onClick={() => handleAnalyticsTabChange('academy')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                  analyticsTab === 'academy'
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${analyticsTab === 'academy'
                     ? 'bg-accent text-foreground'
                     : 'bg-surface text-muted hover:text-foreground'
-                }`}
+                  }`}
               >
                 Academy Overview
               </button>
@@ -388,11 +397,10 @@ export default function PerformancePanel() {
                 type="button"
                 onClick={() => handleAnalyticsTabChange('batch')}
                 disabled={!selectedBatchId}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                  analyticsTab === 'batch'
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${analyticsTab === 'batch'
                     ? 'bg-accent text-foreground'
                     : 'bg-surface text-muted hover:text-foreground disabled:opacity-50'
-                }`}
+                  }`}
               >
                 Batch Analytics
               </button>
@@ -400,11 +408,10 @@ export default function PerformancePanel() {
                 type="button"
                 onClick={() => handleAnalyticsTabChange('student')}
                 disabled={!selectedStudent}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                  analyticsTab === 'student'
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${analyticsTab === 'student'
                     ? 'bg-accent text-foreground'
                     : 'bg-surface text-muted hover:text-foreground disabled:opacity-50'
-                }`}
+                  }`}
               >
                 Student Analytics
               </button>
@@ -506,7 +513,7 @@ export default function PerformancePanel() {
                       <div className="bg-surface p-4 rounded-xl border border-border">
                         <div className="text-xs text-muted mb-1">Overall Average</div>
                         <div className="text-2xl font-black text-accent">{studentAnalytics.overallAverage?.toFixed(1) || '0.0'}</div>
-              </div>
+                      </div>
                       <div className="bg-surface p-4 rounded-xl border border-border">
                         <div className="text-xs text-muted mb-1">Total Evaluations</div>
                         <div className="text-2xl font-black text-accent">{studentAnalytics.totalEvaluations || 0}</div>
@@ -774,8 +781,8 @@ export default function PerformancePanel() {
                         </thead>
                         <tbody>
                           {students.map((student) => (
-                            <tr 
-                              key={student.student_id || student.id} 
+                            <tr
+                              key={student.student_id || student.id}
                               onClick={() => handleStudentClick(student)}
                               className="border-border/50 border-b hover:bg-accent/5 cursor-pointer transition-colors"
                             >
@@ -814,8 +821,8 @@ export default function PerformancePanel() {
           <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
             {/* Background click overlay */}
             <div className="absolute inset-0" onClick={() => setSelectedStudent(null)} />
-            
-            <motion.div 
+
+            <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -829,7 +836,7 @@ export default function PerformancePanel() {
                   </h4>
                   <p className="text-xs text-muted">Student Performance History & Logs</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedStudent(null)}
                   className="p-2 hover:bg-surface-secondary text-muted rounded-full text-lg transition-colors"
                 >
@@ -854,8 +861,8 @@ export default function PerformancePanel() {
 
               {/* Coach Tracking Timeline History */}
               <div className="flex-1 space-y-4">
-                <h5 className="text-sm font-black text-foreground mb-2">📊 Coach Assessment Timeline Logs</h5>
-                
+                <h5 className="text-sm font-black text-foreground mb-2">📊 Metrics Scoring Ledger · Coach Assessments</h5>
+
                 {loadingHistory ? (
                   <div className="flex items-center justify-center py-6"><Loader /></div>
                 ) : studentHistory.length > 0 ? (
@@ -864,13 +871,13 @@ export default function PerformancePanel() {
                       <div key={idx} className="relative">
                         {/* Timeline Bullet Point */}
                         <span className="absolute -left-[21px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-accent ring-4 ring-surface" />
-                        
+
                         <div className="bg-surface-secondary/70 p-3.5 rounded-xl border border-border/50 space-y-2">
                           <div className="flex justify-between items-center text-xs text-muted">
                             <span className="font-bold text-foreground">📅 {historyItem.date}</span>
                             <span>👤 {historyItem.coach || 'Assigned Coach'}</span>
                           </div>
-                          
+
                           {/* Remarks */}
                           <p className="text-xs text-foreground italic bg-surface p-2 rounded border border-border/30">
                             "{historyItem.remarks || 'No notes provided by coach.'}"

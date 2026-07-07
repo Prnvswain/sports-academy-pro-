@@ -492,9 +492,30 @@ export default function StudentsPanel() {
     }
   };
 
-  const handleEditStudent = (student) => {
+  const handleEditStudent = async (student) => {
     const batchIds = student.enrollments?.map(e => e.batch_id).filter(Boolean) || [];
     const firstEnrollment = student.enrollments?.[0] || {};
+    
+    // Load batches for the student's sport immediately
+    let batchesData = [];
+    if (firstEnrollment.sport_id) {
+      try {
+        const result = await adminGet(
+          `/admin/batches/available?sport_id=${firstEnrollment.sport_id}`
+        );
+        batchesData = result.data || [];
+        setEditAvailableBatches(batchesData);
+      } catch (error) {
+        console.error('Failed to load batches for edit:', error);
+        setEditAvailableBatches([]);
+      }
+    } else {
+      setEditAvailableBatches([]);
+    }
+
+    const sportId = firstEnrollment.sport_id || '';
+    const sportName = sports?.find(s => (s.sport_id || s.id) == sportId)?.name || '';
+    
     setEditStudentForm({
       student_id: student.student_id,
       name: student.name,
@@ -506,7 +527,7 @@ export default function StudentsPanel() {
       batch_id: firstEnrollment.batch_id || '',
       duration_plan_id: firstEnrollment.duration_plan_id || '',
       sport_ids: student.enrollments?.map((e) => e.sport_id) || [],
-      sport_id: firstEnrollment.sport_id || '',
+      sport_id: sportId,
       age: student.age || '',
       gender: student.gender || '',
       blood_group: student.blood_group || '',
@@ -517,6 +538,12 @@ export default function StudentsPanel() {
         : '',
     });
     setEditSelectedSports(student.enrollments?.map((e) => e.sport_id) || []);
+    setSportSearchQuery(sportName);
+    
+    const batchId = firstEnrollment.batch_id || '';
+    const batchName = batchesData.find(b => b.batch_id == batchId)?.name || '';
+    setBatchSearchQuery(batchName);
+    
     setIsEditingStudent(true);
   };
 
@@ -530,6 +557,7 @@ export default function StudentsPanel() {
         parent_phone: editStudentForm.parent_phone,
         phone: editStudentForm.phone,
         batch_id: editStudentForm.batch_id ? parseInt(editStudentForm.batch_id) : null,
+        sport_ids: editSelectedSports.length > 0 ? editSelectedSports : (editStudentForm.sport_id ? [parseInt(editStudentForm.sport_id)] : []),
         sport_id: editStudentForm.sport_id ? parseInt(editStudentForm.sport_id) : null,
         duration_plan_id: editStudentForm.duration_plan_id
           ? parseInt(editStudentForm.duration_plan_id)
@@ -1265,7 +1293,7 @@ export default function StudentsPanel() {
                           <div className="flex justify-between">
                             <span>Total Registration Fee:</span>
                             <span className="font-semibold">
-                              $
+                              ₹
                               {formatCurrency(
                                 studentDetails.enrollments.reduce(
                                   (sum, e) =>
@@ -1279,7 +1307,7 @@ export default function StudentsPanel() {
                           <div className="flex justify-between">
                             <span>Total Monthly Fee:</span>
                             <span className="font-semibold">
-                              $
+                              ₹
                               {formatCurrency(
                                 studentDetails.enrollments.reduce(
                                   (sum, e) =>
@@ -1292,7 +1320,7 @@ export default function StudentsPanel() {
                           <div className="flex justify-between">
                             <span>Total Additional Charges:</span>
                             <span className="font-semibold">
-                              $
+                              ₹
                               {formatCurrency(
                                 studentDetails.enrollments.reduce(
                                   (sum, e) =>
@@ -1307,7 +1335,7 @@ export default function StudentsPanel() {
                           <div className="flex justify-between">
                             <span>Total Discount:</span>
                             <span className="text-danger font-semibold">
-                              -$
+                              -₹
                               {formatCurrency(
                                 studentDetails.enrollments.reduce(
                                   (sum, e) => sum + (Number(e?.discount || 0) || 0),
@@ -1319,7 +1347,7 @@ export default function StudentsPanel() {
                           <div className="border-accent/30 col-span-2 mt-2 flex justify-between border-t pt-2">
                             <span className="text-accent font-bold">Grand Total Due:</span>
                             <span className="text-success text-lg font-bold">
-                              $
+                              ₹
                               {formatCurrency(
                                 studentDetails.enrollments.reduce((sum, e) => {
                                   const regFee =
@@ -1367,12 +1395,12 @@ export default function StudentsPanel() {
                             <div key={enrollmentId} className="border-b pb-2 last:border-0">
                               <p className="font-semibold">{sportName}</p>
                               <div className="mt-1 grid grid-cols-2 gap-2">
-                                <span>Registration: ${formatCurrency(regFee)}</span>
-                                <span>Monthly: ${formatCurrency(monthlyFee)}</span>
-                                <span>Additional: ${formatCurrency(addCharges)}</span>
-                                <span>Discount: -${formatCurrency(discount)}</span>
+                                <span>Registration: ₹{formatCurrency(regFee)}</span>
+                                <span>Monthly: ₹{formatCurrency(monthlyFee)}</span>
+                                <span>Additional: ₹{formatCurrency(addCharges)}</span>
+                                <span>Discount: -₹{formatCurrency(discount)}</span>
                                 <span className="text-success col-span-2 font-bold">
-                                  Net Due: ${formatCurrency(netDue)}
+                                  Net Due: ₹{formatCurrency(netDue)}
                                 </span>
                               </div>
                             </div>
@@ -2220,7 +2248,7 @@ export default function StudentsPanel() {
             <div className="flex justify-between">
               <span>Sports Base Fee:</span>
               <span className="font-semibold">
-                ${formatCurrency(calculateLiveFee().totalSportsFee)}
+                ₹{formatCurrency(calculateLiveFee().totalSportsFee)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -2230,31 +2258,31 @@ export default function StudentsPanel() {
             <div className="flex justify-between">
               <span>Sports Fee (with multiplier):</span>
               <span className="font-semibold">
-                ${formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}
+                ₹{formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Registration Fee:</span>
               <span className="font-semibold">
-                ${formatCurrency(calculateLiveFee().registrationFee)}
+                ₹{formatCurrency(calculateLiveFee().registrationFee)}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Additional Charges:</span>
               <span className="font-semibold">
-                ${formatCurrency(calculateLiveFee().additionalCharges)}
+                ₹{formatCurrency(calculateLiveFee().additionalCharges)}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Discount:</span>
               <span className="text-danger font-semibold">
-                -${formatCurrency(calculateLiveFee().discount)}
+                -₹{formatCurrency(calculateLiveFee().discount)}
               </span>
             </div>
             <div className="border-accent/20 mt-2 flex justify-between border-t pt-2">
               <span className="font-bold">Final Fee:</span>
               <span className="text-success text-lg font-bold">
-                ${formatCurrency(calculateLiveFee().finalFee)}
+                ₹{formatCurrency(calculateLiveFee().finalFee)}
               </span>
             </div>
           </div>
@@ -3006,7 +3034,7 @@ export default function StudentsPanel() {
                                 </span>
                               </div>
                               <div className="mt-2 text-sm">
-                                <p>Final Fee: ${formatCurrency(enrollment.final_fee)}</p>
+                                <p>Final Fee: ₹{formatCurrency(enrollment.final_fee)}</p>
                                 <p>
                                   Next Due:{' '}
                                   {enrollment.next_due_date

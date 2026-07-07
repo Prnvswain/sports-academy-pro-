@@ -6,6 +6,7 @@ import { enforceActiveSubscription } from '../../middlewares/subscription.middle
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
 import { verifyAttendanceLocation, optionalGpsVerification } from '../../middlewares/gpsVerification.middleware.js';
 import { validate } from './coach.validator.js';
+import { upload } from '../../config/multer.config.js';
 
 const router = express.Router();
 
@@ -17,12 +18,22 @@ router.get('/dashboard', coachController.getDashboard);
 router.get('/batches', coachController.getMyBatches);
 router.get('/batches/:id', coachController.getBatchById);
 router.get('/payments', coachController.getPayments);
+router.get('/student-ledger/:student_id', coachController.getStudentLedger);
 router.post('/attendance', verifyAttendanceLocation, validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
 router.post(
   '/payments',
+  upload.single('proof_file'),
   [
-    body('student_id').isInt(),
-    body('amount').isFloat({ min: 0.01 }),
+    body('student_id').custom((value) => {
+      if (!value) throw new Error('student_id is required');
+      return true;
+    }),
+    body('amount').custom((value) => {
+      if (!value || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
+        throw new Error('amount must be a positive number');
+      }
+      return true;
+    }),
     body('payment_date').optional().isISO8601(),
     body('method').optional().isIn(['cash', 'cheque', 'online', 'upi']),
     body('remarks').optional().isString(),
@@ -30,6 +41,11 @@ router.post(
   ],
   validationErrorHandler,
   coachController.recordPayment
+);
+router.patch(
+  '/payments/:receiptId/proof',
+  upload.single('proof_file'),
+  coachController.updatePaymentProof
 );
 router.get('/self-attendance', coachController.getSelfAttendance);
 router.post(

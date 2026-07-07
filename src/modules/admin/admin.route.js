@@ -32,6 +32,9 @@ router.use((req, res, next) => {
   return enforceActiveSubscription(req, res, next);
 });
 
+/* ─── ACADEMY DETAILS ────────────────────────────────────────────────────── */
+router.get('/academy', adminController.getAcademyDetails);
+
 /* ─── SPORTS CATALOG ────────────────────────────────────────────────────── */
 router.get('/sports', adminController.getSportsCatalog);
 router.get('/sports/global', adminController.getGlobalSports);

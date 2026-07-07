@@ -232,7 +232,46 @@ export default function AccountsPanel() {
   };
 
   const calculateStats = () => {
-    const total = payments.reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
+    // Calculate total expected fees from all students' Total Computed Fee (Decided)
+    const totalExpectedFees = students.reduce((sum, student) => {
+      if (student.enrollments && Array.isArray(student.enrollments) && student.enrollments.length > 0) {
+        // Get latest enrollment
+        const latestEnrollment = student.enrollments[student.enrollments.length - 1];
+        
+        // Calculate multiplier
+        const dynamicMultiplier = parseFloat(
+          latestEnrollment?.duration_plan?.multiplier ||
+            latestEnrollment?.plan_multiplier ||
+            latestEnrollment?.planMultiplier ||
+            1,
+        );
+
+        // Calculate sports fee with multiplier
+        const rawBaseSportsFee = parseFloat(
+          latestEnrollment?.sports_base_fee ||
+            latestEnrollment?.sportsBaseFee ||
+            latestEnrollment?.sports_fee ||
+            0,
+        );
+        const totalMultipliedSportsFee = rawBaseSportsFee * dynamicMultiplier;
+
+        // Get other fee components
+        const regFeeAmount = parseFloat(latestEnrollment?.registration_fee || 0);
+        const additionalSurchargesAmount = parseFloat(latestEnrollment?.additional_charges || 0);
+        const appliedDiscountAmount = parseFloat(latestEnrollment?.discount || 0);
+
+        // Calculate Total Computed Fee (Decided)
+        const accurateTotalComputedFee =
+          totalMultipliedSportsFee +
+          regFeeAmount +
+          additionalSurchargesAmount -
+          appliedDiscountAmount;
+
+        return sum + accurateTotalComputedFee;
+      }
+      return sum;
+    }, 0);
+
     const collected = payments.filter((p) => (p?.status || '').toUpperCase() === 'COMPLETED').reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
     const pending = payments.filter((p) => (p?.status || '').toUpperCase() === 'PENDING').reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
     const overdue = payments.filter((p) => {
@@ -242,7 +281,7 @@ export default function AccountsPanel() {
       return status === 'PENDING' && dueDate && dueDate < today;
     }).reduce((sum, p) => sum + parseFloat(p?.amount || 0), 0);
 
-    return { total, collected, pending, overdue };
+    return { total: totalExpectedFees, collected, pending, overdue };
   };
 
   const stats = calculateStats();
@@ -644,8 +683,8 @@ export default function AccountsPanel() {
                           {payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`}
                         </td>
                         <td className="px-5 py-4">
-                          {payment?.submittedByCoach?.name || payment?.coach_name ? (
-                            <span className="badge badge-info inline-flex items-center">👤 {payment?.submittedByCoach?.name || payment.coach_name}</span>
+                          {payment?.collected_by?.name ? (
+                            <span className="badge badge-info inline-flex items-center">👤 Coach - {payment.collected_by.name}</span>
                           ) : (
                             <span className="badge border-border text-muted-foreground bg-secondary inline-flex items-center">⚙️ Admin</span>
                           )}
@@ -654,16 +693,21 @@ export default function AccountsPanel() {
                         <td className="px-5 py-4 max-w-[200px] truncate">
                           <div className="flex flex-col space-y-1">
                             {payment?.remarks && <span className="text-xs text-muted-foreground italic truncate">"{payment.remarks}"</span>}
-                            {(payment?.attachmentUrl || payment?.receipt_image || payment?.proof) ? (
+                            {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) ? (
                               <button
                                 type="button"
-                                onClick={() => setPreviewImage(payment.attachmentUrl || payment.receipt_image || payment.proof)}
+                                onClick={() => {
+                                  const proofUrl = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof;
+                                  // Prepend backend URL if proof_url is a relative path
+                                  const fullUrl = proofUrl.startsWith('http') ? proofUrl : `http://localhost:5000/${proofUrl}`;
+                                  setPreviewImage(fullUrl);
+                                }}
                                 className="text-primary hover:text-[rgb(var(--color-blue-primary))] font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors w-fit"
                               >
                                 📸 View Proof
                               </button>
                             ) : (
-                              <span className="text-xs text-muted-foreground/50">No proof</span>
+                              <span className="text-xs text-muted-foreground italic">No proof</span>
                             )}
                           </div>
                         </td>

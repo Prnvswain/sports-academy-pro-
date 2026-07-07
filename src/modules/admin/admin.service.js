@@ -29,6 +29,36 @@ const academyScope = (academy_id) => ({
   ...NOT_DELETED,
 });
 
+export const getAcademyDetails = async (academy_id) => {
+  const academy = await prisma.academy.findUnique({
+    where: { academy_id: parseInt(academy_id, 10) },
+    select: {
+      academy_id: true,
+      name: true,
+      owner_name: true,
+      email: true,
+      phone_number: true,
+      address: true,
+      city: true,
+      state: true,
+      country: true,
+      pincode: true,
+      logo_url: true,
+      subscription_tier: true,
+      subscription_plan: true,
+      status: true
+    }
+  });
+
+  if (!academy) {
+    const error = new Error('Academy not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return academy;
+};
+
 const getCoachForAcademy = async (academy_id, coach_id) =>
   prisma.coach.findFirst({
     where: {
@@ -1774,7 +1804,10 @@ export const getAllPayments = async (academy_id) =>
       academy_id: parseInt(academy_id, 10),
       student: NOT_DELETED,
     },
-    include: { student: true },
+    include: { 
+      student: true,
+      collected_by: true
+    },
     orderBy: { payment_date: 'desc' },
   });
 

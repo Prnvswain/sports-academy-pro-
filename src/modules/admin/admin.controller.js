@@ -1,6 +1,15 @@
 import * as adminService from './admin.service.js';
 import { successResponse } from '../../utils/response.js';
 
+export const getAcademyDetails = async (req, res, next) => {
+  try {
+    const academy = await adminService.getAcademyDetails(req.user.academy_id);
+    res.json(successResponse('Academy details retrieved successfully', academy));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getSportsCatalog = async (req, res, next) => {
   try {
     const sports = await adminService.getSportsCatalog(req.user.academy_id);

@@ -159,7 +159,7 @@ export default function PlansPanel() {
               <div className="mb-6 bg-slate-50/80 rounded-2xl p-4 border border-slate-100">
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-extrabold text-slate-800">
-                    ${plan.price || plan.monthly_price || 0}
+                    ₹{plan.price || plan.monthly_price || 0}
                   </span>
                   <span className="text-slate-400 text-xs font-medium">
                     / {plan.billing_cycle || 'month'}
@@ -167,7 +167,7 @@ export default function PlansPanel() {
                 </div>
                 {plan.annual_price && (
                   <p className="text-emerald-600 text-xs font-semibold mt-1">
-                    ${plan.annual_price} billed annually (Save corporate discount)
+                    ₹{plan.annual_price} billed annually (Save corporate discount)
                   </p>
                 )}
               </div>
@@ -264,7 +264,7 @@ export default function PlansPanel() {
                         Billing Operational Cost
                       </label>
                       <p className="text-slate-800 text-base font-semibold mt-1">
-                        ${selectedPlan.price || selectedPlan.monthly_price || 0} / {selectedPlan.billing_cycle || 'month'}
+                        ₹{selectedPlan.price || selectedPlan.monthly_price || 0} / {selectedPlan.billing_cycle || 'month'}
                       </p>
                     </div>
 

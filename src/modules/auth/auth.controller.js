@@ -3,7 +3,10 @@ import { successResponse } from '../../utils/response.js';
 
 export const signup = async (req, res, next) => {
   try {
-    const result = await authService.signupAcademy(req.body);
+    const result = await authService.signupAcademy({
+      ...req.body,
+      logo: req.file
+    });
     return res.status(201).json(
       successResponse('Academy and admin account created successfully', result)
     );

@@ -110,7 +110,7 @@ export function CoachFeeCollection({ students = [] }) {
 
   const fetchRecentPayments = async () => {
     try {
-      const result = await coachGet('/payments'); 
+      const result = await coachGet('/coach/payments');
       // Har tarah ke return response pattern ko intercept karne ke liye checklist
       if (result && result.payments) {
         setRecentPayments(result.payments);
@@ -168,7 +168,7 @@ export function CoachFeeCollection({ students = [] }) {
         formData.append('proof_file', proofFile); 
       }
 
-      const result = await coachPost('/payments', formData);
+      const result = await coachPost('/coach/payments', formData);
       
       setMessage({ text: result?.message || 'Payment recorded successfully!', type: 'success' });
       setForm({ student_id: '', amount: '', method: 'upi', remarks: '' });

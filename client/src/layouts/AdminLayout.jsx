@@ -5,6 +5,8 @@ import ThemeToggle from '../components/ThemeToggle';
 import BroadcastModal from '../components/BroadcastModal';
 import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet } from '../api/client';
 
+const DEFAULT_LOGO = 'SA';
+
 export const ADMIN_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: '📊' },
   { path: 'sports', label: 'Sports', icon: '⚽' },
@@ -29,6 +31,7 @@ export default function AdminLayout() {
   );
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [batches, setBatches] = useState([]);
+  const [academy, setAcademy] = useState(null);
 
   const section = location.pathname.split('/')[2] || 'dashboard';
   const pageTitle = PAGE_TITLES[section] || 'Academy Workspace';
@@ -49,6 +52,18 @@ export default function AdminLayout() {
     fetchBatches();
   }, []);
 
+  useEffect(() => {
+    const fetchAcademy = async () => {
+      try {
+        const response = await adminGet('/admin/academy');
+        setAcademy(response.data);
+      } catch (error) {
+        console.error('Failed to fetch academy details:', error);
+      }
+    };
+    fetchAcademy();
+  }, []);
+
   const handleLogout = () => {
     clearAdminToken();
     navigate('/');
@@ -60,27 +75,35 @@ export default function AdminLayout() {
     <div className="bg-background text-foreground flex h-screen w-screen overflow-hidden transition-colors duration-300">
       {/* Sidebar */}
       <motion.aside
-        initial={{ width: sidebarCollapsed ? '5rem' : '17rem' }}
-        animate={{ width: sidebarCollapsed ? '5rem' : '17rem' }}
+        initial={{ width: sidebarCollapsed ? '5rem' : '16rem' }}
+        animate={{ width: sidebarCollapsed ? '5rem' : '16rem' }}
         transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         className={`bg-card/80 backdrop-blur-2xl border-r border-border/50 flex-shrink-0 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-20 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
         {/* Sidebar Header / Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-border/50 px-4">
+        <div className="flex h-16 items-center justify-between border-b border-border/50 px-4 shrink-0">
           <Link
             to="/admin/dashboard"
             className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary/50"
           >
-            <span className="bg-primary/10 text-primary border border-primary/20 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-sm transition-transform hover:scale-105">
-              SA
-            </span>
+            {academy?.logo_url ? (
+              <img
+                src={academy.logo_url}
+                alt="Academy Logo"
+                className="h-8 w-8 shrink-0 rounded-xl object-cover border border-primary/20 shadow-sm transition-transform hover:scale-105"
+              />
+            ) : (
+              <span className="bg-primary/10 text-primary border border-primary/20 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-black tracking-tighter shadow-sm transition-transform hover:scale-105">
+                {DEFAULT_LOGO}
+              </span>
+            )}
             <motion.span
               initial={{ opacity: 1 }}
               animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
               transition={{ duration: 0.2 }}
-              className="font-bold tracking-wide text-foreground whitespace-nowrap"
+              className="font-bold tracking-wide text-foreground whitespace-nowrap text-sm"
             >
-              SAMS Admin
+              {academy?.name || 'SAMS Admin'}
             </motion.span>
           </Link>
           <motion.button
@@ -95,8 +118,8 @@ export default function AdminLayout() {
           </motion.button>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar" aria-label="Admin sections">
+        {/* Navigation Links - Reduced Spacing & Added Hover Animations */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 custom-scrollbar" aria-label="Admin sections">
           {ADMIN_NAV_ITEMS.map((item) => (
             <NavLink
               key={item.path}
@@ -105,14 +128,20 @@ export default function AdminLayout() {
               title={sidebarCollapsed ? item.label : undefined}
               data-nav={item.path}
               className={({ isActive }) =>
-                `${isActive ? 'sidebar-link-active bg-primary/5 text-primary border-primary/20' : 'sidebar-link text-muted-foreground hover:text-foreground'} ${sidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 rounded-xl group relative overflow-hidden`
+                `flex w-full items-center gap-3 py-2.5 text-sm transition-all duration-300 group relative outline-none rounded-xl ${
+                  sidebarCollapsed ? 'justify-center px-2' : 'px-3'
+                } ${
+                  isActive
+                    ? 'bg-primary text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] font-bold'
+                    : 'text-muted-foreground hover:bg-surface-secondary/80 hover:text-foreground hover:translate-x-1 font-medium'
+                }`
               }
               onClick={closeMobileSidebar}
             >
               <motion.span
-                className="relative z-10 text-[1.1rem]"
-                whileHover={{ scale: 1.15 }}
-                transition={{ duration: 0.2 }}
+                className="relative z-10 text-lg flex items-center justify-center"
+                whileHover={{ scale: 1.15, rotate: [-5, 5, 0] }}
+                transition={{ duration: 0.3 }}
                 aria-hidden="true"
               >
                 {item.icon}
@@ -121,7 +150,7 @@ export default function AdminLayout() {
                 initial={{ opacity: 1 }}
                 animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
                 transition={{ duration: 0.2 }}
-                className="relative z-10 font-medium whitespace-nowrap"
+                className="relative z-10 whitespace-nowrap"
               >
                 {item.label}
               </motion.span>
@@ -129,11 +158,11 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        {/* Sidebar Footer / Actions */}
-        <div className="border-t border-border/50 p-4 space-y-3 bg-surface-secondary/30 backdrop-blur-sm">
+        {/* Sidebar Footer / Actions - Made more compact */}
+        <div className="border-t border-border/50 p-3 space-y-2 bg-surface-secondary/30 backdrop-blur-sm shrink-0">
           <motion.button
             type="button"
-            className="btn-secondary w-full justify-center rounded-xl text-sm font-semibold shadow-sm transition-all"
+            className="btn-secondary w-full justify-center rounded-xl text-xs py-2 font-semibold shadow-sm transition-all"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -144,7 +173,7 @@ export default function AdminLayout() {
           </motion.button>
           <motion.button
             type="button"
-            className="btn-danger w-full justify-center rounded-xl text-sm font-semibold shadow-sm"
+            className="btn-danger w-full justify-center rounded-xl text-xs py-2 font-semibold shadow-sm"
             onClick={handleLogout}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}

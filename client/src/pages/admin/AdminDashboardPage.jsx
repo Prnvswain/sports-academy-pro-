@@ -7,9 +7,9 @@ import { adminGet } from '../../api/client';
 function formatCurrency(value) {
   const num = parseFloat(value);
   if (Number.isNaN(num) || !Number.isFinite(num)) {
-    return '$0.00';
+    return '₹0.00';
   }
-  return `$${num.toFixed(2)}`;
+  return `₹${num.toFixed(2)}`;
 }
 
 // Custom Sports & SaaS Premium Icons with Framer Motion integrations
@@ -73,6 +73,7 @@ export default function AnalyticsPanel() {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [academy, setAcademy] = useState(null);
 
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
@@ -122,6 +123,18 @@ export default function AnalyticsPanel() {
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
+
+  useEffect(() => {
+    const fetchAcademy = async () => {
+      try {
+        const response = await adminGet('/admin/academy');
+        setAcademy(response.data);
+      } catch (error) {
+        console.error('Failed to fetch academy details:', error);
+      }
+    };
+    fetchAcademy();
+  }, []);
 
   if (loading) {
     return (
@@ -246,12 +259,20 @@ export default function AnalyticsPanel() {
           className="card flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:justify-between"
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent-hover shadow-lg shadow-primary/20">
-              <Icons.Trophy className="h-8 w-8 text-white" />
-            </div>
+            {academy?.logo_url ? (
+              <img
+                src={academy.logo_url}
+                alt="Academy Logo"
+                className="h-16 w-16 rounded-2xl object-cover border border-primary/20 shadow-lg shadow-primary/20"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent-hover shadow-lg shadow-primary/20">
+                <Icons.Trophy className="h-8 w-8 text-white" />
+              </div>
+            )}
             <div>
               <h2 className="text-3xl font-black tracking-tight text-foreground">
-                Academy <span className="text-primary">Dashboard</span>
+                {academy?.name || 'Academy'} <span className="text-primary">Dashboard</span>
               </h2>
               <p className="mt-1 text-sm font-semibold text-muted-foreground">
                 Live operational analytics and sports metrics.

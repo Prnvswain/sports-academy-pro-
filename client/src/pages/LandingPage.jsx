@@ -35,6 +35,7 @@ const initialSignup = {
   latitude: null,
   longitude: null,
   subscription_plan: 'free',
+  logo: null,
 };
 
 const initialContact = {
@@ -261,8 +262,26 @@ export default function LandingPage() {
   }, [loginDropdownOpen]);
 
   const handleSignupChange = (event) => {
-    const { name, value } = event.target;
-    setSignupForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, files } = event.target;
+    if (name === 'logo' && files && files[0]) {
+      const file = files[0];
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        setSignupMessage({ text: 'Logo must be JPG, JPEG, PNG, or WEBP', type: 'error' });
+        return;
+      }
+
+      if (file.size > maxSize) {
+        setSignupMessage({ text: 'Logo must be less than 5MB', type: 'error' });
+        return;
+      }
+
+      setSignupForm((prev) => ({ ...prev, logo: file }));
+    } else {
+      setSignupForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const getCurrentLocation = () => {
@@ -359,20 +378,28 @@ export default function LandingPage() {
     setSignupMessage({ text: '', type: '' });
 
     try {
-      const result = await signup({
-        name: signupForm.name.trim(),
-        email: signupForm.email.trim(),
-        password: signupForm.password,
-        academy_name: signupForm.academy_name.trim(),
-        phone_number: signupForm.phone_number.trim() || undefined,
-        city: signupForm.city.trim(),
-        state: signupForm.state.trim(),
-        address: signupForm.address.trim() || undefined,
-        latitude: signupForm.latitude,
-        longitude: signupForm.longitude,
-        attendance_radius_meters: parseInt(signupForm.attendance_radius_meters) || 100,
-        subscription_plan: signupForm.subscription_plan,
-      });
+      const formData = new FormData();
+      formData.append('name', signupForm.name.trim());
+      formData.append('email', signupForm.email.trim());
+      formData.append('password', signupForm.password);
+      formData.append('academy_name', signupForm.academy_name.trim());
+      if (signupForm.phone_number) {
+        formData.append('phone_number', signupForm.phone_number.trim());
+      }
+      formData.append('city', signupForm.city.trim());
+      formData.append('state', signupForm.state.trim());
+      if (signupForm.address) {
+        formData.append('address', signupForm.address.trim());
+      }
+      formData.append('latitude', signupForm.latitude);
+      formData.append('longitude', signupForm.longitude);
+      formData.append('attendance_radius_meters', parseInt(signupForm.attendance_radius_meters) || 100);
+      formData.append('subscription_plan', signupForm.subscription_plan);
+      if (signupForm.logo) {
+        formData.append('logo', signupForm.logo);
+      }
+
+      const result = await signup(formData);
       setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
       localStorage.removeItem('sams_draft_public_signup');
       setTimeout(() => navigate('/admin/coaches'), 1000);
@@ -1314,6 +1341,22 @@ export default function LandingPage() {
                     onChange={handleSignupChange}
                     required
                   />
+                </div>
+                <div>
+                  <label className="label" htmlFor="signupLogo">
+                    Academy Logo (Optional)
+                  </label>
+                  <input
+                    className={inputThemeStyles}
+                    type="file"
+                    id="signupLogo"
+                    name="logo"
+                    onChange={handleSignupChange}
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                  />
+                  <p className="text-muted-foreground text-xs mt-1">
+                    JPG, JPEG, PNG, or WEBP (Max 5MB)
+                  </p>
                 </div>
                 <div>
                   <label className="label" htmlFor="signupPhone">

@@ -6,10 +6,7 @@ export const SUPER_ADMIN_TOKEN_KEY = 'sams_super_admin_token';
 export const SIDEBAR_COLLAPSED_KEY = 'sams_sidebar_collapsed';
 
 const api = axios.create({
-  baseURL: '/api/v1',
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: '/api/v1'
 });
 
 api.interceptors.response.use(
@@ -88,7 +85,10 @@ export async function adminGet(path) {
 export async function adminPost(path, body) {
   return api
     .post(path, body, {
-      headers: { Authorization: `Bearer ${getAdminToken()}` }
+      headers: { 
+        Authorization: `Bearer ${getAdminToken()}`,
+        'Content-Type': 'application/json'
+      }
     })
     .then(unwrap);
 }
@@ -96,7 +96,10 @@ export async function adminPost(path, body) {
 export async function adminPatch(path, body) {
   return api
     .patch(path, body, {
-      headers: { Authorization: `Bearer ${getAdminToken()}` }
+      headers: { 
+        Authorization: `Bearer ${getAdminToken()}`,
+        'Content-Type': 'application/json'
+      }
     })
     .then(unwrap);
 }
@@ -104,7 +107,10 @@ export async function adminPatch(path, body) {
 export async function adminPut(path, body) {
   return api
     .put(path, body, {
-      headers: { Authorization: `Bearer ${getAdminToken()}` }
+      headers: { 
+        Authorization: `Bearer ${getAdminToken()}`,
+        'Content-Type': 'application/json'
+      }
     })
     .then(unwrap);
 }
@@ -121,7 +127,11 @@ export async function adminDelete(path) {
    🎯 AUTH LOGIN / SIGNUP MODULES
    ========================================== */
 export async function signup(body) {
-  const response = await api.post('/auth/signup', body).then(unwrap);
+  const headers = {};
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const response = await api.post('/auth/signup', body, { headers }).then(unwrap);
   // Interceptor ke unwrap ke baad backend payload check
   const token = response?.token || response?.data?.token;
   if (token) {
@@ -131,7 +141,7 @@ export async function signup(body) {
 }
 
 export async function adminLogin(body) {
-  const response = await api.post('/auth/login', body).then(unwrap);
+  const response = await api.post('/auth/login', body, { headers: { 'Content-Type': 'application/json' } }).then(unwrap);
   const token = response?.token || response?.data?.token;
   if (token) {
     setAdminToken(token);
@@ -140,7 +150,7 @@ export async function adminLogin(body) {
 }
 
 export async function coachLogin(body) {
-  const response = await api.post('/auth/coach/login', body).then(unwrap);
+  const response = await api.post('/auth/coach/login', body, { headers: { 'Content-Type': 'application/json' } }).then(unwrap);
   const token = response?.token || response?.data?.token;
   if (token) {
     setCoachToken(token);
@@ -149,11 +159,11 @@ export async function coachLogin(body) {
 }
 
 export async function forgotPassword(body) {
-  return api.post('/auth/forgot-password', body).then(unwrap);
+  return api.post('/auth/forgot-password', body, { headers: { 'Content-Type': 'application/json' } }).then(unwrap);
 }
 
 export async function resetPassword(body) {
-  return api.post('/auth/reset-password', body).then(unwrap);
+  return api.post('/auth/reset-password', body, { headers: { 'Content-Type': 'application/json' } }).then(unwrap);
 }
 
 /* ==========================================
@@ -173,6 +183,14 @@ export async function coachPost(path, body) {
     headers['Content-Type'] = 'application/json';
   }
   return api.post(path, body, { headers }).then(unwrap);
+}
+
+export async function coachPatch(path, body) {
+  const headers = { Authorization: `Bearer ${getCoachToken()}` };
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return api.patch(path, body, { headers }).then(unwrap);
 }
 
 /* ==========================================
@@ -201,7 +219,10 @@ export async function superAdminGet(path) {
 export async function superAdminPost(path, body) {
   return api
     .post(path, body, {
-      headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
+      headers: { 
+        Authorization: `Bearer ${getSuperAdminToken()}`,
+        'Content-Type': 'application/json'
+      }
     })
     .then(unwrap);
 }
@@ -209,7 +230,10 @@ export async function superAdminPost(path, body) {
 export async function superAdminPatch(path, body) {
   return api
     .patch(path, body, {
-      headers: { Authorization: `Bearer ${getSuperAdminToken()}` }
+      headers: { 
+        Authorization: `Bearer ${getSuperAdminToken()}`,
+        'Content-Type': 'application/json'
+      }
     })
     .then(unwrap);
 }
@@ -218,7 +242,8 @@ export async function superAdminPut(path, body) {
   return api
     .put(path, body, {
       headers: {
-        Authorization: `Bearer ${getSuperAdminToken()}`
+        Authorization: `Bearer ${getSuperAdminToken()}`,
+        'Content-Type': 'application/json'
       }
     })
     .then(unwrap);

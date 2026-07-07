@@ -570,6 +570,7 @@ export const getCoachPayments = async (coach_id, academy_id) => {
     status: payment.status,
     payment_date: payment.payment_date,
     remarks: payment.remarks,
+    proof_url: payment.proof_url,
     created_at: payment.created_at
   }));
 };
@@ -775,6 +776,46 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
   });
 
   return receipt;
+};
+
+export const updatePaymentProof = async (coach_id, academy_id, receipt_id, proof_url) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const receiptId = parseInt(receipt_id, 10);
+
+  // Verify the receipt belongs to this coach and academy
+  const receipt = await prisma.receipt.findFirst({
+    where: {
+      receipt_id: receiptId,
+      academy_id: academyId,
+      collected_by_coach_id: coachId,
+      student: NOT_DELETED
+    }
+  });
+
+  if (!receipt) {
+    const error = new Error('Payment record not found or you do not have permission to update it');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Update only the proof_url
+  const updatedReceipt = await prisma.receipt.update({
+    where: { receipt_id: receiptId },
+    data: { proof_url: proof_url }
+  });
+
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'COACH',
+    actor_id: coachId,
+    action: 'PAYMENT_PROOF_UPDATED',
+    entity_type: 'Receipt',
+    entity_id: receiptId,
+    metadata: { previous_proof: receipt.proof_url, new_proof: proof_url }
+  });
+
+  return updatedReceipt;
 };
 
 export const getCoachSelfAttendanceByDate = async (coach_id, academy_id, batch_id, date) => {
