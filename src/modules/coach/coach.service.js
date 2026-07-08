@@ -9,6 +9,203 @@ import logger from '../../utils/logger.js';
 
 const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
+export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id = null) => {
+  console.log('[getCoachStudentsFeeSummary] === START ===');
+  console.log('[getCoachStudentsFeeSummary] Coach ID:', coach_id, 'Type:', typeof coach_id);
+  console.log('[getCoachStudentsFeeSummary] Academy ID:', academy_id, 'Type:', typeof academy_id);
+  console.log('[getCoachStudentsFeeSummary] Batch ID:', batch_id, 'Type:', typeof batch_id);
+  
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const batchId = batch_id ? parseInt(batch_id, 10) : null;
+  
+  console.log('[getCoachStudentsFeeSummary] Parsed Coach ID:', coachId);
+  console.log('[getCoachStudentsFeeSummary] Parsed Academy ID:', academyId);
+  console.log('[getCoachStudentsFeeSummary] Parsed Batch ID:', batchId);
+
+  // Get all batches assigned to this coach
+  console.log('[getCoachStudentsFeeSummary] Fetching batches assigned to coach...');
+  const batches = await prisma.batch.findMany({
+    where: {
+      academy_id: academyId,
+      coaches: {
+        some: {
+          coach_id: coachId,
+        },
+      },
+    },
+    select: {
+      batch_id: true,
+    },
+  });
+
+  const batchIds = batches.map(b => b.batch_id);
+
+  console.log('[getCoachStudentsFeeSummary] Batches found:', batches.length);
+  console.log('[getCoachStudentsFeeSummary] Batch IDs:', batchIds);
+
+  if (batchIds.length === 0) {
+    console.log('[getCoachStudentsFeeSummary] No batches assigned to coach, returning empty result');
+    return {
+      students: [],
+      summary: {
+        total_students: 0,
+        fully_paid: 0,
+        partially_paid: 0,
+        unpaid: 0,
+        total_outstanding: 0,
+      },
+    };
+  }
+
+  // If batch_id filter is provided, check if it's assigned to this coach
+  if (batchId && !batchIds.includes(batchId)) {
+    console.log('[getCoachStudentsFeeSummary] Batch', batchId, 'is notAssigned to coach');
+    const error = new Error('Batch not assigned to this coach');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Filter by specific batch if provided
+  const targetBatchIds = batchId ? [batchId] : batchIds;
+  console.log('[getCoachStudentsFeeSummary] Target batch IDs for query:', targetBatchIds);
+
+  // Get students enrolled in coach's batches
+  console.log('[getCoachStudentsFeeSummary] Fetching students...');
+  const students = await prisma.student.findMany({
+    where: {
+      academy_id: academyId,
+      enrollments: {
+        some: {
+          academy_id: academyId,
+          batch_id: { in: targetBatchIds },
+        },
+      },
+    },
+    include: {
+      enrollments: {
+        where: {
+          academy_id: academyId,
+          batch_id: { in: targetBatchIds },
+        },
+        include: {
+          duration_plan: true,
+          batch: {
+            include: {
+              sport: true,
+            },
+          },
+        },
+      },
+      receipts: {
+        where: {
+          academy_id: academyId,
+          status: 'COMPLETED',
+        },
+        orderBy: { payment_date: 'desc' },
+      },
+      parent: true,
+    },
+  });
+
+  console.log('[getCoachStudentsFeeSummary] Students found:', students.length);
+  console.log('[getCoachStudentsFeeSummary] Sample student (first):', students.length > 0 ? {
+    student_id: students[0].student_id,
+    name: students[0].name,
+    enrollments_count: students[0].enrollments?.length,
+    receipts_count: students[0].receipts?.length
+  } : 'No students');
+
+  // Calculate fee summary for each student
+  console.log('[getCoachStudentsFeeSummary] Calculating fee summary for each student...');
+  const studentsSummary = await Promise.all(
+    students.map(async (student) => {
+      // Calculate total fee due from enrollments (only from coach's batches)
+      const totalFeeDue = student.enrollments.reduce((sum, e) => {
+        const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
+        const registrationFee = Number(e.registration_fee || 0);
+        const additionalCharges = Number(e.additional_charges || 0);
+        const discount = Number(e.discount || 0);
+        const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
+        const sportsFeeWithMultiplier = baseFee * durationMultiplier;
+        const enrollmentTotal = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
+        return sum + enrollmentTotal;
+      }, 0);
+
+      // Calculate total paid from receipts
+      const totalPaid = student.receipts.reduce((sum, r) => sum + Number(r.amount), 0);
+
+      // Calculate balance outstanding
+      const balanceOutstanding = Math.max(0, totalFeeDue - totalPaid);
+
+      // Determine fee status
+      const feeStatus = balanceOutstanding === 0 ? 'paid' : 'unpaid';
+
+      // Get last paid date
+      const lastPaidDate = student.receipts.length > 0 ? student.receipts[0].payment_date : null;
+
+      // Get batch names for this student
+      const batchNames = student.enrollments
+        .map(e => e.batch?.name)
+        .filter(Boolean)
+        .join(', ');
+
+      return {
+        student_id: student.student_id,
+        name: student.name,
+        parent_name: student.parent?.name || '',
+        phone: student.phone || student.parent?.phone || '',
+        total_fee: totalFeeDue,
+        paid_amount: totalPaid,
+        due_amount: balanceOutstanding,
+        fee_status: feeStatus,
+        last_paid_date: lastPaidDate,
+        payment_count: student.receipts.length,
+        batch_names: batchNames,
+        enrollments: student.enrollments,
+        receipts: student.receipts,
+      };
+    })
+  );
+
+  // Calculate overall summary stats
+  const totalStudents = studentsSummary.length;
+  const fullyPaid = studentsSummary.filter(s => s.fee_status === 'paid').length;
+  const partiallyPaid = studentsSummary.filter(s => s.paid_amount > 0 && s.due_amount > 0).length;
+  const unpaid = studentsSummary.filter(s => s.fee_status === 'unpaid').length;
+  const totalOutstanding = studentsSummary.reduce((sum, s) => sum + s.due_amount, 0);
+
+  console.log('[getCoachStudentsFeeSummary] Summary stats:', {
+    totalStudents,
+    fullyPaid,
+    partiallyPaid,
+    unpaid,
+    totalOutstanding,
+  });
+
+  const finalResponse = {
+    students: studentsSummary,
+    summary: {
+      total_students: totalStudents,
+      fully_paid: fullyPaid,
+      partially_paid: partiallyPaid,
+      unpaid: unpaid,
+      total_outstanding: totalOutstanding,
+    },
+  };
+
+  console.log('[getCoachStudentsFeeSummary] === FINAL RESPONSE ===');
+  console.log('[getCoachStudentsFeeSummary] Response structure:', {
+    hasStudents: Array.isArray(finalResponse.students),
+    studentsCount: finalResponse.students.length,
+    hasSummary: !!finalResponse.summary,
+    summaryKeys: finalResponse.summary ? Object.keys(finalResponse.summary) : [],
+  });
+  console.log('[getCoachStudentsFeeSummary] Returning response');
+
+  return finalResponse;
+};
+
 // Helper function to create attendance audit log
 const createAttendanceAuditLog = async (auditData) => {
   try {

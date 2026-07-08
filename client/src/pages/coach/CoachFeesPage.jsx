@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { coachGet, coachPost, coachPatch } from '../../api/client';
 import Loader from '../../components/Loader';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
@@ -10,6 +11,19 @@ export function CoachFeeCollection({ students = [] }) {
   const [loadingTable, setLoadingTable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+
+  // Tab Navigation State
+  const [activeTab, setActiveTab] = useState('collection'); // 'collection' or 'accounts'
+
+  // Student Accounts States
+  const [studentAccountsData, setStudentAccountsData] = useState(null);
+  const [loadingStudentAccounts, setLoadingStudentAccounts] = useState(false);
+  const [studentAccountsFilter, setStudentAccountsFilter] = useState('all');
+  const [studentAccountsSearch, setStudentAccountsSearch] = useState('');
+  const [expandedStudentId, setExpandedStudentId] = useState(null);
+  const [sortBy, setSortBy] = useState('name');
+  const [selectedBatchId, setSelectedBatchId] = useState('all');
+  const [coachBatches, setCoachBatches] = useState([]);
 
   // Form Field States
   const [selectedStudentId, setSelectedStudentId] = useState('');
@@ -172,9 +186,86 @@ export function CoachFeeCollection({ students = [] }) {
     }
   }, []);
 
+  // --- FETCH COACH BATCHES ---
+  const fetchCoachBatches = useCallback(async () => {
+    try {
+      const response = await coachGet('/coach/batches');
+      console.log('[fetchCoachBatches] Response:', response);
+      console.log('[fetchCoachBatches] Type:', typeof response);
+      console.log('[fetchCoachBatches] Is Array:', Array.isArray(response));
+      console.log('[fetchCoachBatches] response.data:', response?.data);
+      console.log('[fetchCoachBatches] response.data is Array:', Array.isArray(response?.data));
+      console.log('[fetchCoachBatches] response.data.batches:', response?.data?.batches);
+      console.log('[fetchCoachBatches] response.data.batches is Array:', Array.isArray(response?.data?.batches));
+      
+      // Backend returns { success: true, data: { coach_context: {...}, batches: [...] } }
+      if (response && response.success && response.data && response.data.batches) {
+        setCoachBatches(response.data.batches);
+      } else if (response && Array.isArray(response)) {
+        setCoachBatches(response);
+      } else if (response && Array.isArray(response?.data)) {
+        setCoachBatches(response.data);
+      } else {
+        console.log('[fetchCoachBatches] Unexpected response shape, setting empty array');
+        setCoachBatches([]);
+      }
+    } catch (err) {
+      console.error('Error fetching coach batches:', err);
+      setCoachBatches([]);
+    }
+  }, []);
+
+  // --- FETCH STUDENT ACCOUNTS DATA ---
+  const fetchStudentAccountsData = useCallback(async () => {
+    console.log('[fetchStudentAccountsData] === START ===');
+    console.log('[fetchStudentAccountsData] selectedBatchId:', selectedBatchId);
+    setLoadingStudentAccounts(true);
+    try {
+      const batchParam = selectedBatchId !== 'all' ? `?batch_id=${selectedBatchId}` : '';
+      const url = `/coach/students-fee-summary${batchParam}`;
+      console.log('[fetchStudentAccountsData] Request URL:', url);
+      
+      const response = await coachGet(url);
+      console.log('[fetchStudentAccountsData] Full API Response:', response);
+      console.log('[fetchStudentAccountsData] Response type:', typeof response);
+      console.log('[fetchStudentAccountsData] Response.success:', response?.success);
+      console.log('[fetchStudentAccountsData] Response.data:', response?.data);
+      console.log('[fetchStudentAccountsData] Response.data.students:', response?.data?.students);
+      console.log('[fetchStudentAccountsData] Response.data.summary:', response?.data?.summary);
+      console.log('[fetchStudentAccountsData] Array.isArray(response.data.students):', Array.isArray(response?.data?.students));
+      
+      const dataToSet = response?.data || response;
+      console.log('[fetchStudentAccountsData] Data to set to state:', dataToSet);
+      console.log('[fetchStudentAccountsData] Setting studentAccountsData state...');
+      setStudentAccountsData(dataToSet);
+      console.log('[fetchStudentAccountsData] State updated');
+    } catch (error) {
+      console.error('[fetchStudentAccountsData] Error:', error);
+      console.error('[fetchStudentAccountsData] Error message:', error.message);
+      console.error('[fetchStudentAccountsData] Error status:', error.status);
+    } finally {
+      console.log('[fetchStudentAccountsData] Setting loadingStudentAccounts to false');
+      setLoadingStudentAccounts(false);
+      console.log('[fetchStudentAccountsData] === END ===');
+    }
+  }, [selectedBatchId]);
+
   useEffect(() => {
     fetchRecentSubmissions();
-  }, [fetchRecentSubmissions]);
+    fetchCoachBatches();
+  }, [fetchRecentSubmissions, fetchCoachBatches]);
+
+  useEffect(() => {
+    if (activeTab === 'accounts' && !studentAccountsData) {
+      fetchStudentAccountsData();
+    }
+  }, [activeTab, studentAccountsData, fetchStudentAccountsData]);
+
+  useEffect(() => {
+    if (activeTab === 'accounts') {
+      fetchStudentAccountsData();
+    }
+  }, [selectedBatchId, activeTab, fetchStudentAccountsData]);
 
   useEffect(() => {
     const fetchStudentFeeData = async () => {
@@ -306,8 +397,73 @@ export function CoachFeeCollection({ students = [] }) {
     setCurrentPage(1);
   }, [submissions.length]);
 
+  // --- HELPER FUNCTIONS ---
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const toggleStudentExpansion = (studentId) => {
+    setExpandedStudentId(expandedStudentId === studentId ? null : studentId);
+  };
+
+  const getSortedStudents = (students) => {
+    const sorted = [...students];
+    switch (sortBy) {
+      case 'highest_due':
+        return sorted.sort((a, b) => (b.due_amount || 0) - (a.due_amount || 0));
+      case 'highest_paid':
+        return sorted.sort((a, b) => (b.paid_amount || 0) - (a.paid_amount || 0));
+      case 'recently_paid':
+        return sorted.sort((a, b) => {
+          const dateA = a.last_paid_date ? new Date(a.last_paid_date).getTime() : 0;
+          const dateB = b.last_paid_date ? new Date(b.last_paid_date).getTime() : 0;
+          return dateB - dateA;
+        });
+      case 'name':
+      default:
+        return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }
+  };
+
   return (
     <div className="space-y-8 w-full max-w-7xl mx-auto">
+      {/* Page Header with Tab Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Fee Collection</h2>
+          <p className="text-base text-muted-foreground mt-1">Record payments and track student fee status</p>
+        </div>
+        
+        {/* Tab Navigation */}
+        <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+          <button
+            onClick={() => setActiveTab('collection')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'collection'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Record Payment
+          </button>
+          <button
+            onClick={() => setActiveTab('accounts')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'accounts'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Student Accounts
+          </button>
+        </div>
+      </div>
+
       {/* Alert Notification Banner */}
       <AnimatePresence>
         {message.text && (
@@ -327,23 +483,25 @@ export function CoachFeeCollection({ students = [] }) {
         )}
       </AnimatePresence>
 
-      <div className="grid xl:grid-cols-12 gap-8 items-start">
-        {/* LEFT COLUMN: FEE COLLECTION INPUT FORM CARD */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="xl:col-span-5 bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-          <div className="p-6 border-b border-border/50 bg-surface/30">
-            <h3 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <span className="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center text-sm">₹</span>
-              Record Payment
-            </h3>
-          </div>
+      {activeTab === 'collection' ? (
+        <>
+          <div className="grid xl:grid-cols-12 gap-8 items-start">
+          {/* LEFT COLUMN: FEE COLLECTION INPUT FORM CARD */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4 }}
+            className="xl:col-span-5 bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow"
+          >
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+            <div className="p-6 border-b border-border/50 bg-surface/30">
+              <h3 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+                <span className="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center text-sm">₹</span>
+                Record Payment
+              </h3>
+            </div>
 
-          <form onSubmit={handleSubmitPayment} className="p-6 space-y-6 bg-background/30">
+            <form onSubmit={handleSubmitPayment} className="p-6 space-y-6 bg-background/30">
             
             {/* 1. Student Search Input */}
             <div>
@@ -737,6 +895,309 @@ export function CoachFeeCollection({ students = [] }) {
           </div>
         </motion.div>
       </div>
+      </>
+      ) : (
+        <>
+          {/* STUDENT ACCOUNTS SECTION */}
+          {/* Dashboard Summary Cards */}
+          {studentAccountsData?.summary && (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                { label: 'Total Students', value: studentAccountsData.summary.total_students, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
+                { label: 'Fully Paid', value: studentAccountsData.summary.fully_paid, color: 'text-[rgb(var(--color-accent-primary))]', bgLine: 'rgb(var(--color-accent-primary))' },
+                { label: 'Partially Paid', value: studentAccountsData.summary.partially_paid, color: 'text-[rgb(var(--color-amber-primary))]', bgLine: 'rgb(var(--color-amber-primary))' },
+                { label: 'Unpaid', value: studentAccountsData.summary.unpaid, color: 'text-[rgb(var(--color-danger))]', bgLine: 'rgb(var(--color-danger))' },
+                { label: 'Outstanding', value: `₹${studentAccountsData.summary.total_outstanding.toFixed(2)}`, color: 'text-[rgb(var(--color-purple-primary))]', bgLine: 'rgb(var(--color-purple-primary))' }
+              ].map((stat, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.1 }}
+                  whileHover={{ y: -4 }}
+                  className="card flex flex-col justify-center relative overflow-hidden"
+                  style={{ borderTopWidth: '4px', borderTopColor: stat.bgLine }}
+                >
+                  <div className="relative z-10">
+                    <div className={`text-3xl font-extrabold ${stat.color}`}>
+                      {stat.value}
+                    </div>
+                    <div className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1.5">{stat.label}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Student Accounts Section */}
+          <div className="card mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-foreground">Student Accounts</h3>
+                <p className="text-sm text-muted-foreground mt-1">View fee status for students in your batches</p>
+              </div>
+              
+              {/* Batch Filter */}
+              <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+                <button
+                  onClick={() => setSelectedBatchId('all')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    selectedBatchId === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  All Batches ({studentAccountsData?.students?.length || 0})
+                </button>
+                {(Array.isArray(coachBatches) ? coachBatches : []).map((batch) => (
+                  <button
+                    key={batch.batch_id}
+                    onClick={() => setSelectedBatchId(batch.batch_id.toString())}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      selectedBatchId === batch.batch_id.toString()
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {batch.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filter Toggle */}
+            <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border mb-4">
+              <button
+                onClick={() => setStudentAccountsFilter('all')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  studentAccountsFilter === 'all'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                All ({studentAccountsData?.students?.length || 0})
+              </button>
+              <button
+                onClick={() => setStudentAccountsFilter('paid')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  studentAccountsFilter === 'paid'
+                    ? 'bg-emerald-500 text-white'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Paid ({studentAccountsData?.students?.filter(s => s.fee_status === 'paid').length || 0})
+              </button>
+              <button
+                onClick={() => setStudentAccountsFilter('unpaid')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  studentAccountsFilter === 'unpaid'
+                    ? 'bg-amber-500 text-white'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Unpaid ({studentAccountsData?.students?.filter(s => s.fee_status === 'unpaid').length || 0})
+              </button>
+            </div>
+
+            {/* Search and Sort */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              <input
+                type="text"
+                placeholder="Search by student name, parent name, or phone..."
+                value={studentAccountsSearch}
+                onChange={(e) => setStudentAccountsSearch(e.target.value)}
+                className="input-field flex-1 max-w-md !py-2 !text-xs"
+              />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="input-field w-full sm:w-48 !py-2 !text-xs"
+              >
+                <option value="name">Sort by Name</option>
+                <option value="highest_due">Highest Due</option>
+                <option value="highest_paid">Highest Paid</option>
+                <option value="recently_paid">Recently Paid</option>
+              </select>
+            </div>
+
+            {/* Student Accounts Table */}
+            {loadingStudentAccounts ? (
+              <Loader message="Loading student accounts..." />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+                <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
+                  <thead className="bg-secondary text-muted-foreground text-xs uppercase font-bold tracking-wider">
+                    <tr>
+                      <th className="px-5 py-4 border-b border-border">Student</th>
+                      <th className="px-5 py-4 border-b border-border">Parent</th>
+                      <th className="px-5 py-4 border-b border-border">Batch</th>
+                      <th className="px-5 py-4 border-b border-border">Progress</th>
+                      <th className="px-5 py-4 border-b border-border">Amount</th>
+                      <th className="px-5 py-4 border-b border-border">Paid</th>
+                      <th className="px-5 py-4 border-b border-border">Due</th>
+                      <th className="px-5 py-4 border-b border-border">Last Paid</th>
+                      <th className="px-5 py-4 border-b border-border">Status</th>
+                      <th className="px-5 py-4 border-b border-border">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-card divide-y divide-border">
+                    {(() => {
+                      const studentsList = studentAccountsData?.students || [];
+                      const filteredStudents = studentsList.filter((student) => {
+                        const feeStatus = student.fee_status || 'unpaid';
+                        
+                        // Filter by payment status
+                        if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
+                        if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
+                        
+                        // Filter by search term
+                        if (studentAccountsSearch) {
+                          const searchLower = studentAccountsSearch.toLowerCase();
+                          const name = student.name || '';
+                          const parentName = student.parent_name || '';
+                          const phone = student.phone || '';
+                          
+                          return (
+                            name.toLowerCase().includes(searchLower) ||
+                            parentName.toLowerCase().includes(searchLower) ||
+                            phone.includes(searchLower)
+                          );
+                        }
+                        
+                        return true;
+                      });
+
+                      const sortedStudents = getSortedStudents(filteredStudents);
+
+                      if (sortedStudents.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="10" className="px-5 py-8 text-center text-muted-foreground font-medium italic">
+                              No students found
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return sortedStudents.map((student, index) => {
+                        const totalAmount = student.total_fee || 0;
+                        const paidAmount = student.paid_amount || 0;
+                        const dueAmount = student.due_amount || 0;
+                        const lastPaidDate = student.last_paid_date;
+                        const feeStatus = student.fee_status || 'unpaid';
+                        const paymentProgress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+                        const isExpanded = expandedStudentId === student.student_id;
+                        
+                        // Check if student is overdue
+                        const isOverdue = dueAmount > 0 && lastPaidDate && new Date(lastPaidDate) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                        
+                        return (
+                          <React.Fragment key={student.student_id || index}>
+                            <motion.tr
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.02 }}
+                              className={`hover:bg-secondary/40 transition-colors ${isOverdue ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
+                            >
+                              <td className="px-5 py-4">
+                                <div className="font-bold text-foreground">
+                                  {student.name || '—'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {student.phone || '—'}
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-sm text-foreground">
+                                {student.parent_name || '—'}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-muted-foreground">
+                                {student.batch_names || '—'}
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="w-full">
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="text-muted-foreground">{paymentProgress.toFixed(0)}%</span>
+                                  </div>
+                                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                                    <motion.div
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${paymentProgress}%` }}
+                                      transition={{ duration: 0.5, delay: index * 0.05 }}
+                                      className={`h-full ${paymentProgress === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-sm font-bold text-foreground">
+                                ₹{parseFloat(totalAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-emerald-600 font-bold">
+                                ₹{parseFloat(paidAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-amber-600 font-bold">
+                                ₹{parseFloat(dueAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-muted-foreground">
+                                {formatDate(lastPaidDate)}
+                              </td>
+                              <td className="px-5 py-4">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                    feeStatus === 'paid'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                                  }`}
+                                >
+                                  {feeStatus}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStudentExpansion(student.student_id)}
+                                  className="btn btn-secondary btn-sm inline-flex"
+                                >
+                                  {isExpanded ? 'Hide' : 'History'}
+                                </button>
+                              </td>
+                            </motion.tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan="10" className="px-5 py-4 bg-secondary/30">
+                                  <div className="space-y-2">
+                                    <h4 className="font-bold text-foreground text-sm">Payment History</h4>
+                                    {student.receipts && student.receipts.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {student.receipts.map((receipt, idx) => (
+                                          <div key={idx} className="flex items-center justify-between text-xs bg-card p-2 rounded border border-border">
+                                            <div>
+                                              <span className="font-semibold">₹{parseFloat(receipt.amount).toFixed(2)}</span>
+                                              <span className="text-muted-foreground ml-2">{formatDate(receipt.payment_date)}</span>
+                                            </div>
+                                            <div className="text-muted-foreground">
+                                              {receipt.method || '—'}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-muted-foreground text-xs">No payment history available</p>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -770,14 +1231,14 @@ export default function CoachFeesPage() {
         transition={{ duration: 0.4 }}
       >
         {/* Header Section */}
-        <div className="pb-8 pl-4 lg:pl-0">
+        {/* <div className="pb-8 pl-4 lg:pl-0">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
             Fee Collection
           </h1>
           <p className="text-muted-foreground mt-2 text-sm font-medium">
             Process on-ground payments and sync digital receipts.
           </p>
-        </div>
+        </div> */}
 
         <CoachFeeCollection students={allStudents} />
       </motion.div>

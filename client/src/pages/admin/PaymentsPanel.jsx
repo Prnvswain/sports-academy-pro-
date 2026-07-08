@@ -78,12 +78,26 @@ export default function AccountsPanel() {
     setLoadingStudentAccounts(true);
     try {
       const result = await adminGet('/admin/accounts/students-fee-summary');
-      console.log('[loadStudentAccountsData] API Response:', result);
+      console.log('[loadStudentAccountsData] Full API Response:', result);
+      console.log('[loadStudentAccountsData] result type:', typeof result);
+      console.log('[loadStudentAccountsData] result.success:', result?.success);
       console.log('[loadStudentAccountsData] result.data:', result?.data);
       console.log('[loadStudentAccountsData] result.data.students:', result?.data?.students);
-      setStudentAccountsData(result?.data || result);
+      console.log('[loadStudentAccountsData] result.data.summary:', result?.data?.summary);
+      console.log('[loadStudentAccountsData] result.students:', result?.students);
+      console.log('[loadStudentAccountsData] result.summary:', result?.summary);
+      console.log('[loadStudentAccountsData] Array.isArray(result.students):', Array.isArray(result?.students));
+      console.log('[loadStudentAccountsData] Array.isArray(result.data.students):', Array.isArray(result?.data?.students));
+      
+      // adminGet uses unwrap which returns response.data
+      // Backend returns { success: true, message: "...", data: { students: [...], summary: {...} } }
+      // So result should be { success: true, message: "...", data: { students: [...], summary: {...} } }
+      // We need to extract result.data
+      const dataToSet = result?.data || result;
+      console.log('[loadStudentAccountsData] Setting state to:', dataToSet);
+      setStudentAccountsData(dataToSet);
     } catch (error) {
-      console.error('Failed to load student accounts data:', error);
+      console.error('[loadStudentAccountsData] Failed to load student accounts data:', error);
     } finally {
       setLoadingStudentAccounts(false);
     }
@@ -927,168 +941,6 @@ export default function AccountsPanel() {
           </div>
         )}
       </div>
-
-      {/* STUDENT ACCOUNTS SECTION */}
-      <div className="card mt-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
-          <div>
-            <h3 className="text-xl font-bold text-foreground">Student Accounts</h3>
-            <p className="text-sm text-muted-foreground mt-1">View student fee status and payment history</p>
-          </div>
-          
-          {/* Filter Toggle */}
-          <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
-            <button
-              onClick={() => setStudentAccountsFilter('all')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                studentAccountsFilter === 'all'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              All ({students.length})
-            </button>
-            <button
-              onClick={() => setStudentAccountsFilter('paid')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                studentAccountsFilter === 'paid'
-                  ? 'bg-emerald-500 text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Paid ({students.filter(s => (s?.fees_status || 'unpaid').toLowerCase() === 'paid').length})
-            </button>
-            <button
-              onClick={() => setStudentAccountsFilter('unpaid')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                studentAccountsFilter === 'unpaid'
-                  ? 'bg-amber-500 text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Unpaid ({students.filter(s => (s?.fees_status || 'unpaid').toLowerCase() === 'unpaid').length})
-            </button>
-          </div>
-        </div>
-
-        {/* Student Accounts Search */}
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search by student name, parent name, or phone..."
-            value={studentAccountsSearch}
-            onChange={(e) => setStudentAccountsSearch(e.target.value)}
-            className="input-field w-full max-w-md !py-2 !text-xs"
-          />
-        </div>
-
-        {/* Student Accounts Table */}
-        <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-          <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
-            <thead className="bg-secondary text-muted-foreground text-xs uppercase font-bold tracking-wider">
-              <tr>
-                <th className="px-5 py-4 border-b border-border">Student</th>
-                <th className="px-5 py-4 border-b border-border">Parent</th>
-                <th className="px-5 py-4 border-b border-border">Amount</th>
-                <th className="px-5 py-4 border-b border-border">Paid</th>
-                <th className="px-5 py-4 border-b border-border">Due</th>
-                <th className="px-5 py-4 border-b border-border">Last Paid</th>
-                <th className="px-5 py-4 border-b border-border">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-card divide-y divide-border">
-              {(() => {
-                const filteredStudents = students.filter((student) => {
-                  const feeStatus = (student?.fees_status || 'unpaid').toLowerCase();
-                  
-                  // Filter by payment status
-                  if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
-                  if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
-                  
-                  // Filter by search term
-                  if (studentAccountsSearch) {
-                    const searchLower = studentAccountsSearch.toLowerCase();
-                    const name = student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`.toLowerCase();
-                    const parentName = student?.parent_name || student?.parentName || '';
-                    const phone = student?.phone || student?.parent_phone || student?.mobile || '';
-                    
-                    return (
-                      name.includes(searchLower) ||
-                      parentName.toLowerCase().includes(searchLower) ||
-                      phone.includes(searchLower)
-                    );
-                  }
-                  
-                  return true;
-                });
-
-                if (filteredStudents.length === 0) {
-                  return (
-                    <tr>
-                      <td colSpan="7" className="px-5 py-8 text-center text-muted-foreground font-medium italic">
-                        No students found
-                      </td>
-                    </tr>
-                  );
-                }
-
-                return filteredStudents.map((student, index) => {
-                  const totalAmount = getStudentAmount(student);
-                  const paidAmount = getPaidAmount(student);
-                  const dueAmount = totalAmount - paidAmount;
-                  const lastPaidDate = getLastPaidDate(student);
-                  const feeStatus = (student?.fees_status || 'unpaid').toLowerCase();
-                  
-                  return (
-                    <motion.tr
-                      key={student.student_id || index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.02 }}
-                      className="hover:bg-secondary/40 transition-colors"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="font-bold text-foreground">
-                          {student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || '—'}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {student?.phone || student?.parent_phone || student?.mobile || '—'}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-foreground">
-                        {student?.parent_name || student?.parentName || '—'}
-                      </td>
-                      <td className="px-5 py-4 text-sm font-bold text-foreground">
-                        ₹{parseFloat(totalAmount || 0).toFixed(2)}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-emerald-600 font-bold">
-                        ₹{parseFloat(paidAmount || 0).toFixed(2)}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-amber-600 font-bold">
-                        ₹{parseFloat(dueAmount || 0).toFixed(2)}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-muted-foreground">
-                        {formatDate(lastPaidDate)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                            feeStatus === 'paid'
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
-                              : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
-                          }`}
-                        >
-                          {feeStatus}
-                        </span>
-                      </td>
-                    </motion.tr>
-                  );
-                });
-              })()}
-            </tbody>
-          </table>
-        </div>
-      </div>
         </>
       ) : (
         <>
@@ -1208,6 +1060,10 @@ export default function AccountsPanel() {
                   </thead>
                   <tbody className="bg-card divide-y divide-border">
                     {(() => {
+                      console.log('[StudentAccounts Render] studentAccountsData:', studentAccountsData);
+                      console.log('[StudentAccounts Render] studentAccountsData.students:', studentAccountsData?.students);
+                      console.log('[StudentAccounts Render] Array.isArray(studentAccountsData.students):', Array.isArray(studentAccountsData?.students));
+                      
                       const studentsList = studentAccountsData?.students || [];
                       const filteredStudents = studentsList.filter((student) => {
                         const feeStatus = student.fee_status || 'unpaid';

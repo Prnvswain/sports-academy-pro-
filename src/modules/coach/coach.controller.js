@@ -51,6 +51,41 @@ export const getPayments = async (req, res, next) => {
   }
 };
 
+export const getStudentsFeeSummary = async (req, res, next) => {
+  console.log('[getStudentsFeeSummary Controller] === START ===');
+  console.log('[getStudentsFeeSummary Controller] req.user:', req.user);
+  console.log('[getStudentsFeeSummary Controller] Coach ID:', req.user.coach_id);
+  console.log('[getStudentsFeeSummary Controller] Academy ID:', req.user.academy_id);
+  console.log('[getStudentsFeeSummary Controller] Query params:', req.query);
+  console.log('[getStudentsFeeSummary Controller] Batch ID from query:', req.query.batch_id);
+  
+  try {
+    const batchId = req.query.batch_id || null;
+    console.log('[getStudentsFeeSummary Controller] Calling service with batchId:', batchId);
+    
+    const summary = await coachService.getCoachStudentsFeeSummary(
+      req.user.coach_id,
+      req.user.academy_id,
+      batchId
+    );
+    
+    console.log('[getStudentsFeeSummary Controller] Service returned summary:', {
+      hasStudents: Array.isArray(summary?.students),
+      studentsCount: summary?.students?.length,
+      hasSummary: !!summary?.summary,
+    });
+    
+    const response = successResponse('Students fee summary retrieved successfully', summary);
+    console.log('[getStudentsFeeSummary Controller] Sending response:', response);
+    res.json(response);
+  } catch (err) {
+    console.error('[getStudentsFeeSummary Controller] Error:', err);
+    console.error('[getStudentsFeeSummary Controller] Error message:', err.message);
+    console.error('[getStudentsFeeSummary Controller] Error status:', err.statusCode);
+    next(err);
+  }
+};
+
 export const getStudentLedger = async (req, res, next) => {
   try {
     const ledger = await adminService.getStudentLedger(req.user.academy_id, req.params.student_id);

@@ -18,6 +18,7 @@ router.get('/dashboard', coachController.getDashboard);
 router.get('/batches', coachController.getMyBatches);
 router.get('/batches/:id', coachController.getBatchById);
 router.get('/payments', coachController.getPayments);
+router.get('/students-fee-summary', coachController.getStudentsFeeSummary);
 router.get('/student-ledger/:student_id', coachController.getStudentLedger);
 router.post('/attendance', verifyAttendanceLocation, validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
 router.post(
