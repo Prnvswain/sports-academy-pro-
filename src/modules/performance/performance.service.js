@@ -465,6 +465,12 @@ export const getScores = async (academyId, query = {}) => {
 export const createScore = async (academyId, coachId, userRole, data) => {
   const { student_id, attribute_id, batch_id, score, notes } = data;
 
+  console.log('=== createScore DEBUG ===');
+  console.log('academyId:', academyId, 'type:', typeof academyId);
+  console.log('coachId:', coachId, 'type:', typeof coachId);
+  console.log('userRole:', userRole);
+  console.log('data:', data);
+
   if (!student_id || !attribute_id || !score) {
     const error = new Error('student_id, attribute_id, and score are required');
     error.statusCode = 400;
@@ -524,66 +530,76 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     scoreData.notes = notes.trim();
   }
 
-  const newScore = await prisma.performanceScore.upsert({
-    where: {
-      student_id_attribute_id: {
-        student_id: parseInt(student_id, 10),
-        attribute_id: parseInt(attribute_id, 10)
-      }
-    },
-    update: {
-      score: parseInt(score, 10),
-      coach_id: parseInt(coachId, 10),
-      batch_id: batch_id ? parseInt(batch_id, 10) : null,
-      notes: notes ? notes.trim() : null,
-      scored_at: new Date(),
-      updated_at: new Date()
-    },
-    create: scoreData,
-    include: {
-      student: {
-        select: {
-          student_id: true,
-          name: true
+  console.log('scoreData before upsert:', scoreData);
+
+  try {
+    const newScore = await prisma.performanceScore.upsert({
+      where: {
+        student_id_attribute_id: {
+          student_id: parseInt(student_id, 10),
+          attribute_id: parseInt(attribute_id, 10)
         }
       },
-      attribute: {
-        include: {
-          sport: {
-            select: {
-              sport_id: true,
-              name: true
+      update: {
+        score: parseInt(score, 10),
+        coach_id: parseInt(coachId, 10),
+        batch_id: batch_id ? parseInt(batch_id, 10) : null,
+        notes: notes ? notes.trim() : null,
+        scored_at: new Date()
+      },
+      create: scoreData,
+      include: {
+        student: {
+          select: {
+            student_id: true,
+            name: true
+          }
+        },
+        attribute: {
+          include: {
+            sport: {
+              select: {
+                sport_id: true,
+                name: true
+              }
             }
           }
-        }
-      },
-      coach: {
-        select: {
-          coach_id: true,
-          name: true
+        },
+        coach: {
+          select: {
+            coach_id: true,
+            name: true
+          }
         }
       }
+    });
+
+    logger.info('Performance score recorded', {
+      score_id: newScore.score_id,
+      academy_id: academyId,
+      student_id: newScore.student_id,
+      attribute_id: newScore.attribute_id,
+      score: newScore.score,
+      coach_id: coachId
+    });
+
+    // Generate or update weekly performance report and notify parent
+    try {
+      await generateWeeklyReportAndNotify(academyId, parseInt(student_id, 10), parseInt(coachId, 10), batch_id ? parseInt(batch_id, 10) : null);
+    } catch (error) {
+      // Log error but don't fail the score submission
+      logger.error('Failed to generate weekly report or notify parent', { error: error.message, student_id, attribute_id });
     }
-  });
 
-  logger.info('Performance score recorded', {
-    score_id: newScore.score_id,
-    academy_id: academyId,
-    student_id: newScore.student_id,
-    attribute_id: newScore.attribute_id,
-    score: newScore.score,
-    coach_id: coachId
-  });
-
-  // Generate or update weekly performance report and notify parent
-  try {
-    await generateWeeklyReportAndNotify(academyId, parseInt(student_id, 10), parseInt(coachId, 10), batch_id ? parseInt(batch_id, 10) : null);
+    return newScore;
   } catch (error) {
-    // Log error but don't fail the score submission
-    logger.error('Failed to generate weekly report or notify parent', { error: error.message, student_id, attribute_id });
+    console.error('=== UPSERT ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error meta:', error.meta);
+    console.error('Stack trace:', error.stack);
+    throw error;
   }
-
-  return newScore;
 };
 
 // Helper function to generate weekly report and notify parent
@@ -718,6 +734,42 @@ const generateWeeklyReportAndNotify = async (academyId, studentId, coachId, batc
     parent_id: student.parent.parent_id,
     report_id: report.report_id
   });
+
+  // Create notification for academy admin
+  try {
+    const adminUser = await prisma.user.findFirst({
+      where: {
+        academy_id: academyId,
+        role: 'ACADEMY_ADMIN'
+      }
+    });
+
+    if (adminUser) {
+      await prisma.notification.create({
+        data: {
+          academy_id: academyId,
+          user_id: adminUser.user_id,
+          type: 'PERFORMANCE_REPORT',
+          title: 'New Performance Report Submitted',
+          body: `Coach has submitted a performance report for ${student.name}.`,
+          metadata: JSON.stringify({
+            student_id: studentId,
+            student_name: student.name,
+            report_id: report.report_id,
+            coach_id: coachId,
+            week_start_date: weekStartDate.toISOString()
+          })
+        }
+      });
+
+      logger.info('Created admin notification for performance report', {
+        admin_user_id: adminUser.user_id,
+        report_id: report.report_id
+      });
+    }
+  } catch (adminNotifyError) {
+    logger.error('Failed to create admin notification', { error: adminNotifyError.message });
+  }
 
   // Send email notification (if email service is available)
   try {

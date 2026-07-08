@@ -173,6 +173,7 @@ router.patch(
 );
 
 router.get('/accounts/student-ledger/:student_id', adminController.getStudentLedger);
+router.get('/accounts/students-fee-summary', adminController.getStudentsFeeSummary);
 router.get('/accounts/receipts', adminController.getReceipts);
 router.post(
   '/accounts/receipts',

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPatch, adminPost } from '../../api/client';
@@ -32,6 +33,15 @@ export default function AccountsPanel() {
   const [methodFilter, setMethodFilter] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
 
+  // Student Accounts Filter
+  const [studentAccountsFilter, setStudentAccountsFilter] = useState('all');
+  const [studentAccountsSearch, setStudentAccountsSearch] = useState('');
+  const [studentAccountsData, setStudentAccountsData] = useState(null);
+  const [loadingStudentAccounts, setLoadingStudentAccounts] = useState(false);
+  const [expandedStudentId, setExpandedStudentId] = useState(null);
+  const [sortBy, setSortBy] = useState('name'); // name, highest_due, highest_paid, recently_paid
+  const [activeTab, setActiveTab] = useState('payments'); // 'payments' or 'students'
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
@@ -64,6 +74,21 @@ export default function AccountsPanel() {
     }
   }, []);
 
+  const loadStudentAccountsData = useCallback(async () => {
+    setLoadingStudentAccounts(true);
+    try {
+      const result = await adminGet('/admin/accounts/students-fee-summary');
+      console.log('[loadStudentAccountsData] API Response:', result);
+      console.log('[loadStudentAccountsData] result.data:', result?.data);
+      console.log('[loadStudentAccountsData] result.data.students:', result?.data?.students);
+      setStudentAccountsData(result?.data || result);
+    } catch (error) {
+      console.error('Failed to load student accounts data:', error);
+    } finally {
+      setLoadingStudentAccounts(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadData(false);
     const interval = setInterval(() => {
@@ -71,6 +96,12 @@ export default function AccountsPanel() {
     }, 5000);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  useEffect(() => {
+    if (activeTab === 'students' && !studentAccountsData) {
+      loadStudentAccountsData();
+    }
+  }, [activeTab, studentAccountsData, loadStudentAccountsData]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -356,6 +387,76 @@ export default function AccountsPanel() {
     setCurrentPage(1);
   }, [statusFilter, methodFilter, dateFrom, dateTo, globalSearch]);
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const getStudentAmount = (student) => {
+    if (student?.enrollments && student.enrollments.length > 0) {
+      const latestEnrollment = student.enrollments[student.enrollments.length - 1];
+      return latestEnrollment.final_fee || latestEnrollment.sports_fee || 0;
+    }
+    return 0;
+  };
+
+  const getLastPaidDate = (student) => {
+    if (student?.receipts && student.receipts.length > 0) {
+      const latestReceipt = student.receipts[0];
+      return latestReceipt.payment_date || latestReceipt.created_at;
+    }
+    if (student?.enrollments && student.enrollments.length > 0) {
+      const latestEnrollment = student.enrollments[student.enrollments.length - 1];
+      return latestEnrollment.created_at;
+    }
+    return null;
+  };
+
+  const getPaidAmount = (student) => {
+    if (student?.enrollments && student.enrollments.length > 0) {
+      const latestEnrollment = student.enrollments[student.enrollments.length - 1];
+      return latestEnrollment.paid_amount || 0;
+    }
+    return 0;
+  };
+
+  const quickCollectFee = (student) => {
+    const studentId = student.student_id || student.id;
+    setStudentSearchTerm(student.name);
+    setForm((prev) => ({ ...prev, student_id: studentId }));
+    handleStudentChange(studentId);
+    setActiveTab('payments');
+    // Scroll to payment form
+    document.getElementById('payStudent')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const toggleStudentExpansion = (studentId) => {
+    setExpandedStudentId(expandedStudentId === studentId ? null : studentId);
+  };
+
+  const getSortedStudents = (students) => {
+    const sorted = [...students];
+    switch (sortBy) {
+      case 'highest_due':
+        return sorted.sort((a, b) => (b.due_amount || 0) - (a.due_amount || 0));
+      case 'highest_paid':
+        return sorted.sort((a, b) => (b.paid_amount || 0) - (a.paid_amount || 0));
+      case 'recently_paid':
+        return sorted.sort((a, b) => {
+          const dateA = a.last_paid_date ? new Date(a.last_paid_date).getTime() : 0;
+          const dateB = b.last_paid_date ? new Date(b.last_paid_date).getTime() : 0;
+          return dateB - dateA;
+        });
+      case 'name':
+      default:
+        return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }
+  };
+
   const clearFilters = () => {
     setStatusFilter('');
     setDateFrom('');
@@ -371,12 +472,40 @@ export default function AccountsPanel() {
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className="space-y-6 w-full max-w-7xl mx-auto overflow-x-hidden"
     >
-      <div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
-        <p className="text-base text-muted-foreground mt-1">Track payments, due dates, and collection statistics.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
+          <p className="text-base text-muted-foreground mt-1">Track payments, due dates, and collection statistics.</p>
+        </div>
+        
+        {/* Tab Navigation */}
+        <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+          <button
+            onClick={() => setActiveTab('payments')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'payments'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Payment Management
+          </button>
+          <button
+            onClick={() => setActiveTab('students')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'students'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Student Accounts
+          </button>
+        </div>
       </div>
 
-      {/* Modern KPI Statistics */}
+      {activeTab === 'payments' ? (
+        <>
+          {/* Modern KPI Statistics */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Total Amount', value: stats.total, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
@@ -798,6 +927,447 @@ export default function AccountsPanel() {
           </div>
         )}
       </div>
+
+      {/* STUDENT ACCOUNTS SECTION */}
+      <div className="card mt-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
+          <div>
+            <h3 className="text-xl font-bold text-foreground">Student Accounts</h3>
+            <p className="text-sm text-muted-foreground mt-1">View student fee status and payment history</p>
+          </div>
+          
+          {/* Filter Toggle */}
+          <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+            <button
+              onClick={() => setStudentAccountsFilter('all')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                studentAccountsFilter === 'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All ({students.length})
+            </button>
+            <button
+              onClick={() => setStudentAccountsFilter('paid')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                studentAccountsFilter === 'paid'
+                  ? 'bg-emerald-500 text-white'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Paid ({students.filter(s => (s?.fees_status || 'unpaid').toLowerCase() === 'paid').length})
+            </button>
+            <button
+              onClick={() => setStudentAccountsFilter('unpaid')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                studentAccountsFilter === 'unpaid'
+                  ? 'bg-amber-500 text-white'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Unpaid ({students.filter(s => (s?.fees_status || 'unpaid').toLowerCase() === 'unpaid').length})
+            </button>
+          </div>
+        </div>
+
+        {/* Student Accounts Search */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search by student name, parent name, or phone..."
+            value={studentAccountsSearch}
+            onChange={(e) => setStudentAccountsSearch(e.target.value)}
+            className="input-field w-full max-w-md !py-2 !text-xs"
+          />
+        </div>
+
+        {/* Student Accounts Table */}
+        <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+          <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
+            <thead className="bg-secondary text-muted-foreground text-xs uppercase font-bold tracking-wider">
+              <tr>
+                <th className="px-5 py-4 border-b border-border">Student</th>
+                <th className="px-5 py-4 border-b border-border">Parent</th>
+                <th className="px-5 py-4 border-b border-border">Amount</th>
+                <th className="px-5 py-4 border-b border-border">Paid</th>
+                <th className="px-5 py-4 border-b border-border">Due</th>
+                <th className="px-5 py-4 border-b border-border">Last Paid</th>
+                <th className="px-5 py-4 border-b border-border">Status</th>
+              </tr>
+            </thead>
+            <tbody className="bg-card divide-y divide-border">
+              {(() => {
+                const filteredStudents = students.filter((student) => {
+                  const feeStatus = (student?.fees_status || 'unpaid').toLowerCase();
+                  
+                  // Filter by payment status
+                  if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
+                  if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
+                  
+                  // Filter by search term
+                  if (studentAccountsSearch) {
+                    const searchLower = studentAccountsSearch.toLowerCase();
+                    const name = student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`.toLowerCase();
+                    const parentName = student?.parent_name || student?.parentName || '';
+                    const phone = student?.phone || student?.parent_phone || student?.mobile || '';
+                    
+                    return (
+                      name.includes(searchLower) ||
+                      parentName.toLowerCase().includes(searchLower) ||
+                      phone.includes(searchLower)
+                    );
+                  }
+                  
+                  return true;
+                });
+
+                if (filteredStudents.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="7" className="px-5 py-8 text-center text-muted-foreground font-medium italic">
+                        No students found
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filteredStudents.map((student, index) => {
+                  const totalAmount = getStudentAmount(student);
+                  const paidAmount = getPaidAmount(student);
+                  const dueAmount = totalAmount - paidAmount;
+                  const lastPaidDate = getLastPaidDate(student);
+                  const feeStatus = (student?.fees_status || 'unpaid').toLowerCase();
+                  
+                  return (
+                    <motion.tr
+                      key={student.student_id || index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.02 }}
+                      className="hover:bg-secondary/40 transition-colors"
+                    >
+                      <td className="px-5 py-4">
+                        <div className="font-bold text-foreground">
+                          {student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || '—'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {student?.phone || student?.parent_phone || student?.mobile || '—'}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-foreground">
+                        {student?.parent_name || student?.parentName || '—'}
+                      </td>
+                      <td className="px-5 py-4 text-sm font-bold text-foreground">
+                        ₹{parseFloat(totalAmount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-emerald-600 font-bold">
+                        ₹{parseFloat(paidAmount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-amber-600 font-bold">
+                        ₹{parseFloat(dueAmount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-muted-foreground">
+                        {formatDate(lastPaidDate)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                            feeStatus === 'paid'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                          }`}
+                        >
+                          {feeStatus}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+        </>
+      ) : (
+        <>
+          {/* STUDENT ACCOUNTS SECTION */}
+          {/* Dashboard Summary Cards */}
+          {studentAccountsData?.summary && (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                { label: 'Total Students', value: studentAccountsData.summary.total_students, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
+                { label: 'Fully Paid', value: studentAccountsData.summary.fully_paid, color: 'text-[rgb(var(--color-accent-primary))]', bgLine: 'rgb(var(--color-accent-primary))' },
+                { label: 'Partially Paid', value: studentAccountsData.summary.partially_paid, color: 'text-[rgb(var(--color-amber-primary))]', bgLine: 'rgb(var(--color-amber-primary))' },
+                { label: 'Unpaid', value: studentAccountsData.summary.unpaid, color: 'text-[rgb(var(--color-danger))]', bgLine: 'rgb(var(--color-danger))' },
+                { label: 'Outstanding', value: `₹${studentAccountsData.summary.total_outstanding.toFixed(2)}`, color: 'text-[rgb(var(--color-purple-primary))]', bgLine: 'rgb(var(--color-purple-primary))' }
+              ].map((stat, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.1 }}
+                  whileHover={{ y: -4 }}
+                  className="card flex flex-col justify-center relative overflow-hidden"
+                  style={{ borderTopWidth: '4px', borderTopColor: stat.bgLine }}
+                >
+                  <div className="relative z-10">
+                    <div className={`text-3xl font-extrabold ${stat.color}`}>
+                      {stat.value}
+                    </div>
+                    <div className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1.5">{stat.label}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Student Accounts Section */}
+          <div className="card mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-foreground">Student Accounts</h3>
+                <p className="text-sm text-muted-foreground mt-1">View student fee status and payment history</p>
+              </div>
+              
+              {/* Filter Toggle */}
+              <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+                <button
+                  onClick={() => setStudentAccountsFilter('all')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    studentAccountsFilter === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  All ({studentAccountsData?.students?.length || 0})
+                </button>
+                <button
+                  onClick={() => setStudentAccountsFilter('paid')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    studentAccountsFilter === 'paid'
+                      ? 'bg-emerald-500 text-white'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Paid ({studentAccountsData?.students?.filter(s => s.fee_status === 'paid').length || 0})
+                </button>
+                <button
+                  onClick={() => setStudentAccountsFilter('unpaid')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    studentAccountsFilter === 'unpaid'
+                      ? 'bg-amber-500 text-white'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Unpaid ({studentAccountsData?.students?.filter(s => s.fee_status === 'unpaid').length || 0})
+                </button>
+              </div>
+            </div>
+
+            {/* Search and Sort */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              <input
+                type="text"
+                placeholder="Search by student name, parent name, or phone..."
+                value={studentAccountsSearch}
+                onChange={(e) => setStudentAccountsSearch(e.target.value)}
+                className="input-field flex-1 max-w-md !py-2 !text-xs"
+              />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="input-field w-full sm:w-48 !py-2 !text-xs"
+              >
+                <option value="name">Sort by Name</option>
+                <option value="highest_due">Highest Due</option>
+                <option value="highest_paid">Highest Paid</option>
+                <option value="recently_paid">Recently Paid</option>
+              </select>
+            </div>
+
+            {/* Student Accounts Table */}
+            {loadingStudentAccounts ? (
+              <Loader message="Loading student accounts..." />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+                <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
+                  <thead className="bg-secondary text-muted-foreground text-xs uppercase font-bold tracking-wider">
+                    <tr>
+                      <th className="px-5 py-4 border-b border-border">Student</th>
+                      <th className="px-5 py-4 border-b border-border">Parent</th>
+                      <th className="px-5 py-4 border-b border-border">Progress</th>
+                      <th className="px-5 py-4 border-b border-border">Amount</th>
+                      <th className="px-5 py-4 border-b border-border">Paid</th>
+                      <th className="px-5 py-4 border-b border-border">Due</th>
+                      <th className="px-5 py-4 border-b border-border">Last Paid</th>
+                      <th className="px-5 py-4 border-b border-border">Status</th>
+                      <th className="px-5 py-4 border-b border-border">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-card divide-y divide-border">
+                    {(() => {
+                      const studentsList = studentAccountsData?.students || [];
+                      const filteredStudents = studentsList.filter((student) => {
+                        const feeStatus = student.fee_status || 'unpaid';
+                        
+                        // Filter by payment status
+                        if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
+                        if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
+                        
+                        // Filter by search term
+                        if (studentAccountsSearch) {
+                          const searchLower = studentAccountsSearch.toLowerCase();
+                          const name = student.name || '';
+                          const parentName = student.parent_name || '';
+                          const phone = student.phone || '';
+                          
+                          return (
+                            name.toLowerCase().includes(searchLower) ||
+                            parentName.toLowerCase().includes(searchLower) ||
+                            phone.includes(searchLower)
+                          );
+                        }
+                        
+                        return true;
+                      });
+
+                      const sortedStudents = getSortedStudents(filteredStudents);
+
+                      if (sortedStudents.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="9" className="px-5 py-8 text-center text-muted-foreground font-medium italic">
+                              No students found
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return sortedStudents.map((student, index) => {
+                        const totalAmount = student.total_fee || 0;
+                        const paidAmount = student.paid_amount || 0;
+                        const dueAmount = student.due_amount || 0;
+                        const lastPaidDate = student.last_paid_date;
+                        const feeStatus = student.fee_status || 'unpaid';
+                        const paymentProgress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+                        const isExpanded = expandedStudentId === student.student_id;
+                        
+                        // Check if student is overdue (has due amount and no recent payment)
+                        const isOverdue = dueAmount > 0 && lastPaidDate && new Date(lastPaidDate) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                        
+                        return (
+                          <React.Fragment key={student.student_id || index}>
+                            <motion.tr
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.02 }}
+                              className={`hover:bg-secondary/40 transition-colors ${isOverdue ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
+                            >
+                              <td className="px-5 py-4">
+                                <div className="font-bold text-foreground">
+                                  {student.name || '—'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {student.phone || '—'}
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-sm text-foreground">
+                                {student.parent_name || '—'}
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="w-full">
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="text-muted-foreground">{paymentProgress.toFixed(0)}%</span>
+                                  </div>
+                                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                                    <motion.div
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${paymentProgress}%` }}
+                                      transition={{ duration: 0.5, delay: index * 0.05 }}
+                                      className={`h-full ${paymentProgress === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-sm font-bold text-foreground">
+                                ₹{parseFloat(totalAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-emerald-600 font-bold">
+                                ₹{parseFloat(paidAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-amber-600 font-bold">
+                                ₹{parseFloat(dueAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-5 py-4 text-sm text-muted-foreground">
+                                {formatDate(lastPaidDate)}
+                              </td>
+                              <td className="px-5 py-4">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                    feeStatus === 'paid'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                                  }`}
+                                >
+                                  {feeStatus}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => quickCollectFee(student)}
+                                  className="btn btn-primary btn-sm inline-flex"
+                                >
+                                  Quick Collect
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStudentExpansion(student.student_id)}
+                                  className="btn btn-secondary btn-sm inline-flex"
+                                >
+                                  {isExpanded ? 'Hide' : 'History'}
+                                </button>
+                              </td>
+                            </motion.tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan="9" className="px-5 py-4 bg-secondary/30">
+                                  <div className="space-y-2">
+                                    <h4 className="font-bold text-foreground text-sm">Payment History</h4>
+                                    {student.receipts && student.receipts.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {student.receipts.map((receipt, idx) => (
+                                          <div key={idx} className="flex items-center justify-between text-xs bg-card p-2 rounded border border-border">
+                                            <div>
+                                              <span className="font-semibold">₹{parseFloat(receipt.amount).toFixed(2)}</span>
+                                              <span className="text-muted-foreground ml-2">{formatDate(receipt.payment_date)}</span>
+                                            </div>
+                                            <div className="text-muted-foreground">
+                                              {receipt.method || '—'}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-muted-foreground text-xs">No payment history available</p>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* GLOBAL TOAST MESSAGE POPUP */}
       <AnimatePresence>

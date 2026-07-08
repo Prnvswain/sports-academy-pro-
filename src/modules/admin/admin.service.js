@@ -1905,6 +1905,113 @@ export const getStudentLedger = async (academy_id, student_id) => {
   };
 };
 
+export const getStudentsFeeSummary = async (academy_id) => {
+  console.log('[getStudentsFeeSummary] Academy ID:', academy_id);
+  const academyId = parseInt(academy_id, 10);
+
+  // Get all active students for the academy
+  const students = await prisma.student.findMany({
+    where: {
+      academy_id: academyId,
+    },
+    include: {
+      enrollments: {
+        where: {
+          academy_id: academyId,
+        },
+        include: {
+          duration_plan: true,
+          batch: {
+            include: {
+              sport: true,
+            },
+          },
+        },
+      },
+      receipts: {
+        where: {
+          academy_id: academyId,
+          status: 'COMPLETED',
+        },
+        orderBy: { payment_date: 'desc' },
+      },
+      parent: true,
+    },
+  });
+
+  console.log('[getStudentsFeeSummary] Students found:', students.length);
+
+  // Calculate fee summary for each student
+  const studentsSummary = await Promise.all(
+    students.map(async (student) => {
+      // Calculate total fee due from enrollments
+      const totalFeeDue = student.enrollments.reduce((sum, e) => {
+        const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
+        const registrationFee = Number(e.registration_fee || 0);
+        const additionalCharges = Number(e.additional_charges || 0);
+        const discount = Number(e.discount || 0);
+        const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
+        const sportsFeeWithMultiplier = baseFee * durationMultiplier;
+        const enrollmentTotal = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
+        return sum + enrollmentTotal;
+      }, 0);
+
+      // Calculate total paid from receipts
+      const totalPaid = student.receipts.reduce((sum, r) => sum + Number(r.amount), 0);
+
+      // Calculate balance outstanding
+      const balanceOutstanding = Math.max(0, totalFeeDue - totalPaid);
+
+      // Determine fee status
+      const feeStatus = balanceOutstanding === 0 ? 'paid' : 'unpaid';
+
+      // Get last paid date
+      const lastPaidDate = student.receipts.length > 0 ? student.receipts[0].payment_date : null;
+
+      return {
+        student_id: student.student_id,
+        name: student.name,
+        parent_name: student.parent?.name || '',
+        phone: student.phone || student.parent?.phone || '',
+        total_fee: totalFeeDue,
+        paid_amount: totalPaid,
+        due_amount: balanceOutstanding,
+        fee_status: feeStatus,
+        last_paid_date: lastPaidDate,
+        payment_count: student.receipts.length,
+        enrollments: student.enrollments,
+        receipts: student.receipts,
+      };
+    })
+  );
+
+  // Calculate overall summary stats
+  const totalStudents = studentsSummary.length;
+  const fullyPaid = studentsSummary.filter(s => s.fee_status === 'paid').length;
+  const partiallyPaid = studentsSummary.filter(s => s.paid_amount > 0 && s.due_amount > 0).length;
+  const unpaid = studentsSummary.filter(s => s.fee_status === 'unpaid').length;
+  const totalOutstanding = studentsSummary.reduce((sum, s) => sum + s.due_amount, 0);
+
+  console.log('[getStudentsFeeSummary] Summary stats:', {
+    totalStudents,
+    fullyPaid,
+    partiallyPaid,
+    unpaid,
+    totalOutstanding,
+  });
+
+  return {
+    students: studentsSummary,
+    summary: {
+      total_students: totalStudents,
+      fully_paid: fullyPaid,
+      partially_paid: partiallyPaid,
+      unpaid: unpaid,
+      total_outstanding: totalOutstanding,
+    },
+  };
+};
+
 export const getReceipts = async (academy_id) => {
   const academyId = parseInt(academy_id, 10);
 

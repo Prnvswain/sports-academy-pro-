@@ -568,7 +568,7 @@ export function CoachFeeCollection({ students = [] }) {
             </div>
           </div>
 
-          <div className="p-0">
+          <div className="p-0 min-h-[400px]">
             {loadingTable && submissions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-sm font-semibold text-muted-foreground">
                 <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
@@ -576,7 +576,7 @@ export function CoachFeeCollection({ students = [] }) {
               </div>
             ) : submissions.length > 0 ? (
               <>
-                <div className="overflow-x-auto custom-scrollbar">
+                <div className="overflow-x-auto custom-scrollbar min-h-[350px]">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-surface-secondary/50 border-b border-border text-[10px] font-black uppercase tracking-wider text-muted-foreground">

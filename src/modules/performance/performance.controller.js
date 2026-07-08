@@ -112,6 +112,10 @@ export const getScores = async (req, res, next) => {
 
 export const createScore = async (req, res, next) => {
   try {
+    console.log('=== createScore CONTROLLER DEBUG ===');
+    console.log('req.user:', req.user);
+    console.log('req.body:', req.body);
+    
     const score = await performanceService.createScore(
       req.user.academy_id,
       req.user.coach_id || req.user.user_id,
@@ -122,6 +126,10 @@ export const createScore = async (req, res, next) => {
       successResponse('Performance score recorded successfully', score)
     );
   } catch (err) {
+    console.error('=== createScore CONTROLLER ERROR ===');
+    console.error('Error message:', err.message);
+    console.error('Error stack:', err.stack);
+    console.error('Error statusCode:', err.statusCode);
     next(err);
   }
 };

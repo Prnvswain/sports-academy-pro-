@@ -365,6 +365,20 @@ export const getStudentLedger = async (req, res, next) => {
   }
 };
 
+export const getStudentsFeeSummary = async (req, res, next) => {
+  try {
+    console.log('[getStudentsFeeSummary Controller] User academy_id:', req.user.academy_id);
+    const summary = await adminService.getStudentsFeeSummary(req.user.academy_id);
+    console.log('[getStudentsFeeSummary Controller] Summary data from service:', summary);
+    console.log('[getStudentsFeeSummary Controller] Students count:', summary?.students?.length);
+    res.json(successResponse('Students fee summary retrieved successfully', summary));
+  } catch (err) {
+    console.error('[getStudentsFeeSummary Controller] Error:', err);
+    console.error('[getStudentsFeeSummary Controller] Error stack:', err.stack);
+    next(err);
+  }
+};
+
 export const getReceipts = async (req, res, next) => {
   try {
     const receipts = await adminService.getReceipts(req.user.academy_id);
