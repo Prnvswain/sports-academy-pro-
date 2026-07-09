@@ -1,6 +1,7 @@
 import express from 'express';
 import { body } from 'express-validator';
 import * as coachController from './coach.controller.js';
+import * as performanceController from '../performance/performance.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { enforceActiveSubscription } from '../../middlewares/subscription.middleware.js';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
@@ -69,5 +70,14 @@ router.post(
   validationErrorHandler,
   coachController.markCoachAbsent
 );
+
+// Performance routes for coaches
+router.get('/performance/attributes', performanceController.getAttributes);
+router.post('/performance/attributes', validationErrorHandler, performanceController.createAttribute);
+router.get('/performance/assessments', performanceController.getAssessmentHistory);
+router.get('/performance/assessments/:assessmentId', performanceController.getAssessmentById);
+router.get('/performance/students/:studentId', performanceController.getStudentPerformance);
+router.post('/performance/scores', validationErrorHandler, performanceController.createScore);
+router.post('/performance/weekly-performance', validationErrorHandler, performanceController.submitWeeklyPerformance);
 
 export default router;

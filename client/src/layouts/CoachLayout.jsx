@@ -5,6 +5,9 @@ import ThemeToggle from '../components/ThemeToggle';
 import { clearCoachToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
 import { CoachBatchesProvider } from '../context/CoachBatchesContext';
 
+const PRODUCT_NAME = 'Sports Academy Pro';
+const PRODUCT_LOGO = 'SP';
+
 const COACH_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: '📊' },
   { path: 'attendance', label: 'Attendance', icon: '📋' },
@@ -51,17 +54,18 @@ function CoachLayoutShell() {
           <Link
             to="/coach/dashboard"
             className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary/50"
+            onClick={() => setSidebarCollapsed((c) => !c)}
           >
-            <span className="bg-primary/10 text-primary border border-primary/20 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-black tracking-tighter shadow-sm transition-transform hover:scale-105">
-              SC
+            <span className="bg-primary/10 text-primary border border-primary/20 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-black tracking-tighter shadow-sm transition-transform hover:scale-105 cursor-pointer">
+              {PRODUCT_LOGO}
             </span>
             <motion.span
               initial={{ opacity: 1 }}
               animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
               transition={{ duration: 0.2 }}
-              className="font-bold tracking-wide text-foreground whitespace-nowrap text-sm"
+              className="font-black tracking-wide text-foreground whitespace-nowrap text-sm cursor-pointer"
             >
-              SAMS Coach
+              {PRODUCT_NAME}
             </motion.span>
           </Link>
           <motion.button
@@ -76,8 +80,8 @@ function CoachLayoutShell() {
           </motion.button>
         </div>
 
-        {/* Navigation Links - Updated to match Admin solid box style */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 custom-scrollbar" aria-label="Coach sections">
+        {/* Navigation Links - Solid Color Active State & Animations */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 custom-scrollbar" aria-label="Coach sections">
           {COACH_NAV_ITEMS.map((item) => (
             <NavLink
               key={item.path}
@@ -108,7 +112,7 @@ function CoachLayoutShell() {
                 initial={{ opacity: 1 }}
                 animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
                 transition={{ duration: 0.2 }}
-                className="relative z-10 whitespace-nowrap"
+                className="relative z-10 whitespace-nowrap tracking-tight"
               >
                 {item.label}
               </motion.span>
@@ -120,7 +124,7 @@ function CoachLayoutShell() {
         <div className="border-t border-border/50 p-3 space-y-2 bg-surface-secondary/30 backdrop-blur-sm shrink-0">
           <motion.button
             type="button"
-            className="btn-danger w-full justify-center rounded-xl text-xs py-2 font-semibold shadow-sm"
+            className="w-full justify-center rounded-xl text-xs py-2.5 font-bold shadow-sm bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors"
             onClick={handleLogout}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -167,7 +171,7 @@ function CoachLayoutShell() {
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </motion.button>
-            <h1 className="text-xl font-extrabold tracking-tight text-foreground/90">
+            <h1 className="text-xl font-black tracking-tight text-foreground/90">
               {pageTitle}
             </h1>
           </div>
@@ -180,9 +184,9 @@ function CoachLayoutShell() {
         <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
             className="w-full min-w-0 relative z-10"
           >
             <Outlet />

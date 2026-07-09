@@ -6,6 +6,9 @@ import { clearSuperAdminToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
 
 import { LayoutDashboard, Bell, Building2, Calendar, CreditCard, Sliders, Settings } from 'lucide-react';
 
+const PRODUCT_NAME = 'Sports Academy Pro';
+const PRODUCT_LOGO = 'SP';
+
 export const SUPER_ADMIN_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: 'notifications', label: 'Notification', icon: Bell },
@@ -51,9 +54,10 @@ export default function SuperAdminLayout() {
           <Link
             to="/super-admin/dashboard"
             className="text-slate-800 flex items-center gap-2 font-extrabold no-underline hover:text-emerald-600 transition-colors"
+            onClick={() => setSidebarCollapsed((c) => !c)}
           >
-            <span className="bg-emerald-500 text-white flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs shadow-sm">
-              SA
+            <span className="bg-emerald-500 text-white flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs shadow-sm cursor-pointer">
+              {PRODUCT_LOGO}
             </span>
             <motion.span
               initial={{ opacity: 1 }}
@@ -61,7 +65,7 @@ export default function SuperAdminLayout() {
               transition={{ duration: 0.2 }}
               className={!sidebarCollapsed ? '' : 'hidden'}
             >
-              SAMS Super Admin
+              {PRODUCT_NAME}
             </motion.span>
           </Link>
           <motion.button

@@ -18,9 +18,13 @@
     "db:studio": "npx prisma studio"
   },
   "devDependencies": {
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.15",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "tailwindcss": "^3.4.19",
+    "tailwindcss-animate": "^1.0.7"
   },
   "packageManager": "pnpm@9.15.9",
   "engines": {

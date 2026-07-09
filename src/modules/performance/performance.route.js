@@ -29,6 +29,12 @@ router.get('/scores', performanceController.getScores);
 // Create new performance score
 router.post('/scores', validationErrorHandler, performanceController.createScore);
 
+// Get assessment history with filtering
+router.get('/assessments/history', performanceController.getAssessmentHistory);
+
+// Get specific assessment by ID
+router.get('/assessments/:assessmentId', performanceController.getAssessmentById);
+
 // Get student performance
 router.get('/students/:studentId', performanceController.getStudentPerformance);
 

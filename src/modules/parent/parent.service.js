@@ -82,6 +82,8 @@ export const authenticateParent = async ({ email, password, academy_id }) => {
   let parent;
   const normalizedEmail = email.trim().toLowerCase();
 
+  logger.info('Parent authentication attempt', { email: normalizedEmail, academy_id });
+
   if (academy_id) {
     parent = await findParentByEmail(normalizedEmail, academy_id);
   } else {
@@ -95,17 +97,28 @@ export const authenticateParent = async ({ email, password, academy_id }) => {
   }
 
   if (!parent) {
-    throw new Error('Invalid credentials');
+    logger.warn('Parent not found or inactive', { email: normalizedEmail, academy_id });
+    const error = new Error('Invalid credentials');
+    error.statusCode = 401;
+    throw error;
   }
+
+  logger.info('Parent found, verifying password', { parent_id: parent.parent_id, email: parent.email });
 
   const isValidPassword = await bcrypt.compare(password, parent.password_hash);
 
   if (!isValidPassword) {
-    throw new Error('Invalid credentials');
+    logger.warn('Invalid password for parent', { parent_id: parent.parent_id, email: parent.email });
+    const error = new Error('Invalid credentials');
+    error.statusCode = 401;
+    throw error;
   }
 
   if (!parent.is_active) {
-    throw new Error('Account is inactive');
+    logger.warn('Parent account inactive', { parent_id: parent.parent_id, email: parent.email });
+    const error = new Error('Account is inactive');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Update last login
@@ -125,7 +138,7 @@ export const authenticateParent = async ({ email, password, academy_id }) => {
     { expiresIn: JWT_EXPIRE },
   );
 
-  logger.info('Parent authenticated', { parent_id: parent.parent_id, email: parent.email });
+  logger.info('Parent authenticated successfully', { parent_id: parent.parent_id, email: parent.email });
 
   return {
     token,

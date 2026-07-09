@@ -1,5 +1,6 @@
 import * as adminService from './admin.service.js';
 import { successResponse } from '../../utils/response.js';
+import logger from '../../utils/logger.js';
 
 export const getAcademyDetails = async (req, res, next) => {
   try {
@@ -96,13 +97,6 @@ export const createSport = async (req, res, next) => {
 
 export const updateSportStatus = async (req, res, next) => {
   try {
-    console.log('[updateSportStatus] Request received:', {
-      method: req.method,
-      url: req.originalUrl,
-      params: req.params,
-      body: req.body,
-      academy_id: req.user.academy_id,
-    });
     const sport = await adminService.updateSportStatus(
       req.user.academy_id,
       req.params.id,
@@ -110,23 +104,17 @@ export const updateSportStatus = async (req, res, next) => {
     );
     res.json(successResponse('Sport status updated successfully', sport));
   } catch (err) {
-    console.error('[updateSportStatus] Error:', err);
+    logger.error('Failed to update sport status', err);
     next(err);
   }
 };
 
 export const deleteSport = async (req, res, next) => {
   try {
-    console.log('[deleteSport] Request received:', {
-      method: req.method,
-      url: req.originalUrl,
-      params: req.params,
-      academy_id: req.user.academy_id,
-    });
     await adminService.deleteSport(req.user.academy_id, req.params.id);
     res.json(successResponse('Sport deleted successfully', {}));
   } catch (err) {
-    console.error('[deleteSport] Error:', err);
+    logger.error('Failed to delete sport', err);
     next(err);
   }
 };
@@ -205,25 +193,10 @@ export const getAllStudents = async (req, res, next) => {
 
 export const createStudent = async (req, res, next) => {
   try {
-    console.log('[createStudent] Request received:', {
-      method: req.method,
-      url: req.originalUrl,
-      academy_id: req.user.academy_id,
-      body: req.body,
-    });
     const student = await adminService.createStudent(req.user.academy_id, req.body);
-    console.log('[createStudent] Student created successfully:', {
-      student_id: student.student_id,
-      name: student.name,
-    });
     res.status(201).json(successResponse('Student created successfully', student));
   } catch (err) {
-    console.error('[createStudent] Error:', {
-      message: err.message,
-      statusCode: err.statusCode,
-      stack: err.stack,
-      body: req.body,
-    });
+    logger.error('Failed to create student', err);
     next(err);
   }
 };
@@ -353,28 +326,20 @@ export const getAllPayments = async (req, res, next) => {
 
 export const getStudentLedger = async (req, res, next) => {
   try {
-    console.log('[getStudentLedger Controller] Request params:', req.params);
-    console.log('[getStudentLedger Controller] User academy_id:', req.user.academy_id);
     const ledger = await adminService.getStudentLedger(req.user.academy_id, req.params.student_id);
-    console.log('[getStudentLedger Controller] Ledger data from service:', ledger);
     res.json(successResponse('Student ledger retrieved successfully', ledger));
   } catch (err) {
-    console.error('[getStudentLedger Controller] Error:', err);
-    console.error('[getStudentLedger Controller] Error stack:', err.stack);
+    logger.error('Failed to get student ledger', err);
     next(err);
   }
 };
 
 export const getStudentsFeeSummary = async (req, res, next) => {
   try {
-    console.log('[getStudentsFeeSummary Controller] User academy_id:', req.user.academy_id);
     const summary = await adminService.getStudentsFeeSummary(req.user.academy_id);
-    console.log('[getStudentsFeeSummary Controller] Summary data from service:', summary);
-    console.log('[getStudentsFeeSummary Controller] Students count:', summary?.students?.length);
     res.json(successResponse('Students fee summary retrieved successfully', summary));
   } catch (err) {
-    console.error('[getStudentsFeeSummary Controller] Error:', err);
-    console.error('[getStudentsFeeSummary Controller] Error stack:', err.stack);
+    logger.error('Failed to get students fee summary', err);
     next(err);
   }
 };
@@ -417,14 +382,10 @@ export const getRevenueSummary = async (req, res, next) => {
 
 export const createPayment = async (req, res, next) => {
   try {
-    console.log('[createPayment Controller] Request body:', req.body);
-    console.log('[createPayment Controller] User academy_id:', req.user.academy_id);
     const payment = await adminService.createPayment(req.user.academy_id, req.body);
-    console.log('[createPayment Controller] Payment created successfully:', payment);
     res.status(201).json(successResponse('Payment created successfully', payment));
   } catch (err) {
-    console.error('[createPayment Controller] Error:', err);
-    console.error('[createPayment Controller] Error stack:', err.stack);
+    logger.error('Failed to create payment', err);
     next(err);
   }
 };
@@ -458,7 +419,7 @@ export const getAcademyReport = async (req, res, next) => {
 export const getEnquiries = async (req, res, next) => {
   try {
     const enquiries = await adminService.getEnquiries(req.user.academy_id);
-    res.status(200).json({ success: true, data: enquiries });
+    res.json(successResponse('Enquiries retrieved successfully', enquiries));
   } catch (err) {
     next(err);
   }
@@ -467,93 +428,13 @@ export const getEnquiries = async (req, res, next) => {
 export const updateEnquiry = async (req, res, next) => {
   try {
     const enquiry = await adminService.updateEnquiry(req.user.academy_id, req.params.id, req.body);
-    res.status(200).json({ success: true, data: enquiry });
+    res.json(successResponse('Enquiry updated successfully', enquiry));
   } catch (err) {
     next(err);
   }
 };
 
-export const getPerformanceApprovalQueue = async (req, res, next) => {
-  try {
-    // PASS REQ.QUERY HERE: This links the incoming frontend sport selection query strings to your Prisma query maps!
-    const queue = await adminService.getPerformanceApprovalQueue(req.user.academy_id, req.query);
-    res.status(200).json({ success: true, data: queue });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const approvePerformanceAttribute = async (req, res, next) => {
-  try {
-    const result = await adminService.approvePerformanceAttribute(
-      req.user.academy_id,
-      req.params.id,
-      { action: 'APPROVED' },
-    );
-    res.status(200).json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const createPerformanceAttribute = async (req, res, next) => {
-  try {
-    const result = await adminService.createPerformanceAttribute(req.user.academy_id, req.body);
-    res
-      .status(201)
-      .json({ success: true, message: 'Performance attribute added cleanly', data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const getStudentPerformanceHistory = async (req, res, next) => {
-  try {
-    const history = await adminService.getStudentPerformanceHistory(req.params.studentId, req.user.academy_id);
-    res.json(successResponse('Student performance history retrieved successfully', history));
-  } catch (err) {
-    next(err)
-  }
-};
-
-export const getStudentPerformanceAnalytics = async (req, res, next) => {
-  try {
-    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
-    const data = await performanceAnalytics.getStudentPerformanceAnalytics(
-      req.user.academy_id,
-      req.params.studentId
-    );
-    res.json(successResponse('Student performance analytics retrieved successfully', data));
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const getBatchPerformanceAnalytics = async (req, res, next) => {
-  try {
-    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
-    const data = await performanceAnalytics.getBatchPerformanceAnalytics(
-      req.user.academy_id,
-      req.params.batchId
-    );
-    res.json(successResponse('Batch performance analytics retrieved successfully', data));
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const getAcademyPerformanceAnalytics = async (req, res, next) => {
-  try {
-    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
-    const data = await performanceAnalytics.getAcademyPerformanceAnalytics(
-      req.user.academy_id,
-      req.query
-    );
-    res.json(successResponse('Academy performance analytics retrieved successfully', data));
-  } catch (err) {
-    next(err);
-  }
-};
+// Performance-related controllers removed - use /performance module routes instead
 
 export const getAttendance = async (req, res, next) => {
   try {

@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs';
 
 async function resetParentPassword() {
   try {
-    const email = 'pranav.k.swain@gmail.com';
-    const newPassword = 'Test123456'; // New temporary password
+    const email = 'durgesh.csai@gmail.com';
+    const newPassword = 'Parent@123'; // New temporary password
     
     const normalizedEmail = email.toLowerCase();
     

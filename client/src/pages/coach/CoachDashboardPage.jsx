@@ -1,10 +1,113 @@
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
+import { coachGet } from '../../api/client';
+import { useState, useEffect, useMemo } from 'react';
 
 export default function CoachDashboardPage() {
   const { dashboard, batches, loading, error } = useCoachBatches();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSport, setSelectedSport] = useState('all');
+  const [selectedBatch, setSelectedBatch] = useState(null);
+  const [showBatchDetails, setShowBatchDetails] = useState(false);
+  const [batchDetailsLoading, setBatchDetailsLoading] = useState(false);
+  const [batchDetails, setBatchDetails] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [feeSummary, setFeeSummary] = useState(null);
+  const [feeSummaryLoading, setFeeSummaryLoading] = useState(false);
+
+  // Load persisted filters
+  useEffect(() => {
+    const savedSearch = localStorage.getItem('coach_dashboard_search');
+    const savedSport = localStorage.getItem('coach_dashboard_sport');
+    if (savedSearch) setSearchQuery(savedSearch);
+    if (savedSport) setSelectedSport(savedSport);
+  }, []);
+
+  // Save filters on change
+  useEffect(() => {
+    localStorage.setItem('coach_dashboard_search', searchQuery);
+    localStorage.setItem('coach_dashboard_sport', selectedSport);
+  }, [searchQuery, selectedSport]);
+
+  // Load notifications
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setNotificationsLoading(true);
+        const result = await coachGet('/notifications');
+        setNotifications(result.data || []);
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+    loadNotifications();
+  }, []);
+
+  // Load fee summary for batches
+  useEffect(() => {
+    const loadFeeSummary = async () => {
+      try {
+        setFeeSummaryLoading(true);
+        const result = await coachGet('/students-fee-summary');
+        setFeeSummary(result.data);
+      } catch (err) {
+        console.error('Failed to load fee summary:', err);
+      } finally {
+        setFeeSummaryLoading(false);
+      }
+    };
+    loadFeeSummary();
+  }, []);
+
+  // Get fee status for a specific batch
+  const getBatchFeeStatus = (batchId) => {
+    if (!feeSummary || !feeSummary.students) return { paid: 0, pending: 0 };
+    
+    const batchStudents = feeSummary.students.filter(s => 
+      s.batch_names?.includes(batches.find(b => b.batch_id === batchId)?.name)
+    );
+    
+    const paid = batchStudents.filter(s => s.fee_status === 'paid').length;
+    const pending = batchStudents.filter(s => s.fee_status === 'unpaid').length;
+    
+    return { paid, pending, total: batchStudents.length };
+  };
+
+  // Get unique sports from batches
+  const uniqueSports = useMemo(() => {
+    const sports = new Set(batches.map(b => b.sport?.name).filter(Boolean));
+    return Array.from(sports).sort();
+  }, [batches]);
+
+  // Filter batches based on search and sport
+  const filteredBatches = useMemo(() => {
+    return batches.filter(batch => {
+      const matchesSearch = searchQuery === '' || 
+        batch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (batch.sport?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSport = selectedSport === 'all' || batch.sport?.name === selectedSport;
+      return matchesSearch && matchesSport;
+    });
+  }, [batches, searchQuery, selectedSport]);
+
+  // Find next upcoming batch
+  const nextUpcomingBatch = useMemo(() => {
+    const now = new Date();
+    const today = now.toDateString();
+    
+    // Simple logic: find first batch with timing today (would need better parsing in production)
+    return batches.find(batch => {
+      if (!batch.timing) return false;
+      // This is a simplified check - in production you'd parse the timing string
+      return batch.students?.length > 0;
+    });
+  }, [batches]);
 
   // Animation variants
   const containerVariants = {
@@ -22,9 +125,47 @@ export default function CoachDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-sm font-semibold text-muted-foreground">
-        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
-        Loading coach dashboard...
+      <div className="p-6 space-y-8">
+        {/* Dashboard Cards Skeleton */}
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="card p-5 space-y-3">
+              <div className="h-4 bg-surface-secondary rounded w-20 animate-pulse"></div>
+              <div className="h-8 bg-surface-secondary rounded w-16 animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Batches Section Skeleton */}
+        <div className="space-y-6">
+          <div className="h-8 bg-surface-secondary rounded w-48 animate-pulse"></div>
+          <div className="h-10 bg-surface-secondary rounded w-64 animate-pulse"></div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card p-5 space-y-4">
+                <div className="h-6 bg-surface-secondary rounded w-3/4 animate-pulse"></div>
+                <div className="flex gap-2">
+                  <div className="h-6 bg-surface-secondary rounded w-20 animate-pulse"></div>
+                  <div className="h-6 bg-surface-secondary rounded w-16 animate-pulse"></div>
+                </div>
+                <div className="h-4 bg-surface-secondary rounded w-full animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Notifications Skeleton */}
+        <div className="space-y-6">
+          <div className="h-8 bg-surface-secondary rounded w-48 animate-pulse"></div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card p-4 space-y-2">
+                <div className="h-4 bg-surface-secondary rounded w-3/4 animate-pulse"></div>
+                <div className="h-3 bg-surface-secondary rounded w-full animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -102,9 +243,15 @@ export default function CoachDashboardPage() {
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            className="grid gap-5 md:grid-cols-2 lg:grid-cols-4"
+            className="grid gap-5 md:grid-cols-2 lg:grid-cols-5"
           >
-            <motion.div variants={itemVariants} whileHover={{ y: -6, scale: 1.02 }} className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-primary bg-gradient-to-br from-surface to-primary/5 shadow-sm hover:shadow-md transition-all">
+            <motion.div 
+              variants={itemVariants} 
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/coach/profile')}
+              className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-primary bg-gradient-to-br from-surface to-primary/5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+            >
               <div className="flex justify-between items-center">
                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary">Coach Profile</span>
                  <span className="text-2xl opacity-80">👤</span>
@@ -112,7 +259,13 @@ export default function CoachDashboardPage() {
               <span className="text-2xl font-black text-foreground drop-shadow-sm truncate">{dashboard.coach_name}</span>
             </motion.div>
             
-            <motion.div variants={itemVariants} whileHover={{ y: -6, scale: 1.02 }} className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-blue bg-gradient-to-br from-surface to-blue/5 shadow-sm hover:shadow-md transition-all">
+            <motion.div 
+              variants={itemVariants} 
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/coach/academy')}
+              className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-blue bg-gradient-to-br from-surface to-blue/5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+            >
               <div className="flex justify-between items-center">
                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue">Academy</span>
                  <span className="text-2xl opacity-80">🏛️</span>
@@ -120,7 +273,13 @@ export default function CoachDashboardPage() {
               <span className="text-2xl font-black text-foreground drop-shadow-sm truncate">{dashboard.academy_name}</span>
             </motion.div>
             
-            <motion.div variants={itemVariants} whileHover={{ y: -6, scale: 1.02 }} className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-purple bg-gradient-to-br from-surface to-purple/5 shadow-sm hover:shadow-md transition-all">
+            <motion.div 
+              variants={itemVariants} 
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/coach/students')}
+              className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-purple bg-gradient-to-br from-surface to-purple/5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+            >
               <div className="flex justify-between items-center">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple">Today&apos;s Students</span>
                 <span className="text-2xl opacity-80">🎓</span>
@@ -128,7 +287,13 @@ export default function CoachDashboardPage() {
               <span className="text-4xl font-black text-purple drop-shadow-sm">{dashboard.todays_students ?? 0}</span>
             </motion.div>
             
-            <motion.div variants={itemVariants} whileHover={{ y: -6, scale: 1.02 }} className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-warning bg-gradient-to-br from-surface to-warning/5 shadow-sm hover:shadow-md transition-all">
+            <motion.div 
+              variants={itemVariants} 
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/coach/fees?status=pending')}
+              className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-warning bg-gradient-to-br from-surface to-warning/5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+            >
               <div className="flex justify-between items-center">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-warning flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-warning animate-pulse"></span> Pending Fees
@@ -136,6 +301,28 @@ export default function CoachDashboardPage() {
                 <span className="text-2xl opacity-80">⚠️</span>
               </div>
               <span className="text-4xl font-black text-warning drop-shadow-sm">{dashboard.pending_fees_count ?? 0}</span>
+            </motion.div>
+
+            <motion.div 
+              variants={itemVariants} 
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/coach/attendance')}
+              className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-emerald bg-gradient-to-br from-surface to-emerald/5 shadow-sm hover:shadow-md transition-all cursor-pointer"
+            >
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald">Today's Attendance</span>
+                <span className="text-2xl opacity-80">✅</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-emerald drop-shadow-sm">
+                  {dashboard.attendance_summary?.present_today ?? 0}
+                </span>
+                <span className="text-sm text-muted-foreground">/ {dashboard.attendance_summary?.marked_today ?? 0}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {dashboard.attendance_summary?.rate_percent ?? 0}% present
+              </span>
             </motion.div>
           </motion.section>
         )}
@@ -161,7 +348,57 @@ export default function CoachDashboardPage() {
             </Link>
           </div>
 
-          {batches.length === 0 ? (
+          {/* Search and Filter */}
+          <div className="mb-6 flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                placeholder="Search batches..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-surface text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <select
+              value={selectedSport}
+              onChange={(e) => setSelectedSport(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="all">All Sports</option>
+              {uniqueSports.map(sport => (
+                <option key={sport} value={sport}>{sport}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Next Upcoming Batch */}
+          {nextUpcomingBatch && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/30"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">⏰</span>
+                  <div>
+                    <div className="text-sm font-bold text-foreground">Next Upcoming Batch</div>
+                    <div className="text-xs text-muted-foreground">{nextUpcomingBatch.name} • {nextUpcomingBatch.timing}</div>
+                  </div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate(`/coach/attendance?batch_id=${nextUpcomingBatch.batch_id}`)}
+                  className="btn-primary px-4 py-2 rounded-lg text-xs font-bold"
+                >
+                  Start Attendance
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+
+          {filteredBatches.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 px-4 text-center bg-surface-secondary/10 rounded-2xl border border-dashed border-border">
               <motion.div 
                 animate={{ y: [0, -10, 0] }} 
@@ -170,9 +407,9 @@ export default function CoachDashboardPage() {
               >
                 🏋️‍♂️
               </motion.div>
-              <h3 className="text-xl font-bold text-foreground">No batches assigned</h3>
+              <h3 className="text-xl font-bold text-foreground">No batches found</h3>
               <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-                You currently don't have any active batches assigned to you.
+                {searchQuery || selectedSport !== 'all' ? 'Try adjusting your search or filters.' : 'You currently don\'t have any active batches assigned to you.'}
               </p>
             </div>
           ) : (
@@ -182,18 +419,28 @@ export default function CoachDashboardPage() {
               animate="show"
               className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
             >
-              {batches.map((batch) => (
+              {filteredBatches.map((batch) => (
                 <motion.article 
                   variants={itemVariants}
                   whileHover={{ y: -5, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedBatch(batch);
+                    setShowBatchDetails(true);
+                  }}
                   key={batch.batch_id} 
-                  className="card p-0 overflow-hidden bg-surface/60 backdrop-blur-md border border-border/60 shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.05)] transition-all group"
+                  className="card p-0 overflow-hidden bg-surface/60 backdrop-blur-md border border-border/60 shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.05)] transition-all group cursor-pointer"
                 >
                   <div className="p-5 border-b border-border/40 bg-gradient-to-r from-surface to-surface-secondary">
-                    <h3 className="text-lg font-black text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                      {batch.name}
-                      <span className="text-sm opacity-50">#{(batch.batch_id).toString().slice(-4)}</span>
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-black text-foreground group-hover:text-primary transition-colors">
+                        {batch.name}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs opacity-50">#{(batch.batch_id).toString().slice(-4)}</span>
+                        <span className="text-xs">→</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="p-5 space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
@@ -211,12 +458,240 @@ export default function CoachDashboardPage() {
                         {batch.students?.length ?? 0}
                       </span>
                     </div>
+
+                    {/* Fee Status Badge */}
+                    <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                      <span className="text-sm font-semibold text-muted-foreground">Fee Status</span>
+                      {feeSummaryLoading ? (
+                        <span className="text-xs text-muted-foreground">Loading...</span>
+                      ) : (() => {
+                        const feeStatus = getBatchFeeStatus(batch.batch_id);
+                        return (
+                          <div className="flex items-center gap-2">
+                            {feeStatus.pending > 0 && (
+                              <span className="badge bg-warning/10 text-warning border border-warning/20 text-xs font-bold">
+                                {feeStatus.pending} Pending
+                              </span>
+                            )}
+                            {feeStatus.paid > 0 && (
+                              <span className="badge bg-emerald/10 text-emerald border border-emerald/20 text-xs font-bold">
+                                {feeStatus.paid} Paid
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </motion.article>
               ))}
             </motion.div>
           )}
         </motion.section>
+
+        {/* Recent Notifications */}
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8"
+        >
+          <div className="mb-6 flex items-center justify-between border-b border-border/50 pb-4">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <span className="text-2xl">🔔</span> Recent Notifications
+            </h2>
+            {notifications.length > 0 && (
+              <Link to="/coach/notifications" className="text-sm text-primary hover:text-primary/80 font-semibold">
+                View All →
+              </Link>
+            )}
+          </div>
+
+          {notificationsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-secondary/10 rounded-2xl border border-dashed border-border">
+              <span className="text-4xl mb-4">📭</span>
+              <h3 className="text-lg font-bold text-foreground">No notifications</h3>
+              <p className="text-sm text-muted-foreground mt-2">You're all caught up!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {notifications.slice(0, 5).map((notification) => (
+                <motion.div
+                  key={notification.notification_id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`p-4 rounded-xl border transition-all ${
+                    notification.is_read 
+                      ? 'bg-surface-secondary/30 border-border/50 opacity-70' 
+                      : 'bg-surface border-border/60 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-2 h-2 rounded-full mt-2 ${notification.is_read ? 'bg-muted-foreground' : 'bg-primary animate-pulse'}`}></div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="text-sm font-bold text-foreground">{notification.title}</h4>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(notification.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{notification.body}</p>
+                      {notification.metadata && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {typeof notification.metadata === 'string' 
+                            ? notification.metadata 
+                            : JSON.stringify(notification.metadata)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+
+        {/* Batch Details Modal */}
+        <AnimatePresence>
+          {showBatchDetails && selectedBatch && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowBatchDetails(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-surface rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              >
+                <div className="p-6 border-b border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-black text-foreground">{selectedBatch.name}</h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {selectedBatch.sport?.name} • {selectedBatch.timing}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowBatchDetails(false)}
+                      className="p-2 rounded-lg hover:bg-surface-secondary transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl bg-surface-secondary/50 border border-border/50">
+                      <div className="text-xs text-muted-foreground mb-1">Total Students</div>
+                      <div className="text-2xl font-black text-foreground">{selectedBatch.students?.length ?? 0}</div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-surface-secondary/50 border border-border/50">
+                      <div className="text-xs text-muted-foreground mb-1">Fee Status</div>
+                      <div className="text-2xl font-black text-warning">Pending</div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-foreground">Quick Actions</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          navigate(`/coach/attendance?batch_id=${selectedBatch.batch_id}`);
+                          setShowBatchDetails(false);
+                        }}
+                        className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-left hover:bg-primary/20 transition-colors"
+                      >
+                        <div className="text-lg mb-1">📋</div>
+                        <div className="text-sm font-bold text-foreground">Mark Attendance</div>
+                        <div className="text-xs text-muted-foreground">Take today's attendance</div>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          navigate(`/coach/students?batch_id=${selectedBatch.batch_id}`);
+                          setShowBatchDetails(false);
+                        }}
+                        className="p-4 rounded-xl bg-blue/10 border border-blue/30 text-left hover:bg-blue/20 transition-colors"
+                      >
+                        <div className="text-lg mb-1">👥</div>
+                        <div className="text-sm font-bold text-foreground">View Students</div>
+                        <div className="text-xs text-muted-foreground">See enrolled students</div>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          navigate(`/coach/fees?batch_id=${selectedBatch.batch_id}`);
+                          setShowBatchDetails(false);
+                        }}
+                        className="p-4 rounded-xl bg-warning/10 border border-warning/30 text-left hover:bg-warning/20 transition-colors"
+                      >
+                        <div className="text-lg mb-1">💳</div>
+                        <div className="text-sm font-bold text-foreground">View Fees</div>
+                        <div className="text-xs text-muted-foreground">Fee status & payments</div>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          navigate(`/coach/performance?batch_id=${selectedBatch.batch_id}`);
+                          setShowBatchDetails(false);
+                        }}
+                        className="p-4 rounded-xl bg-purple/10 border border-purple/30 text-left hover:bg-purple/20 transition-colors"
+                      >
+                        <div className="text-lg mb-1">📈</div>
+                        <div className="text-sm font-bold text-foreground">Performance</div>
+                        <div className="text-xs text-muted-foreground">Track progress</div>
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  {/* Student List */}
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground mb-3">Enrolled Students</h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {selectedBatch.students?.length > 0 ? (
+                        selectedBatch.students.map((student) => (
+                          <div key={student.student_id} className="p-3 rounded-lg bg-surface-secondary/30 border border-border/30 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                                {student.name?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-foreground">{student.name}</div>
+                                <div className="text-xs text-muted-foreground">{student.sport?.name}</div>
+                              </div>
+                            </div>
+                            <span className="badge bg-emerald/10 text-emerald border border-emerald/20 text-xs font-bold">
+                              Active
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-muted-foreground text-center py-4">No students enrolled</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

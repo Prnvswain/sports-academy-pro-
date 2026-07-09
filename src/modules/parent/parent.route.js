@@ -42,5 +42,8 @@ router.patch(
 router.get('/children', parentController.getChildren);
 router.get('/children/:child_id', parentController.getChildDetails);
 router.get('/dashboard', parentController.getDashboard);
+router.get('/children/:child_id/performance', parentController.getChildPerformance);
+router.get('/children/:child_id/performance/history', parentController.getChildPerformanceHistory);
+router.get('/children/:child_id/performance/analytics', parentController.getChildPerformanceAnalytics);
 
 export default router;

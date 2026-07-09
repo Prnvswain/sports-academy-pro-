@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as adminController from './admin.controller.js';
 import * as gpsController from './admin.gps.controller.js';
+import * as performanceController from '../performance/performance.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { enforceActiveSubscription } from '../../middlewares/subscription.middleware.js';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
@@ -192,16 +193,24 @@ router.get('/dashboard', adminController.getAcademyReport);
 router.get('/enquiries', adminController.getEnquiries);
 router.patch('/enquiries/:id', adminController.updateEnquiry);
 
-/* ─── PERFORMANCE TRACKER (NEW SYSTEM ADDITION) ─────────────────────────── */
-router.get('/performance/attributes', adminController.getPerformanceApprovalQueue);
-router.get('/performance/approval-queue', adminController.getPerformanceApprovalQueue);
-router.post('/performance/attributes', adminController.createPerformanceAttribute);
-router.patch('/performance/approve-attribute/:id', adminController.approvePerformanceAttribute);
-router.get('/performance/sport-attributes/:sportId', adminController.getPerformanceApprovalQueue);
-router.get('/performance/student-history/:studentId', adminController.getStudentPerformanceHistory);
-router.get('/performance/analytics/student/:studentId', adminController.getStudentPerformanceAnalytics);
-router.get('/performance/analytics/batch/:batchId', adminController.getBatchPerformanceAnalytics);
-router.get('/performance/analytics/academy', adminController.getAcademyPerformanceAnalytics);
+/* ─── PERFORMANCE TRACKER ──────────────────────────────────────────────────── */
+// Backward compatibility layer: Admin routes delegate to Performance module
+// These routes maintain frontend API compatibility while using Performance as single source of truth
+
+// Performance assessments
+router.get('/performance/assessments', performanceController.getAssessmentHistory);
+router.get('/performance/assessments/history', performanceController.getAssessmentHistory);
+router.get('/performance/assessments/:assessmentId', performanceController.getAssessmentById);
+
+// Performance analytics
+router.get('/performance/analytics/student/:studentId', performanceController.getStudentAnalytics);
+router.get('/performance/analytics/batch/:batchId', performanceController.getBatchAnalytics);
+router.get('/performance/analytics/academy', performanceController.getAcademyAnalytics);
+
+// Performance attributes
+router.get('/performance/attributes', performanceController.getAttributes);
+router.get('/performance/approval-queue', performanceController.getApprovalQueue);
+router.get('/performance/sport-attributes/:sportId', performanceController.getSportAttributes);
 
 /* ─── SMART BROADCAST CENTER ─────────────────────────────────────────────── */
 router.get('/announcements', adminController.getAnnouncements);

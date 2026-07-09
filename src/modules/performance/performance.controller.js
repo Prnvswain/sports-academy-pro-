@@ -4,11 +4,6 @@ import { successResponse } from '../../utils/response.js';
 
 export const getAttributes = async (req, res, next) => {
   try {
-    console.log('=== getAttributes CONTROLLER DEBUG ===');
-    console.log('req.user:', req.user);
-    console.log('req.user.academy_id:', req.user.academy_id, 'type:', typeof req.user.academy_id);
-    console.log('req.query:', req.query);
-    
     const data = await performanceService.getAttributes(
       req.user.academy_id,
       req.query
@@ -112,10 +107,6 @@ export const getScores = async (req, res, next) => {
 
 export const createScore = async (req, res, next) => {
   try {
-    console.log('=== createScore CONTROLLER DEBUG ===');
-    console.log('req.user:', req.user);
-    console.log('req.body:', req.body);
-    
     const score = await performanceService.createScore(
       req.user.academy_id,
       req.user.coach_id || req.user.user_id,
@@ -126,10 +117,6 @@ export const createScore = async (req, res, next) => {
       successResponse('Performance score recorded successfully', score)
     );
   } catch (err) {
-    console.error('=== createScore CONTROLLER ERROR ===');
-    console.error('Error message:', err.message);
-    console.error('Error stack:', err.stack);
-    console.error('Error statusCode:', err.statusCode);
     next(err);
   }
 };
@@ -142,6 +129,30 @@ export const getStudentPerformance = async (req, res, next) => {
       req.query
     );
     res.json(successResponse('Student performance retrieved successfully', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAssessmentHistory = async (req, res, next) => {
+  try {
+    const data = await performanceService.getAssessmentHistory(
+      req.user.academy_id,
+      req.query
+    );
+    res.json(successResponse('Assessment history retrieved successfully', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAssessmentById = async (req, res, next) => {
+  try {
+    const data = await performanceService.getAssessmentById(
+      req.user.academy_id,
+      req.params.assessmentId
+    );
+    res.json(successResponse('Assessment retrieved successfully', data));
   } catch (err) {
     next(err);
   }

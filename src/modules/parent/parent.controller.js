@@ -152,3 +152,102 @@ export const getDashboard = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getChildPerformance = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const { child_id } = req.params;
+
+    // Verify child belongs to parent
+    const child = await prisma.student.findFirst({
+      where: {
+        student_id: parseInt(child_id),
+        parent_id,
+        is_deleted: false,
+      },
+    });
+
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        message: 'Child not found or not linked to your account',
+      });
+    }
+
+    const { performanceService } = await import('../performance/performance.service.js');
+    const data = await performanceService.getStudentPerformance(child.academy_id, child_id);
+
+    return res.status(200).json(
+      successResponse('Child performance retrieved successfully', data)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getChildPerformanceHistory = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const { child_id } = req.params;
+
+    // Verify child belongs to parent
+    const child = await prisma.student.findFirst({
+      where: {
+        student_id: parseInt(child_id),
+        parent_id,
+        is_deleted: false,
+      },
+    });
+
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        message: 'Child not found or not linked to your account',
+      });
+    }
+
+    const { performanceService } = await import('../performance/performance.service.js');
+    const data = await performanceService.getAssessmentHistory(child.academy_id, {
+      student_id: child_id,
+      ...req.query
+    });
+
+    return res.status(200).json(
+      successResponse('Child performance history retrieved successfully', data)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getChildPerformanceAnalytics = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const { child_id } = req.params;
+
+    // Verify child belongs to parent
+    const child = await prisma.student.findFirst({
+      where: {
+        student_id: parseInt(child_id),
+        parent_id,
+        is_deleted: false,
+      },
+    });
+
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        message: 'Child not found or not linked to your account',
+      });
+    }
+
+    const { performanceAnalytics } = await import('../performance/performance.analytics.js');
+    const data = await performanceAnalytics.getStudentPerformanceAnalytics(child.academy_id, child_id);
+
+    return res.status(200).json(
+      successResponse('Child performance analytics retrieved successfully', data)
+    );
+  } catch (error) {
+    next(error);
+  }
+};

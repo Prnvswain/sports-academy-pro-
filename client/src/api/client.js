@@ -260,7 +260,57 @@ export async function superAdminDelete(path) {
 export async function publicPost(path, body) {
   return api.post(path, body).then(unwrap);
 }
+/* ==========================================
+   🎯 PARENT AUTHENTICATED WRAPPERS
+   ========================================== */
 
+export const PARENT_TOKEN_KEY = 'sams_parent_token';
+
+export function getParentToken() {
+  return localStorage.getItem(PARENT_TOKEN_KEY);
+}
+
+export function setParentToken(token) {
+  localStorage.setItem(PARENT_TOKEN_KEY, token);
+}
+
+export function clearParentToken() {
+  localStorage.removeItem(PARENT_TOKEN_KEY);
+}
+
+export async function parentGet(path) {
+  return api
+    .get(path, {
+      headers: {
+        Authorization: `Bearer ${getParentToken()}`
+      }
+    })
+    .then(unwrap);
+}
+
+export async function parentPost(path, body) {
+  const headers = {
+    Authorization: `Bearer ${getParentToken()}`
+  };
+
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return api.post(path, body, { headers }).then(unwrap);
+}
+
+export async function parentPatch(path, body) {
+  const headers = {
+    Authorization: `Bearer ${getParentToken()}`
+  };
+
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return api.patch(path, body, { headers }).then(unwrap);
+}
 /* ==========================================
    🎯 STATIC DESIGN CONSTANTS
    ========================================== */

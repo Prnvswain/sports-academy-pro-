@@ -68,12 +68,6 @@ const getCoachForAcademy = async (academy_id, coach_id) =>
   });
 
 const getStudentForAcademy = async (academy_id, student_id) => {
-  console.log(
-    '[getStudentForAcademy] Finding student with academy_id:',
-    academy_id,
-    'student_id:',
-    student_id,
-  );
   try {
     const student = await prisma.student.findFirst({
       where: {
@@ -81,11 +75,9 @@ const getStudentForAcademy = async (academy_id, student_id) => {
         ...academyScope(academy_id),
       },
     });
-    console.log('[getStudentForAcademy] Student found:', student);
     return student;
   } catch (error) {
-    console.error('[getStudentForAcademy] Error:', error);
-    console.error('[getStudentForAcademy] Error stack:', error.stack);
+    logger.error('Failed to get student for academy', { academy_id, student_id, error });
     throw error;
   }
 };
@@ -563,12 +555,6 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
   const academyId = parseInt(academy_id, 10);
   const sportId = parseInt(sport_id, 10);
 
-  console.log('[updateSportStatus Service] Processing:', {
-    academyId,
-    sportId,
-    status: data.status,
-  });
-
   const sport = await prisma.sport.findFirst({
     where: {
       sport_id: sportId,
@@ -577,7 +563,7 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
   });
 
   if (!sport) {
-    console.error('[updateSportStatus Service] Sport not found:', { sportId, academyId });
+    logger.error('Sport not found', { sportId, academyId });
     const error = new Error('Sport not found in this academy');
     error.statusCode = 404;
     throw error;
@@ -639,15 +625,13 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
     status: data.status,
     academy_id: academyId,
   });
-  console.log('[updateSportStatus Service] Success:', result);
+  logger.info('Sport status updated successfully', { sport_id: sportId, status: data.status });
   return result;
 };
 
 export const deleteSport = async (academy_id, sport_id) => {
   const academyId = parseInt(academy_id, 10);
   const sportId = parseInt(sport_id, 10);
-
-  console.log('[deleteSport Service] Processing:', { academyId, sportId });
 
   const sport = await prisma.sport.findFirst({
     where: {
@@ -657,7 +641,7 @@ export const deleteSport = async (academy_id, sport_id) => {
   });
 
   if (!sport) {
-    console.error('[deleteSport Service] Sport not found:', { sportId, academyId });
+    logger.error('Sport not found', { sportId, academyId });
     const error = new Error('Sport not found in this academy');
     error.statusCode = 404;
     throw error;
@@ -668,7 +652,6 @@ export const deleteSport = async (academy_id, sport_id) => {
   });
 
   logger.info('Sport deleted', { sport_id: sportId, academy_id: academyId });
-  console.log('[deleteSport Service] Success');
   return { success: true };
 };
 
@@ -1472,48 +1455,6 @@ export const exitStudent = async (academy_id, student_id, data, admin_user_id) =
   return updated;
 };
 
-export const getStudentPerformanceHistory = async (studentId, academyId) => {
-  try {
-    const history = await prisma.performanceScore.findMany({
-      where: {
-        student_id: parseInt(studentId, 10),
-        academy_id: parseInt(academyId, 10),
-      },
-      include: {
-        attribute: {
-          include: {
-            sport: true,
-          },
-        },
-        coach: true,
-      },
-      orderBy: {
-        created_at: 'desc',
-      },
-    });
-
-    // Group by evaluation session (same timestamp and coach)
-    const groupedHistory = {};
-    history.forEach((score) => {
-      const sessionKey = `${score.created_at.toISOString().split('T')[0]}_${score.coach_id}`;
-      if (!groupedHistory[sessionKey]) {
-        groupedHistory[sessionKey] = {
-          date: score.created_at.toISOString().split('T')[0],
-          coach: score.coach?.name || 'Unknown Coach',
-          metrics: {},
-          remarks: score.remarks || '',
-        };
-      }
-      groupedHistory[sessionKey].metrics[score.attribute.name] = score.score;
-    });
-
-    return Object.values(groupedHistory);
-  } catch (error) {
-    console.error('Error fetching student performance history:', error);
-    return [];
-  }
-};
-
 export const deleteStudent = async (academy_id, student_id) => {
   const student = await getStudentForAcademy(academy_id, student_id);
 
@@ -1812,7 +1753,6 @@ export const getAllPayments = async (academy_id) =>
   });
 
 export const getStudentLedger = async (academy_id, student_id) => {
-  console.log('[getStudentLedger] Academy ID:', academy_id, 'Student ID:', student_id);
   const academyId = parseInt(academy_id, 10);
   const studentId = parseInt(student_id, 10);
 
@@ -1823,8 +1763,6 @@ export const getStudentLedger = async (academy_id, student_id) => {
     throw error;
   }
 
-  console.log('[getStudentLedger] Student found:', student.name);
-
   const receipts = await prisma.receipt.findMany({
     where: {
       academy_id: academyId,
@@ -1833,9 +1771,7 @@ export const getStudentLedger = async (academy_id, student_id) => {
     },
   });
 
-  console.log('[getStudentLedger] Completed receipts found:', receipts.length);
   const totalPaid = receipts.reduce((sum, r) => sum + Number(r.amount), 0);
-  console.log('[getStudentLedger] Total paid:', totalPaid);
 
   // Calculate total fee due based on enrollments
   const enrollments = await prisma.studentEnrollment.findMany({
@@ -1854,8 +1790,6 @@ export const getStudentLedger = async (academy_id, student_id) => {
     },
   });
 
-  console.log('[getStudentLedger] Enrollments found:', enrollments.length);
-
   const totalFeeDue = enrollments.reduce((sum, e) => {
     const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
     const registrationFee = Number(e.registration_fee || 0);
@@ -1866,31 +1800,14 @@ export const getStudentLedger = async (academy_id, student_id) => {
     const sportsFeeWithMultiplier = baseFee * durationMultiplier;
     const enrollmentTotal =
       sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
-    console.log(
-      '[getStudentLedger] Enrollment calculation - baseFee:',
-      baseFee,
-      'registrationFee:',
-      registrationFee,
-      'additionalCharges:',
-      additionalCharges,
-      'discount:',
-      discount,
-      'multiplier:',
-      durationMultiplier,
-      'total:',
-      enrollmentTotal,
-    );
     return sum + enrollmentTotal;
   }, 0);
-
-  console.log('[getStudentLedger] Total fee due:', totalFeeDue);
 
   // Since due_date doesn't exist in schema, set overdue and pending fees to 0
   const overdueFees = 0;
   const pendingFees = 0;
 
   const balanceOutstanding = totalFeeDue - totalPaid;
-  console.log('[getStudentLedger] Balance outstanding:', balanceOutstanding);
 
   return {
     student_id: studentId,
@@ -1906,7 +1823,6 @@ export const getStudentLedger = async (academy_id, student_id) => {
 };
 
 export const getStudentsFeeSummary = async (academy_id) => {
-  console.log('[getStudentsFeeSummary] Academy ID:', academy_id);
   const academyId = parseInt(academy_id, 10);
 
   // Get all active students for the academy
@@ -1938,8 +1854,6 @@ export const getStudentsFeeSummary = async (academy_id) => {
       parent: true,
     },
   });
-
-  console.log('[getStudentsFeeSummary] Students found:', students.length);
 
   // Calculate fee summary for each student
   const studentsSummary = await Promise.all(
@@ -1992,12 +1906,10 @@ export const getStudentsFeeSummary = async (academy_id) => {
   const unpaid = studentsSummary.filter(s => s.fee_status === 'unpaid').length;
   const totalOutstanding = studentsSummary.reduce((sum, s) => sum + s.due_amount, 0);
 
-  console.log('[getStudentsFeeSummary] Summary stats:', {
-    totalStudents,
-    fullyPaid,
-    partiallyPaid,
-    unpaid,
-    totalOutstanding,
+  logger.info('Students fee summary calculated', {
+    academy_id: academyId,
+    total_students: totalStudents,
+    total_outstanding: totalOutstanding,
   });
 
   return {
@@ -2222,9 +2134,6 @@ export const getRevenueSummary = async (academy_id) => {
 };
 
 export const createPayment = async (academy_id, data) => {
-  console.log('[createPayment] Request body:', data);
-  console.log('[createPayment] Academy ID:', academy_id);
-
   const student = await getStudentForAcademy(academy_id, data.student_id);
 
   if (!student) {
@@ -2245,31 +2154,26 @@ export const createPayment = async (academy_id, data) => {
     status: data.status === 'completed' ? 'COMPLETED' : 'PENDING',
   };
 
-  console.log('[createPayment] Prisma receipt.create data:', receiptData);
-
   let receipt;
   try {
     receipt = await prisma.receipt.create({
       data: receiptData,
     });
-    console.log('[createPayment] Receipt created successfully:', receipt);
+    logger.info('Payment receipt created', { receipt_id: receipt.receipt_id, student_id: student.student_id });
   } catch (error) {
-    console.error('[createPayment] Prisma receipt.create error:', error);
-    console.error('[createPayment] Error stack:', error.stack);
+    logger.error('Failed to create payment receipt', error);
     throw error;
   }
 
   if (data.status === 'completed') {
-    console.log('[createPayment] Updating student fees_status to paid');
     try {
       await prisma.student.update({
         where: { student_id: student.student_id },
         data: { fees_status: 'paid' },
       });
-      console.log('[createPayment] Student updated successfully');
+      logger.info('Student fees status updated to paid', { student_id: student.student_id });
     } catch (error) {
-      console.error('[createPayment] Prisma student.update error:', error);
-      console.error('[createPayment] Error stack:', error.stack);
+      logger.error('Failed to update student fees status', error);
       throw error;
     }
   }
@@ -2644,112 +2548,7 @@ export const updateEnquiry = async (academyId, enquiryId, data) => {
 };
 
 // ==================== PERFORMANCE TRACKER ====================
-
-/**
- * Enhanced Query-Aware Performance Fetch Handler
- * Resolves both the Pending Approval Queue and the Approved Sport Attributes list seamlessly.
- */
-export const getPerformanceApprovalQueue = async (academyId, queryParams = {}) => {
-  const parsedAcademyId = parseInt(academyId, 10);
-  const parsedSportId = queryParams.sport_id ? parseInt(queryParams.sport_id, 10) : undefined;
-
-  // Natively align incoming query string filter values with your Prisma Enum parameters
-  const statusFilter = queryParams.status || 'PENDING';
-
-  const whereClause = {
-    academy_id: parsedAcademyId,
-    status: statusFilter,
-  };
-
-  // Dynamically inject sport_id scoping if passed by the frontend component
-  if (parsedSportId && !isNaN(parsedSportId)) {
-    whereClause.sport_id = parsedSportId;
-  }
-
-  const queue = await prisma.performanceAttribute.findMany({
-    where: whereClause,
-    include: {
-      sport: {
-        select: { name: true },
-      },
-      requested_by: {
-        select: { name: true, specialization: true },
-      },
-    },
-    orderBy: {
-      created_at: 'desc',
-    },
-  });
-
-  // Map attribute_id to id for seamless frontend dataset parsing compatibility
-  return queue.map((attr) => ({
-    ...attr,
-    id: attr.attribute_id,
-  }));
-};
-
-export const createPerformanceAttribute = async (academy_id, body) => {
-  const { sport_id, name } = body;
-  const academyId = parseInt(academy_id, 10);
-
-  const attribute = await prisma.performanceAttribute.create({
-    data: {
-      academy_id: academyId,
-      sport_id: parseInt(sport_id, 10),
-      name: name.trim(),
-      status: 'APPROVED',
-      reviewed_at: new Date(),
-    },
-  });
-
-  logger.info('Performance attribute created successfully', {
-    attribute_id: attribute.attribute_id,
-    academy_id: academyId,
-  });
-  return attribute;
-};
-
-export const approvePerformanceAttribute = async (academyId, attributeId, data) => {
-  const { action } = data;
-
-  if (!action || !['APPROVED', 'REJECTED'].includes(action)) {
-    const error = new Error('Invalid action condition status transition parameters');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const attribute = await prisma.performanceAttribute.findFirst({
-    where: {
-      attribute_id: parseInt(attributeId, 10),
-      academy_id: parseInt(academyId, 10),
-    },
-  });
-
-  if (!attribute) {
-    const error = new Error('Performance attribute node could not be located');
-    error.statusCode = 404;
-    throw error;
-  }
-
-  const updated = await prisma.performanceAttribute.update({
-    where: { attribute_id: parseInt(attributeId, 10) },
-    data: {
-      status: action,
-      reviewed_at: new Date(),
-    },
-  });
-
-  logger.info('Performance attribute checked and modified cleanly', {
-    attribute_id: attributeId,
-    academy_id: academyId,
-    action: action,
-  });
-
-  return {
-    ...updated,
-    id: updated.attribute_id,
-  };
-};
+// NOTE: Performance-related services removed - use /performance module services instead
 
 // ==================== ATTENDANCE ====================
 
