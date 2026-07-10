@@ -949,7 +949,18 @@ export const getAllStudents = async (academy_id) => {
       },
       orderBy: { created_at: 'desc' },
     });
-    return students || [];
+
+    // Add direct batch and sport properties for active enrollment
+    const studentsWithBatch = students.map(student => {
+      const activeEnrollment = student.enrollments?.[0] || null;
+      return {
+        ...student,
+        batch: activeEnrollment?.batch || null,
+        sport: activeEnrollment?.sport || null,
+      };
+    });
+
+    return studentsWithBatch || [];
   } catch (error) {
     console.error('Error in getAllStudents:', error);
     return [];

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Lock, Unlock, Key, Trash2, Edit } from 'lucide-react';
+import { Eye, Lock, Unlock, Key, Trash2, Edit, Camera, X } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { useFormDraft } from '../../hooks/useFormDraft';
@@ -159,6 +159,9 @@ export default function StudentsPanel() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [editPhotoPreview, setEditPhotoPreview] = useState(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [showRemovePhotoConfirm, setShowRemovePhotoConfirm] = useState(false);
   
   // Search query states for dropdowns
   const [sportSearchQuery, setSportSearchQuery] = useState('');
@@ -536,9 +539,11 @@ export default function StudentsPanel() {
       joining_date: student.joining_date
         ? new Date(student.joining_date).toISOString().split('T')[0]
         : '',
+      profile_photo: student.profile_photo || null,
     });
     setEditSelectedSports(student.enrollments?.map((e) => e.sport_id) || []);
     setSportSearchQuery(sportName);
+    setEditPhotoPreview(student.profile_photo || null);
     
     const batchId = firstEnrollment.batch_id || '';
     const batchName = batchesData.find(b => b.batch_id == batchId)?.name || '';
@@ -549,8 +554,24 @@ export default function StudentsPanel() {
 
   const handleEditStudentSubmit = async (e) => {
     e.preventDefault();
+    setIsUploadingPhoto(true);
+    setMessage({ text: '', type: '' });
     try {
-      await adminPut(`/admin/students/${editStudentForm.student_id}`, {
+      // Handle profile photo - convert to base64 if file is selected
+      let profilePhotoData = undefined;
+      if (editStudentForm.profile_photo instanceof File) {
+        profilePhotoData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(editStudentForm.profile_photo);
+        });
+      } else if (editStudentForm.profile_photo === null) {
+        // Explicitly set to null to remove photo
+        profilePhotoData = null;
+      }
+
+      const payload = {
         name: editStudentForm.name,
         parent_name: editStudentForm.parent_name,
         parent_email: editStudentForm.parent_email,
@@ -568,13 +589,85 @@ export default function StudentsPanel() {
         height: editStudentForm.height ? parseFloat(editStudentForm.height) : null,
         weight: editStudentForm.weight ? parseFloat(editStudentForm.weight) : null,
         joining_date: editStudentForm.joining_date || null,
-      });
+        profile_photo: profilePhotoData,
+      };
+
+      await adminPut(`/admin/students/${editStudentForm.student_id}`, payload);
       setMessage({ text: 'Student updated successfully.', type: 'success' });
+      
+      // Update student details if modal is open
+      if (selectedStudent && selectedStudent.student_id === editStudentForm.student_id) {
+        try {
+          const detailsRes = await adminGet(`/admin/students/${editStudentForm.student_id}/details`);
+          setStudentDetails(detailsRes.data);
+        } catch (error) {
+          console.error('Failed to reload student details:', error);
+        }
+      }
+      
+      // Update the student in the local list to show new batch immediately
+      setStudents(prevStudents => 
+        prevStudents.map(student => {
+          if (student.student_id === editStudentForm.student_id) {
+            const updatedStudent = { ...student };
+            // Update batch from the new enrollment data
+            if (editStudentForm.batch_id) {
+              const batch = editAvailableBatches.find(b => b.batch_id === parseInt(editStudentForm.batch_id));
+              if (batch) {
+                updatedStudent.batch = batch;
+              }
+            } else {
+              updatedStudent.batch = null;
+            }
+            return updatedStudent;
+          }
+          return student;
+        })
+      );
+      
       setIsEditingStudent(false);
+      setEditPhotoPreview(null);
+      setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
     }
+  };
+
+  const handleEditPhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setMessage({ text: 'Please select a valid image file (JPG, PNG, or WEBP)', type: 'error' });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      setMessage({ text: 'File size must be less than 5MB', type: 'error' });
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEditPhotoPreview(reader.result);
+      setEditStudentForm(prev => ({ ...prev, profile_photo: file }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    setEditPhotoPreview(null);
+    setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
+    setShowRemovePhotoConfirm(false);
+    setMessage({ text: 'Photo removed successfully', type: 'success' });
   };
 
   const handleDeactivate = async (studentId) => {
@@ -1592,7 +1685,9 @@ export default function StudentsPanel() {
                               <span>{student?.sport?.name || student?.sport || '—'}</span>
                             )}
                           </td>
-                          <td className="text-muted">{student.batch?.name || '—'}</td>
+                          <td className="text-muted">
+                            {student.batch?.name || student.enrollments?.[0]?.batch?.name || '—'}
+                          </td>
                           <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                             {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
                               <span className="badge-active">ACTIVE</span>
@@ -3460,6 +3555,8 @@ export default function StudentsPanel() {
               setIsEditingStudent(false);
               setSportSearchQuery('');
               setBatchSearchQuery('');
+              setEditPhotoPreview(null);
+              setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
             }}
           >
             ✕
@@ -3468,6 +3565,116 @@ export default function StudentsPanel() {
 
         <form onSubmit={handleEditStudentSubmit}>
           <div className="space-y-4">
+            {/* Profile Photo Section */}
+            <div className="flex flex-col items-center mb-6">
+              <motion.div 
+                className="relative group"
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-slate-200 shadow-lg bg-gradient-to-br from-slate-100 to-slate-200">
+                  {editPhotoPreview ? (
+                    <img 
+                      src={editPhotoPreview} 
+                      alt="Student Photo" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600">
+                      <span className="text-4xl font-bold text-white">
+                        {editStudentForm.name?.charAt(0)?.toUpperCase() || 'S'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Camera Overlay */}
+                <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                  <label htmlFor="editPhotoInput" className="cursor-pointer">
+                    <Camera className="w-8 h-8 text-white" />
+                  </label>
+                  <input
+                    id="editPhotoInput"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleEditPhotoChange}
+                    className="hidden"
+                  />
+                </div>
+              </motion.div>
+
+              {/* Photo Action Buttons */}
+              <div className="flex gap-2 mt-4">
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => document.getElementById('editPhotoInput').click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors shadow-md"
+                >
+                  <Camera className="w-4 h-4" />
+                  Change Photo
+                </motion.button>
+                
+                {editPhotoPreview && (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowRemovePhotoConfirm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors shadow-md"
+                  >
+                    <X className="w-4 h-4" />
+                    Remove Photo
+                  </motion.button>
+                )}
+              </div>
+
+              {/* File Validation Hint */}
+              <p className="text-xs text-slate-500 mt-2">
+                Supported formats: JPG, PNG, WEBP (max 5MB)
+              </p>
+            </div>
+
+            {/* Remove Photo Confirmation Modal */}
+            {showRemovePhotoConfirm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl"
+                >
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">Remove Photo?</h4>
+                  <p className="text-sm text-slate-600 mb-4">
+                    This action will remove the student's profile photo. This cannot be undone.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowRemovePhotoConfirm(false)}
+                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleRemovePhoto}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                    >
+                      Remove Photo
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
             {/* Student Name */}
             <div>
               <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editName">
@@ -3852,16 +4059,36 @@ export default function StudentsPanel() {
                   setIsEditingStudent(false);
                   setSportSearchQuery('');
                   setBatchSearchQuery('');
+                  setEditPhotoPreview(null);
+                  setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
                 }}
               >
                 Cancel
               </button>
-              <button 
+              <motion.button 
                 type="submit" 
-                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm transition-colors"
+                disabled={isUploadingPhoto}
+                whileHover={{ scale: isUploadingPhoto ? 1 : 1.02 }}
+                whileTap={{ scale: isUploadingPhoto ? 1 : 0.98 }}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm transition-colors flex items-center gap-2 ${
+                  isUploadingPhoto 
+                    ? 'bg-slate-400 cursor-not-allowed' 
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
-                Save Changes
-              </button>
+                {isUploadingPhoto ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                    />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </motion.button>
             </div>
           </div>
         </form>
