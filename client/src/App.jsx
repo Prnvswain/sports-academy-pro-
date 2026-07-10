@@ -7,6 +7,8 @@ import CoachLayout from './layouts/CoachLayout';
 import ParentLayout from './layouts/ParentLayout';
 import SuperAdminLayout from './layouts/SuperAdminLayout';
 import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/auth/LoginPage';
+import SignupPage from './pages/auth/SignupPage';
 import AdminLogin from './pages/AdminLogin';
 import CoachLogin from './pages/CoachLogin';
 import SuperAdminLogin from './pages/SuperAdminLogin';
@@ -53,9 +55,10 @@ export default function App() {
         <Routes>
           {/* Public Frontend Routing Layer Protocols */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/signup" element={<LandingPage />} />
           <Route path="/public/intake-form" element={<IntakeForm />} />
           <Route path="/enquiry-form" element={<PublicEnquiryForm />} />
 

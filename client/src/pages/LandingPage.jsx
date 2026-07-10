@@ -3,10 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import Navbar, { NavbarActions } from '../components/Navbar';
 import { usePwaInstall } from '../hooks/usePwaInstall';
-import { PRICING_PLANS, publicPost, signup } from '../api/client';
+import { PRICING_PLANS, publicPost } from '../api/client';
 import {
-  MapPin,
-  AlertTriangle,
   Trophy,
   Users,
   CalendarClock,
@@ -21,22 +19,6 @@ import {
   Activity,
   Building2,
 } from 'lucide-react';
-
-const initialSignup = {
-  name: '',
-  email: '',
-  password: '',
-  academy_name: '',
-  phone_number: '',
-  city: '',
-  state: '',
-  address: '',
-  attendance_radius_meters: 100,
-  latitude: null,
-  longitude: null,
-  subscription_plan: 'free',
-  logo: null,
-};
 
 const initialContact = {
   name: '',
@@ -210,25 +192,6 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const { isInstallable, installHint, promptInstall } = usePwaInstall();
 
-  // FORM DATA PROTECTION STATE LAYER (AUTO-SAVE & RECOVERY)
-  const [signupForm, setSignupForm] = useState(() => {
-    const savedDraft = localStorage.getItem('sams_draft_public_signup');
-    if (!savedDraft) return initialSignup;
-
-    try {
-      return {
-        ...initialSignup,
-        ...JSON.parse(savedDraft),
-      };
-    } catch {
-      return initialSignup;
-    }
-  });
-  const [signupLoading, setSignupLoading] = useState(false);
-  const [signupMessage, setSignupMessage] = useState({ text: '', type: '' });
-  const [gpsError, setGpsError] = useState('');
-  const [gettingLocation, setGettingLocation] = useState(false);
-
   const [contactForm, setContactForm] = useState(() => {
     const savedDraft = localStorage.getItem('sams_draft_public_contact');
     return savedDraft ? JSON.parse(savedDraft) : initialContact;
@@ -236,107 +199,13 @@ export default function LandingPage() {
   const [contactLoading, setContactLoading] = useState(false);
   const [contactMessage, setContactMessage] = useState({ text: '', type: '' });
 
-  const [activeModal, setActiveModal] = useState(null); // 'signup' | 'contact' | null
-  const [loginDropdownOpen, setLoginDropdownOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState(null); // 'contact' | null
   const [openFaq, setOpenFaq] = useState(0);
 
   // Auto-Save Persistence Loops
   useEffect(() => {
-    localStorage.setItem('sams_draft_public_signup', JSON.stringify(signupForm));
-  }, [signupForm]);
-
-  useEffect(() => {
     localStorage.setItem('sams_draft_public_contact', JSON.stringify(contactForm));
   }, [contactForm]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (loginDropdownOpen && !event.target.closest('.login-dropdown-container')) {
-        setLoginDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [loginDropdownOpen]);
-
-  const scrollToSignup = (e) => {
-    if (e) e.preventDefault();
-    const el = document.getElementById('signup');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleSignupChange = (event) => {
-    const { name, value, files } = event.target;
-    if (name === 'logo' && files && files[0]) {
-      const file = files[0];
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
-
-      if (!validTypes.includes(file.type)) {
-        setSignupMessage({ text: 'Logo must be JPG, JPEG, PNG, or WEBP', type: 'error' });
-        return;
-      }
-
-      if (file.size > maxSize) {
-        setSignupMessage({ text: 'Logo must be less than 5MB', type: 'error' });
-        return;
-      }
-
-      setSignupForm((prev) => ({ ...prev, logo: file }));
-    } else {
-      setSignupForm((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setGpsError('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setGettingLocation(true);
-    setGpsError('');
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setSignupForm((prev) => ({
-          ...prev,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }));
-        setGettingLocation(false);
-        setSignupMessage({ text: 'Academy location captured successfully', type: 'success' });
-        setTimeout(() => setSignupMessage({ text: '', type: '' }), 3000);
-      },
-      (error) => {
-        setGettingLocation(false);
-        let errorMessage = 'Unable to fetch current location';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location permission is required for attendance tracking.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out.';
-            break;
-          default:
-            errorMessage = 'An unknown error occurred getting location.';
-        }
-        setGpsError(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  };
 
   const handleContactChange = (event) => {
     const { name, value } = event.target;
@@ -344,75 +213,13 @@ export default function LandingPage() {
   };
 
   const selectPlan = (planId) => {
-    setSignupForm((prev) => ({ ...prev, subscription_plan: planId }));
-    scrollToSignup();
+    navigate('/signup');
   };
 
-  const clearFormState = (formType) => {
-    if (formType === 'signup') {
-      setSignupForm(initialSignup);
-      localStorage.removeItem('sams_draft_public_signup');
-    } else if (formType === 'contact') {
-      setContactForm(initialContact);
-      localStorage.removeItem('sams_draft_public_contact');
-    }
+  const clearFormState = () => {
+    setContactForm(initialContact);
+    localStorage.removeItem('sams_draft_public_contact');
     setActiveModal(null);
-  };
-
-  const handleSignupSubmit = async (event) => {
-    event.preventDefault();
-
-    // Validation
-    if (!signupForm.city.trim()) {
-      setSignupMessage({ text: 'City is required', type: 'error' });
-      return;
-    }
-    if (!signupForm.state.trim()) {
-      setSignupMessage({ text: 'State is required', type: 'error' });
-      return;
-    }
-    if (!signupForm.latitude || !signupForm.longitude) {
-      setSignupMessage({
-        text: 'Please capture academy location using the Set Academy Location button',
-        type: 'error',
-      });
-      return;
-    }
-
-    setSignupLoading(true);
-    setSignupMessage({ text: '', type: '' });
-
-    try {
-      const formData = new FormData();
-      formData.append('name', signupForm.name.trim());
-      formData.append('email', signupForm.email.trim());
-      formData.append('password', signupForm.password);
-      formData.append('academy_name', signupForm.academy_name.trim());
-      if (signupForm.phone_number) {
-        formData.append('phone_number', signupForm.phone_number.trim());
-      }
-      formData.append('city', signupForm.city.trim());
-      formData.append('state', signupForm.state.trim());
-      if (signupForm.address) {
-        formData.append('address', signupForm.address.trim());
-      }
-      formData.append('latitude', signupForm.latitude);
-      formData.append('longitude', signupForm.longitude);
-      formData.append('attendance_radius_meters', parseInt(signupForm.attendance_radius_meters) || 100);
-      formData.append('subscription_plan', signupForm.subscription_plan);
-      if (signupForm.logo) {
-        formData.append('logo', signupForm.logo);
-      }
-
-      const result = await signup(formData);
-      setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
-      localStorage.removeItem('sams_draft_public_signup');
-      setTimeout(() => navigate('/admin/coaches'), 1000);
-    } catch (error) {
-      setSignupMessage({ text: error.message, type: 'error' });
-    } finally {
-      setSignupLoading(false);
-    }
   };
 
   const handleContactSubmit = async (event) => {
@@ -481,66 +288,17 @@ export default function LandingPage() {
           <button
             type="button"
             className="btn-gradient-primary px-4 py-1.5 text-sm font-bold rounded-lg shadow-md transition-transform active:scale-95"
-            onClick={scrollToSignup}
+            onClick={() => navigate('/signup')}
           >
             Sign Up
           </button>
-          <div className="relative login-dropdown-container">
-            <button
-              type="button"
-              className="btn-secondary btn-sm transition-transform active:scale-95"
-              onClick={() => setLoginDropdownOpen(!loginDropdownOpen)}
-            >
-              Login
-            </button>
-            <AnimatePresence>
-              {loginDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                  transition={{ duration: 0.15 }}
-                  className="bg-surface border-border absolute right-0 top-full z-[1000] mt-2 w-48 overflow-hidden rounded-xl border shadow-xl"
-                >
-                  <div className="p-1">
-                    <Link
-                      to="/login/admin"
-                      className="text-foreground hover:bg-accent/10 block rounded-lg px-4 py-2 text-sm font-bold transition-colors"
-                      onClick={() => setLoginDropdownOpen(false)}
-                    >
-                      Admin
-                    </Link>
-                    <div className="px-4 pb-2 pt-1">
-                      <a
-                        href="#signup"
-                        className="text-accent hover:text-accent/80 text-xs font-bold transition-colors"
-                        onClick={(e) => {
-                          setLoginDropdownOpen(false);
-                          scrollToSignup(e);
-                        }}
-                      >
-                        Sign Up
-                      </a>
-                    </div>
-                    <Link
-                      to="/coach/login"
-                      className="text-foreground hover:bg-accent/10 block rounded-lg px-4 py-2 text-sm font-bold transition-colors"
-                      onClick={() => setLoginDropdownOpen(false)}
-                    >
-                      Coach
-                    </Link>
-                    <Link
-                      to="/parent/login"
-                      className="text-foreground hover:bg-accent/10 block rounded-lg px-4 py-2 text-sm font-bold transition-colors"
-                      onClick={() => setLoginDropdownOpen(false)}
-                    >
-                      Parent
-                    </Link>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <button
+            type="button"
+            className="btn-secondary btn-sm transition-transform active:scale-95"
+            onClick={() => navigate('/login')}
+          >
+            Login
+          </button>
         </NavbarActions>
       </Navbar>
 
@@ -620,16 +378,16 @@ export default function LandingPage() {
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-wrap gap-4 pt-2">
-              <motion.a
+              <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                href="#signup"
-                onClick={scrollToSignup}
+                type="button"
+                onClick={() => navigate('/signup')}
                 className="btn-gradient-primary inline-flex items-center gap-2 px-8 py-4 text-base font-black transition-shadow hover:shadow-lg"
               >
                 Start Free Trial
                 <ArrowRight className="h-4 w-4" />
-              </motion.a>
+              </motion.button>
               {isInstallable && (
                 <motion.button
                   whileHover={{ scale: 1.03 }}
@@ -1153,16 +911,16 @@ export default function LandingPage() {
             Join hundreds of academies running smarter, safer, and more transparent operations
             with Sports Academy Pro.
           </p>
-          <motion.a
+          <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
-            href="#signup"
-            onClick={scrollToSignup}
+            type="button"
+            onClick={() => navigate('/signup')}
             className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-black text-emerald-600 shadow-xl transition-shadow hover:shadow-2xl"
           >
             Create Your Academy Account
             <ArrowRight className="h-4 w-4" />
-          </motion.a>
+          </motion.button>
         </motion.div>
       </section>
 
@@ -1269,291 +1027,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ACADEMY WORKSPACE SIGNUP FORM */}
-      <section id="signup" className="bg-surface px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.4 }}
-            variants={fadeUp}
-            className="mb-12 space-y-3 text-center"
-          >
-            <p className="text-accent text-xs font-black uppercase tracking-widest">Get Started</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Create Your Academy Workspace</h2>
-            <p className="text-muted mx-auto max-w-md text-sm sm:text-base">
-              Provision isolated multi-tenant records nodes and structural administrator
-              properties concurrently.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.1 }}
-            variants={fadeUp}
-            className="mx-auto max-w-xl"
-          >
-            <div className="card bg-surface-secondary border-border border p-8 shadow-lg">
-              <h3 className="mb-1 text-xl font-black tracking-tight">Academy Workspace Setup</h3>
-              <p className="text-muted mb-6 text-xs">
-                Already have an active system domain configured?{' '}
-                <Link to="/login/admin" className="text-accent font-bold hover:underline">
-                  Admin Entrance Port
-                </Link>
-              </p>
-
-              <form onSubmit={handleSignupSubmit} noValidate className="space-y-5">
-                <div>
-                  <label className="label" htmlFor="signupName">
-                    Full Legal Name
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    id="signupName"
-                    name="name"
-                    value={signupForm.name || ''}
-                    onChange={handleSignupChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="signupEmail">
-                    Identity Email
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    type="email"
-                    id="signupEmail"
-                    name="email"
-                    value={signupForm.email || ''}
-                    onChange={handleSignupChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="signupPassword">
-                    Security Password (Min 6 Characters)
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    type="password"
-                    id="signupPassword"
-                    name="password"
-                    value={signupForm.password || ''}
-                    onChange={handleSignupChange}
-                    minLength={6}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="signupAcademy">
-                    Academy Corporate Name
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    id="signupAcademy"
-                    name="academy_name"
-                    value={signupForm.academy_name || ''}
-                    onChange={handleSignupChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="signupLogo">
-                    Academy Logo (Optional)
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    type="file"
-                    id="signupLogo"
-                    name="logo"
-                    onChange={handleSignupChange}
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                  />
-                  <p className="text-muted-foreground text-xs mt-1">
-                    JPG, JPEG, PNG, or WEBP (Max 5MB)
-                  </p>
-                </div>
-                <div>
-                  <label className="label" htmlFor="signupPhone">
-                    Contact Number
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    type="tel"
-                    id="signupPhone"
-                    name="phone_number"
-                    value={signupForm.phone_number || ''}
-                    onChange={handleSignupChange}
-                  />
-                </div>
-
-                {/* GPS Location Setup */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="label" htmlFor="signupCity">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      className={inputThemeStyles}
-                      id="signupCity"
-                      name="city"
-                      value={signupForm.city || ''}
-                      onChange={handleSignupChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="signupState">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      className={inputThemeStyles}
-                      id="signupState"
-                      name="state"
-                      value={signupForm.state || ''}
-                      onChange={handleSignupChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="label" htmlFor="signupAddress">
-                    Full Address (Optional)
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    id="signupAddress"
-                    name="address"
-                    value={signupForm.address || ''}
-                    onChange={handleSignupChange}
-                    placeholder="Street address, landmark, etc."
-                  />
-                </div>
-
-                <div>
-                  <label className="label" htmlFor="signupRadius">
-                    Attendance Radius (meters)
-                  </label>
-                  <input
-                    className={inputThemeStyles}
-                    type="number"
-                    id="signupRadius"
-                    name="attendance_radius_meters"
-                    value={signupForm.attendance_radius_meters || 100}
-                    onChange={handleSignupChange}
-                    min="50"
-                    max="5000"
-                  />
-                  <p className="text-xs text-muted mt-1">
-                    Maximum distance from academy location for attendance verification (50-5000m)
-                  </p>
-                </div>
-
-                <div className="p-4 bg-surface-secondary border border-border rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-emerald-600" />
-                      <label className="font-semibold text-sm">Academy Location</label>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      type="button"
-                      onClick={getCurrentLocation}
-                      disabled={gettingLocation}
-                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-400 text-sm font-medium flex items-center gap-2"
-                    >
-                      {gettingLocation ? 'Getting Location...' : 'Set Academy Location'}
-                    </motion.button>
-                  </div>
-
-                  {gpsError && (
-                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-3">
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs">{gpsError}</p>
-                    </div>
-                  )}
-
-                  {signupForm.latitude && signupForm.longitude && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-xs text-green-700">
-                        <span className="font-medium">Location captured:</span>
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        Lat: {signupForm.latitude.toFixed(7)}
-                        <br />
-                        Lon: {signupForm.longitude.toFixed(7)}
-                      </p>
-                    </div>
-                  )}
-
-                  {!signupForm.latitude && !signupForm.longitude && !gpsError && (
-                    <p className="text-xs text-muted mt-2">
-                      Click "Set Academy Location" to capture GPS coordinates for attendance verification
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="label" htmlFor="signupPlan">
-                    Core Subscribed Workspace Tier
-                  </label>
-                  <select
-                    className={`${inputThemeStyles} cursor-pointer py-3`}
-                    id="signupPlan"
-                    name="subscription_plan"
-                    value={signupForm.subscription_plan || 'free'}
-                    onChange={handleSignupChange}
-                    required
-                  >
-                    <option value="free" className="bg-surface text-foreground">
-                      Free Starter Tier — Max 3 Coaches / 30 Student Matrix
-                    </option>
-                    <option value="pro" className="bg-surface text-foreground">
-                      Pro Academy Tier — Max 6 Coaches / 80 Student Matrix
-                    </option>
-                    <option value="plus" className="bg-surface text-foreground">
-                      Plus Enterprise Tier — Complete Unrestricted Operational Pipelines
-                    </option>
-                  </select>
-                </div>
-                <div className="flex gap-4 pt-2">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    type="submit"
-                    className="btn-gradient-primary shadow-accent/10 flex-1 rounded-xl py-3.5 text-sm font-bold tracking-wide shadow-md"
-                    disabled={signupLoading}
-                  >
-                    {signupLoading ? 'Configuring instances...' : 'Create Academy Account'}
-                  </motion.button>
-                  <button
-                    type="button"
-                    className="btn-secondary text-muted px-5 transition-transform active:scale-95"
-                    onClick={() => setActiveModal('signup')}
-                  >
-                    Clear Form
-                  </button>
-                </div>
-                {signupMessage.text && (
-                  <p
-                    className={
-                      signupMessage.type === 'success' ? 'alert-success m-0 mt-4' : 'alert-error m-0 mt-4'
-                    }
-                    role="alert"
-                  >
-                    {signupMessage.text}
-                  </p>
-                )}
-              </form>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
       {/* FORM RESET DRAFT PROTECTION MODAL DIALOG */}
       <AnimatePresence>
         {activeModal !== null && (
@@ -1586,7 +1059,7 @@ export default function LandingPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => clearFormState(activeModal)}
+                  onClick={() => clearFormState()}
                   className="btn-gradient-orange rounded-xl px-5 py-2.5 text-sm font-bold shadow-sm transition-all active:scale-95"
                 >
                   Reset System Draft
