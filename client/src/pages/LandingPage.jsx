@@ -261,6 +261,14 @@ export default function LandingPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [loginDropdownOpen]);
 
+  const scrollToSignup = (e) => {
+    if (e) e.preventDefault();
+    const el = document.getElementById('signup');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const handleSignupChange = (event) => {
     const { name, value, files } = event.target;
     if (name === 'logo' && files && files[0]) {
@@ -337,10 +345,7 @@ export default function LandingPage() {
 
   const selectPlan = (planId) => {
     setSignupForm((prev) => ({ ...prev, subscription_plan: planId }));
-    const el = document.getElementById('signup');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    scrollToSignup();
   };
 
   const clearFormState = (formType) => {
@@ -473,6 +478,13 @@ export default function LandingPage() {
               Install App
             </button>
           )}
+          <button
+            type="button"
+            className="btn-gradient-primary px-4 py-1.5 text-sm font-bold rounded-lg shadow-md transition-transform active:scale-95"
+            onClick={scrollToSignup}
+          >
+            Sign Up
+          </button>
           <div className="relative login-dropdown-container">
             <button
               type="button"
@@ -499,13 +511,16 @@ export default function LandingPage() {
                       Admin
                     </Link>
                     <div className="px-4 pb-2 pt-1">
-                      <Link
-                        to="#signup"
+                      <a
+                        href="#signup"
                         className="text-accent hover:text-accent/80 text-xs font-bold transition-colors"
-                        onClick={() => setLoginDropdownOpen(false)}
+                        onClick={(e) => {
+                          setLoginDropdownOpen(false);
+                          scrollToSignup(e);
+                        }}
                       >
                         Sign Up
-                      </Link>
+                      </a>
                     </div>
                     <Link
                       to="/coach/login"
@@ -609,6 +624,7 @@ export default function LandingPage() {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 href="#signup"
+                onClick={scrollToSignup}
                 className="btn-gradient-primary inline-flex items-center gap-2 px-8 py-4 text-base font-black transition-shadow hover:shadow-lg"
               >
                 Start Free Trial
@@ -1141,6 +1157,7 @@ export default function LandingPage() {
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
             href="#signup"
+            onClick={scrollToSignup}
             className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-black text-emerald-600 shadow-xl transition-shadow hover:shadow-2xl"
           >
             Create Your Academy Account

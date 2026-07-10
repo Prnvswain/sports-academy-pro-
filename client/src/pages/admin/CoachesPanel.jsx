@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, Lock, Unlock, Key, Trash2, Edit, Plus, Upload, Search, X, Mail, Phone, FileSpreadsheet, AlertCircle, CheckCircle, Copy } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
+import ModalWrapper from '../../components/ModalWrapper';
 import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
 
 const emptyForm = {
@@ -515,28 +516,23 @@ export default function CoachesPanel() {
       </div>
 
       {/* --- Add Coach Modal --- */}
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md" onClick={closeModal}>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              transition={{ type: "spring", bounce: 0.4 }}
-              className="bg-white dark:bg-[#111814] w-full max-w-lg overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
-                <div>
-                  <h3 className="text-xl font-black text-gray-900 dark:text-white">Provision New Coach</h3>
-                  <p className="text-xs text-gray-500 font-bold mt-1 tracking-wide uppercase">Secure credentials will be emailed</p>
-                </div>
-                <button type="button" onClick={closeModal} className="p-2 rounded-xl bg-white shadow-sm border border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:hover:text-white transition-all">
-                  <X size={18} />
-                </button>
-              </div>
+      <ModalWrapper
+        isOpen={showModal}
+        onClose={closeModal}
+        modalId="add-coach-modal"
+        contentClassName="bg-white dark:bg-[#111814] w-full max-w-lg overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800"
+      >
+        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
+          <div>
+            <h3 className="text-xl font-black text-gray-900 dark:text-white">Provision New Coach</h3>
+            <p className="text-xs text-gray-500 font-bold mt-1 tracking-wide uppercase">Secure credentials will be emailed</p>
+          </div>
+          <button type="button" onClick={closeModal} className="p-2 rounded-xl bg-white shadow-sm border border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:hover:text-white transition-all">
+            <X size={18} />
+          </button>
+        </div>
 
-              <form className="p-8 space-y-5" onSubmit={handleSubmit}>
+        <form className="p-8 space-y-5" onSubmit={handleSubmit}>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2" htmlFor="coachName">Full Name <span className="text-rose-500">*</span></label>
                   <input
@@ -611,59 +607,51 @@ export default function CoachesPanel() {
                   </motion.button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      </ModalWrapper>
 
       {/* --- Bulk Import Modal --- */}
-      <AnimatePresence>
-        {showBulkImportModal && (
-          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4" onClick={() => setShowBulkImportModal(false)}>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ type: "spring", bounce: 0.4 }}
-              className="bg-white dark:bg-[#111814] w-full max-w-md overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
-                <h3 className="text-xl font-black text-gray-900 dark:text-white">Bulk Import (CSV)</h3>
-                <button type="button" onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); }} className="p-2 rounded-xl bg-white shadow-sm border border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:hover:text-white transition-all">
-                  <X size={18} />
-                </button>
-              </div>
+      <ModalWrapper
+        isOpen={showBulkImportModal}
+        onClose={() => { setShowBulkImportModal(false); setBulkImportFile(null); }}
+        modalId="bulk-import-modal"
+        contentClassName="bg-white dark:bg-[#111814] w-full max-w-md overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800"
+      >
+        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
+          <h3 className="text-xl font-black text-gray-900 dark:text-white">Bulk Import (CSV)</h3>
+          <button type="button" onClick={() => { setShowBulkImportModal(false); setBulkImportFile(null); }} className="p-2 rounded-xl bg-white shadow-sm border border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:hover:text-white transition-all">
+            <X size={18} />
+          </button>
+        </div>
 
-              <div className="p-8 space-y-6">
-                <p className="text-sm text-gray-500 font-medium">
-                  Upload a CSV file to bulk import coaches. Required headers:
-                  <code className="block mt-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-4 py-2.5 rounded-xl text-[11px] font-mono font-bold border border-indigo-100 dark:border-indigo-800/50 text-center">
-                    first_name, last_name, email, phone, specialization, status
-                  </code>
-                </p>
-                
-                <button
-                  type="button"
-                  onClick={downloadSampleTemplate}
-                  className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-gray-200 text-gray-700 dark:bg-transparent dark:border-gray-700 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
-                >
-                  <FileSpreadsheet size={16} className="text-emerald-600" /> Download Sample File
-                </button>
+        <div className="p-8 space-y-6">
+          <p className="text-sm text-gray-500 font-medium">
+            Upload a CSV file to bulk import coaches. Required headers:
+            <code className="block mt-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-4 py-2.5 rounded-xl text-[11px] font-mono font-bold border border-indigo-100 dark:border-indigo-800/50 text-center">
+              first_name, last_name, email, phone, specialization, status
+            </code>
+          </p>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2" htmlFor="csvFile">Select Dataset</label>
-                  <input
-                    id="csvFile"
-                    type="file"
-                    accept=".csv"
-                    className="w-full text-sm file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-300 dark:hover:file:bg-gray-700 transition-all cursor-pointer bg-white border border-gray-200 dark:bg-gray-900/50 dark:border-gray-800 rounded-2xl"
-                    onChange={(e) => setBulkImportFile(e.target.files[0])}
-                  />
-                </div>
+          <button
+            type="button"
+            onClick={downloadSampleTemplate}
+            className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-gray-200 text-gray-700 dark:bg-transparent dark:border-gray-700 dark:text-gray-300 rounded-xl font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
+          >
+            <FileSpreadsheet size={16} className="text-emerald-600" /> Download Sample File
+          </button>
 
-                <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-6">
-                  <motion.button
+          <div>
+            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2" htmlFor="csvFile">Select Dataset</label>
+            <input
+              id="csvFile"
+              type="file"
+              accept=".csv"
+              className="w-full text-sm file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-300 dark:hover:file:bg-gray-700 transition-all cursor-pointer bg-white border border-gray-200 dark:bg-gray-900/50 dark:border-gray-800 rounded-2xl"
+              onChange={(e) => setBulkImportFile(e.target.files[0])}
+            />
+          </div>
+
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-6">
+            <motion.button
                     whileHover={{ scale: (bulkImportUploading || !bulkImportFile) ? 1 : 1.02 }}
                     whileTap={{ scale: (bulkImportUploading || !bulkImportFile) ? 1 : 0.98 }}
                     type="button"
@@ -674,11 +662,8 @@ export default function CoachesPanel() {
                     {bulkImportUploading ? <Loader /> : 'Start Migration'}
                   </motion.button>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+        </div>
+      </ModalWrapper>
     </motion.div>
   );
 }

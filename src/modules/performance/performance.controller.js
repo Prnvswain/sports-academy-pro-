@@ -1,6 +1,7 @@
 import * as performanceService from './performance.service.js';
 import * as performanceAnalytics from './performance.analytics.js';
 import { successResponse } from '../../utils/response.js';
+import logger from '../../utils/logger.js';
 
 export const getAttributes = async (req, res, next) => {
   try {
@@ -197,12 +198,26 @@ export const submitWeeklyPerformance = async (req, res, next) => {
 
 export const getStudentAnalytics = async (req, res, next) => {
   try {
+    logger.info('CONTROLLER: getStudentAnalytics called', {
+      academy_id: req.user.academy_id,
+      student_id: req.params.studentId
+    });
+    
     const data = await performanceAnalytics.getStudentPerformanceAnalytics(
       req.user.academy_id,
       req.params.studentId
     );
+    
+    logger.info('CONTROLLER: getStudentAnalytics result', {
+      data_keys: Object.keys(data),
+      overallAverage: data.overallAverage,
+      totalEvaluations: data.totalEvaluations,
+      graphData_length: data.graphData?.length
+    });
+    
     res.json(successResponse('Student performance analytics retrieved successfully', data));
   } catch (err) {
+    logger.error('CONTROLLER: getStudentAnalytics error', err);
     next(err);
   }
 };

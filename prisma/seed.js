@@ -143,7 +143,7 @@ async function main() {
           name: `Coach ${i}`,
           first_name: 'Coach',
           last_name: String(i),
-          specialization: GLOBAL_SPORTS[i % GLOBAL_SPORTS.length],
+          specialization: GLOBAL_SPORTS[i % GLOBAL_SPORTS.length].name,
           phone_number: `90000000${String(i).padStart(2, '0')}`,
           email,
           password_hash: passwordHash,

@@ -399,6 +399,8 @@ export const getScores = async (academyId, query = {}) => {
 export const createScore = async (academyId, coachId, userRole, data) => {
   const { student_id, attribute_id, batch_id, score, notes, assessment_id } = data;
 
+  logger.info('PERFORMANCE: Creating score', { academyId, student_id, attribute_id, score, assessment_id });
+
   if (!student_id || !attribute_id || !score) {
     const error = new Error('student_id, attribute_id, and score are required');
     error.statusCode = 400;
@@ -495,7 +497,7 @@ export const createScore = async (academyId, coachId, userRole, data) => {
       }
     });
 
-    logger.info('Performance score recorded (continuous assessment)', {
+    logger.info('PERFORMANCE: Score recorded successfully', {
       score_id: newScore.score_id,
       academy_id: academyId,
       student_id: newScore.student_id,
@@ -510,12 +512,12 @@ export const createScore = async (academyId, coachId, userRole, data) => {
       await notifyParentAboutAssessment(academyId, parseInt(student_id, 10), parseInt(coachId, 10), newScore.assessment_id);
     } catch (error) {
       // Log error but don't fail the score submission
-      logger.error('Failed to notify parent about assessment', { error: error.message, student_id, attribute_id });
+      logger.error('PERFORMANCE: Failed to notify parent about assessment', { error: error.message, student_id, attribute_id });
     }
 
     return newScore;
   } catch (error) {
-    logger.error('Failed to create performance score', error);
+    logger.error('PERFORMANCE: Failed to create performance score', error);
     throw error;
   }
 };
@@ -925,9 +927,20 @@ export const getAssessmentHistory = async (academyId, query = {}) => {
     });
   });
 
+  // Calculate overall_score for each assessment
+  const assessmentsWithOverall = Object.values(assessments).map(assessment => {
+    const totalScore = assessment.scores.reduce((sum, s) => sum + s.score, 0);
+    const averageScore = assessment.scores.length > 0 ? (totalScore / assessment.scores.length).toFixed(1) : 0;
+    return {
+      ...assessment,
+      overall_score: parseFloat(averageScore),
+      total_parameters: assessment.scores.length
+    };
+  });
+
   return {
     total,
-    assessments: Object.values(assessments),
+    assessments: assessmentsWithOverall,
     pagination: {
       limit: parseInt(limit),
       offset: parseInt(offset),

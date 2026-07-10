@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useModal } from '../context/ModalContext';
 
 export default function ModalWrapper({
   isOpen,
@@ -13,16 +13,15 @@ export default function ModalWrapper({
   closeOnOverlayClick = true,
   closeOnEscape = true,
 }) {
-  const { registerModal, unregisterModal } = useModal();
-
-  // Register/unregister modal when it opens/closes
+  // Prevent background scrolling when modal is open
   useEffect(() => {
-    if (isOpen && modalId) {
-      registerModal(modalId);
-    } else if (!isOpen && modalId) {
-      unregisterModal(modalId);
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
     }
-  }, [isOpen, modalId, registerModal, unregisterModal]);
+  }, [isOpen]);
 
   // Handle escape key
   useEffect(() => {
@@ -44,7 +43,7 @@ export default function ModalWrapper({
     }
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -69,4 +68,6 @@ export default function ModalWrapper({
       )}
     </AnimatePresence>
   );
+
+  return isOpen ? createPortal(modalContent, document.body) : null;
 }
