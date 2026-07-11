@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, Lock, Unlock, Key, Trash2, Edit, Camera, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Eye, Lock, Unlock, Key, Trash2, Edit, Camera, X, Wallet } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
-import ModalWrapper from '../../components/ModalWrapper';
 import { useFormDraft } from '../../hooks/useFormDraft';
 import { useFormValidation, validationRules } from '../../hooks/useFormValidation';
 import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
@@ -1838,7 +1837,7 @@ export default function StudentsPanel() {
                               }
                             >
                               {feeStatusLabel}
-                              </span>
+                            </span>
                           </td>
                           <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-2">
@@ -1922,35 +1921,33 @@ export default function StudentsPanel() {
       )}
 
  {/* Add Student Modal */}
-<ModalWrapper
-  isOpen={showAddStudentModal}
-  onClose={() => {
-    setShowAddStudentModal(false);
-    setSelectedSports([]);
-    setSportSearchQuery('');
-  }}
-  modalId="add-student-modal"
-  contentClassName="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto"
->
-  <div className="mb-4 flex items-center justify-between">
-    <h3 className="font-bold">Add New Student</h3>
-    <div className="flex gap-2">
-      {draftSavedAt && <span className="text-muted text-xs">Draft saved</span>}
-      <button
-        type="button"
-        className="text-muted hover:text-foreground"
-        onClick={() => {
-          setShowAddStudentModal(false);
-          setSelectedSports([]);
-          setSportSearchQuery('');
-        }}
-      >
-        ✕
-      </button>
-    </div>
-  </div>
-
-  <form onSubmit={handleSubmit}>
+{showAddStudentModal && (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+  >
+    <div className="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-bold">Add New Student</h3>
+        <div className="flex gap-2">
+          {draftSavedAt && <span className="text-muted text-xs">Draft saved</span>}
+          <button
+            type="button"
+            className="text-muted hover:text-foreground"
+            onClick={() => {
+              setShowAddStudentModal(false);
+              setSelectedSports([]);
+              setSportSearchQuery('');
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
         {/* Name Fields */}
         <div className="grid gap-4 md:grid-cols-3">
           <div>
@@ -2538,57 +2535,55 @@ export default function StudentsPanel() {
           </button>
         </div>
       </form>
-  </ModalWrapper>
+    </div>
+  </motion.div>
+)}
 
-      <ModalWrapper
-        isOpen={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        modalId="clear-confirm-modal"
-        contentClassName="card animate-premiumModal max-w-md"
-      >
-        <h3 className="mb-2 font-bold">Clear form?</h3>
-        <p className="text-muted mb-4 text-sm">
-          This removes the saved draft and resets all fields.
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="btn-danger flex-1"
-            onClick={() => {
-              clearDraft();
-              setShowClearConfirm(false);
-              }}
-          >
-            Yes, clear
-          </button>
-          <button
-            type="button"
-            className="btn-secondary flex-1"
-            onClick={() => setShowClearConfirm(false)}
-          >
-            Cancel
-          </button>
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
+          <div className="card animate-premiumModal max-w-md">
+            <h3 className="mb-2 font-bold">Clear form?</h3>
+            <p className="text-muted mb-4 text-sm">
+              This removes the saved draft and resets all fields.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-danger flex-1"
+                onClick={() => {
+                  clearDraft();
+                  setShowClearConfirm(false);
+                }}
+              >
+                Yes, clear
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex-1"
+                onClick={() => setShowClearConfirm(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
-      </ModalWrapper>
+      )}
 
       {/* Bulk Upload Modal */}
-      <ModalWrapper
-        isOpen={showBulkUpload}
-        onClose={() => setShowBulkUpload(false)}
-        modalId="bulk-upload-modal"
-        contentClassName="card animate-premiumModal w-full max-w-lg"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-bold">Bulk Import Students (CSV)</h3>
-          <button
-            type="button"
-            className="text-muted hover:text-foreground"
-            onClick={() => setShowBulkUpload(false)}
-          >
-            ✕
-          </button>
-        </div>
-        <form onSubmit={handleBulkUpload}>
+      {showBulkUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
+          <div className="card animate-premiumModal w-full max-w-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-bold">Bulk Import Students (CSV)</h3>
+              <button
+                type="button"
+                className="text-muted hover:text-foreground"
+                onClick={() => setShowBulkUpload(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleBulkUpload}>
               <div className="mb-4">
                 <button
                   type="button"
@@ -2647,60 +2642,59 @@ export default function StudentsPanel() {
                 </button>
               </div>
             </form>
-      </ModalWrapper>
-
-      {/* Student Detail Modal */}
-      <ModalWrapper
-        isOpen={showStudentModal && selectedStudent}
-        onClose={() => setShowStudentModal(false)}
-        modalId="student-detail-modal"
-        contentClassName="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-bold">Student Details</h3>
-          <div className="flex gap-2">
-            {!isEditingStudent && (
-              <button
-                type="button"
-                className="btn-primary btn-sm"
-                onClick={() => setIsEditingStudent(true)}
-              >
-                Edit
-              </button>
-            )}
-            <button
-              type="button"
-              className="text-muted hover:text-foreground"
-              onClick={() => setShowStudentModal(false)}
-            >
-              ✕
-            </button>
           </div>
         </div>
+      )}
 
-        {/* Tab Navigation */}
-        <div className="mb-4 flex gap-2 border-b">
-          {['profile', 'accounts', 'attendance', 'performance', 'notes'].map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={`px-4 py-2 capitalize transition-all duration-300 ${modalTab === tab ? 'border-success text-success bg-success/10 rounded-t-lg border-b-2 font-semibold' : 'hover:text-success text-slate-600 hover:bg-slate-100'}`}
-              onClick={() => setModalTab(tab)}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+      {/* Student Detail Modal */}
+      {showStudentModal && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
+          <div className="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-bold">Student Details</h3>
+              <div className="flex gap-2">
+                {!isEditingStudent && (
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm"
+                    onClick={() => setIsEditingStudent(true)}
+                  >
+                    Edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="text-muted hover:text-foreground"
+                  onClick={() => setShowStudentModal(false)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
 
-        {loadingDetails ? (
-          <Loader />
-        ) : studentDetails ? (
-          <div>
-            {/* Profile Tab */}
-            {modalTab === 'profile' && (
-              <div className="space-y-4">
-                {/* Profile Photo Section */}
-                <div className="flex items-center gap-4">
+            {/* Tab Navigation */}
+            <div className="mb-4 flex gap-2 border-b">
+              {['profile', 'accounts', 'attendance', 'performance', 'notes'].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`px-4 py-2 capitalize transition-all duration-300 ${modalTab === tab ? 'border-success text-success bg-success/10 rounded-t-lg border-b-2 font-semibold' : 'hover:text-success text-slate-600 hover:bg-slate-100'}`}
+                  onClick={() => setModalTab(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {loadingDetails ? (
+              <Loader />
+            ) : studentDetails ? (
+              <div>
+                {/* Profile Tab */}
+                {modalTab === 'profile' && (
+                  <div className="space-y-4">
+                    {/* Profile Photo Section */}
+                    <div className="flex items-center gap-4">
                       <div className="relative">
                         {photoPreview ? (
                           <img
@@ -3103,7 +3097,7 @@ export default function StudentsPanel() {
                             </label>
                             <select
                               id="editDurationPlan"
-                              className="input-field w-full p-2 border rounded-md bg-white text-sm"
+                              className="input-field"
                               value={editStudentForm.duration_plan_id || ''}
                               onChange={(e) =>
                                 setEditStudentForm({
@@ -3303,7 +3297,7 @@ export default function StudentsPanel() {
                                 }`}
                               >
                                 {receipt.status}
-                                </span>
+                              </span>
                             </div>
                             <div className="mt-2 text-sm">
                               <p>Amount: ${formatCurrency(receipt.amount)}</p>
@@ -3449,268 +3443,134 @@ export default function StudentsPanel() {
             ) : (
               <p className="text-muted text-center">Failed to load student details.</p>
             )}
-      
-      </ModalWrapper>
+          </div>
+        </div>
+      )}
 
       {/* Student Profile Detail Modal */}
-      <ModalWrapper
-        isOpen={!!selectedStudentForView}
-        onClose={() => setSelectedStudentForView(null)}
-        modalId="student-profile-detail-modal"
-        contentClassName="bg-surface border-border animate-fadeIn flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border shadow-xl"
-      >
-        <div className="bg-accent text-foreground flex flex-shrink-0 items-center justify-between px-8 py-4">
-          <h3 className="text-lg font-bold">Detailed Student Profile</h3>
-          <button
-            onClick={() => setSelectedStudentForView(null)}
-            className="text-foreground hover:text-muted text-xl font-bold"
-          >
-            &times;
-          </button>
-        </div>
-        <div className="grid grid-cols-1 gap-6 overflow-y-auto p-8 text-sm md:grid-cols-2">
-          <div className="col-span-2 mb-4 border-b pb-2">
-            <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
-              Personal Information
-            </h4>
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Full Name:</span>{' '}
-            {selectedStudentForView?.name ||
-              `${selectedStudentForView?.firstName || ''} ${selectedStudentForView?.middleName || ''} ${selectedStudentForView?.lastName || ''}`}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Age / Gender:</span>{' '}
-            {selectedStudentForView?.age || '—'} years /{' '}
-            {normalizeGender(selectedStudentForView?.gender)}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Blood Group:</span>{' '}
-            {selectedStudentForView?.blood_group ||
-              selectedStudentForView?.bloodGroup ||
-              'Not Provided'}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Height:</span>{' '}
-            {selectedStudentForView?.height
-              ? `${selectedStudentForView.height} cm`
-              : 'Not Provided'}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Weight:</span>{' '}
-            {selectedStudentForView?.weight
-              ? `${selectedStudentForView.weight} kg`
-              : 'Not Provided'}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Joining Date:</span>{' '}
-            {selectedStudentForView?.joining_date
-              ? new Date(selectedStudentForView.joining_date).toLocaleDateString()
-              : '—'}
-          </div>
+      {selectedStudentForView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="bg-surface border-border animate-fadeIn flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border shadow-xl">
+            <div className="bg-accent text-foreground flex flex-shrink-0 items-center justify-between px-8 py-4">
+              <h3 className="text-lg font-bold">Detailed Student Profile</h3>
+              <button
+                onClick={() => setSelectedStudentForView(null)}
+                className="text-foreground hover:text-muted text-xl font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-6 overflow-y-auto p-8 text-sm md:grid-cols-2">
+              <div className="col-span-2 mb-4 border-b pb-2">
+                <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
+                  Personal Information
+                </h4>
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Full Name:</span>{' '}
+                {selectedStudentForView?.name ||
+                  `${selectedStudentForView?.firstName || ''} ${selectedStudentForView?.middleName || ''} ${selectedStudentForView?.lastName || ''}`}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Age / Gender:</span>{' '}
+                {selectedStudentForView?.age || '—'} years /{' '}
+                {normalizeGender(selectedStudentForView?.gender)}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Blood Group:</span>{' '}
+                {selectedStudentForView?.blood_group ||
+                  selectedStudentForView?.bloodGroup ||
+                  'Not Provided'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Height:</span>{' '}
+                {selectedStudentForView?.height
+                  ? `${selectedStudentForView.height} cm`
+                  : 'Not Provided'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Weight:</span>{' '}
+                {selectedStudentForView?.weight
+                  ? `${selectedStudentForView.weight} kg`
+                  : 'Not Provided'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Joining Date:</span>{' '}
+                {selectedStudentForView?.joining_date
+                  ? new Date(selectedStudentForView.joining_date).toLocaleDateString()
+                  : '—'}
+              </div>
 
-          <div className="col-span-2 mb-4 mt-4 border-b pb-2">
-            <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
-              Parent / Guardian Details
-            </h4>
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Parent Name:</span>{' '}
-            {selectedStudentForView?.parent_name || '—'}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Parent Phone:</span>{' '}
-            {selectedStudentForView?.parent_phone || '—'}
-          </div>
-          <div className="col-span-2">
-            <span className="text-muted block font-semibold">Parent Email:</span>{' '}
-            {selectedStudentForView?.parent_email || '—'}
-          </div>
+              <div className="col-span-2 mb-4 mt-4 border-b pb-2">
+                <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
+                  Parent / Guardian Details
+                </h4>
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Parent Name:</span>{' '}
+                {selectedStudentForView?.parent_name || '—'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Parent Phone:</span>{' '}
+                {selectedStudentForView?.parent_phone || '—'}
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted block font-semibold">Parent Email:</span>{' '}
+                {selectedStudentForView?.parent_email || '—'}
+              </div>
 
-          <div className="col-span-2 mb-4 mt-4 border-b pb-2">
-            <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
-              Academy Enrollment Settings
-            </h4>
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Assigned Sport:</span>{' '}
-            {selectedStudentForView?.sport?.name || selectedStudentForView?.sports || '—'}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Batch Schedule:</span>{' '}
-            {selectedStudentForView?.batch?.name || 'Unassigned'}
-          </div>
-          <div>
-            <span className="text-muted block font-semibold">Fees Milestone Status:</span>{' '}
-            <span
-              className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${selectedStudentForView?.fees_status === 'paid' ? 'bg-success/10 text-success border-success/20 border' : 'bg-warning/10 text-warning border-warning/20 border'}`}
-            >
-              {selectedStudentForView?.fees_status || '—'}
-            </span>
-          </div>
+              <div className="col-span-2 mb-4 mt-4 border-b pb-2">
+                <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
+                  Academy Enrollment Settings
+                </h4>
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Assigned Sport:</span>{' '}
+                {selectedStudentForView?.sport?.name || selectedStudentForView?.sports || '—'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Batch Schedule:</span>{' '}
+                {selectedStudentForView?.batch?.name || 'Unassigned'}
+              </div>
+              <div>
+                <span className="text-muted block font-semibold">Fees Milestone Status:</span>{' '}
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${selectedStudentForView?.fees_status === 'paid' ? 'bg-success/10 text-success border-success/20 border' : 'bg-warning/10 text-warning border-warning/20 border'}`}
+                >
+                  {selectedStudentForView?.fees_status || '—'}
+                </span>
+              </div>
 
-          {(() => {
-            console.log('Selected Student Data Object:', selectedStudentForView);
-            const activeEnrollments =
-                  selectedStudentForView?.enrollments?.filter((e) => e.is_active) || [];
-                const latestEnrollment = activeEnrollments.length > 0 ? activeEnrollments[0] : null;
-
-                // Dynamic multiplier sync with duration plans
-                const globalDurationPlans = durationPlans || [];
-                const currentStudentPlan =
-                  latestEnrollment?.duration_plan?.name ||
-                  selectedStudentForView?.duration_plan ||
-                  selectedStudentForView?.durationPlan ||
-                  '';
-
-                // Relational array matching
-                const exactPlanMatch = globalDurationPlans.find(
-                  (p) =>
-                    p.name === currentStudentPlan ||
-                    p._id === currentStudentPlan ||
-                    p.id === currentStudentPlan ||
-                    p.plan_id === currentStudentPlan,
-                );
-
-                // Resolve dynamic multiplier coefficient
-                const dynamicMultiplier = exactPlanMatch
-                  ? parseFloat(exactPlanMatch.multiplier)
-                  : parseFloat(
-                      latestEnrollment?.duration_plan?.multiplier ||
-                        latestEnrollment?.plan_multiplier ||
-                        latestEnrollment?.planMultiplier ||
-                        1,
-                    );
-
-                const rawBaseSportsFee = parseFloat(
-                  latestEnrollment?.sports_base_fee ||
-                    latestEnrollment?.sportsBaseFee ||
-                    latestEnrollment?.sports_fee ||
-                    0,
-                );
-                const totalMultipliedSportsFee = rawBaseSportsFee * dynamicMultiplier;
-
-                const regFeeAmount = parseFloat(latestEnrollment?.registration_fee || 0);
-                const additionalSurchargesAmount = parseFloat(
-                  latestEnrollment?.additional_charges || 0,
-                );
-                const appliedDiscountAmount = parseFloat(latestEnrollment?.discount || 0);
-
-                const accurateTotalComputedFee =
-                  totalMultipliedSportsFee +
-                  regFeeAmount +
-                  additionalSurchargesAmount -
-                  appliedDiscountAmount;
-
-                const dynamicAmountPaidFromLedger = parseFloat(
-                  selectedStudentForView?.amount_paid || selectedStudentForView?.amountPaid || 0,
-                );
-                const finalOutstandingDuesBalance = Math.max(
-                  0,
-                  accurateTotalComputedFee - dynamicAmountPaidFromLedger,
-                );
-                const conditionalFeeStatusString =
-                  finalOutstandingDuesBalance > 0 ? 'UNPAID' : 'PAID';
-
-                const durationPlanName =
-                  latestEnrollment?.duration_plan?.name ||
-                  selectedStudentForView?.duration_plan ||
-                  selectedStudentForView?.durationPlan ||
-                  'Standard';
-
-                return (
-                  <div className="bg-surface-secondary border-border col-span-2 mt-4 rounded-lg border border-t p-6 pt-4 text-sm">
-                    <span className="text-muted mb-3 block font-bold uppercase tracking-wider">
-                      Financial Ledger Summary
-                    </span>
-                    <div className="text-foreground space-y-3">
-                      <div className="flex justify-between">
-                        <span>Sports Base Fee:</span>
-                        <span className="font-medium">${formatCurrency(rawBaseSportsFee)}</span>
-                      </div>
-                      <div className="text-muted flex justify-between pl-2 text-xs">
-                        <span>Plan Multiplier / Duration:</span>
-                        <span className="font-medium">
-                          {Number.isFinite(Number(dynamicMultiplier))
-                            ? Number(dynamicMultiplier).toFixed(1)
-                            : '1.0'}
-                          x ({durationPlanName})
-                        </span>
-                      </div>
-                      <div className="text-foreground bg-surface flex justify-between rounded p-2 font-medium">
-                        <span>Sports Fee (with multiplier):</span>
-                        <span>${formatCurrency(totalMultipliedSportsFee)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Registration Fee:</span>
-                        <span>${formatCurrency(regFeeAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Additional Surcharges:</span>
-                        <span>${formatCurrency(additionalSurchargesAmount)}</span>
-                      </div>
-                      <div className="text-danger flex justify-between">
-                        <span>Applied Discount:</span>
-                        <span>-${formatCurrency(appliedDiscountAmount)}</span>
-                      </div>
-
-                      <div className="text-foreground bg-surface mt-3 flex justify-between rounded border-t p-2 pt-3 font-semibold">
-                        <span>Total Computed Fee (Decided):</span>
-                        <span>${formatCurrency(accurateTotalComputedFee)}</span>
-                      </div>
-                      <div className="text-success flex justify-between font-medium">
-                        <span>Amount Paid (Accounts Section):</span>
-                        <span>-${formatCurrency(dynamicAmountPaidFromLedger)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-3 text-base font-bold">
-                        <span>Total Balance Due:</span>
-                        <span
-                          className={
-                            finalOutstandingDuesBalance > 0 ? 'text-danger' : 'text-success'
-                          }
-                        >
-                          ${formatCurrency(finalOutstandingDuesBalance)} (
-                          {conditionalFeeStatusString})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
+              {(() => {
+                return null;
               })()}
             </div>
-      </ModalWrapper>
+          </div>
+        </div>
+      )}
 
   {/* Edit Student Modal */}
-  <ModalWrapper
-    isOpen={isEditingStudent}
-    onClose={() => {
-      setIsEditingStudent(false);
-      setSportSearchQuery('');
-      setBatchSearchQuery('');
-      setEditPhotoPreview(null);
-      setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
-    }}
-    modalId="edit-student-modal"
-    contentClassName="card animate-premiumModal max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-white p-6 rounded-lg shadow-xl relative"
-  >
-    <div className="mb-4 flex items-center justify-between border-b pb-3">
-      <h3 className="font-bold text-lg text-slate-800">Edit Student Profile</h3>
-      <button
-        type="button"
-        className="text-muted hover:text-foreground text-slate-400 hover:text-slate-600 transition-colors"
-        onClick={() => {
-          setIsEditingStudent(false);
-          setSportSearchQuery('');
-          setBatchSearchQuery('');
-          setEditPhotoPreview(null);
-          setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
-        }}
-      >
-        ✕
-      </button>
-    </div>
+  {isEditingStudent && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
+      <div className="card animate-premiumModal max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-white p-6 rounded-lg shadow-xl relative">
+        <div className="mb-4 flex items-center justify-between border-b pb-3">
+          <h3 className="font-bold text-lg text-slate-800">Edit Student Profile</h3>
+          <button
+            type="button"
+            className="text-muted hover:text-foreground text-slate-400 hover:text-slate-600 transition-colors"
+            onClick={() => {
+              setIsEditingStudent(false);
+              setSportSearchQuery('');
+              setBatchSearchQuery('');
+              setEditPhotoPreview(null);
+              setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
+            }}
+          >
+            ✕
+          </button>
+        </div>
 
-    <form onSubmit={handleEditStudentSubmit}>
+        <form onSubmit={handleEditStudentSubmit}>
           <div className="space-y-4">
             {/* Profile Photo Section */}
             <div className="flex flex-col items-center mb-6">
@@ -3783,6 +3643,45 @@ export default function StudentsPanel() {
               </p>
             </div>
 
+            {/* Remove Photo Confirmation Modal */}
+            {showRemovePhotoConfirm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl"
+                >
+                  <h4 className="text-lg font-bold text-slate-800 mb-2">Remove Photo?</h4>
+                  <p className="text-sm text-slate-600 mb-4">
+                    This action will remove the student's profile photo. This cannot be undone.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowRemovePhotoConfirm(false)}
+                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleRemovePhoto}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                    >
+                      Remove Photo
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
             {/* Student Name */}
             <div>
               <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editName">
@@ -4133,7 +4032,7 @@ export default function StudentsPanel() {
                     }
                   })()}
                 </div>
-                )}
+              )}
             </div>
 
             {/* Duration Plan */}
@@ -4200,7 +4099,9 @@ export default function StudentsPanel() {
             </div>
           </div>
         </form>
-      </ModalWrapper>
+      </div>
+    </div>
+  )}
     </motion.div>
   );
 };

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
 import { QRCodeSVG } from 'qrcode.react';
-import ModalWrapper from '../../components/ModalWrapper';
 
 // Status options for dropdown
 const STATUS_OPTIONS = [
@@ -775,26 +774,35 @@ export default function EnquiriesPanel() {
       </div>
 
       {/* Add Enquiry Modal */}
-      <ModalWrapper
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        modalId="add-enquiry-modal"
-        contentClassName="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl border border-primary/20"
-      >
-        <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-primary/5">
-          <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <span className="text-primary text-2xl">+</span> Add New Enquiry
-          </h3>
-          <button
-            onClick={() => setShowAddModal(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
-            ✕
-          </button>
-        </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl border border-primary/20"
+            >
+              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-primary/5">
+                <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                  <span className="text-primary text-2xl">+</span> Add New Enquiry
+                </h3>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
+                >
+                  ✕
+                </button>
+              </div>
 
-        <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
-          <form id="add-form" onSubmit={handleCreateEnquiry} className="space-y-5">
+              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+                <form id="add-form" onSubmit={handleCreateEnquiry} className="space-y-5">
                   {/* Keep exact existing form fields, just with your global classes */}
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     <div>
@@ -945,27 +953,39 @@ export default function EnquiriesPanel() {
                     {submitting ? 'Adding...' : 'Save Enquiry'}
                   </button>
               </div>
-      </ModalWrapper>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Enquiry Modal */}
-      <ModalWrapper
-        isOpen={showEditModal && selectedEnquiry}
-        onClose={() => setShowEditModal(false)}
-        modalId="edit-enquiry-modal"
-        contentClassName="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl"
-      >
-        <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-blue/5">
-          <h3 className="text-xl font-bold text-foreground">Edit Enquiry</h3>
-          <button
-            onClick={() => setShowEditModal(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
+      <AnimatePresence>
+        {showEditModal && selectedEnquiry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           >
-            ✕
-          </button>
-        </div>
+            <motion.div
+               initial={{ opacity: 0, scale: 0.95, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+               transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-blue/5">
+                <h3 className="text-xl font-bold text-foreground">Edit Enquiry</h3>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
+                >
+                  ✕
+                </button>
+              </div>
 
-        <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
-          <form id="edit-form" onSubmit={handleUpdateEnquiry} className="space-y-5">
+              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+                <form id="edit-form" onSubmit={handleUpdateEnquiry} className="space-y-5">
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     <div>
                       <label className="label">Student Name *</label>
@@ -1128,182 +1148,233 @@ export default function EnquiriesPanel() {
                     {submitting ? 'Updating...' : 'Save Changes'}
                   </button>
               </div>
-      </ModalWrapper>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Follow-up Modal */}
-      <ModalWrapper
-        isOpen={showFollowUpModal && selectedEnquiry}
-        onClose={() => setShowFollowUpModal(false)}
-        modalId="follow-up-modal"
-        contentClassName="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-blue/80"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-xl font-bold text-foreground">Schedule Follow-up</h3>
-          <button onClick={() => setShowFollowUpModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-        </div>
+      <AnimatePresence>
+        {showFollowUpModal && selectedEnquiry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-blue/80"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-bold text-foreground">Schedule Follow-up</h3>
+                <button onClick={() => setShowFollowUpModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+              </div>
 
-        <div className="bg-surface rounded-xl p-4 mb-5 border border-border/50 shadow-sm">
-          <p className="text-sm mb-2 flex justify-between items-center border-b border-border/40 pb-2">
-            <span className="text-muted-foreground font-semibold">Student</span>
-            <span className="font-bold">{selectedEnquiry.student_name}</span>
-          </p>
-          <p className="text-sm flex justify-between items-center pt-1">
-            <span className="text-muted-foreground font-semibold">Current Status</span>
-            <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>{selectedEnquiry.status.replace('_', ' ')}</span>
-          </p>
-        </div>
+              <div className="bg-surface rounded-xl p-4 mb-5 border border-border/50 shadow-sm">
+                <p className="text-sm mb-2 flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Student</span>
+                  <span className="font-bold">{selectedEnquiry.student_name}</span>
+                </p>
+                <p className="text-sm flex justify-between items-center pt-1">
+                  <span className="text-muted-foreground font-semibold">Current Status</span>
+                  <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>{selectedEnquiry.status.replace('_', ' ')}</span>
+                </p>
+              </div>
 
-        <div className="mb-6">
-          <label className="label text-blue">Next Follow-up Date *</label>
-          <input
-            type="date"
-            required
-            value={followUpDate}
-            onChange={(e) => setFollowUpDate(e.target.value)}
-            className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5"
-          />
-        </div>
+              <div className="mb-6">
+                <label className="label text-blue">Next Follow-up Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={followUpDate}
+                  onChange={(e) => setFollowUpDate(e.target.value)}
+                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5"
+                />
+              </div>
 
-        <div className="flex justify-end gap-3">
-          <button onClick={() => setShowFollowUpModal(false)} className="btn-secondary">Cancel</button>
-          <button onClick={handleScheduleFollowUp} disabled={submitting} className="btn-primary bg-blue hover:bg-blue-hover shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-            {submitting ? 'Scheduling...' : 'Confirm Date'}
-          </button>
-        </div>
-      </ModalWrapper>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowFollowUpModal(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleScheduleFollowUp} disabled={submitting} className="btn-primary bg-blue hover:bg-blue-hover shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                  {submitting ? 'Scheduling...' : 'Confirm Date'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Convert to Student Modal */}
-      <ModalWrapper
-        isOpen={showConvertModal && selectedEnquiry}
-        onClose={() => setShowConvertModal(false)}
-        modalId="convert-to-student-modal"
-        contentClassName="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-success/80 relative overflow-hidden"
-      >
-        <div className="absolute -right-8 -top-8 w-32 h-32 bg-success/10 rounded-full blur-2xl"></div>
+      <AnimatePresence>
+        {showConvertModal && selectedEnquiry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-success/80 relative overflow-hidden"
+            >
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-success/10 rounded-full blur-2xl"></div>
 
-        <div className="flex items-center justify-between mb-5 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="bg-success/20 p-2.5 rounded-xl text-success shadow-inner">🎓</div>
-            <h3 className="text-xl font-bold text-foreground">Convert to Student</h3>
-          </div>
-          <button onClick={() => setShowConvertModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-        </div>
+              <div className="flex items-center justify-between mb-5 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="bg-success/20 p-2.5 rounded-xl text-success shadow-inner">🎓</div>
+                  <h3 className="text-xl font-bold text-foreground">Convert to Student</h3>
+                </div>
+                <button onClick={() => setShowConvertModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+              </div>
 
-        <div className="bg-surface space-y-3 rounded-xl p-5 mb-5 border border-border/50 text-sm relative z-10 shadow-sm">
-          <div className="flex justify-between items-center border-b border-border/40 pb-2">
-            <span className="text-muted-foreground font-semibold">Student Name</span>
-            <span className="font-bold text-[15px]">{selectedEnquiry.student_name}</span>
-          </div>
-          <div className="flex justify-between items-center border-b border-border/40 pb-2">
-            <span className="text-muted-foreground font-semibold">Parent</span>
-            <span className="font-medium">{selectedEnquiry.parent_name || '—'}</span>
-          </div>
-          <div className="flex justify-between items-center border-b border-border/40 pb-2">
-            <span className="text-muted-foreground font-semibold">Phone</span>
-            <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded">{selectedEnquiry.phone}</span>
-          </div>
-          <div className="flex flex-col items-end gap-1.5 pt-1">
-            <span className="text-muted-foreground font-semibold w-full text-left">Interested Sports</span>
-            <div className="flex flex-wrap gap-1 justify-end">
-              {selectedEnquiry.interested_sports ? (
-                (() => {
-                  try {
-                    const sports = JSON.parse(selectedEnquiry.interested_sports);
-                    return sports.length > 0 ? sports.map(s => <span key={s} className="badge bg-background shadow-sm border-border border">{s}</span>) : <span>{selectedEnquiry.sport_interested || '—'}</span>;
-                  } catch (e) {
-                    return <span>{selectedEnquiry.sport_interested || '—'}</span>;
-                  }
-                })()
-              ) : (
-                <span>{selectedEnquiry.sport_interested || '—'}</span>
-              )}
-            </div>
-          </div>
-        </div>
+              <div className="bg-surface space-y-3 rounded-xl p-5 mb-5 border border-border/50 text-sm relative z-10 shadow-sm">
+                <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Student Name</span>
+                  <span className="font-bold text-[15px]">{selectedEnquiry.student_name}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Parent</span>
+                  <span className="font-medium">{selectedEnquiry.parent_name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground font-semibold">Phone</span>
+                  <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded">{selectedEnquiry.phone}</span>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 pt-1">
+                  <span className="text-muted-foreground font-semibold w-full text-left">Interested Sports</span>
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {selectedEnquiry.interested_sports ? (
+                      (() => {
+                        try {
+                          const sports = JSON.parse(selectedEnquiry.interested_sports);
+                          return sports.length > 0 ? sports.map(s => <span key={s} className="badge bg-background shadow-sm border-border border">{s}</span>) : <span>{selectedEnquiry.sport_interested || '—'}</span>;
+                        } catch (e) {
+                          return <span>{selectedEnquiry.sport_interested || '—'}</span>;
+                        }
+                      })()
+                    ) : (
+                      <span>{selectedEnquiry.sport_interested || '—'}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-        <p className="text-muted-foreground text-xs leading-relaxed mb-6 p-3.5 bg-success/5 border border-success/20 rounded-lg text-success/90 relative z-10">
-          This action will provision a new active student record in the system and automatically update the enquiry lifecycle status to <strong>CONVERTED</strong>. The original historic timeline will be safely preserved.
-        </p>
+              <p className="text-muted-foreground text-xs leading-relaxed mb-6 p-3.5 bg-success/5 border border-success/20 rounded-lg text-success/90 relative z-10">
+                This action will provision a new active student record in the system and automatically update the enquiry lifecycle status to <strong>CONVERTED</strong>. The original historic timeline will be safely preserved.
+              </p>
 
-        <div className="flex justify-end gap-3 relative z-10">
-          <button onClick={() => setShowConvertModal(false)} className="btn-secondary">Cancel</button>
-          <button onClick={handleConvertToStudent} disabled={submitting} className="btn-success shadow-[0_0_15px_rgba(16,185,129,0.3)] w-full sm:w-auto">
-            {submitting ? 'Processing...' : 'Confirm Conversion'}
-          </button>
-        </div>
-      </ModalWrapper>
+              <div className="flex justify-end gap-3 relative z-10">
+                <button onClick={() => setShowConvertModal(false)} className="btn-secondary">Cancel</button>
+                <button onClick={handleConvertToStudent} disabled={submitting} className="btn-success shadow-[0_0_15px_rgba(16,185,129,0.3)] w-full sm:w-auto">
+                  {submitting ? 'Processing...' : 'Confirm Conversion'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
-      <ModalWrapper
-        isOpen={showDeleteModal && selectedEnquiry}
-        onClose={() => setShowDeleteModal(false)}
-        modalId="delete-confirmation-modal"
-        contentClassName="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-danger/80 relative overflow-hidden"
-      >
-        <div className="absolute -right-8 -top-8 w-32 h-32 bg-danger/10 rounded-full blur-2xl"></div>
+      <AnimatePresence>
+        {showDeleteModal && selectedEnquiry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-danger/80 relative overflow-hidden"
+            >
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-danger/10 rounded-full blur-2xl"></div>
 
-        <div className="flex items-center justify-between mb-5 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="bg-danger/20 p-2.5 rounded-xl text-danger shadow-inner">⚠️</div>
-            <h3 className="text-xl font-bold text-foreground">Delete Record</h3>
-          </div>
-          <button onClick={() => setShowDeleteModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-        </div>
+              <div className="flex items-center justify-between mb-5 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="bg-danger/20 p-2.5 rounded-xl text-danger shadow-inner">⚠️</div>
+                  <h3 className="text-xl font-bold text-foreground">Delete Record</h3>
+                </div>
+                <button onClick={() => setShowDeleteModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+              </div>
 
-        <p className="text-sm text-muted-foreground mb-6 leading-relaxed relative z-10 p-4 bg-surface rounded-xl border border-border/50">
-          You are about to permanently delete the enquiry record for <strong className="text-foreground text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
-          <br/>This action is irreversible and removes all associated historic logs. Proceed?
-        </p>
+              <p className="text-sm text-muted-foreground mb-6 leading-relaxed relative z-10 p-4 bg-surface rounded-xl border border-border/50">
+                You are about to permanently delete the enquiry record for <strong className="text-foreground text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
+                <br/>This action is irreversible and removes all associated historic logs. Proceed?
+              </p>
 
-        <div className="flex justify-end gap-3 relative z-10">
-          <button onClick={() => setShowDeleteModal(false)} className="btn-secondary">Keep Record</button>
-          <button onClick={handleDeleteEnquiry} disabled={submitting} className="btn-danger shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-            {submitting ? 'Deleting...' : 'Delete Permanently'}
-          </button>
-        </div>
-      </ModalWrapper>
+              <div className="flex justify-end gap-3 relative z-10">
+                <button onClick={() => setShowDeleteModal(false)} className="btn-secondary">Keep Record</button>
+                <button onClick={handleDeleteEnquiry} disabled={submitting} className="btn-danger shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                  {submitting ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* QR Code Modal */}
-      <ModalWrapper
-        isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
-        modalId="qr-code-modal"
-        contentClassName="card w-full max-w-sm p-8 shadow-2xl flex flex-col items-center text-center bg-gradient-to-b from-surface to-surface-secondary border border-border/50"
-      >
-        <button
-          onClick={() => setShowQRModal(false)}
-          className="absolute right-5 top-5 text-muted-foreground hover:text-foreground transition-colors w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border/50 hover:bg-surface-secondary"
-        >
-          ✕
-        </button>
-        
-        <div className="bg-primary/10 p-3 rounded-full mb-4">
-          <span className="text-2xl">📱</span>
-        </div>
-        <h3 className="text-xl font-black text-foreground mb-1">Public Intake Form</h3>
-        <p className="text-sm text-muted-foreground mb-6">Scan to submit a new remote enquiry</p>
+      <AnimatePresence>
+        {showQRModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card w-full max-w-sm p-8 shadow-2xl flex flex-col items-center text-center bg-gradient-to-b from-surface to-surface-secondary border border-border/50"
+            >
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="absolute right-5 top-5 text-muted-foreground hover:text-foreground transition-colors w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border/50 hover:bg-surface-secondary"
+              >
+                ✕
+              </button>
+              
+              <div className="bg-primary/10 p-3 rounded-full mb-4">
+                <span className="text-2xl">📱</span>
+              </div>
+              <h3 className="text-xl font-black text-foreground mb-1">Public Intake Form</h3>
+              <p className="text-sm text-muted-foreground mb-6">Scan to submit a new remote enquiry</p>
 
-        <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-surface ring-1 ring-border/50">
-          {typeof window !== 'undefined' && (
-            <QRCodeSVG
-              value={`${window.location.origin}/enquiry-form`}
-              size={200}
-              level="H"
-              includeMargin={false}
-              fgColor="#0a0f0d" 
-            />
-          )}
-        </div>
+              <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-surface ring-1 ring-border/50">
+                {typeof window !== 'undefined' && (
+                  <QRCodeSVG
+                    value={`${window.location.origin}/enquiry-form`}
+                    size={200}
+                    level="H"
+                    includeMargin={false}
+                    fgColor="#0a0f0d" 
+                  />
+                )}
+              </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleDownloadQR}
-          className="btn-primary mt-8 w-full shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)]"
-        >
-          Download PNG Graphic
-        </motion.button>
-      </ModalWrapper>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleDownloadQR}
+                className="btn-primary mt-8 w-full shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)]"
+              >
+                Download PNG Graphic
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
