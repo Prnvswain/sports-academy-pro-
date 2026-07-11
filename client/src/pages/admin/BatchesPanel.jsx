@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, CheckCircle, AlertCircle, Clock, Trash2, Edit2, Plus, Calendar, AlertTriangle, User, Medal, Users } from 'lucide-react';
 import Loader from '../../components/Loader';
@@ -226,6 +227,7 @@ export default function BatchesPanel() {
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     }
+    setTimeout(() => setMessage({text: '', type: ''}), 4000);
   };
 
   const handleEditClick = (batch) => {
@@ -266,6 +268,7 @@ export default function BatchesPanel() {
     } catch (error) {
       setMessage({ text: error.message, type: "error" });
     }
+    setTimeout(() => setMessage({text: '', type: ''}), 4000);
   };
 
   const filteredBatches = (batches || []).filter(
@@ -295,99 +298,102 @@ export default function BatchesPanel() {
 
   return (
     <motion.div
-      className="min-h-screen bg-[#f4f7f6] dark:bg-[#0a0f0d] p-4 sm:p-6 lg:p-8 font-sans overflow-x-hidden"
+      className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 font-sans overflow-x-hidden relative"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="mx-auto max-w-[1600px] space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6 relative z-10">
         
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-white dark:bg-[#111814] p-6 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 relative overflow-hidden">
-          <div className="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+        {/* Global Alerts using Portal to prevent overlap issues */}
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {message.text && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20, scale: 0.95 }} 
+                animate={{ opacity: 1, y: 0, scale: 1 }} 
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                className={`fixed top-6 right-6 z-[9999] rounded-2xl px-6 py-4 shadow-2xl border flex items-center gap-3 font-bold ${
+                  message.type === 'success' 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/90 dark:border-emerald-700 dark:text-emerald-300' 
+                    : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/90 dark:border-rose-700 dark:text-rose-300'
+                }`}
+              >
+                {message.type === 'success' ? <CheckCircle size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
+                <span className="text-sm tracking-wide">{message.text}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+        {/* Header Panel */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-card border border-border p-6 rounded-3xl shadow-sm relative overflow-hidden">
+          <div className="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
           <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                <Calendar className="h-6 w-6" />
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 shadow-inner">
+                <Calendar className="h-7 w-7" />
               </div>
               <div>
-                <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">Training Batches</h2>
-                <p className="text-gray-500 mt-1 font-medium text-sm">Schedule and manage allocations for coaches and sports.</p>
+                <h2 className="text-3xl font-black tracking-tight text-foreground">Training Batches</h2>
+                <p className="text-muted-foreground mt-1 font-medium text-sm">Schedule and manage allocations for coaches and sports.</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Global Alerts */}
-        <AnimatePresence>
-          {message.text && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, y: -10 }}
-              animate={{ opacity: 1, height: 'auto', y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -10 }}
-              className="overflow-hidden"
-            >
-              <div className={`flex items-center gap-3 p-4 rounded-2xl border shadow-sm ${
-                message.type === 'success' 
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-900/50 dark:text-emerald-400' 
-                  : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-900/20 dark:border-rose-900/50 dark:text-rose-400'
-              }`}>
-                {message.type === 'success' ? <CheckCircle size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
-                <span className="text-sm font-bold tracking-wide">{message.text}</span>
-                <button className="ml-auto p-1 opacity-60 hover:opacity-100 transition-opacity bg-white/50 rounded-lg" onClick={() => setMessage({ text: '', type: '' })}><X size={16} /></button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Overlap Conflict Modal */}
-        <AnimatePresence>
-          {overlapDetails && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4">
-              <motion.div
-                className="bg-white dark:bg-[#111814] p-8 rounded-[2rem] shadow-2xl max-w-md w-full border border-amber-200 dark:border-amber-900/50"
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                transition={{ type: "spring", bounce: 0.4 }}
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="h-14 w-14 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="h-7 w-7 text-amber-500" />
+        {/* Overlap Conflict Modal using Portal */}
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {overlapDetails && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+                <motion.div
+                  className="bg-card p-8 rounded-[2rem] shadow-2xl max-w-md w-full border border-amber-200 dark:border-amber-900/50"
+                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                  transition={{ type: "spring", bounce: 0.4 }}
+                >
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="h-14 w-14 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-800">
+                      <AlertTriangle className="h-7 w-7 text-amber-500" />
+                    </div>
+                    <h4 className="text-xl font-black text-foreground">Schedule Conflict</h4>
                   </div>
-                  <h4 className="text-xl font-black text-gray-900 dark:text-white">Schedule Conflict</h4>
-                </div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 leading-relaxed mb-8">{overlapDetails}</p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    className="flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => setOverlapDetails(null)}
-                  >
-                    Go Back & Fix
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all"
-                    onClick={() => handleBatchSubmit(null, true)}
-                  >
-                    Override & Save
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+                  <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8 bg-surface border border-border p-4 rounded-xl">{overlapDetails}</p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      className="flex-1 px-4 py-3.5 text-sm font-bold rounded-xl bg-surface border border-border text-foreground hover:bg-surface-secondary transition-colors"
+                      onClick={() => setOverlapDetails(null)}
+                    >
+                      Go Back & Fix
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 px-4 py-3.5 text-sm font-black rounded-xl bg-amber-500 text-white hover:bg-amber-600 shadow-md shadow-amber-500/20 transition-all"
+                      onClick={() => handleBatchSubmit(null, true)}
+                    >
+                      Override & Save
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
 
         <div className="grid gap-6 lg:grid-cols-12 items-start">
           
           {/* LEFT COLUMN: Create / Edit Form */}
-          <div className="lg:col-span-4 xl:col-span-3 rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 p-6 sticky top-6">
-            <form onSubmit={(e) => handleBatchSubmit(e, false)} className="space-y-5">
-              <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800/60 pb-4 mb-2">
-                <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
-                  {editingBatchId ? <Edit2 size={18} className="text-indigo-500" /> : <Plus size={18} className="text-emerald-500 stroke-[3]" />}
-                  {editingBatchId ? 'Modify Batch' : 'Create Batch'}
+          <div className="lg:col-span-4 xl:col-span-4 rounded-3xl bg-card shadow-sm border border-border p-6 lg:sticky lg:top-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
+            <form onSubmit={(e) => handleBatchSubmit(e, false)} className="space-y-6 mt-2">
+              <div className="flex items-center justify-between border-b border-border/50 pb-4 mb-2">
+                <h3 className="text-xl font-black text-foreground flex items-center gap-2">
+                  {editingBatchId ? <><Edit2 size={20} className="text-blue-500" /> Modify Batch</> : <><Plus size={20} className="text-primary stroke-[3]" /> Create Batch</>}
                 </h3>
                 {editingBatchId && (
                   <button 
@@ -395,19 +401,19 @@ export default function BatchesPanel() {
                     onClick={() => { 
                       setEditingBatchId(null); setBatchForm(emptyBatchForm); setCoachSearch(''); setSportSearch(''); setFieldErrors({});
                     }} 
-                    className="text-xs font-bold text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 uppercase bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-md"
+                    className="text-xs font-bold text-muted-foreground hover:text-foreground uppercase bg-surface border border-border px-2.5 py-1.5 rounded-lg transition-colors"
                   >
-                    Cancel Edit
+                    Cancel
                   </button>
                 )}
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">Batch Name <span className="text-rose-500">*</span></label>
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Batch Name <span className="text-rose-500">*</span></label>
                 <input
                   name="name"
                   placeholder="e.g. Morning Elite"
-                  className={`w-full rounded-xl border bg-gray-50/50 dark:bg-gray-900/50 px-4 py-2.5 text-sm outline-none transition-all focus:bg-white dark:focus:bg-[#111814] ${fieldErrors.name ? 'border-rose-500 focus:ring-4 focus:ring-rose-500/10' : 'border-gray-200 dark:border-gray-800 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:text-white'}`}
+                  className={`w-full rounded-xl border bg-surface px-4 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.name ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
                   value={batchForm.name}
                   onChange={handleBatchChange}
                 />
@@ -416,13 +422,13 @@ export default function BatchesPanel() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">Start Time <span className="text-rose-500">*</span></label>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Start Time <span className="text-rose-500">*</span></label>
                   <div className="relative">
-                    <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <input 
                       name="startTime" 
                       type="time" 
-                      className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:text-white font-medium" 
+                      className="w-full rounded-xl border border-border bg-surface pl-10 pr-3 py-3 text-sm font-black outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all focus:bg-background" 
                       value={batchForm.startTime} 
                       onChange={handleBatchChange} 
                       required 
@@ -430,13 +436,13 @@ export default function BatchesPanel() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">End Time <span className="text-rose-500">*</span></label>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">End Time <span className="text-rose-500">*</span></label>
                   <div className="relative">
-                    <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <input 
                       name="endTime" 
                       type="time" 
-                      className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:text-white font-medium" 
+                      className="w-full rounded-xl border border-border bg-surface pl-10 pr-3 py-3 text-sm font-black outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all focus:bg-background" 
                       value={batchForm.endTime} 
                       onChange={handleBatchChange} 
                       required 
@@ -447,13 +453,13 @@ export default function BatchesPanel() {
 
               {/* Coach Picker */}
               <div ref={coachRef} className="relative z-20">
-                <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">Assign Coach <span className="text-rose-500">*</span></label>
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Assign Coach <span className="text-rose-500">*</span></label>
                 <div className="relative">
-                  <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search coach..."
-                    className={`w-full rounded-xl border bg-gray-50/50 dark:bg-gray-900/50 pl-9 pr-8 py-2.5 text-sm outline-none transition-all focus:bg-white dark:focus:bg-[#111814] dark:text-white ${fieldErrors.coach_id ? 'border-rose-500 focus:ring-4 focus:ring-rose-500/10' : 'border-gray-200 dark:border-gray-800 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'}`}
+                    className={`w-full rounded-xl border bg-surface pl-10 pr-8 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.coach_id ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
                     value={coachSearch}
                     onChange={(e) => {
                       setCoachSearch(e.target.value);
@@ -463,7 +469,7 @@ export default function BatchesPanel() {
                     onFocus={() => setCoachDropdownOpen(true)}
                   />
                   {coachSearch && (
-                    <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700" onClick={() => { setCoachSearch(''); setBatchForm(prev => ({...prev, coach_id: ''})); }}>
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-surface-secondary rounded p-1 text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setCoachSearch(''); setBatchForm(prev => ({...prev, coach_id: ''})); }}>
                       <X size={14} />
                     </button>
                   )}
@@ -474,17 +480,17 @@ export default function BatchesPanel() {
                   {coachDropdownOpen && (
                     <motion.ul 
                       initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}
-                      className="absolute w-full mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl p-1"
+                      className="absolute w-full mt-2 max-h-48 overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-2 custom-scrollbar"
                     >
                       {filteredCoaches.length === 0 ? (
-                        <li className="p-3 text-xs font-medium text-gray-400 text-center italic">No coaches match search</li>
+                        <li className="p-4 text-xs font-bold text-muted-foreground text-center bg-surface rounded-lg border border-dashed border-border">No coaches match search</li>
                       ) : (
                         filteredCoaches.map(c => {
                           const isSel = batchForm.coach_id === c.coach_id?.toString();
                           return (
                             <li 
                               key={c.coach_id}
-                              className={`p-2.5 text-sm font-semibold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${isSel ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+                              className={`p-3 text-sm font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between mb-1 last:mb-0 ${isSel ? 'bg-primary/10 text-primary border border-primary/20' : 'text-foreground hover:bg-surface-secondary'}`}
                               onClick={() => {
                                 setBatchForm(prev => ({ ...prev, coach_id: c.coach_id.toString() }));
                                 setCoachSearch(c.name);
@@ -493,7 +499,7 @@ export default function BatchesPanel() {
                               }}
                             >
                               <span>{c.name}</span>
-                              {isSel && <CheckCircle size={14} />}
+                              {isSel && <CheckCircle size={16} />}
                             </li>
                           );
                         })
@@ -505,13 +511,13 @@ export default function BatchesPanel() {
 
               {/* Sport Picker */}
               <div ref={sportRef} className="relative z-10">
-                <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">Assign Sport <span className="text-rose-500">*</span></label>
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Assign Sport <span className="text-rose-500">*</span></label>
                 <div className="relative">
-                  <Medal size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <Medal size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search sport..."
-                    className={`w-full rounded-xl border bg-gray-50/50 dark:bg-gray-900/50 pl-9 pr-8 py-2.5 text-sm outline-none transition-all focus:bg-white dark:focus:bg-[#111814] dark:text-white ${fieldErrors.sport_id ? 'border-rose-500 focus:ring-4 focus:ring-rose-500/10' : 'border-gray-200 dark:border-gray-800 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'}`}
+                    className={`w-full rounded-xl border bg-surface pl-10 pr-8 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.sport_id ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
                     value={sportSearch}
                     onChange={(e) => {
                       setSportSearch(e.target.value);
@@ -521,7 +527,7 @@ export default function BatchesPanel() {
                     onFocus={() => setSportDropdownOpen(true)}
                   />
                   {sportSearch && (
-                    <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700" onClick={() => { setSportSearch(''); setBatchForm(prev => ({...prev, sport_id: ''})); }}>
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-surface-secondary rounded p-1 text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setSportSearch(''); setBatchForm(prev => ({...prev, sport_id: ''})); }}>
                       <X size={14} />
                     </button>
                   )}
@@ -532,17 +538,17 @@ export default function BatchesPanel() {
                   {sportDropdownOpen && (
                     <motion.ul 
                       initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}
-                      className="absolute w-full mt-1.5 max-h-48 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl p-1"
+                      className="absolute w-full mt-2 max-h-48 overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-2 custom-scrollbar"
                     >
                       {filteredSports.length === 0 ? (
-                        <li className="p-3 text-xs font-medium text-gray-400 text-center italic">No sports match search</li>
+                        <li className="p-4 text-xs font-bold text-muted-foreground text-center bg-surface rounded-lg border border-dashed border-border">No sports match search</li>
                       ) : (
                         filteredSports.map(s => {
                           const isSel = batchForm.sport_id === s.sport_id?.toString();
                           return (
                             <li 
                               key={s.sport_id}
-                              className={`p-2.5 text-sm font-semibold rounded-lg cursor-pointer transition-colors flex items-center justify-between ${isSel ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'}`}
+                              className={`p-3 text-sm font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between mb-1 last:mb-0 ${isSel ? 'bg-primary/10 text-primary border border-primary/20' : 'text-foreground hover:bg-surface-secondary'}`}
                               onClick={() => {
                                 setBatchForm(prev => ({ ...prev, sport_id: s.sport_id.toString() }));
                                 setSportSearch(s.name);
@@ -550,8 +556,8 @@ export default function BatchesPanel() {
                                 clearFieldError('sport_id');
                               }}
                             >
-                              <span className="flex items-center gap-2"><span className="text-lg leading-none">{s.icon || '🏅'}</span> {s.name}</span>
-                              {isSel && <CheckCircle size={14} />}
+                              <span className="flex items-center gap-2"><span className="text-xl leading-none">{s.icon || '🏅'}</span> {s.name}</span>
+                              {isSel && <CheckCircle size={16} />}
                             </li>
                           );
                         })
@@ -562,14 +568,14 @@ export default function BatchesPanel() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">Max Capacity <span className="text-gray-400 font-medium normal-case tracking-normal">(Optional)</span></label>
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Max Capacity <span className="text-muted-foreground font-medium normal-case tracking-normal opacity-70">(Optional)</span></label>
                 <div className="relative">
-                  <Users size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   <input 
                     name="max_capacity" 
                     type="number" 
                     min={1} 
-                    className={`w-full rounded-xl border bg-gray-50/50 dark:bg-gray-900/50 pl-9 pr-4 py-2.5 text-sm outline-none transition-all focus:bg-white dark:focus:bg-[#111814] dark:text-white ${fieldErrors.max_capacity ? 'border-rose-500 focus:ring-4 focus:ring-rose-500/10' : 'border-gray-200 dark:border-gray-800 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'}`} 
+                    className={`w-full rounded-xl border bg-surface pl-10 pr-4 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.max_capacity ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`} 
                     value={batchForm.max_capacity} 
                     onChange={handleBatchChange} 
                     placeholder="e.g. 20" 
@@ -578,13 +584,13 @@ export default function BatchesPanel() {
                 {fieldErrors.max_capacity && <p className="text-[11px] font-bold text-rose-500 mt-1">{fieldErrors.max_capacity}</p>}
               </div>
 
-              <div className="pt-3 border-t border-gray-100 dark:border-gray-800/60 mt-6">
+              <div className="pt-4 mt-8">
                 <motion.button 
                   whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   type="submit" 
-                  className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 ${editingBatchId ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/20' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/20'}`}
+                  className={`w-full py-4 rounded-xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-2 ${editingBatchId ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-[0_4px_15px_rgba(37,99,235,0.3)]' : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_15px_rgba(16,185,129,0.3)]'}`}
                 >
-                  {editingBatchId ? <Edit2 size={16} /> : <Plus size={16} strokeWidth={3} />}
+                  {editingBatchId ? <Edit2 size={18} /> : <Plus size={18} strokeWidth={3} />}
                   {editingBatchId ? 'Save Changes' : 'Create Batch'}
                 </motion.button>
               </div>
@@ -592,15 +598,15 @@ export default function BatchesPanel() {
           </div>
 
           {/* RIGHT COLUMN: Table View */}
-          <div className="lg:col-span-8 xl:col-span-9 space-y-4">
+          <div className="lg:col-span-8 xl:col-span-8 space-y-5">
             
             {/* Table Search Header */}
-            <div className="bg-white dark:bg-[#111814] p-3 rounded-[1.5rem] border border-gray-100 dark:border-gray-800/60 shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
+            <div className="bg-card p-4 rounded-2xl border border-border shadow-sm">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                 <input
                   type="text"
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50/50 dark:bg-gray-900/50 border border-transparent focus:border-emerald-500 focus:bg-white dark:focus:border-emerald-500 rounded-xl outline-none text-sm transition-all dark:text-white"
+                  className="w-full pl-11 pr-4 py-3.5 bg-surface border border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-xl outline-none text-sm transition-all text-foreground font-semibold placeholder:text-muted-foreground/60 placeholder:font-medium"
                   placeholder="Filter scheduled batches by name, sport, or coach..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -609,34 +615,33 @@ export default function BatchesPanel() {
             </div>
 
             {/* Table Core */}
-            <div className="bg-white dark:bg-[#111814] rounded-[1.5rem] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-100 dark:border-gray-800/60">
+            <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
               {loading ? (
                 <div className="p-20 flex justify-center"><Loader /></div>
               ) : (
-                <div className="overflow-x-auto pb-4">
-                  <table className="w-full text-left text-sm border-separate border-spacing-y-2">
-                    <thead>
-                      <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 px-4">
-                        <th className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">Batch details</th>
-                        <th className="px-4 py-4 border-b border-gray-100 dark:border-gray-800">Timing</th>
-                        <th className="px-4 py-4 border-b border-gray-100 dark:border-gray-800">Assigned To</th>
-                        <th className="px-4 py-4 border-b border-gray-100 dark:border-gray-800">Capacity</th>
-                        <th className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 text-right">Manage</th>
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-surface-secondary/50 border-b border-border/50">
+                      <tr className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        <th className="px-6 py-5">Batch Profile</th>
+                        <th className="px-4 py-5 text-center">Schedule</th>
+                        <th className="px-4 py-5">Assignment</th>
+                        <th className="px-4 py-5 text-center">Capacity</th>
+                        <th className="px-6 py-5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <motion.tbody 
                       variants={tableContainerVariants}
                       initial="hidden" animate="show"
+                      className="divide-y divide-border/50"
                     >
                       {filteredBatches.length === 0 ? (
                         <motion.tr variants={rowVariants}>
-                          <td colSpan={5} className="py-20 text-center">
+                          <td colSpan={5} className="py-24 text-center bg-surface/30">
                             <div className="flex flex-col items-center justify-center">
-                              <div className="h-16 w-16 bg-gray-50 dark:bg-gray-900/50 rounded-full flex items-center justify-center mb-4 ring-8 ring-gray-50/50 dark:ring-gray-900/20">
-                                <Calendar className="h-8 w-8 text-gray-300 dark:text-gray-600" />
-                              </div>
-                              <p className="font-bold text-lg text-gray-900 dark:text-white">No batches found</p>
-                              <p className="mt-1 text-sm text-gray-500">Create a new batch using the form to your left.</p>
+                              <span className="text-5xl opacity-30 mb-4 block">🏟️</span>
+                              <p className="font-bold text-lg text-foreground">No batches found</p>
+                              <p className="mt-1 text-sm font-medium text-muted-foreground">Create a new batch using the form to your left.</p>
                             </div>
                           </td>
                         </motion.tr>
@@ -651,17 +656,20 @@ export default function BatchesPanel() {
                             <motion.tr
                               key={batch?.batch_id}
                               variants={rowVariants}
-                              className={`group bg-white dark:bg-[#111814] hover:bg-gray-50/80 dark:hover:bg-gray-800/30 transition-colors relative ${editingBatchId === batch.batch_id ? 'ring-2 ring-indigo-500 shadow-md z-10 rounded-2xl' : ''}`}
+                              className={`group hover:bg-surface-secondary/50 transition-colors ${editingBatchId === batch.batch_id ? 'bg-primary/5 hover:bg-primary/10 relative z-10' : ''}`}
                             >
-                              <td className={`px-6 py-4 ${editingBatchId === batch.batch_id ? 'rounded-l-2xl' : ''}`}>
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-bold text-base text-gray-900 dark:text-white">{batch?.name}</span>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-surface-secondary border border-border shadow-inner flex items-center justify-center text-lg font-black text-muted-foreground group-hover:text-foreground transition-colors">
+                                    {(batch?.name).charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className={`font-black text-base transition-colors ${editingBatchId === batch.batch_id ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>{batch?.name}</span>
                                 </div>
                               </td>
                               
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="inline-flex items-center gap-2 bg-gray-100/80 dark:bg-gray-800/50 px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-300 font-bold text-xs">
-                                  <Clock size={12} className="text-gray-400" />
+                              <td className="px-4 py-4 text-center">
+                                <div className="inline-flex items-center gap-2 bg-surface border border-border/50 shadow-sm px-3 py-1.5 rounded-lg text-foreground font-bold text-xs">
+                                  <Clock size={12} className="text-muted-foreground" />
                                   {batch?.timing || '—'}
                                 </div>
                               </td>
@@ -669,49 +677,48 @@ export default function BatchesPanel() {
                               <td className="px-4 py-4">
                                 <div className="flex flex-col gap-2">
                                   {/* Coach Badge */}
-                                  <span className="inline-flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-2.5 py-1 rounded-md text-xs font-bold w-fit border border-indigo-100/50 dark:border-indigo-800/30">
+                                  <span className="inline-flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider w-fit border border-blue-200 dark:border-blue-800/50">
                                     <User size={12} /> {batch?.coach?.name || 'Unassigned'}
                                   </span>
                                   {/* Sport Badge */}
-                                  <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-md text-xs font-bold w-fit border border-emerald-100/50 dark:border-emerald-800/30">
-                                    <span className="text-[10px] leading-none">{sportIcon}</span> {batch?.sport?.name || '—'}
+                                  <span className="inline-flex items-center gap-1.5 bg-surface border border-border text-foreground px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider w-fit shadow-sm">
+                                    <span className="text-[12px] leading-none">{sportIcon}</span> {batch?.sport?.name || '—'}
                                   </span>
                                 </div>
                               </td>
 
                               <td className="px-4 py-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 max-w-[80px] h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={`text-[11px] font-black ${isFull ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded' : 'text-foreground'}`}>
+                                    {enrolled} {max ? `/ ${max}` : 'enrolled'}
+                                  </span>
+                                  <div className="w-20 h-1.5 bg-surface-secondary border border-border rounded-full overflow-hidden shadow-inner">
                                     {max ? (
                                       <div 
-                                        className={`h-full rounded-full ${isFull ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                                        className={`h-full transition-all ${isFull ? 'bg-rose-500' : 'bg-primary'}`} 
                                         style={{ width: `${Math.min((enrolled / max) * 100, 100)}%` }}
                                       />
                                     ) : (
-                                      <div className="h-full bg-gray-300 dark:bg-gray-600 w-full" />
+                                      <div className="h-full bg-primary/50 w-full" />
                                     )}
                                   </div>
-                                  <span className={`text-xs font-bold ${isFull ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                                    {enrolled} {max ? `/ ${max}` : 'enrolled'}
-                                  </span>
                                 </div>
                               </td>
 
-                              <td className={`px-6 py-4 text-right ${editingBatchId === batch.batch_id ? 'rounded-r-2xl' : ''}`}>
-                                <div className="flex items-center justify-end gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-200">
                                   <button
                                     type="button"
                                     onClick={() => handleEditClick(batch)}
-                                    className="p-2 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-colors"
+                                    className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 flex items-center justify-center transition-colors"
                                     title="Edit Batch"
                                   >
                                     <Edit2 size={16} />
                                   </button>
-                                  <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteBatch(batch?.batch_id)}
-                                    className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 transition-colors"
+                                    className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 flex items-center justify-center transition-colors"
                                     title="Delete Batch"
                                   >
                                     <Trash2 size={16} />

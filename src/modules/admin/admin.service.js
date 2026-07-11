@@ -44,6 +44,8 @@ export const getAcademyDetails = async (academy_id) => {
       state: true,
       country: true,
       pincode: true,
+      latitude: true,
+      longitude: true,
       logo_url: true,
       logo_file_id: true,
       subscription_tier: true,
@@ -1035,6 +1037,64 @@ export const getAllStudents = async (academy_id) => {
   } catch (error) {
     console.error('Error in getAllStudents:', error);
     return [];
+  }
+};
+
+export const getStudentsByBatch = async (academy_id, batch_id) => {
+  try {
+    const academyId = parseInt(academy_id, 10);
+    const batchId = parseInt(batch_id, 10);
+
+    const batch = await prisma.batch.findFirst({
+      where: {
+        batch_id: batchId,
+        academy_id: academyId,
+      },
+      select: { batch_id: true },
+    });
+
+    if (!batch) {
+      const error = new Error('Batch not found or does not belong to this academy');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const students = await prisma.student.findMany({
+      where: {
+        academy_id: academyId,
+        ...NOT_DELETED,
+        status: 'ACTIVE',
+        OR: [
+          { batch_id: batchId },
+          {
+            enrollments: {
+              some: {
+                batch_id: batchId,
+                is_active: true,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        student_id: true,
+        name: true,
+        first_name: true,
+        last_name: true,
+        profile_photo: true,
+        age: true,
+        category: true,
+        sport_id: true,
+        batch_id: true,
+        status: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return { students };
+  } catch (error) {
+    logger.error('Error in getStudentsByBatch', { academy_id, batch_id, error });
+    throw error;
   }
 };
 

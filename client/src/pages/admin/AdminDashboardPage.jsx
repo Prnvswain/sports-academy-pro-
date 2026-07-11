@@ -74,6 +74,7 @@ export default function AnalyticsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [academy, setAcademy] = useState(null);
+  const [logoError, setLogoError] = useState(false);
 
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
@@ -128,7 +129,9 @@ export default function AnalyticsPanel() {
     const fetchAcademy = async () => {
       try {
         const response = await adminGet('/admin/academy');
-        setAcademy(response.data);
+        const academyData = response?.data || response;
+        setAcademy(academyData || null);
+        setLogoError(false);
       } catch (error) {
         console.error('Failed to fetch academy details:', error);
       }
@@ -259,11 +262,13 @@ export default function AnalyticsPanel() {
           className="card flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:justify-between"
         >
           <div className="flex items-center gap-4">
-            {academy?.logo_url ? (
+            {academy?.logo_url && !logoError ? (
               <img
+                key={academy.logo_url}
                 src={academy.logo_url}
                 alt="Academy Logo"
-                className="h-16 w-16 rounded-2xl object-cover border border-primary/20 shadow-lg shadow-primary/20"
+                className="h-16 w-16 rounded-2xl border border-primary/20 object-cover shadow-lg shadow-primary/20"
+                onError={() => setLogoError(true)}
               />
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent-hover shadow-lg shadow-primary/20">

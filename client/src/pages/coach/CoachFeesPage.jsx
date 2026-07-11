@@ -104,19 +104,21 @@ export function CoachFeeCollection({ students = [] }) {
 
   // --- SEARCH AND FILTER FUNCTIONS ---
   const getFilteredStudents = () => {
-    if (!studentSearchTerm) return [];
+    if (!studentSearchTerm) return students;
     const searchTerm = studentSearchTerm.toLowerCase();
     return students.filter((s) => {
-      const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+      const name = s?.name || `${s?.first_name || ''} ${s?.last_name || ''}`;
       const parentName = s?.parent_name || s?.parentName || '';
-      const mobile = s?.phone || s?.parent_phone || s?.mobile || '';
+      const parentEmail = s?.parent_email || s?.parentEmail || '';
+      const phone = s?.phone || s?.parent_phone || '';
       const studentId = s?.id?.toString() || s?.student_id?.toString() || '';
       const batchName = s?.batch?.name || '';
 
       return (
         name.toLowerCase().includes(searchTerm) ||
         parentName.toLowerCase().includes(searchTerm) ||
-        mobile.includes(searchTerm) ||
+        parentEmail.toLowerCase().includes(searchTerm) ||
+        phone.includes(searchTerm) ||
         studentId.includes(searchTerm) ||
         batchName.toLowerCase().includes(searchTerm)
       );
@@ -531,14 +533,15 @@ export function CoachFeeCollection({ students = [] }) {
                       }
                       return filteredStudents.map((s, index) => {
                         const studentId = s?.id || s?.student_id;
-                        const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+                        const name = s?.name || `${s?.first_name || ''} ${s?.last_name || ''}`;
                         const parentName = s?.parent_name || s?.parentName || '—';
-                        const mobile = s?.phone || s?.parent_phone || s?.mobile || '—';
+                        const phone = s?.phone || s?.parent_phone || '—';
                         const isHighlighted = index === highlightedIndex;
+                        const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                         return (
                           <div
                             key={studentId}
-                            className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b border-border/50 last:border-b-0 ${
+                            className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b border-border/50 last:border-b-0 flex items-center gap-3 ${
                               isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
                             }`}
                             onMouseDown={() => {
@@ -549,11 +552,27 @@ export function CoachFeeCollection({ students = [] }) {
                             }}
                             onMouseEnter={() => setHighlightedIndex(index)}
                           >
-                            <div className="font-semibold">{name}</div>
-                            <div className="text-xs mt-1 text-muted-foreground">
-                              <span className="inline-block mr-3">Parent: {parentName}</span>
-                              <span className="inline-block mr-3">Mobile: {mobile}</span>
-                              <span className="inline-block">Batch: {s?.batch?.name || '—'}</span>
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                              {s?.profile_photo ? (
+                                <img src={s.profile_photo} alt={name} className="w-full h-full rounded-full object-cover" />
+                              ) : (
+                                initials
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold truncate">{name}</div>
+                              <div className="text-xs mt-1 text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                                <span className="inline-block">Batch: {s?.batch?.name || '—'}</span>
+                                {s?.sport && (
+                                  <span className="inline-block">
+                                    {s.sport.icon || '🏅'} {s.sport.name}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs mt-1 text-muted-foreground">
+                                <span className="inline-block mr-3">Parent: {parentName}</span>
+                                <span className="inline-block">Phone: {phone}</span>
+                              </div>
                             </div>
                           </div>
                         );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { setParentToken } from '../../api/client';
 
 import { motion } from "framer-motion";
 import Navbar from "../../components/Navbar"; // <-- Added an extra ../
@@ -33,7 +34,7 @@ export default function ParentLogin() {
       }
 
       // Store token and user data
-      localStorage.setItem('parent_token', data.data.token);
+      setParentToken(data.data.token);
       localStorage.setItem('parent_user', JSON.stringify(data.data.parent));
 
       navigate('/parent/dashboard');

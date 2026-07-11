@@ -1020,18 +1020,70 @@ export const getAssessmentById = async (academyId, assessmentId) => {
 };
 
 export const getBatchPerformance = async (academyId, batchId, query = {}) => {
-  const where = {
+  const { assessment_id, age_category, mode = 'latest' } = query;
+  const batchIdInt = parseInt(batchId, 10);
+
+  // DEBUG LOGS
+  console.log('=== getBatchPerformance DEBUG ===');
+  console.log('Batch ID:', batchIdInt);
+  console.log('Assessment ID received:', assessment_id);
+  console.log('Age Category:', age_category);
+  console.log('Mode:', mode);
+
+  // First, get all students in the batch (either via direct batch_id or via enrollment)
+  const studentWhere = {
     academy_id: academyId,
-    batch_id: parseInt(batchId, 10)
+    OR: [
+      { batch_id: batchIdInt },
+      {
+        enrollments: {
+          some: {
+            batch_id: batchIdInt,
+            is_active: true
+          }
+        }
+      }
+    ]
   };
 
+  // Filter by age category if specified
+  if (age_category && age_category !== 'all') {
+    studentWhere.category = age_category;
+  }
+
+  console.log('Student where clause:', JSON.stringify(studentWhere, null, 2));
+
+  const batchStudents = await prisma.student.findMany({
+    where: studentWhere
+  });
+
+  console.log('Total enrolled students found:', batchStudents.length);
+  console.log('Enrolled student IDs:', batchStudents.map(s => s.student_id));
+
+  const enrolledStudentIds = batchStudents.map(student => student.student_id);
+
+  // Now get performance scores for these students
+  const scoreWhere = {
+    academy_id: academyId,
+    batch_id: batchIdInt,
+    student_id: { in: enrolledStudentIds }
+  };
+
+  // Filter by assessment if specified
+  if (assessment_id) {
+    scoreWhere.assessment_id = assessment_id;
+  }
+
+  console.log('Score where clause:', JSON.stringify(scoreWhere, null, 2));
+
   const scores = await prisma.performanceScore.findMany({
-    where,
+    where: scoreWhere,
     include: {
       student: {
         select: {
           student_id: true,
-          name: true
+          name: true,
+          category: true
         }
       },
       attribute: {
@@ -1057,8 +1109,61 @@ export const getBatchPerformance = async (academyId, batchId, query = {}) => {
     ]
   });
 
+  console.log('Total scores found:', scores.length);
+  console.log('Score student IDs:', [...new Set(scores.map(s => s.student_id))]);
+
+  // Calculate averages if mode is 'average'
+  if (mode === 'average') {
+    console.log('Calculating AVERAGE mode');
+    // Group scores by student and attribute to calculate averages
+    const studentAttributeScores = {};
+    
+    scores.forEach(score => {
+      const key = `${score.student_id}-${score.attribute_id}`;
+      if (!studentAttributeScores[key]) {
+        studentAttributeScores[key] = {
+          student_id: score.student_id,
+          attribute_id: score.attribute_id,
+          scores: [],
+          student: score.student,
+          attribute: score.attribute
+        };
+      }
+      studentAttributeScores[key].scores.push(score.score);
+    });
+
+    console.log('Unique student-attribute combinations:', Object.keys(studentAttributeScores).length);
+
+    // Calculate average for each student-attribute combination
+    const averageScores = Object.values(studentAttributeScores).map(item => ({
+      ...item,
+      score: Math.round(item.scores.reduce((sum, s) => sum + s, 0) / item.scores.length),
+      scored_at: new Date(), // Current timestamp for averages
+      coach: null, // Averages don't belong to a specific coach
+      assessment_id: null // Averages don't belong to a specific assessment
+    }));
+
+    console.log('Final merged students count:', batchStudents.length);
+    console.log('Final average scores count:', averageScores.length);
+    console.log('=== END getBatchPerformance DEBUG ===');
+
+    return {
+      batch_id: batchIdInt,
+      mode: 'average',
+      students: batchStudents,
+      scores: averageScores
+    };
+  }
+
+  console.log('Using ASSESSMENT/LATEST mode');
+  console.log('Final merged students count:', batchStudents.length);
+  console.log('Final scores count:', scores.length);
+  console.log('=== END getBatchPerformance DEBUG ===');
+
   return {
-    batch_id: parseInt(batchId, 10),
+    batch_id: batchIdInt,
+    mode: assessment_id ? 'assessment' : 'latest',
+    students: batchStudents,
     scores
   };
 };

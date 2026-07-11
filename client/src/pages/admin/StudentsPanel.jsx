@@ -20,6 +20,137 @@ const normalizeGender = (gender) => {
   return 'Not Specified';
 };
 
+const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
+  const studentRecord = studentData?.student || studentData || {};
+  const activeEnrollments = studentData?.enrollments?.filter((enrollment) => enrollment?.is_active) || [];
+  const latestEnrollment = activeEnrollments[0] || studentData?.enrollments?.[0] || null;
+
+  const globalDurationPlans = durationPlans || [];
+  const currentStudentPlan =
+    latestEnrollment?.duration_plan?.name ||
+    studentRecord?.duration_plan ||
+    studentRecord?.durationPlan ||
+    '';
+
+  const exactPlanMatch = globalDurationPlans.find(
+    (plan) =>
+      plan.name === currentStudentPlan ||
+      plan._id === currentStudentPlan ||
+      plan.id === currentStudentPlan ||
+      plan.plan_id === currentStudentPlan,
+  );
+
+  const dynamicMultiplier = exactPlanMatch
+    ? parseFloat(exactPlanMatch.multiplier)
+    : parseFloat(
+        latestEnrollment?.duration_plan?.multiplier ||
+          latestEnrollment?.plan_multiplier ||
+          latestEnrollment?.planMultiplier ||
+          1,
+      );
+
+  const rawBaseSportsFee = parseFloat(
+    latestEnrollment?.sports_base_fee ||
+      latestEnrollment?.sportsBaseFee ||
+      latestEnrollment?.sports_fee ||
+      0,
+  );
+  const totalMultipliedSportsFee = rawBaseSportsFee * dynamicMultiplier;
+  const regFeeAmount = parseFloat(latestEnrollment?.registration_fee || 0);
+  const additionalSurchargesAmount = parseFloat(latestEnrollment?.additional_charges || 0);
+  const appliedDiscountAmount = parseFloat(latestEnrollment?.discount || 0);
+  const accurateTotalComputedFee =
+    totalMultipliedSportsFee + regFeeAmount + additionalSurchargesAmount - appliedDiscountAmount;
+  const dynamicAmountPaidFromLedger = parseFloat(
+    studentRecord?.amount_paid || studentRecord?.amountPaid || studentData?.amount_paid || studentData?.amountPaid || 0,
+  );
+  const finalOutstandingDuesBalance = Math.max(0, accurateTotalComputedFee - dynamicAmountPaidFromLedger);
+  const durationPlanName =
+    latestEnrollment?.duration_plan?.name ||
+    studentRecord?.duration_plan ||
+    studentRecord?.durationPlan ||
+    'Standard';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mb-6 overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-5 shadow-sm"
+    >
+      <div className="mb-4 flex items-center gap-3">
+        <div className="rounded-full bg-emerald-600/10 p-2 text-emerald-600">
+          <Wallet className="h-5 w-5" />
+        </div>
+        <div>
+          <h4 className="font-semibold text-slate-800">Financial Ledger Summary</h4>
+          <p className="text-xs text-slate-500">Current fee snapshot from the student ledger</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Sports Base Fee</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(rawBaseSportsFee)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>Plan Multiplier</span>
+            <span className="font-medium text-slate-700">
+              {Number.isFinite(Number(dynamicMultiplier)) ? Number(dynamicMultiplier).toFixed(1) : '1.0'}x
+              {' '}({durationPlanName})
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Sports Fee</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(totalMultipliedSportsFee)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>Registration Fee</span>
+            <span className="font-medium text-slate-700">₹{formatCurrency(regFeeAmount)}</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Additional Charges</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(additionalSurchargesAmount)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>Discount</span>
+            <span className="font-medium text-rose-600">-₹{formatCurrency(appliedDiscountAmount)}</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Total Computed Fee</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(accurateTotalComputedFee)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-emerald-700">
+            <span>Amount Paid</span>
+            <span className="font-medium">₹{formatCurrency(dynamicAmountPaidFromLedger)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={`mt-4 rounded-xl border p-4 ${finalOutstandingDuesBalance > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-600 text-white'}`}>
+        <div className="flex items-center justify-between">
+          <span className={`text-sm font-semibold ${finalOutstandingDuesBalance > 0 ? 'text-rose-700' : 'text-white'}`}>
+            Total Balance Due
+          </span>
+          <span className={`text-lg font-bold ${finalOutstandingDuesBalance > 0 ? 'text-rose-700' : 'text-white'}`}>
+            ₹{formatCurrency(finalOutstandingDuesBalance)}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const calculateAgeFromDOB = (dob) => {
   if (!dob) return null;
   const birthDate = new Date(dob);
@@ -3154,6 +3285,7 @@ export default function StudentsPanel() {
                 {/* Accounts & Receipts Tab */}
                 {modalTab === 'accounts' && (
                   <div>
+                    {studentDetails && renderFinancialLedgerSummary(studentDetails, durationPlans)}
                     <h4 className="mb-3 font-semibold">Payment History</h4>
                     {studentDetails.receipts && studentDetails.receipts.length > 0 ? (
                       <div className="space-y-2">

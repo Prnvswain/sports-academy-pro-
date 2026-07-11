@@ -15,6 +15,7 @@ import {
   hashResetCode,
   verifyResetCode
 } from '../../utils/resetCode.util.js';
+import { validateAcademyAdminEmailUniqueness } from './emailValidation.util.js';
 import {
   sendAdminWelcomeEmail,
   sendPasswordResetEmail
@@ -45,27 +46,7 @@ export const signupAcademy = async ({
     throw error;
   }
 
-  const existingUser = await prisma.user.findFirst({
-    where: { email, ...NOT_DELETED }
-  });
-
-  if (existingUser) {
-    const error = new Error('Email already registered');
-    error.statusCode = 409;
-    throw error;
-  }
-
-  const existingCoachEmail = await prisma.coach.findFirst({
-    where: { email, ...NOT_DELETED }
-  });
-
-  if (existingCoachEmail) {
-    const error = new Error(
-      'This email is already used by a coach account. Use a different email for academy registration.'
-    );
-    error.statusCode = 409;
-    throw error;
-  }
+  await validateAcademyAdminEmailUniqueness({ prisma, email });
 
   const password_hash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   const planKey = normalizePlanId(subscription_plan);

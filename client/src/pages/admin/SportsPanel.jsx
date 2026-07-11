@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Search, X, CheckCircle, AlertCircle, Plus, MapPin, Grid, Lock, Unlock, Trash2, Edit2, Check, LayoutDashboard } from 'lucide-react';
 import Loader from '../../components/Loader';
 import GPSCapture from '../../components/GPSCapture';
@@ -47,6 +49,9 @@ export default function SportsPanel() {
 
   // ─── Academy Location (from registration) ─────────────────────────────────
   const [academyLocation, setAcademyLocation] = useState(null);
+  const [academyLocationAddress, setAcademyLocationAddress] = useState('');
+  const [academyLocationMessage, setAcademyLocationMessage] = useState('');
+  const [academyLocationLoading, setAcademyLocationLoading] = useState(true);
 
   // ─── Fetch global sports for Browse modal ──────────────────────────────
   const loadSuperAdminSports = useCallback(async () => {
@@ -74,21 +79,75 @@ export default function SportsPanel() {
     }
   }, [superAdminSports.length, loadSuperAdminSports]);
 
+  const buildAcademyAddress = useCallback((academyData) => {
+    const parts = [academyData?.address, academyData?.city, academyData?.state, academyData?.country]
+      .filter(Boolean)
+      .map((part) => part?.toString().trim())
+      .filter(Boolean);
+    return parts.join(', ');
+  }, []);
+
+  const reverseGeocodeAcademyLocation = useCallback(async (latitude, longitude) => {
+    if (latitude == null || longitude == null) return;
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'SportsAcademyMapPicker/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      if (data?.display_name) {
+        setAcademyLocationAddress(data.display_name);
+      }
+    } catch (error) {
+      console.error('Failed to reverse geocode academy location:', error);
+    }
+  }, []);
+
   // ─── Fetch academy location (for default sport location) ─────────────────────
   const loadAcademyLocation = useCallback(async () => {
+    setAcademyLocationLoading(true);
+    setAcademyLocationMessage('');
+    setAcademyLocationAddress('');
+
     try {
       const result = await adminGet('/admin/academy');
       const academyData = result.data || result;
-      if (academyData?.latitude && academyData?.longitude) {
-        setAcademyLocation({
-          latitude: parseFloat(academyData.latitude),
-          longitude: parseFloat(academyData.longitude)
-        });
+      const latitude = academyData?.latitude != null ? parseFloat(academyData.latitude) : null;
+      const longitude = academyData?.longitude != null ? parseFloat(academyData.longitude) : null;
+
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        setAcademyLocation({ latitude, longitude });
+
+        const formattedAddress = buildAcademyAddress(academyData);
+        if (formattedAddress) {
+          setAcademyLocationAddress(formattedAddress);
+        } else {
+          await reverseGeocodeAcademyLocation(latitude, longitude);
+        }
+        setAcademyLocationMessage('');
+      } else {
+        setAcademyLocation(null);
+        const formattedAddress = buildAcademyAddress(academyData);
+        if (formattedAddress) {
+          setAcademyLocationAddress(formattedAddress);
+        } else {
+          setAcademyLocationMessage('Academy location has not been configured yet.');
+        }
       }
     } catch (error) {
       console.error('Failed to load academy location:', error);
+      setAcademyLocation(null);
+      setAcademyLocationAddress('');
+      setAcademyLocationMessage('Academy location could not be loaded right now.');
+    } finally {
+      setAcademyLocationLoading(false);
     }
-  }, []);
+  }, [buildAcademyAddress, reverseGeocodeAcademyLocation]);
 
   // ─── Fetch academy sports (table) ──────────────────────────────────────────
   const loadSports = useCallback(async () => {
@@ -374,6 +433,10 @@ export default function SportsPanel() {
       latitude: useCustom ? prev.latitude : '',
       longitude: useCustom ? prev.longitude : '',
     }));
+
+    if (!useCustom) {
+      loadAcademyLocation();
+    }
   };
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -725,14 +788,43 @@ export default function SportsPanel() {
                       <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       <p className="text-blue-800 dark:text-blue-300 font-bold text-xs uppercase tracking-wider">Using Academy Location</p>
                     </div>
-                    {academyLocation ? (
-                      <p className="text-blue-700 dark:text-blue-400 text-xs font-mono bg-white/50 dark:bg-black/20 p-2 rounded-lg inline-block">
-                        Lat: {academyLocation.latitude.toFixed(7)} <br/>
-                        Lon: {academyLocation.longitude.toFixed(7)}
-                      </p>
+
+                    {academyLocationLoading ? (
+                      <p className="text-blue-700 dark:text-blue-400 text-xs">Loading academy location…</p>
+                    ) : academyLocation ? (
+                      <div className="space-y-3">
+                        <div className="relative h-36 overflow-hidden rounded-lg border border-blue-200 bg-white/60 dark:bg-black/20">
+                          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-full text-3xl drop-shadow-lg">
+                            📍
+                          </div>
+                          <MapContainer
+                            center={[academyLocation.latitude, academyLocation.longitude]}
+                            zoom={14}
+                            scrollWheelZoom={false}
+                            className="h-full w-full"
+                          >
+                            <TileLayer
+                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                          </MapContainer>
+                        </div>
+
+                        <div className="rounded-lg bg-white/70 p-2.5 text-xs text-blue-700 dark:bg-black/20 dark:text-blue-300">
+                          <p className="font-semibold">Coordinates</p>
+                          <p className="font-mono">Lat: {academyLocation.latitude.toFixed(7)}</p>
+                          <p className="font-mono">Lon: {academyLocation.longitude.toFixed(7)}</p>
+                        </div>
+
+                        {academyLocationAddress ? (
+                          <p className="text-xs text-blue-700 dark:text-blue-300">{academyLocationAddress}</p>
+                        ) : (
+                          <p className="text-xs text-blue-700 dark:text-blue-300">Address details are not available for this academy location.</p>
+                        )}
+                      </div>
                     ) : (
                       <p className="text-blue-700 dark:text-blue-400 text-xs">
-                        Academy location not set during registration. Please contact admin.
+                        {academyLocationMessage || 'Academy location has not been configured yet.'}
                       </p>
                     )}
                   </div>

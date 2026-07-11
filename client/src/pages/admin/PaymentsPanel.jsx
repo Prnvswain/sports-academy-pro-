@@ -134,7 +134,7 @@ export default function AccountsPanel() {
     setForm((prev) => ({ ...prev, student_id: selectedId }));
 
     if (studentObj) {
-      setStudentSearchTerm(studentObj.name || `${studentObj.firstName || ''} ${studentObj.lastName || ''}`);
+      setStudentSearchTerm(studentObj.name || `${studentObj.first_name || ''} ${studentObj.last_name || ''}`);
     }
 
     setLoadingFeeData(true);
@@ -189,7 +189,7 @@ export default function AccountsPanel() {
         if (highlightedIndex >= 0 && filteredStudents[highlightedIndex]) {
           const student = filteredStudents[highlightedIndex];
           const studentId = student?.id || student?.student_id;
-          setStudentSearchTerm(student?.name || `${student?.firstName || ''} ${student?.lastName || ''}`);
+          setStudentSearchTerm(student?.name || `${student?.first_name || ''} ${student?.last_name || ''}`);
           setDropdownOpen(false);
           setHighlightedIndex(-1);
           handleStudentChange(studentId);
@@ -204,19 +204,19 @@ export default function AccountsPanel() {
   };
 
   const getFilteredStudents = () => {
-    if (!studentSearchTerm) return [];
+    if (!studentSearchTerm) return students;
     const searchTerm = studentSearchTerm.toLowerCase();
     return students.filter((s) => {
-      const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+      const name = s?.name || `${s?.first_name || ''} ${s?.last_name || ''}`;
       const parentName = s?.parent_name || s?.parentName || '';
-      const mobile = s?.phone || s?.parent_phone || s?.mobile || '';
+      const phone = s?.phone || s?.parent_phone || '';
       const studentId = s?.id?.toString() || s?.student_id?.toString() || '';
       const batchName = s?.batch?.name || '';
 
       return (
         name.toLowerCase().includes(searchTerm) ||
         parentName.toLowerCase().includes(searchTerm) ||
-        mobile.includes(searchTerm) ||
+        phone.includes(searchTerm) ||
         studentId.includes(searchTerm) ||
         batchName.toLowerCase().includes(searchTerm)
       );
@@ -579,14 +579,15 @@ export default function AccountsPanel() {
                     return <div className="px-4 py-3 text-sm text-muted-foreground">No students found</div>;
                   }
                   return filteredStudents.map((s, index) => {
-                    const name = s?.name || `${s?.firstName || ''} ${s?.lastName || ''}`;
+                    const name = s?.name || `${s?.first_name || ''} ${s?.last_name || ''}`;
                     const parentName = s?.parent_name || s?.parentName || '—';
-                    const mobile = s?.phone || s?.parent_phone || s?.mobile || '—';
+                    const phone = s?.phone || s?.parent_phone || '—';
                     const isHighlighted = index === highlightedIndex;
+                    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                     return (
                       <div
                         key={s?.id || s?.student_id}
-                        className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b border-border/50 last:border-b-0 ${
+                        className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b border-border/50 last:border-b-0 flex items-center gap-3 ${
                           isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
                         }`}
                         onMouseDown={() => {
@@ -598,11 +599,20 @@ export default function AccountsPanel() {
                         }}
                         onMouseEnter={() => setHighlightedIndex(index)}
                       >
-                        <div className="font-semibold">{name}</div>
-                        <div className="text-xs mt-1 text-muted-foreground">
-                          <span className="inline-block mr-3">Parent: {parentName}</span>
-                          <span className="inline-block mr-3">Mobile: {mobile}</span>
-                          <span className="inline-block">Batch: {s?.batch?.name || '—'}</span>
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                          {s?.profile_photo ? (
+                            <img src={s.profile_photo} alt={name} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold truncate">{name}</div>
+                          <div className="text-xs mt-1 text-muted-foreground">
+                            <span className="inline-block mr-3">Parent: {parentName}</span>
+                            <span className="inline-block mr-3">Phone: {phone}</span>
+                            <span className="inline-block">Batch: {s?.batch?.name || '—'}</span>
+                          </div>
                         </div>
                       </div>
                     );
