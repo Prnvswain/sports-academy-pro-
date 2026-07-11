@@ -444,11 +444,18 @@ export default function CoachAttendancePage() {
                           {batch.name}
                         </h4>
                         <div className="flex flex-wrap gap-2 mt-3">
+                          {batch.sport && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
+                              🏅 {batch.sport.name}
+                            </span>
+                          )}
+                          {(batch.start_time || batch.timing) && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
+                              🕒 {batch.timing || `${batch.start_time}${batch.end_time ? ' - ' + batch.end_time : ''}`}
+                            </span>
+                          )}
                           <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
-                            ⏱️ {batch.timing || 'No time set'}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
-                            👥 {batch.students?.length || 0} Trainees
+                            👥 {batch.students_count || batch.students?.length || 0} Students
                           </span>
                         </div>
                       </motion.button>

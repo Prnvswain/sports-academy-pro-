@@ -16,8 +16,6 @@ export default function CoachDashboardPage() {
   const [batchDetails, setBatchDetails] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [feeSummary, setFeeSummary] = useState(null);
-  const [feeSummaryLoading, setFeeSummaryLoading] = useState(false);
 
   // Load persisted filters
   useEffect(() => {
@@ -49,35 +47,6 @@ export default function CoachDashboardPage() {
     loadNotifications();
   }, []);
 
-  // Load fee summary for batches
-  useEffect(() => {
-    const loadFeeSummary = async () => {
-      try {
-        setFeeSummaryLoading(true);
-        const result = await coachGet('/students-fee-summary');
-        setFeeSummary(result.data);
-      } catch (err) {
-        console.error('Failed to load fee summary:', err);
-      } finally {
-        setFeeSummaryLoading(false);
-      }
-    };
-    loadFeeSummary();
-  }, []);
-
-  // Get fee status for a specific batch
-  const getBatchFeeStatus = (batchId) => {
-    if (!feeSummary || !feeSummary.students) return { paid: 0, pending: 0 };
-    
-    const batchStudents = feeSummary.students.filter(s => 
-      s.batch_names?.includes(batches.find(b => b.batch_id === batchId)?.name)
-    );
-    
-    const paid = batchStudents.filter(s => s.fee_status === 'paid').length;
-    const pending = batchStudents.filter(s => s.fee_status === 'unpaid').length;
-    
-    return { paid, pending, total: batchStudents.length };
-  };
 
   // Get unique sports from batches
   const uniqueSports = useMemo(() => {
@@ -445,7 +414,7 @@ export default function CoachDashboardPage() {
                   <div className="p-5 space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="badge bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(16,185,129,0.1)] text-xs font-bold">
-                        ⚽ {batch.sport?.name || 'Unknown Sport'}
+                        {batch.sport?.globalSport?.icon || '⚽'} {batch.sport?.name || 'Unknown Sport'}
                       </span>
                       <span className="badge bg-blue/10 text-blue border border-blue/20 text-xs font-bold">
                         🕒 {batch.timing || 'No Time Set'}
@@ -455,32 +424,8 @@ export default function CoachDashboardPage() {
                     <div className="flex items-center justify-between pt-2 border-t border-border/40">
                       <span className="text-sm font-semibold text-muted-foreground">Enrolled Students</span>
                       <span className="flex items-center justify-center bg-surface-secondary border border-border rounded-full h-8 px-3 text-sm font-black text-foreground">
-                        {batch.students?.length ?? 0}
+                        {(batch.students_count || batch.students?.length) ?? 0}
                       </span>
-                    </div>
-
-                    {/* Fee Status Badge */}
-                    <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                      <span className="text-sm font-semibold text-muted-foreground">Fee Status</span>
-                      {feeSummaryLoading ? (
-                        <span className="text-xs text-muted-foreground">Loading...</span>
-                      ) : (() => {
-                        const feeStatus = getBatchFeeStatus(batch.batch_id);
-                        return (
-                          <div className="flex items-center gap-2">
-                            {feeStatus.pending > 0 && (
-                              <span className="badge bg-warning/10 text-warning border border-warning/20 text-xs font-bold">
-                                {feeStatus.pending} Pending
-                              </span>
-                            )}
-                            {feeStatus.paid > 0 && (
-                              <span className="badge bg-emerald/10 text-emerald border border-emerald/20 text-xs font-bold">
-                                {feeStatus.paid} Paid
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
                     </div>
                   </div>
                 </motion.article>
@@ -594,11 +539,11 @@ export default function CoachDashboardPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl bg-surface-secondary/50 border border-border/50">
                       <div className="text-xs text-muted-foreground mb-1">Total Students</div>
-                      <div className="text-2xl font-black text-foreground">{selectedBatch.students?.length ?? 0}</div>
+                      <div className="text-2xl font-black text-foreground">{(selectedBatch.students_count || selectedBatch.students?.length) ?? 0}</div>
                     </div>
                     <div className="p-4 rounded-xl bg-surface-secondary/50 border border-border/50">
-                      <div className="text-xs text-muted-foreground mb-1">Fee Status</div>
-                      <div className="text-2xl font-black text-warning">Pending</div>
+                      <div className="text-xs text-muted-foreground mb-1">Sport</div>
+                      <div className="text-2xl font-black text-foreground">{selectedBatch.sport?.name || 'N/A'}</div>
                     </div>
                   </div>
 
