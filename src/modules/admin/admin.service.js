@@ -15,6 +15,7 @@ import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
 import { calculateAgeAndCategory } from '../../utils/age.util.js';
 import * as parentService from '../parent/parent.service.js';
+import { uploadToImageKit, deleteFromImageKit, validateImageFile } from '../../utils/imagekit.util.js';
 
 const normalizeGender = (gender) => {
   if (!gender) return 'Other';
@@ -44,6 +45,7 @@ export const getAcademyDetails = async (academy_id) => {
       country: true,
       pincode: true,
       logo_url: true,
+      logo_file_id: true,
       subscription_tier: true,
       subscription_plan: true,
       status: true
@@ -57,6 +59,75 @@ export const getAcademyDetails = async (academy_id) => {
   }
 
   return academy;
+};
+
+export const updateAcademyDetails = async (academy_id, { name, owner_name, email, phone_number, address, city, state, country, pincode, logo }) => {
+  const academyId = parseInt(academy_id, 10);
+
+  // Check if academy exists
+  const existingAcademy = await prisma.academy.findUnique({
+    where: { academy_id: academyId }
+  });
+
+  if (!existingAcademy) {
+    const error = new Error('Academy not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Handle logo upload if provided
+  let logo_url = existingAcademy.logo_url;
+  let logo_file_id = existingAcademy.logo_file_id;
+
+  if (logo) {
+    // Validate logo file
+    const validation = validateImageFile(logo);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    // Delete old logo from ImageKit if exists
+    if (existingAcademy.logo_file_id) {
+      try {
+        await deleteFromImageKit(existingAcademy.logo_file_id);
+      } catch (error) {
+        logger.warn('Failed to delete old logo from ImageKit', { error: error.message });
+      }
+    }
+
+    // Upload new logo to ImageKit
+    const buffer = logo.buffer;
+    const uploadResult = await uploadToImageKit(
+      buffer,
+      logo.originalname || logo.name,
+      'academy-logos'
+    );
+
+    logo_url = uploadResult.url;
+    logo_file_id = uploadResult.fileId;
+  }
+
+  // Update academy details
+  const updatedAcademy = await prisma.academy.update({
+    where: { academy_id: academyId },
+    data: {
+      name: name || existingAcademy.name,
+      owner_name: owner_name || existingAcademy.owner_name,
+      email: email || existingAcademy.email,
+      phone_number: phone_number !== undefined ? phone_number : existingAcademy.phone_number,
+      address: address !== undefined ? address : existingAcademy.address,
+      city: city !== undefined ? city : existingAcademy.city,
+      state: state !== undefined ? state : existingAcademy.state,
+      country: country !== undefined ? country : existingAcademy.country,
+      pincode: pincode !== undefined ? pincode : existingAcademy.pincode,
+      logo_url,
+      logo_file_id
+    }
+  });
+
+  logger.info('Academy details updated', { academy_id: academyId });
+
+  return updatedAcademy;
 };
 
 const getCoachForAcademy = async (academy_id, coach_id) =>

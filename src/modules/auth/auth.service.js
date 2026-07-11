@@ -1,8 +1,6 @@
 import prisma from '../../config/prisma.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import fs from 'fs';
-import path from 'path';
 import { JWT_SECRET, JWT_EXPIRE, BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
 import { RESET_CODE_EXPIRE_MINUTES } from '../../config/mail.config.js';
 import {
@@ -23,29 +21,7 @@ import {
 } from '../../services/mail.service.js';
 import logger from '../../utils/logger.js';
 import { verifyGoogleToken } from '../../utils/googleAuth.util.js';
-
-const ACADEMY_LOGO_DIR = path.join(process.cwd(), 'uploads', 'academy-logos');
-
-const ensureAcademyLogoDir = () => {
-  if (!fs.existsSync(ACADEMY_LOGO_DIR)) {
-    fs.mkdirSync(ACADEMY_LOGO_DIR, { recursive: true });
-  }
-};
-
-const saveAcademyLogo = async (file, academyId) => {
-  if (!file) return null;
-
-  ensureAcademyLogoDir();
-
-  const ext = path.extname(file.name || file.originalname);
-  const filename = `academy-${academyId}-${Date.now()}${ext}`;
-  const filePath = path.join(ACADEMY_LOGO_DIR, filename);
-
-  const buffer = file.buffer || (await file.arrayBuffer());
-  fs.writeFileSync(filePath, Buffer.from(buffer));
-
-  return `/uploads/academy-logos/${filename}`;
-};
+import { uploadToImageKit, deleteFromImageKit, validateImageFile } from '../../utils/imagekit.util.js';
 
 export const signupAcademy = async ({
   name,
@@ -107,7 +83,17 @@ export const signupAcademy = async ({
   };
   const subscriptionTier = tierMapping[planKey] || 'FREE';
 
-  try {
+  // Validate attendance radius
+  if (attendance_radius_meters) {
+    const radius = parseInt(attendance_radius_meters, 10);
+    if (isNaN(radius) || radius < 100 || radius > 5000) {
+      const error = new Error('Attendance radius must be between 100 and 5000 meters');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+    try {
     const result = await prisma.$transaction(async (tx) => {
       const academy = await tx.academy.create({
         data: {
@@ -132,13 +118,49 @@ export const signupAcademy = async ({
         }
       });
 
-      // Save logo if provided
+      // Upload logo to ImageKit if provided
       let logo_url = null;
+      let logo_file_id = null;
       if (logo) {
-        logo_url = await saveAcademyLogo(logo, academy.academy_id);
+        console.log("=== Logo Debug ===");
+        console.log("logo:", logo);
+        console.log("logo type:", typeof logo);
+        console.log("logo keys:", Object.keys(logo));
+        console.log("logo.buffer:", logo.buffer);
+        console.log("logo.buffer type:", logo.buffer ? typeof logo.buffer : 'undefined');
+        console.log("logo.originalname:", logo.originalname);
+        console.log("logo.name:", logo.name);
+        console.log("logo.mimetype:", logo.mimetype);
+
+        // Validate logo file
+        const validation = validateImageFile(logo);
+        if (!validation.isValid) {
+          throw new Error(validation.error);
+        }
+
+        // Convert file to buffer
+        const buffer = logo.buffer;
+
+        if (!buffer) {
+          throw new Error('Logo buffer is undefined. Check multer configuration.');
+        }
+
+        // Upload to ImageKit
+        const uploadResult = await uploadToImageKit(
+          buffer,
+          logo.originalname || logo.name,
+          'academy-logos'
+        );
+
+        logo_url = uploadResult.url;
+        logo_file_id = uploadResult.fileId;
+
         await tx.academy.update({
           where: { academy_id: academy.academy_id },
-          data: { logo_url }
+          data: { 
+            logo_url,
+            logo_file_id
+          }
         });
       }
 
@@ -565,6 +587,16 @@ export const signupWithGoogle = async ({
   };
   const subscriptionTier = tierMapping[planKey] || 'FREE';
 
+  // Validate attendance radius
+  if (attendance_radius_meters) {
+    const radius = parseInt(attendance_radius_meters, 10);
+    if (isNaN(radius) || radius < 100 || radius > 5000) {
+      const error = new Error('Attendance radius must be between 100 and 5000 meters');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const academy = await tx.academy.create({
@@ -590,13 +622,49 @@ export const signupWithGoogle = async ({
         }
       });
 
-      // Save logo if provided
+      // Upload logo to ImageKit if provided
       let logo_url = null;
+      let logo_file_id = null;
       if (logo) {
-        logo_url = await saveAcademyLogo(logo, academy.academy_id);
+        console.log("=== Logo Debug ===");
+        console.log("logo:", logo);
+        console.log("logo type:", typeof logo);
+        console.log("logo keys:", Object.keys(logo));
+        console.log("logo.buffer:", logo.buffer);
+        console.log("logo.buffer type:", logo.buffer ? typeof logo.buffer : 'undefined');
+        console.log("logo.originalname:", logo.originalname);
+        console.log("logo.name:", logo.name);
+        console.log("logo.mimetype:", logo.mimetype);
+
+        // Validate logo file
+        const validation = validateImageFile(logo);
+        if (!validation.isValid) {
+          throw new Error(validation.error);
+        }
+
+        // Convert file to buffer
+        const buffer = logo.buffer;
+
+        if (!buffer) {
+          throw new Error('Logo buffer is undefined. Check multer configuration.');
+        }
+
+        // Upload to ImageKit
+        const uploadResult = await uploadToImageKit(
+          buffer,
+          logo.originalname || logo.name,
+          'academy-logos'
+        );
+
+        logo_url = uploadResult.url;
+        logo_file_id = uploadResult.fileId;
+
         await tx.academy.update({
           where: { academy_id: academy.academy_id },
-          data: { logo_url }
+          data: { 
+            logo_url,
+            logo_file_id
+          }
         });
       }
 

@@ -88,16 +88,24 @@ export default function AdminLayout() {
             className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary/50"
             onClick={() => setSidebarCollapsed((c) => !c)}
           >
-            <span className="bg-primary/10 text-primary border border-primary/20 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-black tracking-tighter shadow-sm transition-transform hover:scale-105 cursor-pointer">
-              {PRODUCT_LOGO}
-            </span>
+            {academy?.logo_url ? (
+              <img
+                src={academy.logo_url}
+                alt="Academy Logo"
+                className="h-10 w-10 rounded-full object-cover border border-primary/20 shadow-sm transition-transform hover:scale-105 cursor-pointer"
+              />
+            ) : (
+              <span className="bg-primary/10 text-primary border border-primary/20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black tracking-tighter shadow-sm transition-transform hover:scale-105 cursor-pointer">
+                {academy?.name ? academy.name.substring(0, 2).toUpperCase() : PRODUCT_LOGO}
+              </span>
+            )}
             <motion.span
               initial={{ opacity: 1 }}
               animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
               transition={{ duration: 0.2 }}
               className="font-bold tracking-wide text-foreground whitespace-nowrap text-sm cursor-pointer"
             >
-              {PRODUCT_NAME}
+              {academy?.name || PRODUCT_NAME}
             </motion.span>
           </Link>
           <motion.button

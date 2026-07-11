@@ -4,6 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
+::selection {
+  background-color: #0f172a !important; /* Dark Navy */
+  color: #a3e635 !important;           /* Lime Green */
+}
 :root,
 :root[data-theme='light'] {
   /* Premium 2026 type pairing */

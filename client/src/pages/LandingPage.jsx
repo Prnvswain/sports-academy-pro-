@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Activity,
   Building2,
+  Quote,
 } from 'lucide-react';
 
 const initialContact = {
@@ -27,13 +28,14 @@ const initialContact = {
   message: '',
 };
 
+// Sports Theme - Deep Navy & Vibrant Lime Green
 const SPORTS = [
-  { name: 'Cricket', icon: '🏏', bg: 'from-emerald-500/15 to-teal-500/5', ring: 'group-hover:ring-emerald-400/40' },
-  { name: 'Football', icon: '⚽', bg: 'from-green-500/15 to-emerald-500/5', ring: 'group-hover:ring-green-400/40' },
-  { name: 'Basketball', icon: '🏀', bg: 'from-orange-500/15 to-amber-500/5', ring: 'group-hover:ring-orange-400/40' },
-  { name: 'Tennis', icon: '🎾', bg: 'from-lime-500/15 to-emerald-500/5', ring: 'group-hover:ring-lime-400/40' },
-  { name: 'Badminton', icon: '🏸', bg: 'from-cyan-500/15 to-teal-500/5', ring: 'group-hover:ring-cyan-400/40' },
-  { name: 'Swimming', icon: '🏊', bg: 'from-blue-500/15 to-indigo-500/5', ring: 'group-hover:ring-blue-400/40' },
+  { name: 'Cricket', icon: '🏏', bg: 'bg-slate-800', shadow: 'hover:shadow-lime-500/20 hover:border-lime-500' },
+  { name: 'Football', icon: '⚽', bg: 'bg-slate-800', shadow: 'hover:shadow-lime-500/20 hover:border-lime-500' },
+  { name: 'Basketball', icon: '🏀', bg: 'bg-slate-800', shadow: 'hover:shadow-lime-500/20 hover:border-lime-500' },
+  { name: 'Tennis', icon: '🎾', bg: 'bg-slate-800', shadow: 'hover:shadow-lime-500/20 hover:border-lime-500' },
+  { name: 'Badminton', icon: '🏸', bg: 'bg-slate-800', shadow: 'hover:shadow-lime-500/20 hover:border-lime-500' },
+  { name: 'Swimming', icon: '🏊', bg: 'bg-slate-800', shadow: 'hover:shadow-lime-500/20 hover:border-lime-500' },
 ];
 
 const FACILITIES = [
@@ -41,25 +43,33 @@ const FACILITIES = [
     title: 'Professional Turf & Nets',
     desc: 'High-grade seasonal multi-lane training spaces built for elite conditioning.',
     icon: '🏟️',
-    color: 'text-emerald-500',
+    color: 'text-lime-500',
+    bg: 'bg-white dark:bg-slate-800',
+    border: 'border-slate-200 dark:border-slate-700',
   },
   {
     title: 'Fitness & Recovery Zone',
     desc: 'Dedicated sports science and athletic recovery hubs for every squad.',
     icon: '🏋️‍♂️',
-    color: 'text-orange-500',
+    color: 'text-slate-900 dark:text-white',
+    bg: 'bg-lime-50 dark:bg-lime-900/10',
+    border: 'border-lime-200 dark:border-lime-900/30',
   },
   {
     title: 'Locker Rooms & Hydration Stations',
     desc: 'Smart sanitization loops and specialized player amenities on tap.',
     icon: '💧',
-    color: 'text-cyan-500',
+    color: 'text-lime-500',
+    bg: 'bg-white dark:bg-slate-800',
+    border: 'border-slate-200 dark:border-slate-700',
   },
   {
     title: 'Parent Viewing Gallery',
     desc: 'Premium elevated spaces for training observation, every session.',
     icon: '👥',
-    color: 'text-purple-500',
+    color: 'text-slate-900 dark:text-white',
+    bg: 'bg-lime-50 dark:bg-lime-900/10',
+    border: 'border-lime-200 dark:border-lime-900/30',
   },
 ];
 
@@ -68,41 +78,48 @@ const FEATURES = [
     title: 'Academy Command',
     desc: 'Provision professional coach workspaces, register student paths, and oversee audit-grade execution records.',
     icon: Building2,
-    color: 'text-blue-500',
-    bar: 'bg-blue-500',
+    iconColor: 'text-slate-900',
+    titleColor: 'text-slate-900',
+    descColor: 'text-slate-800',
+    bg: 'bg-lime-400',
+    shadow: 'hover:shadow-lime-500/30 hover:-translate-y-2',
   },
   {
     title: 'Smart Batch Flows',
     desc: 'Automate schedule conflict isolation, map team capacities, and cross-validate sport availability.',
     icon: CalendarClock,
-    color: 'text-purple-500',
-    bar: 'bg-purple-500',
+    iconColor: 'text-lime-400',
+    titleColor: 'text-white',
+    descColor: 'text-slate-300',
+    bg: 'bg-slate-800',
+    shadow: 'hover:shadow-slate-900/30 hover:-translate-y-2',
   },
   {
     title: 'Coach Portals',
     desc: 'Log attendance in seconds, with automated condition alerts delivered straight to parent inboxes.',
     icon: Bell,
-    color: 'text-orange-500',
-    bar: 'bg-orange-500',
+    iconColor: 'text-slate-900',
+    titleColor: 'text-slate-900',
+    descColor: 'text-slate-800',
+    bg: 'bg-lime-400',
+    shadow: 'hover:shadow-lime-500/30 hover:-translate-y-2',
   },
   {
     title: 'Secure Architecture',
     desc: 'Relational-database backed infrastructure, engineered for high-performance joins at scale.',
     icon: ShieldCheck,
-    color: 'text-cyan-500',
-    bar: 'bg-cyan-500',
+    iconColor: 'text-lime-400',
+    titleColor: 'text-white',
+    descColor: 'text-slate-300',
+    bg: 'bg-slate-800',
+    shadow: 'hover:shadow-slate-900/30 hover:-translate-y-2',
   },
 ];
 
 const TESTIMONIALS = [
-  ['Rajesh K.', 'Parent', 'Attendance alerts give us peace of mind every training day.', '👥'],
-  ['Coach Meera', 'Head Coach', 'Batch scheduling and fee tracking saved hours every week.', '📋'],
-  [
-    'Elite Sports Club',
-    'Academy Admin',
-    'We scaled from one branch to three without spreadsheets.',
-    '⚡',
-  ],
+  ['Rajesh K.', 'Parent', 'Attendance alerts give us peace of mind every training day. Highly recommended.', '👥', 'border-t-lime-500'],
+  ['Coach Meera', 'Head Coach', 'Batch scheduling and fee tracking saved hours every week. A must-have tool.', '📋', 'border-t-slate-800'],
+  ['Elite Sports Club', 'Academy Admin', 'We scaled from one branch to three without spreadsheets. Pure efficiency.', '⚡', 'border-t-lime-500'],
 ];
 
 const FAQS = [
@@ -124,7 +141,6 @@ const FAQS = [
   },
 ];
 
-// Count-up component that animates a number into view once, using a lightweight rAF loop.
 function CountUp({ target, suffix = '', duration = 1400 }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-40px' });
@@ -153,11 +169,10 @@ function CountUp({ target, suffix = '', duration = 1400 }) {
   );
 }
 
-// Decorative lane-line pattern used as a recurring signature motif (running-track lanes).
 function LaneLines({ className = '' }) {
   return (
     <svg
-      className={`pointer-events-none absolute inset-0 h-full w-full ${className}`}
+      className={`pointer-events-none absolute inset-0 h-full w-full opacity-10 mix-blend-overlay ${className}`}
       preserveAspectRatio="none"
       viewBox="0 0 100 100"
     >
@@ -169,8 +184,8 @@ function LaneLines({ className = '' }) {
           x2="100"
           y2={y}
           stroke="currentColor"
-          strokeWidth="0.15"
-          strokeDasharray="2 3"
+          strokeWidth="0.2"
+          strokeDasharray="2 4"
           vectorEffect="non-scaling-stroke"
         />
       ))}
@@ -179,18 +194,18 @@ function LaneLines({ className = '' }) {
 }
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 };
 
 const staggerParent = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.09 } },
+  show: { transition: { staggerChildren: 0.1 } },
 };
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { isInstallable, installHint, promptInstall } = usePwaInstall();
+  const { isInstallable, promptInstall } = usePwaInstall();
 
   const [contactForm, setContactForm] = useState(() => {
     const savedDraft = localStorage.getItem('sams_draft_public_contact');
@@ -198,11 +213,9 @@ export default function LandingPage() {
   });
   const [contactLoading, setContactLoading] = useState(false);
   const [contactMessage, setContactMessage] = useState({ text: '', type: '' });
-
-  const [activeModal, setActiveModal] = useState(null); // 'contact' | null
+  const [activeModal, setActiveModal] = useState(null);
   const [openFaq, setOpenFaq] = useState(0);
 
-  // Auto-Save Persistence Loops
   useEffect(() => {
     localStorage.setItem('sams_draft_public_contact', JSON.stringify(contactForm));
   }, [contactForm]);
@@ -247,39 +260,31 @@ export default function LandingPage() {
     window.location.href = '/super-admin/login';
   };
 
-  // Shared utility string to suppress white background states on inputs across all viewports
   const inputThemeStyles =
-    'input-field bg-[var(--color-input)] dark:bg-[#09090b] text-foreground border-border focus:border-accent focus:ring-accent/20 autofill:shadow-[0_0_0_30px_var(--color-input)_inset] autofill:text-foreground';
+    'w-full rounded-none bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white border-2 border-slate-200 dark:border-slate-700 p-3 focus:border-lime-500 focus:ring-0 focus:outline-none transition-all duration-300 text-sm font-medium shadow-sm';
 
   return (
-    <div className="bg-surface text-foreground selection:bg-accent/20 min-h-screen overflow-x-hidden transition-colors duration-200">
+    <div className="bg-slate-50 text-slate-900 font-sans overflow-x-hidden selection:bg-lime-400 selection:text-slate-900">
+      
       {/* NAVIGATION HEADER */}
       <Navbar>
-        <nav className="hidden items-center gap-6 md:flex">
-          <a href="#about" className="text-muted hover:text-accent text-sm font-bold transition-colors">
-            About
-          </a>
-          <a href="#sports" className="text-muted hover:text-accent text-sm font-bold transition-colors">
-            Sports Streams
-          </a>
-          <a href="#facilities" className="text-muted hover:text-accent text-sm font-bold transition-colors">
-            Facilities
-          </a>
-          <a href="#testimonials" className="text-muted hover:text-accent text-sm font-bold transition-colors">
-            Testimonials
-          </a>
-          <a href="#pricing" className="text-muted hover:text-accent text-sm font-bold transition-colors">
-            Pricing Plans
-          </a>
-          <a href="#contact" className="text-muted hover:text-accent text-sm font-bold transition-colors">
-            Contact
-          </a>
+        <nav className="hidden items-center gap-5 md:flex">
+          {['About', 'Features', 'Sports', 'Pricing', 'Testimonials', 'Contact'].map((item) => (
+            <a
+              key={item}
+              href={`#${item.toLowerCase()}`}
+              className="text-slate-700 hover:text-lime-600 dark:text-slate-200 relative text-xs font-black uppercase tracking-wider transition-colors group"
+            >
+              {item}
+              <span className="absolute -bottom-1.5 left-0 h-0.5 w-0 bg-lime-500 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+          ))}
         </nav>
         <NavbarActions>
           {isInstallable && (
             <button
               type="button"
-              className="btn-success btn-sm transition-transform active:scale-95"
+              className="hidden sm:block rounded bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800 transition-all hover:bg-slate-200"
               onClick={promptInstall}
             >
               Install App
@@ -287,306 +292,286 @@ export default function LandingPage() {
           )}
           <button
             type="button"
-            className="btn-gradient-primary px-4 py-1.5 text-sm font-bold rounded-lg shadow-md transition-transform active:scale-95"
-            onClick={() => navigate('/signup')}
-          >
-            Sign Up
-          </button>
-          <button
-            type="button"
-            className="btn-secondary btn-sm transition-transform active:scale-95"
+            className="rounded border-2 border-slate-900 dark:border-white px-4 py-1 text-xs font-black uppercase tracking-wider transition-all hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900"
             onClick={() => navigate('/login')}
           >
             Login
           </button>
+          <button
+            type="button"
+            className="rounded bg-lime-500 px-5 py-1.5 text-xs font-black uppercase tracking-wider text-slate-900 shadow-md transition-all hover:-translate-y-0.5 hover:bg-lime-400"
+            onClick={() => navigate('/signup')}
+          >
+            Sign Up
+          </button>
         </NavbarActions>
       </Navbar>
 
-      {/* HERO SECTION */}
-      <section className="border-border relative overflow-hidden border-b bg-[radial-gradient(circle_at_15%_0%,var(--color-accent-light),transparent_45%),radial-gradient(circle_at_100%_20%,rgba(56,189,248,0.12),transparent_40%)] bg-surface px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
-        {/* Signature background: running-track lane lines + floating sports elements */}
-        <div className="pointer-events-none absolute inset-0 z-0 select-none overflow-hidden">
-          <LaneLines className="text-accent/[0.07] -rotate-3 scale-125" />
+      {/* COMPACT HERO SECTION */}
+      <section className="relative overflow-hidden bg-slate-900 pt-24 pb-20 sm:pt-28 sm:pb-28 lg:pt-32 lg:pb-32 text-white z-0">
+        
+        {/* Backgrounds & Floating Icons - Icons Repositioned */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <LaneLines className="text-white opacity-10" />
+          
           <motion.div
-            className="absolute left-[8%] top-16 text-6xl opacity-20"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
+            className="absolute left-[8%] top-[12%] text-4xl sm:text-6xl drop-shadow-2xl opacity-60 z-10"
+            animate={{ rotate: 360, y: [0, -15, 0] }}
+            transition={{ rotate: { duration: 25, repeat: Infinity, ease: 'linear' }, y: { duration: 4, repeat: Infinity, ease: 'easeInOut' } }}
           >
             ⚽
           </motion.div>
+          {/* Badminton moved to middle-right so it is visible beside the text/box */}
           <motion.div
-            className="absolute bottom-24 left-1/4 cursor-pointer text-5xl opacity-25"
-            animate={{ y: [0, -14, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            onClick={handleSecretGateway}
-          >
-            🏀
-          </motion.div>
-          <motion.div
-            className="absolute right-1/3 top-24 text-6xl opacity-20"
-            animate={{ scale: [1, 1.12, 1] }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute right-[45%] top-[18%] text-4xl sm:text-6xl drop-shadow-2xl opacity-60 z-10"
+            animate={{ scale: [1, 1.1, 1], rotate: [0, 10, -10, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
           >
             🏸
           </motion.div>
           <motion.div
-            className="absolute bottom-16 right-10 text-7xl opacity-15"
-            animate={{ rotate: -360 }}
-            transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+            className="absolute left-[20%] bottom-[15%] text-5xl sm:text-7xl drop-shadow-2xl opacity-50 z-10"
+            animate={{ y: [0, -20, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            🏀
+          </motion.div>
+          {/* Tennis moved up and far right to avoid the box */}
+          <motion.div
+            className="absolute right-[4%] bottom-[45%] text-4xl sm:text-6xl drop-shadow-2xl opacity-60 z-10"
+            animate={{ rotate: -360, x: [0, -15, 0] }}
+            transition={{ rotate: { duration: 30, repeat: Infinity, ease: 'linear' }, x: { duration: 5, repeat: Infinity, ease: 'easeInOut' } }}
           >
             🎾
           </motion.div>
-          <motion.div
-            className="absolute right-10 top-1/3 text-5xl opacity-25"
-            animate={{ y: [0, -16, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
-          >
-            🏏
-          </motion.div>
+
+          {/* Neon Green Diagonal Slice */}
+          <div 
+            className="absolute top-0 right-0 h-full w-full sm:w-[70%] bg-lime-500 origin-top-right transition-transform" 
+            style={{ clipPath: 'polygon(25% 0, 100% 0, 100% 100%, 0% 100%)' }}>
+          </div>
+          <div 
+            className="absolute top-0 right-0 h-full w-full sm:w-[70%] bg-slate-900/40 mix-blend-multiply" 
+            style={{ clipPath: 'polygon(45% 0, 100% 0, 100% 100%, 15% 100%)' }}>
+          </div>
         </div>
 
-        <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2">
-          <motion.div
-            variants={staggerParent}
-            initial="hidden"
-            animate="show"
-            className="space-y-8"
-          >
+        {/* Hero Content */}
+        <div className="relative z-20 w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid items-center gap-10 lg:grid-cols-2">
+          
+          <motion.div variants={staggerParent} initial="hidden" animate="show" className="space-y-6">
             <motion.span
               variants={fadeUp}
-              className="bg-accent/10 text-accent border-accent/20 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-wider"
+              className="inline-flex items-center gap-2 rounded bg-slate-800/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-lime-400 border border-slate-700 backdrop-blur-md"
             >
-              <span className="bg-accent h-2 w-2 animate-pulse rounded-full" />
+              <span className="h-2 w-2 rounded-full bg-lime-400 shadow-[0_0_8px_#a3e635] animate-pulse" />
               Sports Academy Pro
             </motion.span>
 
             <motion.h1
               variants={fadeUp}
-              className="text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+              className="text-white text-4xl sm:text-5xl lg:text-[3.25rem] leading-[1.1] font-black uppercase tracking-tight drop-shadow-md"
             >
-              The Complete{' '}
-              <span className="from-accent relative inline-block bg-gradient-to-r to-emerald-500 bg-clip-text text-transparent">
-                Sports Academy
-              </span>{' '}
-              Management Platform
+              The Complete <br />
+              <span className="text-lime-400 drop-shadow-lg">Sports Academy</span> <br />
+              Platform
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="text-muted max-w-xl text-base leading-relaxed sm:text-lg">
-              Onboard your multi-tenant sports academy in moments. Seamlessly orchestrate elite
-              coaches, dynamic student batches, payment tracking, and real-time parent
-              notifications — all from one command center.
+            <motion.p variants={fadeUp} className="text-white/95 max-w-lg text-base sm:text-lg font-medium leading-relaxed drop-shadow-sm">
+              Onboard your multi-tenant sports academy in moments. Seamlessly orchestrate elite coaches, dynamic student batches, payment tracking, and real-time parent notifications.
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-wrap gap-4 pt-2">
               <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/signup')}
-                className="btn-gradient-primary inline-flex items-center gap-2 px-8 py-4 text-base font-black transition-shadow hover:shadow-lg"
+                className="inline-flex items-center gap-3 rounded bg-lime-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-xl shadow-lime-500/20 transition-all hover:bg-lime-400"
               >
                 Start Free Trial
                 <ArrowRight className="h-4 w-4" />
               </motion.button>
               {isInstallable && (
                 <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  type="button"
-                  className="btn-gradient-blue px-8 py-4 text-base font-black"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={promptInstall}
+                  className="rounded border-2 border-slate-500 bg-slate-800/80 px-6 py-3 text-sm font-black uppercase tracking-wider text-white backdrop-blur transition-all hover:bg-slate-700 hover:border-slate-400"
                 >
                   Install App System
                 </motion.button>
               )}
             </motion.div>
-
-            {/* KPI METRICS TRACKER */}
-            <motion.div variants={fadeUp} className="mt-12 grid grid-cols-3 gap-4">
-              {[
-                { val: 4, suffix: '', label: 'Core Modules', color: 'text-blue-500' },
-                { val: 100, suffix: '%', label: 'Data Safety', color: 'text-emerald-500' },
-                { val: null, label: 'Robust Base', color: 'text-purple-500', display: 'MySQL' },
-              ].map((kpi, idx) => (
-                <div
-                  key={idx}
-                  className="card bg-surface-secondary/70 border-border/60 hover:border-accent/40 group py-5 text-center backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-                >
-                  <div className={`text-3xl font-black ${kpi.color} transition-transform duration-300 group-hover:scale-110`}>
-                    {kpi.display ?? <CountUp target={kpi.val} suffix={kpi.suffix} />}
-                  </div>
-                  <div className="text-muted mt-2 text-[10px] font-black uppercase tracking-widest">
-                    {kpi.label}
-                  </div>
-                </div>
-              ))}
-            </motion.div>
           </motion.div>
 
-          {/* ANIMATED DASHBOARD PREVIEW MOCKUP */}
+          {/* DASHBOARD WIDGET PREVIEW (More Content Added) */}
           <motion.div
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="relative"
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="relative lg:ml-auto w-full max-w-lg"
           >
-            <motion.div
-              animate={{ y: [0, -12, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-              className="card border-border bg-surface-secondary/90 relative overflow-hidden border p-5 shadow-2xl backdrop-blur-sm"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="bg-accent/15 text-accent flex h-8 w-8 items-center justify-center rounded-lg">
+            <div className="relative overflow-hidden rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900 border-l-8 border-lime-500 transform lg:rotate-2 hover:rotate-0 transition-transform duration-500">
+              <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded bg-slate-900 text-lime-400 shadow-inner">
                     <Activity className="h-4 w-4" />
                   </div>
-                  <span className="text-sm font-black tracking-tight">Academy Overview</span>
+                  <span className="text-sm font-black tracking-wide text-slate-900 dark:text-white uppercase">Academy Command</span>
                 </div>
-                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-500">
-                  Live
-                </span>
+                <span className="rounded bg-lime-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-lime-700">Live</span>
               </div>
 
-              <div className="mb-4 grid grid-cols-3 gap-3">
+              {/* Stats Row */}
+              <div className="mb-4 grid grid-cols-3 gap-2">
                 {[
-                  { label: 'Attendance', val: '96%', color: 'text-emerald-500' },
-                  { label: 'Coaches', val: '18', color: 'text-blue-500' },
-                  { label: 'Students', val: '312', color: 'text-purple-500' },
+                  { label: 'Attendance', val: '96%' },
+                  { label: 'Coaches', val: '18' },
+                  { label: 'Students', val: '312' },
                 ].map((s) => (
-                  <div key={s.label} className="bg-surface border-border/70 rounded-xl border p-3 text-center">
-                    <div className={`text-xl font-black ${s.color}`}>{s.val}</div>
-                    <div className="text-muted mt-1 text-[9px] font-bold uppercase tracking-wider">{s.label}</div>
+                  <div key={s.label} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-2 text-center border border-slate-100 dark:border-slate-700">
+                    <div className="text-lg font-black text-slate-900 dark:text-lime-400">{s.val}</div>
+                    <div className="mt-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{s.label}</div>
                   </div>
                 ))}
               </div>
 
-              {/* Fake bar chart */}
-              <div className="bg-surface border-border/70 mb-4 flex h-28 items-end gap-2 rounded-xl border p-3">
-                {[45, 70, 55, 90, 65, 80, 96].map((h, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ duration: 0.8, delay: 0.4 + i * 0.07, ease: 'easeOut' }}
-                    className="from-accent flex-1 rounded-md bg-gradient-to-t to-emerald-300"
-                  />
-                ))}
+              {/* Weekly Target Progress - New Content */}
+              <div className="mb-4 space-y-1.5 px-1">
+                <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  <span>Weekly Sessions Target</span>
+                  <span className="text-lime-600 dark:text-lime-400">85%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div className="h-full rounded-full bg-lime-500 shadow-[0_0_10px_#a3e635]" style={{ width: '85%' }}></div>
+                </div>
               </div>
 
+              {/* List Items */}
               <div className="space-y-2">
                 {[
-                  { name: 'U-14 Cricket Batch', tag: 'On time', icon: Trophy, color: 'text-orange-500' },
-                  { name: 'Coach Meera checked in', tag: 'Verified', icon: CheckCircle2, color: 'text-emerald-500' },
+                  { name: 'U-14 Cricket Batch', tag: 'On time', icon: Trophy, bg: 'bg-lime-100 dark:bg-lime-900/30', color: 'text-lime-700 dark:text-lime-400' },
+                  { name: 'Coach Checked in', tag: 'Verified', icon: CheckCircle2, bg: 'bg-slate-100 dark:bg-slate-800', color: 'text-slate-700 dark:text-slate-300' },
+                  // Extra list item added
+                  { name: 'New Enrolment', tag: 'Today', icon: Users, bg: 'bg-slate-100 dark:bg-slate-800', color: 'text-slate-700 dark:text-slate-300' },
                 ].map((row) => (
-                  <div key={row.name} className="bg-surface border-border/60 flex items-center gap-3 rounded-lg border p-2.5">
-                    <row.icon className={`h-4 w-4 ${row.color}`} />
-                    <span className="flex-1 text-xs font-bold">{row.name}</span>
-                    <span className="text-muted text-[10px] font-black uppercase tracking-wider">{row.tag}</span>
+                  <div key={row.name} className="flex items-center gap-3 rounded-lg bg-white dark:bg-slate-900 p-2.5 border border-slate-100 dark:border-slate-700 shadow-sm">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded ${row.bg}`}>
+                      <row.icon className={`h-4 w-4 ${row.color}`} />
+                    </div>
+                    <span className="flex-1 text-xs font-bold text-slate-800 dark:text-slate-200">{row.name}</span>
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">{row.tag}</span>
                   </div>
                 ))}
               </div>
-            </motion.div>
-
-            {/* Floating trust badge */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.9 }}
-              className="card bg-surface border-border absolute -bottom-6 -left-6 hidden items-center gap-2 border px-4 py-3 shadow-xl sm:flex"
-            >
-              <div className="flex -space-x-2">
-                {['bg-emerald-500', 'bg-blue-500', 'bg-orange-500'].map((c, i) => (
-                  <div key={i} className={`h-7 w-7 rounded-full border-2 border-white dark:border-[#09090b] ${c}`} />
+            </div>
+            
+            {/* Trust Badge */}
+            <div className="absolute -bottom-5 -left-5 hidden sm:flex items-center gap-3 rounded-lg bg-white p-3 shadow-xl dark:bg-slate-800 border border-slate-100 dark:border-slate-700 z-10">
+               <div className="flex -space-x-2.5">
+                {['bg-slate-900', 'bg-lime-500', 'bg-slate-700'].map((c, i) => (
+                  <div key={i} className={`h-8 w-8 rounded-full border-2 border-white dark:border-slate-800 ${c}`} />
                 ))}
               </div>
               <div>
-                <div className="text-xs font-black">500+ Academies</div>
-                <div className="text-muted flex items-center gap-0.5 text-[10px] font-bold">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> 4.9 rating
+                <div className="text-xs font-black text-slate-900 dark:text-white uppercase">500+ Academies</div>
+                <div className="flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400">
+                  <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" /> 4.9 Rating
                 </div>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         </div>
       </section>
 
-      {/* ABOUT ACADEMY */}
-      <section id="about" className="border-border bg-surface-secondary relative overflow-hidden border-b px-4 py-24 sm:px-6 lg:px-8">
+      {/* STATS BANNER */}
+      <section className="relative z-30 py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3, type: 'spring' }}
+          className="grid grid-cols-2 md:grid-cols-4 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 divide-x divide-y md:divide-y-0 divide-slate-100 dark:divide-slate-700 overflow-hidden"
+        >
+          {[
+            { val: 500, suffix: '+', label: 'Academies', icon: Building2 },
+            { val: 12000, suffix: '+', label: 'Athletes', icon: Users },
+            { val: 98, suffix: '%', label: 'Accuracy', icon: TrendingUp },
+            { val: 40000, suffix: '+', label: 'Payments', icon: CreditCard },
+          ].map((s, i) => (
+            <div 
+              key={s.label} 
+              className="p-6 text-center hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+            >
+              <s.icon className="h-7 w-7 mx-auto mb-3 text-slate-300 dark:text-slate-500 group-hover:text-lime-500 transition-colors" />
+              <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                <CountUp target={s.val} suffix={s.suffix} />
+              </div>
+              <div className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-lime-400">{s.label}</div>
+            </div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* ABOUT SECTION */}
+      <section id="about" className="px-4 py-16 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-900/50">
         <motion.div
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.4 }}
           variants={fadeUp}
-          className="relative z-10 mx-auto max-w-4xl space-y-6 text-center"
+          className="mx-auto max-w-4xl text-center space-y-5"
         >
-          <p className="text-accent text-xs font-black uppercase tracking-widest">Why Sports Academy Pro</p>
-          <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Unified Operations Framework</h2>
-          <div className="bg-accent mx-auto my-4 h-1 w-16 rounded-full" />
-          <p className="text-muted mx-auto max-w-3xl text-base leading-relaxed sm:text-lg">
-            Sports Academy Pro resolves structural fragmentation within sports organizations. We
-            connect coach schedules, automated parental confirmation pipelines, and structural
-            transaction ledger tracking under a single secure, responsive workspace.
+          <p className="inline-block rounded bg-lime-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-lime-700 dark:bg-lime-900/30 dark:text-lime-400">Why Sports Academy Pro</p>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl dark:text-white uppercase">Unified Operations Framework</h2>
+          <div className="mx-auto h-1 w-16 bg-lime-500" />
+          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed font-medium">
+            Sports Academy Pro resolves structural fragmentation within sports organizations. We connect coach schedules, automated parental confirmation pipelines, and structural transaction ledger tracking under a single secure, responsive workspace.
           </p>
         </motion.div>
       </section>
 
-      {/* FEATURES / ATTRIBUTES */}
-      <section className="bg-surface border-border border-b px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.3 }}
-            variants={fadeUp}
-            className="mb-16 space-y-3 text-center"
-          >
-            <p className="text-accent text-xs font-black uppercase tracking-widest">Built for Academies</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Everything Runs From One Place</h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={staggerParent}
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            {FEATURES.map((f) => (
-              <motion.article
-                key={f.title}
-                variants={fadeUp}
-                whileHover={{ y: -6 }}
-                className="card bg-surface-secondary border-border/80 hover:border-accent/30 group relative flex flex-col justify-between overflow-hidden border p-6 shadow-sm transition-colors duration-300 hover:shadow-md"
-              >
-                <div className={`absolute left-0 top-0 h-full w-1 ${f.bar} origin-top scale-y-0 transform transition-transform duration-300 group-hover:scale-y-100`} />
-                <div>
-                  <div className={`bg-surface mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${f.color} transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110`}>
-                    <f.icon className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-foreground mb-2 text-base font-black tracking-tight">{f.title}</h3>
-                  <p className="text-muted m-0 text-sm leading-relaxed">{f.desc}</p>
-                </div>
-              </motion.article>
-            ))}
-          </motion.div>
+      {/* FEATURES SECTION */}
+      <section id="features" className="px-4 py-16 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="mb-12 text-center">
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl uppercase">Everything Runs From One Place</h2>
         </div>
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={staggerParent}
+          className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {FEATURES.map((f) => (
+            <motion.article
+              key={f.title}
+              variants={fadeUp}
+              className={`${f.bg} ${f.shadow} group relative flex flex-col justify-between rounded-xl p-6 transition-all duration-300 border border-transparent`}
+            >
+              <div>
+                <f.icon className={`h-7 w-7 mb-5 opacity-90 transform group-hover:scale-110 transition-transform ${f.iconColor}`} />
+                <h3 className={`mb-2 text-lg font-black tracking-tight uppercase ${f.titleColor}`}>{f.title}</h3>
+                <p className={`text-xs font-medium opacity-90 leading-relaxed ${f.descColor}`}>{f.desc}</p>
+              </div>
+            </motion.article>
+          ))}
+        </motion.div>
       </section>
 
-      {/* SPORTS OFFERED */}
-      <section id="sports" className="border-border bg-surface-secondary relative border-b px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
+      {/* DIAGONAL BANNER - SPORTS STREAMS */}
+      <section id="sports" className="relative bg-slate-900 py-24 mt-12 mb-12 overflow-hidden">
+        <div className="absolute inset-0 z-0 bg-lime-500 opacity-5" style={{ clipPath: 'polygon(0 0, 40% 0, 60% 100%, 0% 100%)' }}></div>
+        
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.4 }}
             variants={fadeUp}
-            className="mb-16 text-center"
+            className="mb-12 text-center"
           >
-            <p className="text-accent mb-2 text-xs font-black uppercase tracking-widest">Multi-Sport Ready</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Sports Streams Offered</h2>
-            <p className="text-muted mx-auto mt-4 max-w-md text-sm">
-              Enforce clean validation streams mapping across dynamic sport configurations.
-            </p>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-lime-400">Multi-Sport Ready</p>
+            <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl uppercase">Sports Streams Offered</h2>
           </motion.div>
 
           <motion.div
@@ -594,23 +579,17 @@ export default function LandingPage() {
             whileInView="show"
             viewport={{ once: true, amount: 0.15 }}
             variants={staggerParent}
-            className="grid gap-6 sm:grid-cols-2 md:grid-cols-3"
+            className="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
           >
             {SPORTS.map((sport) => (
               <motion.article
                 key={sport.name}
                 variants={fadeUp}
-                whileHover={{ y: -8, scale: 1.02 }}
-                className={`card relative cursor-pointer overflow-hidden bg-gradient-to-br ${sport.bg} border-border ring-1 ring-transparent transition-shadow duration-300 hover:shadow-lg ${sport.ring} group border p-8 text-center`}
+                whileHover={{ y: -6, scale: 1.05 }}
+                className={`group cursor-pointer rounded bg-slate-800 p-6 text-center transition-all border-b-4 border-slate-700 ${sport.shadow}`}
               >
-                <motion.div
-                  className="mb-4 inline-block text-5xl"
-                  whileHover={{ scale: 1.2, rotate: 8 }}
-                  transition={{ type: 'spring', stiffness: 300 }}
-                >
-                  {sport.icon}
-                </motion.div>
-                <div className="text-foreground group-hover:text-accent text-lg font-black tracking-tight transition-colors">
+                <div className="mb-3 text-4xl transform group-hover:rotate-12 transition-transform drop-shadow-md">{sport.icon}</div>
+                <div className="text-xs font-black uppercase tracking-wide text-white group-hover:text-lime-400 transition-colors">
                   {sport.name}
                 </div>
               </motion.article>
@@ -620,124 +599,64 @@ export default function LandingPage() {
       </section>
 
       {/* FACILITIES */}
-      <section id="facilities" className="bg-surface border-border border-b px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.4 }}
-            variants={fadeUp}
-            className="mb-16 text-center"
-          >
-            <p className="text-accent mb-2 text-xs font-black uppercase tracking-widest">Facilities</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">World-Class Infrastructure</h2>
-            <p className="text-muted mx-auto mt-4 max-w-md text-sm">
-              Premium physical operational foundations optimized for high-tier telemetry support.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={staggerParent}
-            className="grid gap-6 md:grid-cols-2"
-          >
-            {FACILITIES.map((item) => (
-              <motion.div
-                key={item.title}
-                variants={fadeUp}
-                whileHover={{ y: -4 }}
-                className="card bg-surface-secondary border-border/70 hover:border-accent/30 flex items-start gap-5 border p-6 text-sm shadow-sm transition-colors duration-300 hover:shadow-md"
-              >
-                <div className={`bg-surface rounded-xl p-3 text-2xl shadow-inner ${item.color}`}>{item.icon}</div>
-                <div>
-                  <h3 className="text-foreground mb-1 text-base font-black tracking-tight">{item.title}</h3>
-                  <p className="text-muted m-0 text-sm leading-relaxed">{item.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+      <section id="facilities" className="px-4 py-16 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="mb-12 text-center">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-lime-600">Facilities</p>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl uppercase">World-Class Infrastructure</h2>
         </div>
-      </section>
-
-      {/* STATS / TRUST STRIP */}
-      <section className="border-border from-accent to-emerald-600 relative overflow-hidden border-b bg-gradient-to-r px-4 py-16 sm:px-6 lg:px-8">
-        <LaneLines className="text-white/10" />
         <motion.div
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, amount: 0.4 }}
+          viewport={{ once: true, amount: 0.2 }}
           variants={staggerParent}
-          className="relative z-10 mx-auto grid max-w-6xl grid-cols-2 gap-8 text-center text-white md:grid-cols-4"
+          className="grid gap-5 md:grid-cols-2"
         >
-          {[
-            { val: 500, suffix: '+', label: 'Academies Onboarded', icon: Building2 },
-            { val: 12000, suffix: '+', label: 'Athletes Tracked', icon: Users },
-            { val: 98, suffix: '%', label: 'Attendance Accuracy', icon: TrendingUp },
-            { val: 40000, suffix: '+', label: 'Payments Processed', icon: CreditCard },
-          ].map((s) => (
-            <motion.div key={s.label} variants={fadeUp} className="space-y-2">
-              <s.icon className="mx-auto h-6 w-6 opacity-80" />
-              <div className="text-3xl font-black sm:text-4xl">
-                <CountUp target={s.val} suffix={s.suffix} />
+          {FACILITIES.map((item) => (
+            <motion.div
+              key={item.title}
+              variants={fadeUp}
+              className={`group flex items-start gap-4 rounded-none border ${item.border} ${item.bg} p-5 transition-all hover:shadow-md`}
+            >
+              <div className="text-3xl transform group-hover:scale-110 transition-transform">{item.icon}</div>
+              <div>
+                <h3 className={`mb-1.5 text-base font-black uppercase ${item.color}`}>{item.title}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{item.desc}</p>
               </div>
-              <div className="text-[11px] font-bold uppercase tracking-widest opacity-85">{s.label}</div>
             </motion.div>
           ))}
         </motion.div>
       </section>
 
-      {/* TESTIMONIAL MONITOR BAR */}
-      <section id="testimonials" className="border-border bg-surface-secondary border-b px-4 py-24 sm:px-6 lg:px-8">
+      {/* TESTIMONIALS */}
+      <section id="testimonials" className="bg-slate-100 px-4 py-20 sm:px-6 lg:px-8 dark:bg-slate-900/30">
         <div className="mx-auto max-w-7xl">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.4 }}
-            variants={fadeUp}
-            className="mb-16 text-center"
-          >
-            <p className="text-accent mb-2 text-xs font-black uppercase tracking-widest">Testimonials</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">System Endorsements</h2>
-            <p className="text-muted mx-auto mt-4 max-w-md text-sm">
-              Verified architectural performance markers derived from active managers.
-            </p>
-          </motion.div>
-
+          <div className="mb-12 text-center">
+             <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl uppercase">System Endorsements</h2>
+          </div>
           <motion.div
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.2 }}
             variants={staggerParent}
-            className="grid gap-6 md:grid-cols-3"
+            className="grid gap-5 md:grid-cols-3"
           >
-            {TESTIMONIALS.map(([name, role, quote, icon]) => (
+            {TESTIMONIALS.map(([name, role, quote, icon, borderClass]) => (
               <motion.blockquote
                 key={name}
                 variants={fadeUp}
-                whileHover={{ y: -4 }}
-                className="card bg-surface border-border/80 hover:border-accent/20 relative m-0 flex flex-col justify-between border p-6 shadow-sm transition-shadow duration-300 hover:shadow-md"
+                className={`relative flex flex-col justify-between bg-white p-6 shadow-sm border border-slate-200 transition-all hover:shadow-md border-t-4 ${borderClass} dark:bg-slate-800 dark:border-slate-700`}
               >
-                <span className="text-accent/10 pointer-events-none absolute right-4 top-2 select-none font-serif text-5xl">
-                  &ldquo;
-                </span>
                 <div>
-                  <div className="mb-3 flex items-center gap-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-                  <div className="mb-2 text-2xl">{icon}</div>
-                  <p className="text-muted m-0 text-sm font-medium italic leading-relaxed">&ldquo;{quote}&rdquo;</p>
+                  <Quote className="h-6 w-6 text-slate-200 dark:text-slate-600 mb-3" />
+                  <p className="text-sm font-medium italic leading-relaxed text-slate-600 dark:text-slate-300">&ldquo;{quote}&rdquo;</p>
                 </div>
-                <footer className="border-border/60 text-foreground mt-8 flex items-center gap-3 border-t pt-4 text-sm font-black not-italic">
-                  <div className="bg-accent/10 text-accent flex h-8 w-8 items-center justify-center rounded-full text-xs font-black">
+                <footer className="mt-6 flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-black text-lime-400 shadow-inner`}>
                     {name.charAt(0)}
                   </div>
                   <div>
-                    {name}
-                    <span className="text-muted mt-0.5 block text-xs font-bold tracking-normal">{role}</span>
+                    <div className="text-sm font-black uppercase text-slate-900 dark:text-white">{name}</div>
+                    <span className="text-[10px] font-bold tracking-wide text-slate-500">{role}</span>
                   </div>
                 </footer>
               </motion.blockquote>
@@ -746,177 +665,138 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING TIER TRACK MODULE */}
-      <section
-        id="pricing"
-        className="border-border from-surface to-surface-secondary/30 border-b bg-gradient-to-b px-4 py-24 sm:px-6 lg:px-8"
-      >
-        <div className="mx-auto max-w-7xl">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.4 }}
-            variants={fadeUp}
-            className="mb-16 space-y-3 text-center"
-          >
-            <p className="text-accent text-xs font-black uppercase tracking-widest">Pricing</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Simple, Transparent Pricing</h2>
-            <p className="text-muted mx-auto max-w-md text-sm sm:text-base">
-              Choose the processing arrangement calibrated to your active student metrics.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.15 }}
-            variants={staggerParent}
-            className="grid items-stretch gap-8 lg:grid-cols-3"
-          >
-            {PRICING_PLANS.map((plan) => (
-              <motion.article
-                key={plan.id}
-                variants={fadeUp}
-                whileHover={{ y: -6 }}
-                className={`card bg-surface-secondary flex flex-col justify-between border-2 p-8 transition-shadow duration-300 ${
-                  plan.featured ? 'border-accent shadow-accent-glow relative' : 'border-border/80'
-                }`}
-              >
-                <div className="relative">
-                  {plan.featured && (
-                    <motion.span
-                      animate={{ scale: [1, 1.06, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="bg-accent text-foreground absolute -top-12 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-md"
-                    >
-                      Recommended Tier
-                    </motion.span>
-                  )}
-                  <p className="text-accent mb-2 text-xs font-black uppercase tracking-widest">{plan.name}</p>
-                  <p className="text-foreground my-4 text-5xl font-black tracking-tight">
-                    ${plan.price}
-                    <span className="text-muted ml-1 text-xs font-bold tracking-wide">/ month</span>
-                  </p>
-
-                  <ul className="border-border text-muted my-8 list-none space-y-4 border-t p-0 pt-6 text-sm">
-                    <li className="flex items-center gap-2.5">
-                      <CheckCircle2 className="text-accent h-4 w-4 shrink-0" />
-                      <span>
-                        Up to <strong className="text-foreground font-black">{plan.coaches}</strong> Active Coaches
-                      </span>
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <CheckCircle2 className="text-accent h-4 w-4 shrink-0" />
-                      <span>
-                        Up to <strong className="text-foreground font-black">{plan.students}</strong> Registered Profiles
-                      </span>
-                    </li>
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2.5">
-                        <CheckCircle2 className="text-accent h-4 w-4 shrink-0" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                  type="button"
-                  className={`${plan.featured ? 'btn-gradient-primary' : 'btn-secondary'} w-full rounded-xl py-3.5 text-sm font-bold shadow-md`}
-                  onClick={() => selectPlan(plan.id)}
-                >
-                  Choose {plan.name} Package
-                </motion.button>
-              </motion.article>
-            ))}
-          </motion.div>
+      {/* PRICING */}
+      <section id="pricing" className="px-4 py-20 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="mb-12 text-center">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-lime-600">Pricing</p>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl uppercase">Simple, Transparent Pricing</h2>
         </div>
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          variants={staggerParent}
+          className="grid gap-6 lg:grid-cols-3 items-center"
+        >
+          {PRICING_PLANS.map((plan) => (
+            <motion.article
+              key={plan.id}
+              variants={fadeUp}
+              className={`relative flex flex-col justify-between p-8 transition-all border ${
+                plan.featured 
+                ? 'bg-slate-900 text-white shadow-xl border-slate-900 lg:-translate-y-3 scale-[1.02] z-10 rounded-xl' 
+                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg hover:shadow-md'
+              }`}
+            >
+              <div>
+                {plan.featured && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-lime-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-slate-900 rounded-full shadow-md">
+                    Recommended
+                  </span>
+                )}
+                <p className={`text-xs font-black uppercase tracking-widest ${plan.featured ? 'text-lime-400' : 'text-slate-500'}`}>{plan.name}</p>
+                <p className="my-5 text-4xl font-black tracking-tight">
+                  ${plan.price} <span className="text-xs font-bold text-slate-500">/mo</span>
+                </p>
+                
+                <ul className={`my-6 space-y-3 text-xs font-medium border-t pt-6 ${plan.featured ? 'border-slate-700' : 'border-slate-100 dark:border-slate-700'}`}>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className={`h-4 w-4 ${plan.featured ? 'text-lime-400' : 'text-slate-400'}`} />
+                    <span>Up to <strong className="font-black">{plan.coaches}</strong> Coaches</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className={`h-4 w-4 ${plan.featured ? 'text-lime-400' : 'text-slate-400'}`} />
+                    <span>Up to <strong className="font-black">{plan.students}</strong> Students</span>
+                  </li>
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-center gap-2">
+                      <CheckCircle2 className={`h-4 w-4 ${plan.featured ? 'text-lime-400' : 'text-slate-400'}`} />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                type="button"
+                className={`w-full py-3 text-xs font-black uppercase tracking-wider transition-all ${
+                  plan.featured ? 'bg-lime-500 text-slate-900 hover:bg-lime-400 shadow-md' : 'bg-transparent border-2 border-slate-900 dark:border-slate-500 text-slate-900 dark:text-white hover:bg-slate-900 hover:text-white rounded'
+                }`}
+                onClick={() => selectPlan(plan.id)}
+              >
+                Choose {plan.name}
+              </button>
+            </motion.article>
+          ))}
+        </motion.div>
       </section>
 
-      {/* FAQ */}
-      <section className="bg-surface border-border border-b px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.4 }}
-            variants={fadeUp}
-            className="mb-12 text-center"
-          >
-            <p className="text-accent mb-2 text-xs font-black uppercase tracking-widest">FAQ</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Questions, Answered</h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={staggerParent}
-            className="space-y-3"
-          >
+      {/* FAQS */}
+      <section className="bg-slate-50 px-4 py-20 sm:px-6 lg:px-8 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-12 text-center">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-lime-600">FAQ</p>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl uppercase">Questions, Answered</h2>
+          </div>
+          <div className="space-y-3">
             {FAQS.map((item, idx) => {
               const open = openFaq === idx;
               return (
                 <motion.div
                   key={item.q}
-                  variants={fadeUp}
-                  className="card bg-surface-secondary border-border/80 overflow-hidden border"
+                  className={`overflow-hidden transition-all duration-300 ${open ? 'bg-white shadow-sm border border-lime-500 dark:bg-slate-800' : 'bg-white border border-slate-200 hover:border-lime-300 dark:bg-slate-800 dark:border-slate-700'}`}
                 >
                   <button
                     type="button"
                     onClick={() => setOpenFaq(open ? -1 : idx)}
-                    className="flex w-full items-center justify-between gap-4 p-5 text-left"
+                    className="flex w-full items-center justify-between gap-4 p-4 text-left"
                   >
-                    <span className="text-foreground text-sm font-black tracking-tight">{item.q}</span>
-                    <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown className="text-accent h-5 w-5 shrink-0" />
+                    <span className="text-sm font-black uppercase tracking-wide text-slate-900 dark:text-white">{item.q}</span>
+                    <motion.span animate={{ rotate: open ? 180 : 0 }} className={`flex h-7 w-7 shrink-0 items-center justify-center rounded ${open ? 'bg-slate-900 text-lime-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-700'}`}>
+                      <ChevronDown className="h-4 w-4" />
                     </motion.span>
                   </button>
-                  <AnimatePresence initial={false}>
+                  <AnimatePresence>
                     {open && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: 'easeInOut' }}
-                        className="overflow-hidden"
                       >
-                        <p className="text-muted m-0 px-5 pb-5 text-sm leading-relaxed">{item.a}</p>
+                        <p className="m-0 border-t border-slate-100 px-4 pb-4 pt-3 text-xs leading-relaxed text-slate-600 font-medium dark:border-slate-700 dark:text-slate-300">
+                          {item.a}
+                        </p>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </motion.div>
               );
             })}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* CTA BANNER */}
-      <section className="border-border relative overflow-hidden border-b bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-500 px-4 py-20 text-center sm:px-6 lg:px-8">
-        <LaneLines className="text-white/10 rotate-2" />
+      <section className="relative overflow-hidden bg-lime-500 px-4 py-24 text-center sm:px-6 lg:px-8 clip-diagonal-reverse mt-10">
+        <div className="absolute inset-0 z-0 bg-slate-900" style={{ clipPath: 'polygon(0 0, 30% 0, 70% 100%, 0% 100%)', opacity: 0.1 }}></div>
         <motion.div
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.5 }}
           variants={fadeUp}
-          className="relative z-10 mx-auto max-w-2xl space-y-6"
+          className="relative z-10 mx-auto max-w-3xl space-y-5"
         >
-          <Trophy className="mx-auto h-10 w-10 text-white/90" />
-          <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl uppercase">
             Ready to Elevate Your Academy?
           </h2>
-          <p className="text-sm leading-relaxed text-white/85 sm:text-base">
-            Join hundreds of academies running smarter, safer, and more transparent operations
-            with Sports Academy Pro.
+          <p className="mx-auto max-w-xl text-base text-slate-800 font-medium">
+            Join hundreds of academies running smarter, safer, and more transparent operations today.
           </p>
           <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             type="button"
             onClick={() => navigate('/signup')}
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-black text-emerald-600 shadow-xl transition-shadow hover:shadow-2xl"
+            className="mt-3 inline-flex items-center gap-2 bg-slate-900 px-8 py-4 text-xs font-black uppercase tracking-wider text-lime-400 shadow-lg transition-all hover:bg-slate-800"
           >
             Create Your Academy Account
             <ArrowRight className="h-4 w-4" />
@@ -924,145 +804,132 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* CONTACT DATA PIPELINE FORM */}
-      <section id="contact" className="border-border bg-surface-secondary border-b px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.4 }}
-            variants={fadeUp}
-            className="space-y-4 text-center lg:text-left"
-          >
-            <p className="text-accent text-xs font-black uppercase tracking-widest">Get in Touch</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Contact Administration</h2>
-            <p className="text-muted mx-auto max-w-md text-sm leading-relaxed sm:text-base lg:mx-0">
-              Inquire regarding multi-campus instance orchestration or global custom parameter
-              layers. Your inquiry vector is protected via cached transactional recovery loops.
+      {/* CONTACT FORM */}
+      <section id="contact" className="px-4 py-20 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-2 gap-10 items-center">
+          <div className="space-y-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-lime-600">Get in Touch</p>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl dark:text-white uppercase">Contact Administration</h2>
+            <p className="text-sm leading-relaxed text-slate-600 font-medium dark:text-slate-300">
+              Inquire regarding multi-campus instance orchestration or global custom parameter layers. Your inquiry vector is protected.
             </p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, amount: 0.2 }}
-            variants={fadeUp}
-            className="card bg-surface border-border border p-8 shadow-md"
-          >
-            <form className="space-y-5" onSubmit={handleContactSubmit}>
-              <div>
-                <label className="label">Full Legal Name</label>
-                <input
-                  className={inputThemeStyles}
-                  name="name"
-                  placeholder="Your name"
-                  value={contactForm.name || ''}
-                  onChange={handleContactChange}
-                  required
-                />
+            <div className="hidden lg:flex items-center gap-4 pt-6">
+              <div className="flex h-14 w-14 items-center justify-center rounded bg-slate-900 text-lime-400 shadow-md">
+                 <Building2 className="h-6 w-6" />
               </div>
               <div>
-                <label className="label">Identity Email Address</label>
-                <input
-                  className={inputThemeStyles}
-                  type="email"
-                  name="email"
-                  placeholder="Email"
-                  value={contactForm.email || ''}
-                  onChange={handleContactChange}
-                  required
-                />
+                <div className="text-sm font-black uppercase text-slate-900 dark:text-white">Global Headquarters</div>
+                <div className="text-xs text-slate-500 font-medium mt-1">128 Tech Park, CA 94016</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white border-2 border-slate-100 p-6 sm:p-8 shadow-xl dark:bg-slate-800 dark:border-slate-700 relative">
+            <div className="absolute top-0 right-0 w-12 h-12 bg-lime-500" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}></div>
+            
+            <form className="space-y-4 relative z-10" onSubmit={handleContactSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Full Legal Name</label>
+                  <input
+                    className={inputThemeStyles}
+                    name="name"
+                    placeholder="John Doe"
+                    value={contactForm.name || ''}
+                    onChange={handleContactChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Email Address</label>
+                  <input
+                    className={inputThemeStyles}
+                    type="email"
+                    name="email"
+                    placeholder="john@example.com"
+                    value={contactForm.email || ''}
+                    onChange={handleContactChange}
+                    required
+                  />
+                </div>
               </div>
               <div>
-                <label className="label">Phone Number (Optional)</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Phone Number</label>
                 <input
                   className={inputThemeStyles}
                   type="tel"
                   name="phone"
-                  placeholder="Phone (optional)"
+                  placeholder="+1 (555) 000-0000"
                   value={contactForm.phone || ''}
                   onChange={handleContactChange}
                 />
               </div>
               <div>
-                <label className="label">Inquiry Description</label>
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Inquiry Description</label>
                 <textarea
-                  className={`${inputThemeStyles} min-h-[120px] resize-none py-3.5`}
+                  className={`${inputThemeStyles} min-h-[100px] resize-none`}
                   name="message"
-                  placeholder="Message"
+                  placeholder="How can we help scale your academy?"
                   value={contactForm.message || ''}
                   onChange={handleContactChange}
                   required
                 />
               </div>
-              <div className="flex gap-4 pt-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
+              <div className="flex flex-col sm:flex-row gap-3 pt-3">
+                <button
                   type="submit"
-                  className="btn-gradient-blue flex-1 rounded-xl py-3.5 text-sm font-bold shadow-md"
+                  className="flex-1 bg-slate-900 py-3 text-xs font-black uppercase tracking-wider text-lime-400 transition-all hover:bg-slate-800 shadow-md"
                   disabled={contactLoading}
                 >
-                  {contactLoading ? 'Transmitting parameters...' : 'Send Message'}
-                </motion.button>
+                  {contactLoading ? 'Transmitting...' : 'Send Message'}
+                </button>
                 <button
                   type="button"
-                  className="btn-secondary text-muted px-5 transition-transform active:scale-95"
+                  className="border-2 border-slate-200 bg-transparent px-6 py-3 text-xs font-black uppercase tracking-wider text-slate-600 transition-all hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-white dark:hover:text-white"
                   onClick={() => setActiveModal('contact')}
                 >
                   Clear Form
                 </button>
               </div>
               {contactMessage.text && (
-                <p
-                  className={
-                    contactMessage.type === 'success' ? 'alert-success m-0 mt-4' : 'alert-error m-0 mt-4'
-                  }
-                >
+                <div className={`mt-3 p-3 text-[10px] font-bold text-center border-l-4 ${contactMessage.type === 'success' ? 'bg-lime-50 text-lime-700 border-lime-500' : 'bg-red-50 text-red-700 border-red-500'}`}>
                   {contactMessage.text}
-                </p>
+                </div>
               )}
             </form>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* FORM RESET DRAFT PROTECTION MODAL DIALOG */}
+      {/* FORM RESET MODAL DIALOG */}
       <AnimatePresence>
         {activeModal !== null && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 12 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="card bg-surface border-border w-full max-w-md border p-8 shadow-2xl"
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="w-full max-w-sm rounded bg-white p-6 shadow-2xl dark:bg-slate-900 border-t-4 border-red-500"
             >
-              <h4 className="text-foreground mb-2 text-xl font-black tracking-tight">
-                Clear Active Input Fields?
-              </h4>
-              <p className="text-muted mb-6 text-sm leading-relaxed">
-                This choice resets your continuous auto-save database cache slice for this
-                template view and drops tracked changes entirely.
-              </p>
-              <div className="flex items-center justify-end space-x-3">
+              <h4 className="mb-2 text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Clear Active Fields?</h4>
+              <p className="mb-6 text-xs font-medium text-slate-500">This choice resets your continuous auto-save draft.</p>
+              <div className="flex gap-3">
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="btn-secondary px-4 py-2.5 text-sm font-bold transition-transform active:scale-95"
+                  className="flex-1 bg-slate-100 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => clearFormState()}
-                  className="btn-gradient-orange rounded-xl px-5 py-2.5 text-sm font-bold shadow-sm transition-all active:scale-95"
+                  className="flex-1 bg-red-500 py-2.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-red-600 shadow-md shadow-red-500/30"
                 >
-                  Reset System Draft
+                  Reset System
                 </button>
               </div>
             </motion.div>
@@ -1071,28 +938,21 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* FOOTER */}
-      <footer className="border-border bg-surface-secondary text-muted relative z-10 border-t py-14 text-xs">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 sm:flex-row">
-          <div className="font-bold tracking-wide">
-            &copy; 2026 Sports Academy Pro — Sports Academy Management System. All application
-            configurations active.
+      <footer className="bg-slate-900 py-10 text-xs text-slate-500 border-t-4 border-lime-500">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 px-4 sm:flex-row">
+          <div className="text-center font-medium sm:text-left">
+            &copy; 2026 Sports Academy Pro.<br className="hidden sm:block" /> All operations active.
           </div>
-
           <div
             onDoubleClick={handleSecretGateway}
-            className="cursor-default select-none px-6 py-2 text-base opacity-20 transition-opacity duration-300 hover:opacity-100"
-            title="Operational System Diagnostics: Normal"
+            className="cursor-default select-none text-lime-500/30 hover:text-lime-500 transition-colors text-xl"
+            title="System Diagnostics"
           >
-            🍃
+            ●
           </div>
-
-          <div className="flex space-x-6 text-[10px] font-black uppercase tracking-wider">
-            <a href="#privacy" className="hover:text-accent transition-colors">
-              Privacy Matrix
-            </a>
-            <a href="#terms" className="hover:text-accent transition-colors">
-              Operational Terms
-            </a>
+          <div className="flex space-x-5 font-black uppercase tracking-widest text-lime-500 text-[9px]">
+            <a href="#privacy" className="hover:text-white transition-colors">Privacy</a>
+            <a href="#terms" className="hover:text-white transition-colors">Terms</a>
           </div>
         </div>
       </footer>

@@ -11,6 +11,18 @@ export const getAcademyDetails = async (req, res, next) => {
   }
 };
 
+export const updateAcademyDetails = async (req, res, next) => {
+  try {
+    const academy = await adminService.updateAcademyDetails(req.user.academy_id, {
+      ...req.body,
+      logo: req.file
+    });
+    res.json(successResponse('Academy details updated successfully', academy));
+  } catch (err) {
+    next(err)
+  }
+};
+
 export const getSportsCatalog = async (req, res, next) => {
   try {
     const sports = await adminService.getSportsCatalog(req.user.academy_id);

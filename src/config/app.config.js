@@ -15,3 +15,8 @@ export const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || '';
 // Google OAuth Configuration
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+
+// ImageKit Configuration
+export const IMAGEKIT_PUBLIC_KEY = process.env.IMAGEKIT_PUBLIC_KEY || '';
+export const IMAGEKIT_PRIVATE_KEY = process.env.IMAGEKIT_PRIVATE_KEY || '';
+export const IMAGEKIT_URL_ENDPOINT = process.env.IMAGEKIT_URL_ENDPOINT || '';

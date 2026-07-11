@@ -1,8 +1,11 @@
 import multer from 'multer';
 import path from 'path';
 
+// Use memory storage to keep files in buffer for ImageKit upload
+const storage = multer.memoryStorage();
+
 const upload = multer({
-  dest: 'uploads/',
+  storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },

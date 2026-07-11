@@ -35,6 +35,7 @@ router.use((req, res, next) => {
 
 /* ─── ACADEMY DETAILS ────────────────────────────────────────────────────── */
 router.get('/academy', adminController.getAcademyDetails);
+router.patch('/academy', upload.single('logo'), adminController.updateAcademyDetails);
 
 /* ─── SPORTS CATALOG ────────────────────────────────────────────────────── */
 router.get('/sports', adminController.getSportsCatalog);

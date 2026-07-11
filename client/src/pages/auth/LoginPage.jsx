@@ -8,7 +8,6 @@ import {
   Building2,
   User,
   Users,
-  Shield,
   ArrowRight,
 } from 'lucide-react';
 
@@ -19,11 +18,9 @@ const GoogleLoginButton = ({ onSuccess, onError }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check if Google Client ID is configured
     const id = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (id) {
       setClientId(id);
-      // Dynamic import to avoid blank screen
       import('@react-oauth/google').then(({ GoogleLogin: GL, GoogleOAuthProvider: GOP }) => {
         setGoogleLogin(() => GL);
         setGoogleOAuthProvider(() => GOP);
@@ -34,13 +31,7 @@ const GoogleLoginButton = ({ onSuccess, onError }) => {
     }
   }, []);
 
-  if (error) {
-    return null; // Don't show anything if there's an error
-  }
-
-  if (!GoogleLogin || !GoogleOAuthProvider || !clientId) {
-    return null;
-  }
+  if (error || !GoogleLogin || !GoogleOAuthProvider || !clientId) return null;
 
   return (
     <GoogleOAuthProvider clientId={clientId}>
@@ -64,27 +55,24 @@ const loginOptions = [
     description: 'Academy administrators and staff',
     icon: Building2,
     path: '/login/admin',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/20',
+    color: 'text-slate-900',
+    bgColor: 'bg-lime-400',
   },
   {
     title: 'Coach',
     description: 'Coaches and trainers',
     icon: User,
     path: '/coach/login',
-    color: 'text-emerald-500',
-    bgColor: 'bg-emerald-500/10',
-    borderColor: 'border-emerald-500/20',
+    color: 'text-white',
+    bgColor: 'bg-slate-800',
   },
   {
     title: 'Parent',
     description: 'Parents and guardians',
     icon: Users,
+    color: 'text-slate-900',
+    bgColor: 'bg-lime-400',
     path: '/parent/login',
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
-    borderColor: 'border-purple-500/20',
   },
 ];
 
@@ -97,11 +85,7 @@ export default function LoginPage() {
     try {
       setGoogleLoading(true);
       setGoogleMessage({ text: 'Logging in with Google...', type: 'success' });
-
-      const result = await googleLogin({
-        google_id_token: credentialResponse.credential
-      });
-
+      const result = await googleLogin({ google_id_token: credentialResponse.credential });
       setGoogleMessage({ text: 'Login successful! Redirecting...', type: 'success' });
       setTimeout(() => navigate('/admin/dashboard'), 500);
     } catch (error) {
@@ -112,94 +96,106 @@ export default function LoginPage() {
   };
 
   const handleGoogleError = (error) => {
-    console.error('Google authentication error:', error);
     setGoogleMessage({ text: 'Google authentication failed. Please try again.', type: 'error' });
   };
 
   return (
-    <div className="bg-surface text-foreground min-h-screen">
-      <Navbar>
-        <Link to="/" className="text-sm font-medium text-muted hover:text-foreground">
-          Home
-        </Link>
-        <Link to="/signup" className="text-sm font-medium text-muted hover:text-foreground">
-          Sign Up
-        </Link>
-        <ThemeToggle />
-      </Navbar>
+    <div className="bg-slate-50 dark:bg-slate-900 min-h-screen text-slate-900 dark:text-white font-sans selection:bg-lime-400 selection:text-slate-900 flex flex-col relative">
+      
+      {/* FULL PAGE DYNAMIC BACKGROUND */}
+      <div className="fixed inset-0 w-full h-full bg-slate-900 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#a3e635 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+        <div className="absolute top-0 right-0 h-full w-full bg-lime-500 origin-top-right transition-transform" style={{ clipPath: 'polygon(45% 0, 100% 0, 100% 100%, 15% 100%)' }}></div>
+      </div>
 
-      <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="relative z-20">
+        <Navbar>
+          <Link to="/" className="text-xs font-black uppercase tracking-wider text-slate-700 hover:text-lime-600 dark:text-slate-200">Home</Link>
+          <Link to="/signup" className="text-xs font-black uppercase tracking-wider text-slate-700 hover:text-lime-600 dark:text-slate-200">Sign Up</Link>
+          <ThemeToggle />
+        </Navbar>
+      </div>
+
+      {/* Reduced py-12 to py-6 */}
+      <main className="relative z-10 flex-grow flex items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="space-y-8"
+          className="w-full max-w-3xl space-y-6" /* Reduced space-y-10 to space-y-6 */
         >
+          {/* Header Text */}
           <div className="text-center">
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Welcome Back</h1>
-            <p className="text-muted mx-auto mt-4 max-w-md text-sm sm:text-base">
-              Select your role to continue to your workspace
+            {/* Added text-white explicitly to the h1 */}
+            <h1 className="text-white text-3xl font-black tracking-tight sm:text-5xl uppercase drop-shadow-md">
+              WELCOME <span className="bg-slate-900 text-lime-400 px-3 ml-2">BACK</span>
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-[10px] font-black uppercase tracking-widest text-slate-200 drop-shadow-sm">
+              Select your role to continue
             </p>
           </div>
 
-          {/* Google Sign In Button */}
-          <div className="flex justify-center">
-            <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
-          </div>
+          {/* Login Card */}
+          {/* Reduced padding from p-8 sm:p-10 to p-6 sm:p-8 */}
+          <div className="bg-white border-2 border-slate-100 p-6 sm:p-8 shadow-2xl dark:bg-slate-800 dark:border-slate-700 relative">
+             <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-lime-500" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}></div>
 
-          {googleMessage.text && (
-            <p
-              className={
-                googleMessage.type === 'success' ? 'alert-success m-0 text-center' : 'alert-error m-0 text-center'
-              }
-              role="alert"
-            >
-              {googleMessage.text}
-            </p>
-          )}
+             {/* Reduced mb-10 to mb-6 */}
+             <div className="flex justify-center mb-6 relative z-10">
+                <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
+             </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border"></div>
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-surface px-2 text-muted">Or login with your role</span>
-            </div>
-          </div>
+             {googleMessage.text && (
+                /* Reduced mb-8 to mb-4 and p-4 to p-3 */
+                <p className={`p-3 text-center text-[10px] font-bold uppercase tracking-widest border-l-4 mb-4 ${googleMessage.type === 'success' ? 'bg-lime-50 text-lime-800 border-lime-500' : 'bg-red-50 text-red-700 border-red-500'}`}>
+                  {googleMessage.text}
+                </p>
+             )}
 
-          <div className="grid gap-6 sm:grid-cols-3">
-            {loginOptions.map((option) => (
-              <Link
-                key={option.path}
-                to={option.path}
-                className="group"
-              >
-                <motion.div
-                  whileHover={{ y: -4 }}
-                  className={`card bg-surface-secondary border-border/80 hover:border-accent/30 h-full border p-6 shadow-sm transition-all duration-300 hover:shadow-md ${option.borderColor}`}
-                >
-                  <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${option.bgColor} ${option.color}`}>
-                    <option.icon className="h-6 w-6" />
-                  </div>
-                  <h3 className={`text-foreground mb-2 text-lg font-black tracking-tight ${option.color}`}>
-                    {option.title}
-                  </h3>
-                  <p className="text-muted text-sm leading-relaxed">
-                    {option.description}
-                  </p>
-                  <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                    Continue
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
-                </motion.div>
-              </Link>
-            ))}
+             {/* Reduced mb-10 to mb-6 */}
+             <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white dark:bg-slate-800 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Or login with role</span>
+                </div>
+             </div>
+
+             {/* Reduced gap-6 to gap-4 */}
+             <div className="grid gap-4 sm:grid-cols-3 relative z-10">
+                {loginOptions.map((option) => (
+                  <Link key={option.path} to={option.path} className="group">
+                    <motion.div
+                      whileHover={{ y: -6 }}
+                      /* Reduced p-8 to p-5 */
+                      className={`border-2 border-slate-100 dark:border-slate-700 h-full p-5 transition-all hover:shadow-xl hover:border-lime-500`}
+                    >
+                      {/* Reduced mb-6 to mb-4, made icon box slightly smaller (h-12 w-12) */}
+                      <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded ${option.bgColor} ${option.color}`}>
+                        <option.icon className="h-6 w-6" />
+                      </div>
+                      {/* Reduced mb-3 to mb-2 */}
+                      <h3 className="mb-2 text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                        {option.title}
+                      </h3>
+                      {/* Reduced mb-8 to mb-4 */}
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                        {option.description}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-lime-600">
+                        Login <ArrowRight className="h-4 w-4" />
+                      </div>
+                    </motion.div>
+                  </Link>
+                ))}
+              </div>
           </div>
 
           <div className="text-center">
-            <p className="text-muted text-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-200 drop-shadow-md">
               New academy?{' '}
-              <Link to="/signup" className="font-semibold text-accent hover:underline">
+              <Link to="/signup" className="text-lime-400 hover:underline font-black">
                 Create your account
               </Link>
             </p>

@@ -134,6 +134,7 @@ model Academy {
   latitude                 Decimal?         @db.Decimal(10, 7)
   longitude                Decimal?         @db.Decimal(10, 7)
   logo_url                 String?
+  logo_file_id             String?
   subscription_tier        SubscriptionTier @default(FREE)
   subscription_plan        String? // legacy string field
   subscription_starts_at   DateTime?

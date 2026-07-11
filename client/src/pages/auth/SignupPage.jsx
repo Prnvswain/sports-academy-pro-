@@ -7,6 +7,7 @@ import { signup, googleSignup } from '../../api/client';
 import {
   MapPin,
   AlertTriangle,
+  Building2
 } from 'lucide-react';
 
 const GoogleLoginButton = ({ onSuccess, onError }) => {
@@ -89,6 +90,8 @@ export default function SignupPage() {
   const [activeModal, setActiveModal] = useState(null);
   const [isGoogleAuth, setIsGoogleAuth] = useState(false);
   const [googleUser, setGoogleUser] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   // Auto-Save Persistence Loops
   useEffect(() => {
@@ -113,6 +116,13 @@ export default function SignupPage() {
       }
 
       setSignupForm((prev) => ({ ...prev, logo: file }));
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     } else {
       setSignupForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -188,7 +198,7 @@ export default function SignupPage() {
 
       const payload = JSON.parse(jsonPayload);
 
-      setGoogleUser(payload);
+      setGoogleUser({ ...payload, credential: credentialResponse.credential });
       setIsGoogleAuth(true);
 
       // Auto-fill name and email
@@ -230,6 +240,21 @@ export default function SignupPage() {
       return;
     }
 
+    // Attendance radius validation
+    if (!signupForm.attendance_radius_meters || signupForm.attendance_radius_meters === '') {
+      setSignupMessage({ text: 'Attendance Radius is required', type: 'error' });
+      return;
+    }
+    const radius = parseInt(signupForm.attendance_radius_meters, 10);
+    if (isNaN(radius) || radius < 100) {
+      setSignupMessage({ text: 'Attendance radius must be at least 100 meters.', type: 'error' });
+      return;
+    }
+    if (radius > 5000) {
+      setSignupMessage({ text: 'Maximum radius is 5000 meters', type: 'error' });
+      return;
+    }
+
     // For email signup, validate password
     if (!isGoogleAuth && !signupForm.password) {
       setSignupMessage({ text: 'Password is required', type: 'error' });
@@ -268,7 +293,7 @@ export default function SignupPage() {
         const result = await googleSignup(formData);
         setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
         localStorage.removeItem('sams_draft_public_signup');
-        setTimeout(() => navigate('/admin/coaches'), 1000);
+        setTimeout(() => navigate('/admin/dashboard'), 1000);
       } else {
         // Email signup
         const formData = new FormData();
@@ -295,7 +320,7 @@ export default function SignupPage() {
         const result = await signup(formData);
         setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
         localStorage.removeItem('sams_draft_public_signup');
-        setTimeout(() => navigate('/admin/coaches'), 1000);
+        setTimeout(() => navigate('/admin/dashboard'), 1000);
       }
     } catch (error) {
       setSignupMessage({ text: error.message, type: 'error' });
@@ -304,207 +329,221 @@ export default function SignupPage() {
     }
   };
 
-  // Shared utility string to suppress white background states on inputs across all viewports
+  // Uniform theme string matching the landing page inputs
   const inputThemeStyles =
-    'input-field bg-[var(--color-input)] dark:bg-[#09090b] text-foreground border-border focus:border-accent focus:ring-accent/20 autofill:shadow-[0_0_0_30px_var(--color-input)_inset] autofill:text-foreground';
+    'w-full rounded-none bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white border-2 border-slate-200 dark:border-slate-700 p-3 focus:border-lime-500 focus:ring-0 focus:outline-none transition-all duration-300 text-sm font-medium shadow-sm';
+
+  const labelStyles = 'text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block dark:text-slate-400';
 
   return (
-    <div className="bg-surface text-foreground min-h-screen">
-      <Navbar>
-        <Link to="/" className="text-sm font-medium text-muted hover:text-foreground">
-          Home
-        </Link>
-        <Link to="/login" className="text-sm font-medium text-muted hover:text-foreground">
-          Login
-        </Link>
-        <ThemeToggle />
-      </Navbar>
+    <div className="bg-slate-50 dark:bg-slate-900 min-h-screen text-slate-900 dark:text-white font-sans selection:bg-lime-400 selection:text-slate-900 flex flex-col relative">
+      
+      {/* FULL PAGE DYNAMIC BACKGROUND */}
+      <div className="fixed inset-0 w-full h-full bg-slate-900 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#a3e635 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+        {/* Diagonal Lime Slice Covering Right Side */}
+        <div className="absolute top-0 right-0 h-full w-full bg-lime-500 origin-top-right transition-transform" style={{ clipPath: 'polygon(45% 0, 100% 0, 100% 100%, 15% 100%)' }}></div>
+      </div>
 
-      <main className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+      {/* NAVBAR (Set to z-20 so it sits above the fixed background) */}
+      <div className="relative z-20">
+        <Navbar>
+          <Link to="/" className="text-slate-700 hover:text-lime-600 dark:text-slate-200 relative text-xs font-black uppercase tracking-wider transition-colors group">
+            Home
+            <span className="absolute -bottom-1.5 left-0 h-0.5 w-0 bg-lime-500 transition-all duration-300 group-hover:w-full"></span>
+          </Link>
+          <Link to="/login" className="text-slate-700 hover:text-lime-600 dark:text-slate-200 relative text-xs font-black uppercase tracking-wider transition-colors group">
+            Login
+            <span className="absolute -bottom-1.5 left-0 h-0.5 w-0 bg-lime-500 transition-all duration-300 group-hover:w-full"></span>
+          </Link>
+          <ThemeToggle />
+        </Navbar>
+      </div>
+
+      {/* MAIN CONTENT AREA */}
+      <main className="relative z-10 flex-grow flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+        
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="space-y-6"
+          className="w-full max-w-3xl space-y-6 mt-6 sm:mt-10"
         >
+          {/* Header Text - Fixed text color to explicit white */}
           <div className="text-center">
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Create Your Academy Workspace</h1>
-            <p className="text-muted mx-auto mt-4 max-w-md text-sm sm:text-base">
-              Provision isolated multi-tenant records nodes and structural administrator
-              properties concurrently.
+            <h1 className="text-white text-3xl font-black tracking-tight sm:text-4xl uppercase drop-shadow-md">
+              Create Your <span className="bg-slate-900 text-lime-500 px-2 ml-2">WORKSPACE</span>
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-xs sm:text-sm font-medium text-slate-200 drop-shadow-sm leading-relaxed">
+              Provision isolated multi-tenant records nodes and structural administrator properties concurrently.
             </p>
           </div>
 
-          <div className="card bg-surface-secondary border-border border p-8 shadow-lg">
-            <h3 className="mb-1 text-xl font-black tracking-tight">Academy Workspace Setup</h3>
-            <p className="text-muted mb-6 text-xs">
-              Already have an active system domain configured?{' '}
-              <Link to="/login/admin" className="text-accent font-bold hover:underline">
-                Admin Entrance Port
-              </Link>
-            </p>
+          {/* Form Card Setup */}
+          <div className="bg-white border-2 border-slate-100 p-6 sm:p-8 shadow-2xl dark:bg-slate-800 dark:border-slate-700 relative">
+            {/* Design Accent */}
+            <div className="absolute top-0 right-0 w-12 h-12 bg-lime-500" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}></div>
 
-            {/* Google Sign In Button */}
-            {!isGoogleAuth && (
-              <div className="mb-6">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border"></div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 border-b border-slate-100 dark:border-slate-700 pb-4">
+               <div>
+                  <h3 className="text-xl font-black tracking-tight uppercase flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-lime-500" />
+                    Setup Setup
+                  </h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
+                    Already have a domain?{' '}
+                    <Link to="/login/admin" className="text-lime-600 dark:text-lime-400 hover:underline">Admin Login</Link>
+                  </p>
+               </div>
+               
+               {/* Google Sign In Area */}
+               {!isGoogleAuth ? (
+                  <div className="flex-shrink-0 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-slate-700 pt-4 sm:pt-0 sm:pl-4">
+                     <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
                   </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="bg-surface-secondary px-2 text-muted">Or continue with</span>
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-center">
-                  <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
-                </div>
-              </div>
-            )}
+               ) : (
+                 <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-none text-xs">
+                    {googleUser?.picture && (
+                      <img src={googleUser.picture} alt="Profile" className="w-8 h-8 rounded-full border border-slate-200" />
+                    )}
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white uppercase tracking-wider">{googleUser?.name}</p>
+                      <p className="text-slate-500">{googleUser?.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsGoogleAuth(false);
+                        setGoogleUser(null);
+                        setSignupForm((prev) => ({ ...prev, name: '', email: '' }));
+                      }}
+                      className="ml-2 text-[10px] font-black uppercase text-red-500 hover:text-red-700 underline"
+                    >
+                      Disconnect
+                    </button>
+                 </div>
+               )}
+            </div>
 
-            {isGoogleAuth && (
-              <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                <div className="flex items-center gap-3">
-                  {googleUser?.picture && (
-                    <img
-                      src={googleUser.picture}
-                      alt="Google Profile"
-                      className="w-10 h-10 rounded-full"
-                    />
-                  )}
-                  <div>
-                    <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-                      Connected as {googleUser?.name}
-                    </p>
-                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                      {googleUser?.email}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsGoogleAuth(false);
-                      setGoogleUser(null);
-                      setSignupForm((prev) => ({ ...prev, name: '', email: '' }));
-                    }}
-                    className="ml-auto text-xs text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100 underline"
-                  >
-                    Disconnect
-                  </button>
-                </div>
-              </div>
-            )}
-
+            {/* FORM */}
             <form onSubmit={handleSignupSubmit} noValidate className="space-y-5">
-              <div>
-                <label className="label" htmlFor="signupName">
-                  Full Legal Name
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  id="signupName"
-                  name="name"
-                  value={signupForm.name || ''}
-                  onChange={handleSignupChange}
-                  required
-                  readOnly={isGoogleAuth}
-                  disabled={isGoogleAuth}
-                />
-                {isGoogleAuth && (
-                  <p className="text-xs text-muted mt-1">Auto-filled from Google account</p>
-                )}
-              </div>
-              <div>
-                <label className="label" htmlFor="signupEmail">
-                  Identity Email
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  type="email"
-                  id="signupEmail"
-                  name="email"
-                  value={signupForm.email || ''}
-                  onChange={handleSignupChange}
-                  required
-                  readOnly={isGoogleAuth}
-                  disabled={isGoogleAuth}
-                />
-                {isGoogleAuth && (
-                  <p className="text-xs text-muted mt-1">Auto-filled from Google account</p>
-                )}
-              </div>
-              {!isGoogleAuth && (
+              
+              {/* Personal Details Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label" htmlFor="signupPassword">
-                    Security Password (Min 6 Characters)
-                  </label>
+                  <label className={labelStyles} htmlFor="signupName">Full Legal Name</label>
+                  <input
+                    className={`${inputThemeStyles} ${isGoogleAuth ? 'opacity-70 bg-slate-100 dark:bg-slate-900 cursor-not-allowed' : ''}`}
+                    id="signupName"
+                    name="name"
+                    value={signupForm.name || ''}
+                    onChange={handleSignupChange}
+                    required
+                    readOnly={isGoogleAuth}
+                    disabled={isGoogleAuth}
+                  />
+                </div>
+                <div>
+                  <label className={labelStyles} htmlFor="signupEmail">Identity Email</label>
+                  <input
+                    className={`${inputThemeStyles} ${isGoogleAuth ? 'opacity-70 bg-slate-100 dark:bg-slate-900 cursor-not-allowed' : ''}`}
+                    type="email"
+                    id="signupEmail"
+                    name="email"
+                    value={signupForm.email || ''}
+                    onChange={handleSignupChange}
+                    required
+                    readOnly={isGoogleAuth}
+                    disabled={isGoogleAuth}
+                  />
+                </div>
+              </div>
+
+              {/* Password & Phone Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {!isGoogleAuth ? (
+                  <div>
+                    <label className={labelStyles} htmlFor="signupPassword">Security Password (Min 6 Chars)</label>
+                    <input
+                      className={inputThemeStyles}
+                      type="password"
+                      id="signupPassword"
+                      name="password"
+                      value={signupForm.password || ''}
+                      onChange={handleSignupChange}
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      Password managed via Google Auth
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <label className={labelStyles} htmlFor="signupPhone">Contact Number (Optional)</label>
                   <input
                     className={inputThemeStyles}
-                    type="password"
-                    id="signupPassword"
-                    name="password"
-                    value={signupForm.password || ''}
+                    type="tel"
+                    id="signupPhone"
+                    name="phone_number"
+                    value={signupForm.phone_number || ''}
                     onChange={handleSignupChange}
-                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              {/* Academy Details Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelStyles} htmlFor="signupAcademy">Academy Corporate Name</label>
+                  <input
+                    className={inputThemeStyles}
+                    id="signupAcademy"
+                    name="academy_name"
+                    value={signupForm.academy_name || ''}
+                    onChange={handleSignupChange}
                     required
                   />
                 </div>
-              )}
-              {isGoogleAuth && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className="text-xs text-blue-900 dark:text-blue-100">
-                    Password is not required for Google Sign In.
-                  </p>
+                <div>
+                  <label className={labelStyles} htmlFor="signupLogo">Academy Logo (Optional)</label>
+                  <input
+                    className={`${inputThemeStyles} py-2 file:mr-3 file:py-1 file:px-3 file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-slate-900 file:text-lime-400 hover:file:bg-slate-800 cursor-pointer`}
+                    type="file"
+                    id="signupLogo"
+                    name="logo"
+                    onChange={handleSignupChange}
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                  />
+                  {logoPreview && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="h-16 w-16 rounded-full object-cover border-2 border-slate-300 dark:border-slate-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLogoPreview(null);
+                          setSignupForm(prev => ({ ...prev, logo: null }));
+                        }}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 uppercase tracking-wide"
+                      >
+                        Remove Logo
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div>
-                <label className="label" htmlFor="signupAcademy">
-                  Academy Corporate Name
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  id="signupAcademy"
-                  name="academy_name"
-                  value={signupForm.academy_name || ''}
-                  onChange={handleSignupChange}
-                  required
-                />
-              </div>
-              <div>
-                <label className="label" htmlFor="signupLogo">
-                  Academy Logo (Optional)
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  type="file"
-                  id="signupLogo"
-                  name="logo"
-                  onChange={handleSignupChange}
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                />
-                <p className="text-muted-foreground text-xs mt-1">
-                  JPG, JPEG, PNG, or WEBP (Max 5MB)
-                </p>
-              </div>
-              <div>
-                <label className="label" htmlFor="signupPhone">
-                  Contact Number
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  type="tel"
-                  id="signupPhone"
-                  name="phone_number"
-                  value={signupForm.phone_number || ''}
-                  onChange={handleSignupChange}
-                />
               </div>
 
-              {/* GPS Location Setup */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Location Text Details Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label" htmlFor="signupCity">
-                    City <span className="text-red-500">*</span>
-                  </label>
+                  <label className={labelStyles} htmlFor="signupCity">City <span className="text-lime-600">*</span></label>
                   <input
                     className={inputThemeStyles}
                     id="signupCity"
@@ -515,9 +554,7 @@ export default function SignupPage() {
                   />
                 </div>
                 <div>
-                  <label className="label" htmlFor="signupState">
-                    State <span className="text-red-500">*</span>
-                  </label>
+                  <label className={labelStyles} htmlFor="signupState">State <span className="text-lime-600">*</span></label>
                   <input
                     className={inputThemeStyles}
                     id="signupState"
@@ -529,174 +566,156 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="label" htmlFor="signupAddress">
-                  Full Address (Optional)
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  id="signupAddress"
-                  name="address"
-                  value={signupForm.address || ''}
-                  onChange={handleSignupChange}
-                  placeholder="Street address, landmark, etc."
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 <div>
+                    <label className={labelStyles} htmlFor="signupAddress">Full Address (Optional)</label>
+                    <input
+                      className={inputThemeStyles}
+                      id="signupAddress"
+                      name="address"
+                      value={signupForm.address || ''}
+                      onChange={handleSignupChange}
+                      placeholder="Street address, landmark, etc."
+                    />
+                 </div>
+                 <div>
+                    <label className={labelStyles} htmlFor="signupRadius">Attendance Radius (meters)</label>
+                    <input
+                      className={inputThemeStyles}
+                      type="number"
+                      id="signupRadius"
+                      name="attendance_radius_meters"
+                      value={signupForm.attendance_radius_meters}
+                      onChange={handleSignupChange}
+                    />
+                    <p className="text-xs text-muted mt-1">Minimum allowed attendance radius is 100 meters.</p>
+                 </div>
               </div>
 
-              <div>
-                <label className="label" htmlFor="signupRadius">
-                  Attendance Radius (meters)
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  type="number"
-                  id="signupRadius"
-                  name="attendance_radius_meters"
-                  value={signupForm.attendance_radius_meters || 100}
-                  onChange={handleSignupChange}
-                  min="50"
-                  max="5000"
-                />
-                <p className="text-xs text-muted mt-1">
-                  Maximum distance from academy location for attendance verification (50-5000m)
-                </p>
-              </div>
-
-              <div className="p-4 bg-surface-secondary border border-border rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-emerald-600" />
-                    <label className="font-semibold text-sm">Academy Location</label>
+              {/* Advanced GPS Location Capture Box */}
+              <div className="p-5 bg-slate-50 border-2 border-slate-200 dark:bg-slate-900 dark:border-slate-700 relative mt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <MapPin className="w-5 h-5 text-lime-600" />
+                      <label className="text-sm font-black uppercase tracking-wide">GPS Coordinate Lock</label>
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Required for geofenced attendance tracking</p>
                   </div>
                   <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={getCurrentLocation}
                     disabled={gettingLocation}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-400 text-sm font-medium flex items-center gap-2"
+                    className="px-5 py-2.5 bg-slate-900 text-lime-400 uppercase tracking-wider text-[10px] font-black hover:bg-slate-800 transition-colors disabled:bg-slate-300 disabled:text-slate-500 flex items-center justify-center shadow-md whitespace-nowrap"
                   >
-                    {gettingLocation ? 'Getting Location...' : 'Set Academy Location'}
+                    {gettingLocation ? 'Fetching...' : 'Lock Location'}
                   </motion.button>
                 </div>
 
                 {gpsError && (
-                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-3">
+                  <div className="flex items-start gap-2 mt-3 p-3 bg-red-50 border-l-4 border-red-500 text-red-700">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs">{gpsError}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider">{gpsError}</p>
                   </div>
                 )}
 
                 {signupForm.latitude && signupForm.longitude && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs text-green-700">
-                      <span className="font-medium">Location captured:</span>
+                  <div className="mt-3 p-3 bg-lime-50 border-l-4 border-lime-500 dark:bg-lime-900/20 dark:border-lime-400">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-lime-800 dark:text-lime-300">
+                      Coordinates Locked Successfully
                     </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      Lat: {signupForm.latitude.toFixed(7)}
-                      <br />
-                      Lon: {signupForm.longitude.toFixed(7)}
+                    <p className="text-[10px] font-bold tracking-widest text-slate-600 dark:text-slate-300 mt-1">
+                      Lat: {signupForm.latitude.toFixed(6)} | Lng: {signupForm.longitude.toFixed(6)}
                     </p>
                   </div>
                 )}
-
-                {!signupForm.latitude && !signupForm.longitude && !gpsError && (
-                  <p className="text-xs text-muted mt-2">
-                    Click "Set Academy Location" to capture GPS coordinates for attendance verification
-                  </p>
-                )}
               </div>
 
+              {/* Subscription Plan */}
               <div>
-                <label className="label" htmlFor="signupPlan">
+                <label className={labelStyles} htmlFor="signupPlan">
                   Core Subscribed Workspace Tier
                 </label>
                 <select
-                  className={`${inputThemeStyles} cursor-pointer py-3`}
+                  className={`${inputThemeStyles} cursor-pointer py-3.5 bg-white dark:bg-slate-800 font-bold tracking-wide`}
                   id="signupPlan"
                   name="subscription_plan"
                   value={signupForm.subscription_plan || 'free'}
                   onChange={handleSignupChange}
                   required
                 >
-                  <option value="free" className="bg-surface text-foreground">
+                  <option value="free" className="font-medium text-slate-900">
                     Free Starter Tier — Max 3 Coaches / 30 Student Matrix
                   </option>
-                  <option value="pro" className="bg-surface text-foreground">
+                  <option value="pro" className="font-medium text-slate-900">
                     Pro Academy Tier — Max 6 Coaches / 80 Student Matrix
                   </option>
-                  <option value="plus" className="bg-surface text-foreground">
-                    Plus Enterprise Tier — Complete Unrestricted Operational Pipelines
+                  <option value="plus" className="font-medium text-slate-900">
+                    Plus Enterprise Tier — Complete Unrestricted Pipelines
                   </option>
                 </select>
               </div>
-              <div className="flex gap-4 pt-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-100 dark:border-slate-700 mt-6">
+                <button
                   type="submit"
-                  className="btn-gradient-primary shadow-accent/10 flex-1 rounded-xl py-3.5 text-sm font-bold tracking-wide shadow-md"
+                  className="flex-1 bg-lime-500 py-3.5 text-xs font-black uppercase tracking-wider text-slate-900 transition-all hover:bg-lime-400 shadow-xl shadow-lime-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={signupLoading}
                 >
-                  {signupLoading ? 'Configuring instances...' : 'Create Academy Account'}
-                </motion.button>
+                  {signupLoading ? 'Configuring instances...' : 'Deploy Academy Account'}
+                </button>
                 <button
                   type="button"
-                  className="btn-secondary text-muted px-5 transition-transform active:scale-95"
+                  className="border-2 border-slate-200 bg-transparent px-8 py-3.5 text-xs font-black uppercase tracking-wider text-slate-600 transition-all hover:border-slate-900 hover:text-slate-900 dark:border-slate-700 dark:text-slate-400 dark:hover:border-white dark:hover:text-white"
                   onClick={() => setActiveModal('signup')}
                 >
-                  Clear Form
+                  Clear Draft
                 </button>
               </div>
+
+              {/* System Messages */}
               {signupMessage.text && (
-                <p
-                  className={
-                    signupMessage.type === 'success' ? 'alert-success m-0 mt-4' : 'alert-error m-0 mt-4'
-                  }
-                  role="alert"
-                >
+                <div className={`mt-4 p-4 text-[10px] font-bold uppercase tracking-wider text-center border-l-4 ${signupMessage.type === 'success' ? 'bg-lime-50 text-lime-800 border-lime-500 dark:bg-lime-900/30' : 'bg-red-50 text-red-800 border-red-500 dark:bg-red-900/30'}`}>
                   {signupMessage.text}
-                </p>
+                </div>
               )}
             </form>
           </div>
         </motion.div>
       </main>
 
-      {/* FORM RESET DRAFT PROTECTION MODAL DIALOG */}
+      {/* FORM RESET MODAL DIALOG */}
       <AnimatePresence>
         {activeModal !== null && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 12 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="card bg-surface border-border w-full max-w-md border p-8 shadow-2xl"
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="w-full max-w-sm rounded bg-white p-6 shadow-2xl dark:bg-slate-900 border-t-4 border-red-500"
             >
-              <h4 className="text-foreground mb-2 text-xl font-black tracking-tight">
-                Clear Active Input Fields?
-              </h4>
-              <p className="text-muted mb-6 text-sm leading-relaxed">
-                This choice resets your continuous auto-save database cache slice for this
-                template view and drops tracked changes entirely.
+              <h4 className="mb-2 text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">Clear Active Input Fields?</h4>
+              <p className="mb-6 text-xs font-medium text-slate-500 leading-relaxed">
+                This choice resets your continuous auto-save database cache slice for this template view and drops tracked changes entirely.
               </p>
-              <div className="flex items-center justify-end space-x-3">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="btn-secondary px-4 py-2.5 text-sm font-bold transition-transform active:scale-95"
+                  className="flex-1 bg-slate-100 py-3 text-[10px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => clearFormState(activeModal)}
-                  className="btn-gradient-orange rounded-xl px-5 py-2.5 text-sm font-bold shadow-sm transition-all active:scale-95"
+                  className="flex-1 bg-red-500 py-3 text-[10px] font-black uppercase tracking-wider text-white hover:bg-red-600 shadow-md shadow-red-500/30 transition-all"
                 >
                   Reset System Draft
                 </button>

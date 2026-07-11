@@ -40,6 +40,7 @@
     ]
   },
   "dependencies": {
+    "@imagekit/nodejs": "^7.9.1",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.5",
