@@ -189,25 +189,30 @@ model GpsAttendanceSettings {
 }
 
 model User {
-  user_id       Int       @id @default(autoincrement())
-  academy_id    Int?
-  name          String
-  first_name    String?
-  middle_name   String?
-  last_name     String?
-  email         String    @unique
-  password_hash String
-  role          UserRole  @default(ACADEMY_ADMIN)
-  is_deleted    Boolean   @default(false)
-  deleted_at    DateTime?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  user_id           Int       @id @default(autoincrement())
+  academy_id        Int?
+  name              String
+  first_name        String?
+  middle_name       String?
+  last_name         String?
+  email             String    @unique
+  password_hash     String?
+  google_id         String?   @unique
+  avatar_url        String?
+  auth_provider     String?   @default("email") // 'email' or 'google'
+  profile_completed Boolean   @default(false)
+  role              UserRole  @default(ACADEMY_ADMIN)
+  is_deleted        Boolean   @default(false)
+  deleted_at        DateTime?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
 
   academy            Academy?          @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "users_academy_id_fk")
   marked_attendances CoachAttendance[]
   approved_receipts  Receipt[]         @relation("ReceiptApprovedBy")
 
   @@index([academy_id])
+  @@index([google_id])
   @@map("users")
 }
 

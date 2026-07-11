@@ -21,5 +21,7 @@ router.post(
   validationErrorHandler,
   authController.resetPassword
 );
+router.post('/google/signup', upload.single('logo'), authController.googleSignup);
+router.post('/google/login', authController.googleLogin);
 
 export default router;

@@ -1,7 +1,9 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Navbar from '../../components/Navbar';
 import ThemeToggle from '../../components/ThemeToggle';
+import { googleLogin } from '../../api/client';
 import {
   Building2,
   User,
@@ -9,6 +11,52 @@ import {
   Shield,
   ArrowRight,
 } from 'lucide-react';
+
+const GoogleLoginButton = ({ onSuccess, onError }) => {
+  const [GoogleLogin, setGoogleLogin] = useState(null);
+  const [GoogleOAuthProvider, setGoogleOAuthProvider] = useState(null);
+  const [clientId, setClientId] = useState('');
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Check if Google Client ID is configured
+    const id = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (id) {
+      setClientId(id);
+      // Dynamic import to avoid blank screen
+      import('@react-oauth/google').then(({ GoogleLogin: GL, GoogleOAuthProvider: GOP }) => {
+        setGoogleLogin(() => GL);
+        setGoogleOAuthProvider(() => GOP);
+      }).catch((err) => {
+        console.error('Failed to load Google Login component:', err);
+        setError('Google Login component failed to load');
+      });
+    }
+  }, []);
+
+  if (error) {
+    return null; // Don't show anything if there's an error
+  }
+
+  if (!GoogleLogin || !GoogleOAuthProvider || !clientId) {
+    return null;
+  }
+
+  return (
+    <GoogleOAuthProvider clientId={clientId}>
+      <GoogleLogin
+        onSuccess={onSuccess}
+        onError={onError}
+        useOneTap={false}
+        theme="outline"
+        size="large"
+        text="signin_with"
+        shape="rectangular"
+        logo_alignment="left"
+      />
+    </GoogleOAuthProvider>
+  );
+};
 
 const loginOptions = [
   {
@@ -41,6 +89,33 @@ const loginOptions = [
 ];
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleMessage, setGoogleMessage] = useState({ text: '', type: '' });
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setGoogleLoading(true);
+      setGoogleMessage({ text: 'Logging in with Google...', type: 'success' });
+
+      const result = await googleLogin({
+        google_id_token: credentialResponse.credential
+      });
+
+      setGoogleMessage({ text: 'Login successful! Redirecting...', type: 'success' });
+      setTimeout(() => navigate('/admin/dashboard'), 500);
+    } catch (error) {
+      setGoogleMessage({ text: error.message || 'Google login failed', type: 'error' });
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleError = (error) => {
+    console.error('Google authentication error:', error);
+    setGoogleMessage({ text: 'Google authentication failed. Please try again.', type: 'error' });
+  };
+
   return (
     <div className="bg-surface text-foreground min-h-screen">
       <Navbar>
@@ -65,6 +140,31 @@ export default function LoginPage() {
             <p className="text-muted mx-auto mt-4 max-w-md text-sm sm:text-base">
               Select your role to continue to your workspace
             </p>
+          </div>
+
+          {/* Google Sign In Button */}
+          <div className="flex justify-center">
+            <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
+          </div>
+
+          {googleMessage.text && (
+            <p
+              className={
+                googleMessage.type === 'success' ? 'alert-success m-0 text-center' : 'alert-error m-0 text-center'
+              }
+              role="alert"
+            >
+              {googleMessage.text}
+            </p>
+          )}
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-surface px-2 text-muted">Or login with your role</span>
+            </div>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-3">

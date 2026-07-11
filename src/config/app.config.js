@@ -11,3 +11,7 @@ export const APP_URL = process.env.APP_URL || 'http://localhost:5000';
 export const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
 export const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || '';
 export const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || '';
+
+// Google OAuth Configuration
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';

@@ -74,3 +74,32 @@ export const resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+
+export const googleSignup = async (req, res, next) => {
+  try {
+    const result = await authService.signupWithGoogle({
+      ...req.body,
+      logo: req.file
+    });
+    return res.status(201).json(
+      successResponse('Academy and admin account created successfully with Google', result)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const googleLogin = async (req, res, next) => {
+  try {
+    const result = await authService.loginWithGoogle({
+      google_id_token: req.body.google_id_token,
+      ip: req.ip
+    });
+
+    return res.status(200).json(
+      successResponse('Google login successful', result)
+    );
+  } catch (error) {
+    next(error);
+  }
+};

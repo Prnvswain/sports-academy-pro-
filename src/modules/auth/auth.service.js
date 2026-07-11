@@ -22,6 +22,7 @@ import {
   sendPasswordResetEmail
 } from '../../services/mail.service.js';
 import logger from '../../utils/logger.js';
+import { verifyGoogleToken } from '../../utils/googleAuth.util.js';
 
 const ACADEMY_LOGO_DIR = path.join(process.cwd(), 'uploads', 'academy-logos');
 
@@ -496,4 +497,342 @@ export const resetPasswordWithCode = async ({ email, code, newPassword }) => {
   });
 
   return { reset: true };
+};
+
+export const signupWithGoogle = async ({
+  google_id_token,
+  academy_name,
+  phone_number,
+  subscription_plan,
+  address,
+  city,
+  state,
+  latitude,
+  longitude,
+  attendance_radius_meters,
+  logo
+}) => {
+  // Verify Google token
+  const googleUser = await verifyGoogleToken(google_id_token);
+
+  if (!googleUser.email_verified) {
+    const error = new Error('Google email is not verified');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Check if user already exists with this email
+  const existingUser = await prisma.user.findFirst({
+    where: { email: googleUser.email, ...NOT_DELETED }
+  });
+
+  if (existingUser) {
+    // If user exists with Google auth, they already have an account
+    if (existingUser.google_id) {
+      const error = new Error('An account with this Google email already exists. Please log in instead.');
+      error.statusCode = 409;
+      throw error;
+    }
+    // If user exists with email/password, offer to link
+    const error = new Error('An account with this email already exists. Please log in with your password and link your Google account in settings.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // Check if coach exists with this email
+  const existingCoachEmail = await prisma.coach.findFirst({
+    where: { email: googleUser.email, ...NOT_DELETED }
+  });
+
+  if (existingCoachEmail) {
+    const error = new Error('This email is already used by a coach account. Use a different email for academy registration.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const planKey = normalizePlanId(subscription_plan);
+  const planLimits = getPlanLimits(subscription_plan);
+  const subscription_expires_at = addDays(new Date(), planLimits.trialDays);
+
+  // Convert empty phone_number to null for optional field
+  const normalizedPhone = phone_number && phone_number.trim() ? phone_number.trim() : null;
+
+  // Map lowercase plan keys to uppercase enum values for subscription_tier
+  const tierMapping = {
+    'free': 'FREE',
+    'pro': 'PRO',
+    'plus': 'PLUS'
+  };
+  const subscriptionTier = tierMapping[planKey] || 'FREE';
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const academy = await tx.academy.create({
+        data: {
+          name: academy_name,
+          owner_name: googleUser.name,
+          email: googleUser.email,
+          phone_number: normalizedPhone,
+          subscription_plan: planKey,
+          subscription_tier: subscriptionTier,
+          subscription_expires_at,
+          status: 'ACTIVE',
+
+          latitude: latitude ? parseFloat(latitude) : null,
+          longitude: longitude ? parseFloat(longitude) : null,
+          city: city || null,
+          state: state || null,
+          address: address || null,
+
+          attendance_radius_meters: attendance_radius_meters
+            ? parseInt(attendance_radius_meters, 10)
+            : 100,
+        }
+      });
+
+      // Save logo if provided
+      let logo_url = null;
+      if (logo) {
+        logo_url = await saveAcademyLogo(logo, academy.academy_id);
+        await tx.academy.update({
+          where: { academy_id: academy.academy_id },
+          data: { logo_url }
+        });
+      }
+
+      const user = await tx.user.create({
+        data: {
+          academy_id: academy.academy_id,
+          name: googleUser.name,
+          email: googleUser.email,
+          password_hash: null, // No password for Google users
+          google_id: googleUser.google_id,
+          avatar_url: googleUser.picture,
+          auth_provider: 'google',
+          profile_completed: true,
+          role: 'ACADEMY_ADMIN'
+        }
+      });
+
+      await tx.durationPlan.createMany({
+        data: [
+          { academy_id: academy.academy_id, name: '1 Month', duration_months: 1, multiplier: 1 },
+          { academy_id: academy.academy_id, name: '3 Months', duration_months: 3, multiplier: 0.95 },
+          { academy_id: academy.academy_id, name: '6 Months', duration_months: 6, multiplier: 0.9 },
+          { academy_id: academy.academy_id, name: '12 Months', duration_months: 12, multiplier: 0.85 }
+        ]
+      });
+
+      return { academy, user };
+    });
+
+    const token = jwt.sign(
+      {
+        user_id: result.user.user_id,
+        email: result.user.email,
+        role: result.user.role,
+        academy_id: result.user.academy_id,
+        name: result.user.name
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRE }
+    );
+
+    logger.info('Google signup completed', {
+      academy_id: result.academy.academy_id,
+      user_id: result.user.user_id,
+      google_id: result.user.google_id,
+      email: googleUser.email
+    });
+
+    try {
+      await sendAdminWelcomeEmail({
+        email: googleUser.email,
+        name: googleUser.name,
+        academyName: academy_name,
+        temporaryPassword: 'Set up via Google Sign In'
+      });
+    } catch (mailError) {
+      logger.error('Google signup succeeded but welcome email failed', {
+        academy_id: result.academy.academy_id,
+        email: googleUser.email,
+        smtp_code: mailError.code,
+        message: mailError.message
+      });
+    }
+
+    return {
+      token,
+      academy: {
+        academy_id: result.academy.academy_id,
+        name: result.academy.name,
+        subscription_plan: result.academy.subscription_plan
+      },
+      user: {
+        user_id: result.user.user_id,
+        name: result.user.name,
+        email: result.user.email,
+        role: result.user.role,
+        academy_id: result.user.academy_id,
+        avatar_url: result.user.avatar_url
+      }
+    };
+  } catch (error) {
+    if (error.statusCode) throw error;
+    logger.error('Google signup transaction failed', { message: error.message, stack: error.stack });
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const txError = new Error(isDevelopment ? error.message : 'Failed to complete Google registration');
+    txError.statusCode = 500;
+    if (isDevelopment) {
+      txError.details = error.message;
+      txError.originalError = error;
+    }
+    throw txError;
+  }
+};
+
+export const loginWithGoogle = async ({ google_id_token, ip }) => {
+  // Verify Google token
+  const googleUser = await verifyGoogleToken(google_id_token);
+
+  if (!googleUser.email_verified) {
+    const error = new Error('Google email is not verified');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  logger.info('Google login attempt', {
+    google_id: googleUser.google_id,
+    email: googleUser.email,
+    ip
+  });
+
+  // Check if user exists with Google ID
+  let user = await prisma.user.findFirst({
+    where: { google_id: googleUser.google_id, ...NOT_DELETED },
+    include: { academy: true }
+  });
+
+  if (user) {
+    // User exists with Google auth - log them in
+    if (user.academy && !['active', 'approved'].includes(user.academy.status?.toLowerCase())) {
+      const error = new Error('Academy account is not active. Contact support.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const subscription = getSubscriptionStatus(user.academy);
+    if (user.academy && subscription.expired) {
+      const error = new Error('Academy subscription has expired. Renew to restore access.');
+      error.statusCode = 402;
+      throw error;
+    }
+
+    // Update avatar if it changed
+    if (googleUser.picture && user.avatar_url !== googleUser.picture) {
+      await prisma.user.update({
+        where: { user_id: user.user_id },
+        data: { avatar_url: googleUser.picture }
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+        academy_id: user.academy_id,
+        name: user.name
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRE }
+    );
+
+    logger.info('Google login successful', {
+      user_id: user.user_id,
+      google_id: user.google_id,
+      email: googleUser.email,
+      ip
+    });
+
+    return {
+      token,
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        academy_id: user.academy_id,
+        avatar_url: user.avatar_url
+      }
+    };
+  }
+
+  // Check if user exists with email (account linking scenario)
+  user = await prisma.user.findFirst({
+    where: { email: googleUser.email, ...NOT_DELETED },
+    include: { academy: true }
+  });
+
+  if (user) {
+    // User exists with email/password - link Google account
+    if (user.academy && !['active', 'approved'].includes(user.academy.status?.toLowerCase())) {
+      const error = new Error('Academy account is not active. Contact support.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const subscription = getSubscriptionStatus(user.academy);
+    if (user.academy && subscription.expired) {
+      const error = new Error('Academy subscription has expired. Renew to restore access.');
+      error.statusCode = 402;
+      throw error;
+    }
+
+    // Link Google account
+    await prisma.user.update({
+      where: { user_id: user.user_id },
+      data: {
+        google_id: googleUser.google_id,
+        avatar_url: googleUser.picture || user.avatar_url,
+        auth_provider: user.auth_provider === 'google' ? 'google' : 'linked' // Keep original or mark as linked
+      }
+    });
+
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+        academy_id: user.academy_id,
+        name: user.name
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRE }
+    );
+
+    logger.info('Google account linked and login successful', {
+      user_id: user.user_id,
+      google_id: googleUser.google_id,
+      email: googleUser.email,
+      ip
+    });
+
+    return {
+      token,
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        academy_id: user.academy_id,
+        avatar_url: user.avatar_url
+      }
+    };
+  }
+
+  // No account found - user needs to sign up
+  const error = new Error('No Academy Account Found. Please create your academy first.');
+  error.statusCode = 404;
+  throw error;
 };

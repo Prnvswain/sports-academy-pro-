@@ -3,11 +3,51 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../../components/Navbar';
 import ThemeToggle from '../../components/ThemeToggle';
-import { signup } from '../../api/client';
+import { signup, googleSignup } from '../../api/client';
 import {
   MapPin,
   AlertTriangle,
 } from 'lucide-react';
+
+const GoogleLoginButton = ({ onSuccess, onError }) => {
+  const [GoogleLogin, setGoogleLogin] = useState(null);
+  const [GoogleOAuthProvider, setGoogleOAuthProvider] = useState(null);
+  const [clientId, setClientId] = useState('');
+
+  useEffect(() => {
+    // Check if Google Client ID is configured
+    const id = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (id) {
+      setClientId(id);
+      // Dynamic import to avoid blank screen
+      import('@react-oauth/google').then(({ GoogleLogin: GL, GoogleOAuthProvider: GOP }) => {
+        setGoogleLogin(() => GL);
+        setGoogleOAuthProvider(() => GOP);
+      }).catch(() => {
+        console.log('Google Login component not available');
+      });
+    }
+  }, []);
+
+  if (!GoogleLogin || !GoogleOAuthProvider || !clientId) {
+    return null;
+  }
+
+  return (
+    <GoogleOAuthProvider clientId={clientId}>
+      <GoogleLogin
+        onSuccess={onSuccess}
+        onError={onError}
+        useOneTap
+        theme="outline"
+        size="large"
+        text="signup_with"
+        shape="rectangular"
+        logo_alignment="left"
+      />
+    </GoogleOAuthProvider>
+  );
+};
 
 const initialSignup = {
   name: '',
@@ -47,6 +87,8 @@ export default function SignupPage() {
   const [gpsError, setGpsError] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
   const [activeModal, setActiveModal] = useState(null);
+  const [isGoogleAuth, setIsGoogleAuth] = useState(false);
+  const [googleUser, setGoogleUser] = useState(null);
 
   // Auto-Save Persistence Loops
   useEffect(() => {
@@ -126,8 +168,46 @@ export default function SignupPage() {
     if (formType === 'signup') {
       setSignupForm(initialSignup);
       localStorage.removeItem('sams_draft_public_signup');
+      setIsGoogleAuth(false);
+      setGoogleUser(null);
     }
     setActiveModal(null);
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setSignupLoading(true);
+      setSignupMessage({ text: '', type: '' });
+
+      // Decode the JWT token to get user info
+      const base64Url = credentialResponse.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+
+      const payload = JSON.parse(jsonPayload);
+
+      setGoogleUser(payload);
+      setIsGoogleAuth(true);
+
+      // Auto-fill name and email
+      setSignupForm((prev) => ({
+        ...prev,
+        name: payload.name || '',
+        email: payload.email || '',
+      }));
+
+      setSignupMessage({ text: 'Google account connected. Please complete your academy details.', type: 'success' });
+    } catch (error) {
+      setSignupMessage({ text: 'Failed to connect Google account. Please try again.', type: 'error' });
+    } finally {
+      setSignupLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setSignupMessage({ text: 'Google authentication failed. Please try again.', type: 'error' });
   };
 
   const handleSignupSubmit = async (event) => {
@@ -150,35 +230,73 @@ export default function SignupPage() {
       return;
     }
 
+    // For email signup, validate password
+    if (!isGoogleAuth && !signupForm.password) {
+      setSignupMessage({ text: 'Password is required', type: 'error' });
+      return;
+    }
+    if (!isGoogleAuth && signupForm.password.length < 6) {
+      setSignupMessage({ text: 'Password must be at least 6 characters', type: 'error' });
+      return;
+    }
+
     setSignupLoading(true);
     setSignupMessage({ text: '', type: '' });
 
     try {
-      const formData = new FormData();
-      formData.append('name', signupForm.name.trim());
-      formData.append('email', signupForm.email.trim());
-      formData.append('password', signupForm.password);
-      formData.append('academy_name', signupForm.academy_name.trim());
-      if (signupForm.phone_number) {
-        formData.append('phone_number', signupForm.phone_number.trim());
-      }
-      formData.append('city', signupForm.city.trim());
-      formData.append('state', signupForm.state.trim());
-      if (signupForm.address) {
-        formData.append('address', signupForm.address.trim());
-      }
-      formData.append('latitude', signupForm.latitude);
-      formData.append('longitude', signupForm.longitude);
-      formData.append('attendance_radius_meters', parseInt(signupForm.attendance_radius_meters) || 100);
-      formData.append('subscription_plan', signupForm.subscription_plan);
-      if (signupForm.logo) {
-        formData.append('logo', signupForm.logo);
-      }
+      if (isGoogleAuth && googleUser) {
+        // Google signup
+        const formData = new FormData();
+        formData.append('google_id_token', googleUser.credential);
+        formData.append('academy_name', signupForm.academy_name.trim());
+        if (signupForm.phone_number) {
+          formData.append('phone_number', signupForm.phone_number.trim());
+        }
+        formData.append('city', signupForm.city.trim());
+        formData.append('state', signupForm.state.trim());
+        if (signupForm.address) {
+          formData.append('address', signupForm.address.trim());
+        }
+        formData.append('latitude', signupForm.latitude);
+        formData.append('longitude', signupForm.longitude);
+        formData.append('attendance_radius_meters', parseInt(signupForm.attendance_radius_meters) || 100);
+        formData.append('subscription_plan', signupForm.subscription_plan);
+        if (signupForm.logo) {
+          formData.append('logo', signupForm.logo);
+        }
 
-      const result = await signup(formData);
-      setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
-      localStorage.removeItem('sams_draft_public_signup');
-      setTimeout(() => navigate('/admin/coaches'), 1000);
+        const result = await googleSignup(formData);
+        setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
+        localStorage.removeItem('sams_draft_public_signup');
+        setTimeout(() => navigate('/admin/coaches'), 1000);
+      } else {
+        // Email signup
+        const formData = new FormData();
+        formData.append('name', signupForm.name.trim());
+        formData.append('email', signupForm.email.trim());
+        formData.append('password', signupForm.password);
+        formData.append('academy_name', signupForm.academy_name.trim());
+        if (signupForm.phone_number) {
+          formData.append('phone_number', signupForm.phone_number.trim());
+        }
+        formData.append('city', signupForm.city.trim());
+        formData.append('state', signupForm.state.trim());
+        if (signupForm.address) {
+          formData.append('address', signupForm.address.trim());
+        }
+        formData.append('latitude', signupForm.latitude);
+        formData.append('longitude', signupForm.longitude);
+        formData.append('attendance_radius_meters', parseInt(signupForm.attendance_radius_meters) || 100);
+        formData.append('subscription_plan', signupForm.subscription_plan);
+        if (signupForm.logo) {
+          formData.append('logo', signupForm.logo);
+        }
+
+        const result = await signup(formData);
+        setSignupMessage({ text: `${result.message} Redirecting…`, type: 'success' });
+        localStorage.removeItem('sams_draft_public_signup');
+        setTimeout(() => navigate('/admin/coaches'), 1000);
+      }
     } catch (error) {
       setSignupMessage({ text: error.message, type: 'error' });
     } finally {
@@ -226,6 +344,56 @@ export default function SignupPage() {
               </Link>
             </p>
 
+            {/* Google Sign In Button */}
+            {!isGoogleAuth && (
+              <div className="mb-6">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-surface-secondary px-2 text-muted">Or continue with</span>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-center">
+                  <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
+                </div>
+              </div>
+            )}
+
+            {isGoogleAuth && (
+              <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {googleUser?.picture && (
+                    <img
+                      src={googleUser.picture}
+                      alt="Google Profile"
+                      className="w-10 h-10 rounded-full"
+                    />
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                      Connected as {googleUser?.name}
+                    </p>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                      {googleUser?.email}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsGoogleAuth(false);
+                      setGoogleUser(null);
+                      setSignupForm((prev) => ({ ...prev, name: '', email: '' }));
+                    }}
+                    className="ml-auto text-xs text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100 underline"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSignupSubmit} noValidate className="space-y-5">
               <div>
                 <label className="label" htmlFor="signupName">
@@ -238,7 +406,12 @@ export default function SignupPage() {
                   value={signupForm.name || ''}
                   onChange={handleSignupChange}
                   required
+                  readOnly={isGoogleAuth}
+                  disabled={isGoogleAuth}
                 />
+                {isGoogleAuth && (
+                  <p className="text-xs text-muted mt-1">Auto-filled from Google account</p>
+                )}
               </div>
               <div>
                 <label className="label" htmlFor="signupEmail">
@@ -252,23 +425,37 @@ export default function SignupPage() {
                   value={signupForm.email || ''}
                   onChange={handleSignupChange}
                   required
+                  readOnly={isGoogleAuth}
+                  disabled={isGoogleAuth}
                 />
+                {isGoogleAuth && (
+                  <p className="text-xs text-muted mt-1">Auto-filled from Google account</p>
+                )}
               </div>
-              <div>
-                <label className="label" htmlFor="signupPassword">
-                  Security Password (Min 6 Characters)
-                </label>
-                <input
-                  className={inputThemeStyles}
-                  type="password"
-                  id="signupPassword"
-                  name="password"
-                  value={signupForm.password || ''}
-                  onChange={handleSignupChange}
-                  minLength={6}
-                  required
-                />
-              </div>
+              {!isGoogleAuth && (
+                <div>
+                  <label className="label" htmlFor="signupPassword">
+                    Security Password (Min 6 Characters)
+                  </label>
+                  <input
+                    className={inputThemeStyles}
+                    type="password"
+                    id="signupPassword"
+                    name="password"
+                    value={signupForm.password || ''}
+                    onChange={handleSignupChange}
+                    minLength={6}
+                    required
+                  />
+                </div>
+              )}
+              {isGoogleAuth && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-xs text-blue-900 dark:text-blue-100">
+                    Password is not required for Google Sign In.
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="label" htmlFor="signupAcademy">
                   Academy Corporate Name

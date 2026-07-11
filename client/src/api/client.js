@@ -166,6 +166,28 @@ export async function resetPassword(body) {
   return api.post('/auth/reset-password', body, { headers: { 'Content-Type': 'application/json' } }).then(unwrap);
 }
 
+export async function googleSignup(body) {
+  const headers = {};
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const response = await api.post('/auth/google/signup', body, { headers }).then(unwrap);
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    setAdminToken(token);
+  }
+  return response;
+}
+
+export async function googleLogin(body) {
+  const response = await api.post('/auth/google/login', body, { headers: { 'Content-Type': 'application/json' } }).then(unwrap);
+  const token = response?.token || response?.data?.token;
+  if (token) {
+    setAdminToken(token);
+  }
+  return response;
+}
+
 /* ==========================================
    🎯 COACH AUTHENTICATED WRAPPERS
    ========================================== */
