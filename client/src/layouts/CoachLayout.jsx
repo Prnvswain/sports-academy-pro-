@@ -2,11 +2,33 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
-import { clearCoachToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
+import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken } from '../api/client';
 import { CoachBatchesProvider } from '../context/CoachBatchesContext';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
 const PRODUCT_LOGO = 'SP';
+
+const decodeJwtPayload = (token) => {
+  if (!token) return null;
+
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const normalized = atob(base64);
+    const jsonPayload = decodeURIComponent(
+      normalized
+        .split('')
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    return null;
+  }
+};
 
 const COACH_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -16,8 +38,6 @@ const COACH_NAV_ITEMS = [
   { path: 'fees', label: 'Fees', icon: '💳' },
 ];
 
-const PAGE_TITLES = Object.fromEntries(COACH_NAV_ITEMS.map((item) => [item.path, item.label]));
-
 function CoachLayoutShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,13 +45,16 @@ function CoachLayoutShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
-
-  const section = location.pathname.split('/')[2] || 'dashboard';
-  const pageTitle = PAGE_TITLES[section] || 'Coach Portal';
+  const [coachUser, setCoachUser] = useState(null);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const token = getCoachToken();
+    setCoachUser(decodeJwtPayload(token));
+  }, []);
 
   const handleLogout = () => {
     clearCoachToken();
@@ -171,9 +194,12 @@ function CoachLayoutShell() {
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </motion.button>
-            <h1 className="text-xl font-black tracking-tight text-foreground/90">
-              {pageTitle}
-            </h1>
+            <div className="flex flex-col">
+              <span className="text-lg font-black tracking-tight text-foreground/90">Coach</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                {coachUser?.name || 'Loading...'}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />

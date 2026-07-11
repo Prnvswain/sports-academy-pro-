@@ -15,8 +15,6 @@ const PARENT_NAV_ITEMS = [
   { path: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
-const PAGE_TITLES = Object.fromEntries(PARENT_NAV_ITEMS.map((item) => [item.path, item.label]));
-
 function ParentLayoutShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,9 +26,6 @@ function ParentLayoutShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
-
-  const section = location.pathname.split('/')[2] || 'dashboard';
-  const pageTitle = PAGE_TITLES[section] || 'Parent Portal';
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
@@ -248,9 +243,12 @@ function ParentLayoutShell() {
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </motion.button>
-            <h1 className="text-xl font-black tracking-tight text-foreground/90">
-              {pageTitle}
-            </h1>
+            <div className="flex flex-col">
+              <span className="text-lg font-black tracking-tight text-foreground/90">Parent</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                {user?.name || 'Loading...'}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />

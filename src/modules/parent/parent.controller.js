@@ -153,6 +153,61 @@ export const getDashboard = async (req, res, next) => {
   }
 };
 
+export const getPayments = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const studentId = req.query.student_id ? parseInt(req.query.student_id, 10) : null;
+    const payments = await parentService.getParentPayments(parent_id, req.user.academy_id, studentId);
+
+    return res.status(200).json(
+      successResponse('Payments retrieved successfully', payments)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const recordPayment = async (req, res, next) => {
+  try {
+    const payload = { ...req.body };
+
+    if (req.file) {
+      payload.proof_url = req.file.path;
+    }
+
+    const receipt = await parentService.recordParentPayment(req.user.id, req.user.academy_id, payload);
+
+    return res.status(201).json(
+      successResponse('Payment submitted and pending admin approval', receipt)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updatePaymentProof = async (req, res, next) => {
+  try {
+    const payload = { ...req.body };
+
+    if (req.file) {
+      payload.proof_url = req.file.path;
+    }
+
+    const receipt = await parentService.updateParentPaymentProof(
+      req.user.id,
+      req.user.academy_id,
+      req.params.receiptId,
+      payload.proof_url
+    );
+
+    return res.status(200).json(
+      successResponse('Payment proof updated successfully', receipt)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getChildPerformance = async (req, res, next) => {
   try {
     const parent_id = req.user.id;

@@ -473,6 +473,7 @@ model Receipt {
   rejected_reason       String?       @db.Text
   approved_by_user_id   Int?
   collected_by_coach_id Int?
+  created_by_user_id    Int?
   pdf_url               String?
   created_at            DateTime      @default(now())
   updated_at            DateTime      @updatedAt
@@ -481,6 +482,7 @@ model Receipt {
   student      Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "receipts_student_id_fk")
   approved_by  User?   @relation("ReceiptApprovedBy", fields: [approved_by_user_id], references: [user_id], map: "receipts_approved_by_fk")
   collected_by Coach?  @relation("ReceiptCollectedBy", fields: [collected_by_coach_id], references: [coach_id], map: "receipts_collected_by_fk")
+  created_by  User?   @relation("ReceiptCreatedBy", fields: [created_by_user_id], references: [user_id], map: "receipts_created_by_fk")
 
   @@index([academy_id])
   @@index([student_id])

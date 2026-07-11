@@ -3,10 +3,32 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import BroadcastModal from '../components/BroadcastModal';
-import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet } from '../api/client';
+import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet, getAdminToken } from '../api/client';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
 const PRODUCT_LOGO = 'SP';
+
+const decodeJwtPayload = (token) => {
+  if (!token) return null;
+
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const normalized = atob(base64);
+    const jsonPayload = decodeURIComponent(
+      normalized
+        .split('')
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    return null;
+  }
+};
 
 export const ADMIN_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -21,8 +43,6 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'reports', label: 'Reports', icon: '📄' },
 ];
 
-const PAGE_TITLES = Object.fromEntries(ADMIN_NAV_ITEMS.map((item) => [item.path, item.label]));
-
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,9 +53,7 @@ export default function AdminLayout() {
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [batches, setBatches] = useState([]);
   const [academy, setAcademy] = useState(null);
-
-  const section = location.pathname.split('/')[2] || 'dashboard';
-  const pageTitle = PAGE_TITLES[section] || 'Academy Workspace';
+  const [adminUser, setAdminUser] = useState(null);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
@@ -63,6 +81,11 @@ export default function AdminLayout() {
       }
     };
     fetchAcademy();
+  }, []);
+
+  useEffect(() => {
+    const token = getAdminToken();
+    setAdminUser(decodeJwtPayload(token));
   }, []);
 
   const handleLogout = () => {
@@ -214,9 +237,12 @@ export default function AdminLayout() {
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </motion.button>
-            <h1 className="text-xl font-extrabold tracking-tight text-foreground/90">
-              {pageTitle}
-            </h1>
+            <div className="flex flex-col">
+              <span className="text-lg font-extrabold tracking-tight text-foreground/90">Admin</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                {adminUser?.name || 'Loading...'}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <motion.button

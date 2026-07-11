@@ -17,6 +17,7 @@ import {
   hashResetCode,
   verifyResetCode
 } from '../../utils/resetCode.util.js';
+import { validateAcademyAdminEmailUniqueness } from './emailValidation.util.js';
 import {
   sendAdminWelcomeEmail,
   sendPasswordResetEmail
@@ -36,12 +37,26 @@ const saveAcademyLogo = async (file, academyId) => {
 
   ensureAcademyLogoDir();
 
-  const ext = path.extname(file.name || file.originalname);
-  const filename = `academy-${academyId}-${Date.now()}${ext}`;
+  const ext = path.extname(file.name || file.originalname || '');
+  const filename = `academy-${academyId}-${Date.now()}${ext || '.png'}`;
   const filePath = path.join(ACADEMY_LOGO_DIR, filename);
 
-  const buffer = file.buffer || (await file.arrayBuffer());
-  fs.writeFileSync(filePath, Buffer.from(buffer));
+  let buffer;
+  if (file.buffer) {
+    buffer = file.buffer;
+  } else if (file.path) {
+    buffer = fs.readFileSync(file.path);
+  } else if (typeof file.arrayBuffer === 'function') {
+    buffer = Buffer.from(await file.arrayBuffer());
+  } else {
+    throw new Error('Unsupported uploaded file format');
+  }
+
+  fs.writeFileSync(filePath, buffer);
+
+  if (file.path) {
+    fs.rmSync(file.path, { force: true });
+  }
 
   return `/uploads/academy-logos/${filename}`;
 };
@@ -68,27 +83,7 @@ export const signupAcademy = async ({
     throw error;
   }
 
-  const existingUser = await prisma.user.findFirst({
-    where: { email, ...NOT_DELETED }
-  });
-
-  if (existingUser) {
-    const error = new Error('Email already registered');
-    error.statusCode = 409;
-    throw error;
-  }
-
-  const existingCoachEmail = await prisma.coach.findFirst({
-    where: { email, ...NOT_DELETED }
-  });
-
-  if (existingCoachEmail) {
-    const error = new Error(
-      'This email is already used by a coach account. Use a different email for academy registration.'
-    );
-    error.statusCode = 409;
-    throw error;
-  }
+  await validateAcademyAdminEmailUniqueness({ prisma, email });
 
   const password_hash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   const planKey = normalizePlanId(subscription_plan);

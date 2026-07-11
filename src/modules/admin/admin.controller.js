@@ -191,6 +191,16 @@ export const getAllStudents = async (req, res, next) => {
   }
 };
 
+export const getStudentsByBatch = async (req, res, next) => {
+  try {
+    const { batch_id } = req.params;
+    const result = await adminService.getStudentsByBatch(req.user.academy_id, batch_id);
+    res.json(successResponse('Students retrieved successfully', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const createStudent = async (req, res, next) => {
   try {
     const student = await adminService.createStudent(req.user.academy_id, req.body);

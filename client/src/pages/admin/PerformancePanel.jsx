@@ -158,71 +158,19 @@ export default function PerformancePanel() {
     try {
       setLoadingStudents(true);
       
-      // DEBUG LOGS
-      console.log('=== loadStudents DEBUG ===');
-      console.log('Batch ID:', batchId);
-      console.log('Performance View Mode:', performanceViewMode);
-      console.log('Selected Assessment ID:', selectedAssessmentId);
-      console.log('Selected Age Category:', selectedAgeCategory);
+      // Load students from batch endpoint (basic info only, no performance metrics)
+      const result = await adminGet(`/admin/batches/${batchId}/students`);
+      const studentsData = result.data?.students || result.data || [];
       
-      // Build query parameters for performance data
-      const queryParams = new URLSearchParams();
-      
-      if (performanceViewMode === 'average') {
-        queryParams.append('mode', 'average');
-      } else if (selectedAssessmentId) {
-        queryParams.append('assessment_id', selectedAssessmentId);
-      }
-      
-      if (selectedAgeCategory && selectedAgeCategory !== 'all') {
-        queryParams.append('age_category', selectedAgeCategory);
-      }
-      
-      const apiUrl = `/admin/performance/batches/${batchId}?${queryParams.toString()}`;
-      console.log('API URL:', apiUrl);
-      console.log('Query params:', queryParams.toString());
-      
-      // Load performance data from batch performance endpoint
-      const result = await adminGet(apiUrl);
-      const performanceData = result.data;
-      
-      console.log('API Response - students count:', performanceData.students?.length || 0);
-      console.log('API Response - scores count:', performanceData.scores?.length || 0);
-      console.log('API Response - mode:', performanceData.mode);
-      
-      // Process: Start with all students from batch, then merge performance scores
-      const studentsArray = (performanceData.students || []).map(student => ({
-        student_id: student.student_id,
-        name: student.name,
-        category: student.category,
-        ratings: {},
-        performance_metrics: {}
-      }));
-      
-      console.log('Processed students array length:', studentsArray.length);
-      
-      // Merge performance scores onto students
-      performanceData.scores?.forEach(score => {
-        const student = studentsArray.find(s => s.student_id === score.student_id);
-        if (student) {
-          const attrName = score.attribute.name;
-          student.ratings[attrName] = score.score;
-          student.performance_metrics[attrName] = score.score;
-        }
-      });
-      
-      console.log('Final students to set:', studentsArray.length);
-      console.log('=== END loadStudents DEBUG ===');
-      
-      setStudents(studentsArray);
+      setStudents(studentsData);
     } catch (error) {
-      console.error('Error loading performance data:', error);
+      console.error('Error loading students:', error);
       setMessage({ text: error.message, type: 'error' });
       setStudents([]);
     } finally {
       setLoadingStudents(false);
     }
-  }, [performanceViewMode, selectedAssessmentId, selectedAgeCategory]);
+  }, []);
 
   const loadAssessments = useCallback(async (batchId) => {
     if (!batchId) {
@@ -2680,261 +2628,37 @@ export default function PerformancePanel() {
                 >
                   <div className="flex items-center justify-between border-b border-border pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">📊</span>
+                      <span className="text-xl">👥</span>
                       <div>
                         <h3 className="text-foreground text-base font-black tracking-tight">
-                          Student Performance Metrics
+                          Students
                         </h3>
-                        <span className="text-[11px] text-muted-foreground font-normal block mt-0.5">Click on a student to open detailed tracking and history</span>
+                        <span className="text-[11px] text-muted-foreground font-normal block mt-0.5">Click on a student to view detailed performance</span>
                       </div>
                     </div>
-                    
-                    {/* Assessment Search & Age Category Filters */}
-                    <div className="flex items-center gap-3">
-                      {/* Assessment Search */}
-                      <div className="relative">
-                        <motion.button
-                          type="button"
-                          onClick={() => setShowAssessmentDropdown(!showAssessmentDropdown)}
-                          className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-sm font-medium hover:border-accent transition-all"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <Search className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-foreground">
-                            {performanceViewMode === 'average' ? 'Average Performance' : 'Select Assessment'}
-                          </span>
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        </motion.button>
-                        
-                        <AnimatePresence>
-                          {showAssessmentDropdown && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute right-0 top-full mt-2 w-80 bg-background border border-border rounded-xl shadow-xl z-[100] overflow-hidden"
-                            >
-                              <div className="p-3 border-b border-border bg-surface">
-                                <div className="relative">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                  <input
-                                    type="text"
-                                    placeholder="Search assessments..."
-                                    value={assessmentSearchQuery}
-                                    onChange={(e) => setAssessmentSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                                  />
-                                </div>
-                              </div>
-                              <div className="max-h-64 overflow-y-auto p-2 bg-background">
-                                {/* Average Performance Option */}
-                                <motion.button
-                                  type="button"
-                                  onClick={() => handleAssessmentSelect('average')}
-                                  className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
-                                    performanceViewMode === 'average'
-                                      ? 'bg-accent/10 border border-accent/30'
-                                      : 'hover:bg-surface-secondary border border-transparent'
-                                  }`}
-                                  whileHover={{ scale: 1.01 }}
-                                >
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    <Check className="w-4 h-4" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-foreground text-sm truncate">Average Performance</div>
-                                    <div className="text-xs text-muted-foreground truncate">All assessments combined</div>
-                                  </div>
-                                  {performanceViewMode === 'average' && (
-                                    <Check className="w-4 h-4 text-accent flex-shrink-0" />
-                                  )}
-                                </motion.button>
-                                
-                                {/* Assessment List */}
-                                {loadingAssessments ? (
-                                  <div className="p-4 text-center text-sm text-muted-foreground">Loading assessments...</div>
-                                ) : availableAssessments.length === 0 ? (
-                                  <div className="p-4 text-center text-sm text-muted-foreground">No assessments found</div>
-                                ) : (
-                                  availableAssessments
-                                    .filter(assessment => {
-                                      const query = assessmentSearchQuery.toLowerCase();
-                                      const date = new Date(assessment.scored_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                                      return date.toLowerCase().includes(query) || 
-                                             (assessment.coach?.name || '').toLowerCase().includes(query);
-                                    })
-                                    .map(assessment => {
-                                      const date = new Date(assessment.scored_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                                      return (
-                                        <motion.button
-                                          key={assessment.assessment_id}
-                                          type="button"
-                                          onClick={() => handleAssessmentSelect(assessment.assessment_id)}
-                                          className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
-                                            selectedAssessmentId === assessment.assessment_id
-                                              ? 'bg-accent/10 border border-accent/30'
-                                              : 'hover:bg-surface-secondary border border-transparent'
-                                          }`}
-                                          whileHover={{ scale: 1.01 }}
-                                        >
-                                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                            {date.charAt(0)}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-foreground text-sm truncate">{date}</div>
-                                            <div className="text-xs text-muted-foreground truncate">
-                                              Coach: {assessment.coach?.name || 'N/A'} • Students: {assessment.total_students} • Attributes: {assessment.total_attributes}
-                                            </div>
-                                          </div>
-                                          {selectedAssessmentId === assessment.assessment_id && (
-                                            <Check className="w-4 h-4 text-accent flex-shrink-0" />
-                                          )}
-                                        </motion.button>
-                                      );
-                                    })
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      
-                      {/* Age Category Filter */}
-                      <div className="relative">
-                        <motion.button
-                          type="button"
-                          onClick={() => setShowAgeCategoryDropdown(!showAgeCategoryDropdown)}
-                          className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-sm font-medium hover:border-accent transition-all"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <span className="text-foreground">
-                            {selectedAgeCategory === 'all' ? 'All Ages' : selectedAgeCategory}
-                          </span>
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        </motion.button>
-                        
-                        <AnimatePresence>
-                          {showAgeCategoryDropdown && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute right-0 top-full mt-2 w-64 bg-background border border-border rounded-xl shadow-xl z-[100] overflow-hidden"
-                            >
-                              <div className="p-3 border-b border-border bg-surface">
-                                <div className="relative">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                  <input
-                                    type="text"
-                                    placeholder="Search age categories..."
-                                    value={ageCategorySearchQuery}
-                                    onChange={(e) => setAgeCategorySearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                                  />
-                                </div>
-                              </div>
-                              <div className="max-h-64 overflow-y-auto p-2 bg-background">
-                                {/* All Ages Option */}
-                                <motion.button
-                                  type="button"
-                                  onClick={() => handleAgeCategorySelect('all')}
-                                  className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
-                                    selectedAgeCategory === 'all'
-                                      ? 'bg-accent/10 border border-accent/30'
-                                      : 'hover:bg-surface-secondary border border-transparent'
-                                  }`}
-                                  whileHover={{ scale: 1.01 }}
-                                >
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    All
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-foreground text-sm truncate">All Ages</div>
-                                  </div>
-                                  {selectedAgeCategory === 'all' && (
-                                    <Check className="w-4 h-4 text-accent flex-shrink-0" />
-                                  )}
-                                </motion.button>
-                                
-                                {/* Age Category List */}
-                                {loadingAgeCategories ? (
-                                  <div className="p-4 text-center text-sm text-muted-foreground">Loading categories...</div>
-                                ) : availableAgeCategories.length === 0 ? (
-                                  <div className="p-4 text-center text-sm text-muted-foreground">No categories found</div>
-                                ) : (
-                                  availableAgeCategories
-                                    .filter(category => 
-                                      category.toLowerCase().includes(ageCategorySearchQuery.toLowerCase())
-                                    )
-                                    .map(category => (
-                                      <motion.button
-                                        key={category}
-                                        type="button"
-                                        onClick={() => handleAgeCategorySelect(category)}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
-                                          selectedAgeCategory === category
-                                            ? 'bg-accent/10 border border-accent/30'
-                                            : 'hover:bg-surface-secondary border border-transparent'
-                                        }`}
-                                        whileHover={{ scale: 1.01 }}
-                                      >
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                          {category.charAt(0)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-foreground text-sm truncate">{category}</div>
-                                        </div>
-                                        {selectedAgeCategory === category && (
-                                          <Check className="w-4 h-4 text-accent flex-shrink-0" />
-                                        )}
-                                      </motion.button>
-                                    ))
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Viewing Indicator */}
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-muted-foreground">Viewing:</span>
-                    <span className="font-medium text-accent">
-                      {getSelectedAssessmentDisplay().title}
-                    </span>
-                    {getSelectedAssessmentDisplay().subtitle && (
-                      <>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-foreground">{getSelectedAssessmentDisplay().subtitle}</span>
-                      </>
-                    )}
-                    {selectedAgeCategory !== 'all' && (
-                      <>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-foreground">{selectedAgeCategory}</span>
-                      </>
-                    )}
                   </div>
 
                   {loadingStudents ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3, 4, 5].map((i) => (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                         <motion.div 
                           key={i} 
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: i * 0.05 }}
-                          className="bg-surface border border-border rounded-lg p-3"
+                          className="bg-surface border border-border rounded-xl p-4"
                         >
-                          <div className="h-4 bg-gradient-to-r from-surface-secondary to-surface rounded-lg mb-2 animate-pulse"></div>
-                          <div className="flex gap-2">
-                            {[1, 2, 3, 4].map((j) => (
-                              <div key={j} className="h-6 bg-gradient-to-r from-surface-secondary to-surface rounded flex-1 animate-pulse"></div>
-                            ))}
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-surface-secondary to-surface animate-pulse"></div>
+                            <div className="flex-1">
+                              <div className="h-4 bg-gradient-to-r from-surface-secondary to-surface rounded-lg mb-2 animate-pulse"></div>
+                              <div className="h-3 bg-gradient-to-r from-surface-secondary to-surface rounded w-2/3 animate-pulse"></div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-3 bg-gradient-to-r from-surface-secondary to-surface rounded animate-pulse"></div>
+                            <div className="h-3 bg-gradient-to-r from-surface-secondary to-surface rounded animate-pulse"></div>
+                            <div className="h-3 bg-gradient-to-r from-surface-secondary to-surface rounded animate-pulse"></div>
                           </div>
                         </motion.div>
                       ))}
@@ -2947,93 +2671,60 @@ export default function PerformancePanel() {
                     >
                       <div className="text-6xl mb-4 animate-bounce">👥</div>
                       <h4 className="text-lg font-black text-foreground mb-2">No Students Enrolled</h4>
-                      <p className="text-sm text-muted-foreground max-w-md mx-auto">Enroll students in this batch to start tracking their performance metrics and building comprehensive athlete profiles.</p>
+                      <p className="text-sm text-muted-foreground max-w-md mx-auto">Enroll students in this batch to start tracking their performance.</p>
                     </motion.div>
                   ) : (
-                    <div className="overflow-x-auto -mx-4 sm:mx-0">
-                      <table className="w-full text-xs min-w-[700px]">
-                        <thead>
-                          <tr className="border-b border-border bg-surface-secondary/30">
-                            <th className="bg-surface-secondary text-left px-3 py-2 font-bold text-foreground sticky left-0 z-10 shadow-md">Student Name</th>
-                            {attributes.map((attr, idx) => (
-                              <th key={attr.id || attr.name} className="bg-surface-secondary text-center px-3 py-2 font-bold text-foreground whitespace-nowrap">
-                                <span className="flex items-center justify-center gap-1">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${
-                                    idx % 4 === 0 ? 'bg-emerald-500' : 
-                                    idx % 4 === 1 ? 'bg-blue-500' : 
-                                    idx % 4 === 2 ? 'bg-purple-500' : 'bg-orange-500'
-                                  }`}></span>
-                                  {attr.name}
-                                </span>
-                              </th>
-                            ))}
-                            <th className="bg-surface-secondary text-center px-3 py-2 font-bold text-foreground whitespace-nowrap">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {students.map((student, idx) => (
-                            <motion.tr
-                              key={student.student_id || student.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: idx * 0.03 }}
-                              whileHover={{ scale: 1.01, backgroundColor: 'hsl(var(--accent)/5)' }}
-                              className="border-b border-border/50 cursor-pointer transition-all"
-                              onClick={() => handleOpenStudentDashboard(student)}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {students.map((student, idx) => (
+                        <motion.div
+                          key={student.student_id || student.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.03 }}
+                          whileHover={{ scale: 1.02, y: -4 }}
+                          className="bg-surface border border-border rounded-xl p-4 cursor-pointer hover:border-accent/50 hover:shadow-lg transition-all group"
+                          onClick={() => handleOpenStudentDashboard(student)}
+                        >
+                          <div className="flex items-center gap-3 mb-3">
+                            <motion.div 
+                              whileHover={{ scale: 1.1, rotate: 5 }}
+                              className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-lg font-bold shadow-md flex-shrink-0"
                             >
-                              <td className="px-3 py-2 sticky left-0 bg-surface z-10 shadow-sm">
-                                <div className="flex items-center gap-2">
-                                  <motion.div 
-                                    whileHover={{ scale: 1.1, rotate: 5 }}
-                                    className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold shadow-md flex-shrink-0"
-                                  >
-                                    {student.name?.charAt(0) || '?'}
-                                  </motion.div>
-                                  <span className="font-bold text-accent hover:underline truncate">
-                                    {student.name || `${student.firstName || ''} ${student.lastName || ''}`}
-                                  </span>
-                                </div>
-                              </td>
-                              {attributes.map((attr, attrIdx) => {
-                                const rating = student.ratings?.[attr.name] || student.performance_metrics?.[attr.name];
-                                const colors = [
-                                  'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
-                                  'bg-blue-500/10 text-blue-600 border-blue-500/30',
-                                  'bg-purple-500/10 text-purple-600 border-purple-500/30',
-                                  'bg-orange-500/10 text-orange-600 border-orange-500/30'
-                                ];
-                                const colorClass = colors[attrIdx % colors.length];
-                                
-                                return (
-                                  <td key={attr.id || attr.name} className="text-center px-3 py-2 whitespace-nowrap">
-                                    {rating ? (
-                                      <span className={`${colorClass} border inline-block min-w-[50px] rounded-full px-2 py-1 text-[11px] font-bold shadow-sm`}>
-                                        {rating}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="text-center px-3 py-2 whitespace-nowrap">
-                                {(() => {
-                                  const ratings = attributes.map(attr => student.ratings?.[attr.name] || student.performance_metrics?.[attr.name]).filter(r => r !== undefined && r !== null);
-                                  if (ratings.length === 0) {
-                                    return <span className="text-muted-foreground text-xs">-</span>;
-                                  }
-                                  const average = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
-                                  return (
-                                    <span className="bg-accent/10 text-accent border border-accent/30 inline-block min-w-[50px] rounded-full px-2 py-1 text-[11px] font-bold shadow-sm">
-                                      {average.toFixed(1)}
-                                    </span>
-                                  );
-                                })()}
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              {student.profile_photo ? (
+                                <img 
+                                  src={student.profile_photo} 
+                                  alt={student.name}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                student.name?.charAt(0) || '?'
+                              )}
+                            </motion.div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-foreground truncate group-hover:text-accent transition-colors">
+                                {student.name || `${student.first_name || ''} ${student.last_name || ''}`}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {student.age ? `${student.age} yrs` : ''}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                              <span className="truncate">{student.category || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                              <span className="truncate">{selectedSport?.name || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                              <span className="truncate">{selectedBatchId ? batches.find(b => b.batch_id === parseInt(selectedBatchId))?.name || 'N/A' : 'N/A'}</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   )}
                 </motion.div>

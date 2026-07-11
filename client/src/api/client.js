@@ -265,17 +265,20 @@ export async function publicPost(path, body) {
    ========================================== */
 
 export const PARENT_TOKEN_KEY = 'sams_parent_token';
+const LEGACY_PARENT_TOKEN_KEY = 'parent_token';
 
 export function getParentToken() {
-  return localStorage.getItem(PARENT_TOKEN_KEY);
+  return localStorage.getItem(PARENT_TOKEN_KEY) || localStorage.getItem(LEGACY_PARENT_TOKEN_KEY);
 }
 
 export function setParentToken(token) {
   localStorage.setItem(PARENT_TOKEN_KEY, token);
+  localStorage.setItem(LEGACY_PARENT_TOKEN_KEY, token);
 }
 
 export function clearParentToken() {
   localStorage.removeItem(PARENT_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_PARENT_TOKEN_KEY);
 }
 
 export async function parentGet(path) {

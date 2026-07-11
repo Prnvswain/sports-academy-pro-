@@ -271,6 +271,147 @@ export const getParentChildren = async (parent_id) => {
   return parent.students;
 };
 
+export const getParentPayments = async (parent_id, academy_id, student_id = null) => {
+  const parentId = parseInt(parent_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const selectedStudentId = student_id ? parseInt(student_id, 10) : null;
+
+  const payments = await prisma.receipt.findMany({
+    where: {
+      academy_id: academyId,
+      student: {
+        parent_id: parentId,
+        is_deleted: false,
+        status: 'ACTIVE'
+      },
+      ...(selectedStudentId ? { student_id: selectedStudentId } : {}),
+    },
+    include: {
+      student: {
+        select: {
+          student_id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+    take: 50,
+  });
+
+  return payments.map((payment) => ({
+    id: payment.receipt_id,
+    student_id: payment.student_id,
+    student_name: payment.student?.name,
+    amount: payment.amount,
+    method: payment.method,
+    status: payment.status,
+    payment_date: payment.payment_date,
+    remarks: payment.remarks,
+    proof_url: payment.proof_url,
+    pdf_url: payment.pdf_url,
+    created_at: payment.created_at,
+  }));
+};
+
+export const recordParentPayment = async (parent_id, academy_id, payload) => {
+  const parentId = parseInt(parent_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(payload.student_id, 10);
+  const amount = parseFloat(payload.amount);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const error = new Error('Amount must be a positive number');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      parent_id: parentId,
+      is_deleted: false,
+      status: 'ACTIVE',
+    },
+  });
+
+  if (!student) {
+    const error = new Error('Student not found or not linked to your account');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const receiptNumber = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const receipt = await prisma.receipt.create({
+    data: {
+      receipt_number: receiptNumber,
+      academy_id: academyId,
+      student_id: studentId,
+      amount,
+      payment_date: payload.payment_date ? new Date(payload.payment_date) : new Date(),
+      method: payload.method || 'cash',
+      status: 'PENDING',
+      remarks: payload.remarks || null,
+      proof_url: payload.proof_url || null,
+    },
+  });
+
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'PARENT',
+    actor_id: parentId,
+    action: 'PAYMENT_RECORDED',
+    entity_type: 'Receipt',
+    entity_id: receipt.receipt_id,
+    metadata: { student_id: studentId, amount },
+  });
+
+  return receipt;
+};
+
+export const updateParentPaymentProof = async (parent_id, academy_id, receipt_id, proof_url) => {
+  const parentId = parseInt(parent_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const receiptId = parseInt(receipt_id, 10);
+
+  const receipt = await prisma.receipt.findFirst({
+    where: {
+      receipt_id: receiptId,
+      academy_id: academyId,
+      student: {
+        parent_id: parentId,
+        is_deleted: false,
+        status: 'ACTIVE',
+      },
+    },
+  });
+
+  if (!receipt) {
+    const error = new Error('Payment record not found or you do not have permission to update it');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updatedReceipt = await prisma.receipt.update({
+    where: { receipt_id: receiptId },
+    data: { proof_url },
+  });
+
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'PARENT',
+    actor_id: parentId,
+    action: 'PAYMENT_PROOF_UPDATED',
+    entity_type: 'Receipt',
+    entity_id: receiptId,
+    metadata: { previous_proof: receipt.proof_url, new_proof: proof_url },
+  });
+
+  return updatedReceipt;
+};
+
 export const getParentDashboardData = async (parent_id, studentId = null) => {
   const parent = await prisma.parent.findUnique({
     where: { parent_id },
