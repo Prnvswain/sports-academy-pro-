@@ -52,6 +52,10 @@ import SuperAdminCreateAnnouncement from './pages/super-admin/announcements/Supe
 import SuperAdminAnnouncementHistory from './pages/super-admin/announcements/SuperAdminAnnouncementHistory';
 import SuperAdminAnnouncementDetails from './pages/super-admin/announcements/SuperAdminAnnouncementDetails';
 import SuperAdminAnnouncementStats from './pages/super-admin/announcements/SuperAdminAnnouncementStats';
+import CoachCreateAnnouncement from './pages/coach/announcements/CoachCreateAnnouncement';
+import CoachAnnouncementHistory from './pages/coach/announcements/CoachAnnouncementHistory';
+import CoachAnnouncementDetails from './pages/coach/announcements/CoachAnnouncementDetails';
+import CoachAnnouncementStats from './pages/coach/announcements/CoachAnnouncementStats';
 
 export default function App() {
   return (
@@ -136,6 +140,10 @@ export default function App() {
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="performance" element={<CoachPerformancePage />} />
+            <Route path="announcements" element={<CoachAnnouncementHistory />} />
+            <Route path="announcements/create" element={<CoachCreateAnnouncement />} />
+            <Route path="announcements/:id" element={<CoachAnnouncementDetails />} />
+            <Route path="announcements/:id/stats" element={<CoachAnnouncementStats />} />
           </Route>
 
           {/* Secure Parent Portal Route Configurations */}

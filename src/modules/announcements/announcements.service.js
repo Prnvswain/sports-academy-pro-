@@ -4,7 +4,7 @@ import prisma from '../../config/prisma.js';
 
 const getSenderInfo = (user) => {
   if (user.role === 'SUPER_ADMIN') {
-    return { sender_type: 'SUPER_ADMIN', sender_id: user.super_admin_id };
+    return { sender_type: 'SUPER_ADMIN', sender_id: user.super_admin_id, academy_id: null };
   } else if (user.role === 'ACADEMY_ADMIN') {
     return { sender_type: 'ACADEMY_ADMIN', sender_id: user.user_id, academy_id: user.academy_id };
   } else if (user.role === 'COACH') {
@@ -15,8 +15,8 @@ const getSenderInfo = (user) => {
 
 const validateTargetPermission = (sender, targetType) => {
   if (sender.sender_type === 'SUPER_ADMIN') {
-    // Super Admin can send to all academies, selected academies
-    const allowed = ['ALL_ACADEMIES', 'SELECTED_ACADEMIES'];
+    // Super Admin can send to all academies, selected academies, academy admins
+    const allowed = ['ALL_ACADEMIES', 'SELECTED_ACADEMIES', 'ACADEMY_ADMINS'];
     if (!allowed.includes(targetType)) {
       throw new Error('Super Admin can only send academy-level announcements');
     }
@@ -28,10 +28,10 @@ const validateTargetPermission = (sender, targetType) => {
       throw new Error('Academy Admin cannot send this type of announcement');
     }
   } else if (sender.sender_type === 'COACH') {
-    // Coach can only send to students/parents of their assigned batches
-    const allowed = ['BY_BATCH', 'INDIVIDUAL'];
+    // Coach can only send to parents of their assigned students
+    const allowed = ['BY_BATCH', 'BY_SPORT', 'INDIVIDUAL_PARENT'];
     if (!allowed.includes(targetType)) {
-      throw new Error('Coach can only send to their assigned batches or individual students');
+      throw new Error('Coach can only send to parents of their assigned students');
     }
   }
 };
@@ -47,6 +47,16 @@ const getRecipients = async (sender, targetType, targetIds, sportId, batchId) =>
       recipients = academies.map(a => ({ type: 'ACADEMY', id: a.academy_id }));
     } else if (targetType === 'SELECTED_ACADEMIES' && targetIds?.length) {
       recipients = targetIds.map(id => ({ type: 'ACADEMY', id }));
+    } else if (targetType === 'ACADEMY_ADMINS') {
+      // Get all academy admins from selected academies
+      const academyIds = targetIds?.length ? targetIds.map(t => t.id) : [];
+      const admins = await prisma.admin.findMany({
+        where: { 
+          academy_id: { in: academyIds },
+          is_deleted: false
+        }
+      });
+      recipients = admins.map(a => ({ type: 'ACADEMY_ADMIN', id: a.user_id }));
     }
   } else if (sender.sender_type === 'ACADEMY_ADMIN') {
     const academy_id = sender.academy_id;
@@ -107,17 +117,31 @@ const getRecipients = async (sender, targetType, targetIds, sportId, batchId) =>
       });
       const parentIds = students.filter(s => s.parent_id).map(s => s.parent_id);
       recipients = parentIds.map(id => ({ type: 'PARENT', id }));
-    } else if (targetType === 'INDIVIDUAL' && targetIds?.length) {
-      // Validate that students belong to coach's batches
-      for (const item of targetIds) {
-        if (item.type === 'STUDENT') {
-          const student = await prisma.student.findUnique({ where: { student_id: item.id } });
-          if (!assignedBatchIds.includes(student?.batch_id)) {
-            throw new Error('Coach can only send to students in their assigned batches');
-          }
-          if (student?.parent_id) {
-            recipients.push({ type: 'PARENT', id: student.parent_id });
-          }
+    } else if (targetType === 'BY_SPORT' && sportId) {
+      // Get students in this coach's batches with this sport
+      const students = await prisma.student.findMany({ 
+        where: { 
+          academy_id, 
+          sport_id, 
+          batch_id: { in: assignedBatchIds },
+          status: 'ACTIVE', 
+          is_deleted: false 
+        }
+      });
+      const parentIds = students.filter(s => s.parent_id).map(s => s.parent_id);
+      recipients = parentIds.map(id => ({ type: 'PARENT', id }));
+    } else if (targetType === 'INDIVIDUAL_PARENT' && targetIds?.length) {
+      // Validate that parents have students in coach's batches
+      for (const parentId of targetIds) {
+        const parent = await prisma.parent.findUnique({ 
+          where: { parent_id: parentId },
+          include: { students: true }
+        });
+        const hasStudentInBatch = parent.students.some(s => 
+          assignedBatchIds.includes(s.batch_id) && s.status === 'ACTIVE' && !s.is_deleted
+        );
+        if (hasStudentInBatch) {
+          recipients.push({ type: 'PARENT', id: parentId });
         }
       }
     }
@@ -147,6 +171,9 @@ export const createAnnouncement = async (user, data) => {
 
   const recipients = await getRecipients(sender, target_type, target_ids, sport_id, batch_id);
 
+  console.log('Recipients generated:', recipients.length);
+  console.log('Recipient details:', recipients);
+
   if (recipients.length === 0) {
     throw new Error('No valid recipients found for this announcement');
   }
@@ -173,6 +200,8 @@ export const createAnnouncement = async (user, data) => {
     data: announcementData
   });
 
+  console.log('Announcement created with ID:', announcement.announcement_id);
+
   // Create recipients
   const recipientData = recipients.map(r => ({
     announcement_id: announcement.announcement_id,
@@ -182,9 +211,11 @@ export const createAnnouncement = async (user, data) => {
     delivered_at: scheduled_for ? null : new Date()
   }));
 
+  console.log('Creating recipient records:', recipientData.length);
   await prisma.announcementRecipient.createMany({
     data: recipientData
   });
+  console.log('Recipient records created successfully');
 
   // Create attachments if provided
   if (attachments && attachments.length > 0) {
@@ -205,6 +236,7 @@ export const createAnnouncement = async (user, data) => {
     recipient_id: r.id
   }));
   await prisma.announcementReadStatus.createMany({ data: readStatusData });
+  console.log('Read status records created successfully');
 
   // Update delivered count if published immediately
   if (!scheduled_for) {
@@ -214,6 +246,7 @@ export const createAnnouncement = async (user, data) => {
     });
   }
 
+  console.log('=== ANNOUNCEMENT CREATION COMPLETE ===');
   return getAnnouncementById(announcement.announcement_id);
 };
 
@@ -246,9 +279,19 @@ export const getAnnouncements = async (user, filters = {}) => {
 
   const where = {};
 
-  // Super Admin sees all announcements
-  if (sender.sender_type !== 'SUPER_ADMIN') {
+  // ROLE-BASED ISOLATION FOR ANNOUNCEMENT LISTING
+  if (sender.sender_type === 'SUPER_ADMIN') {
+    // Super Admin sees ONLY announcements created by Super Admin
+    where.sender_type = 'SUPER_ADMIN';
+  } else if (sender.sender_type === 'ACADEMY_ADMIN') {
+    // Academy Admin sees ONLY announcements from their academy (by Academy Admin or Coach)
     where.academy_id = sender.academy_id;
+    // Exclude Super Admin announcements unless explicitly targeted
+    where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
+  } else if (sender.sender_type === 'COACH') {
+    // Coach sees ONLY announcements from their academy
+    where.academy_id = sender.academy_id;
+    where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
   }
 
   if (category) where.category = category;
@@ -403,6 +446,12 @@ export const archiveAnnouncement = async (user, announcement_id) => {
 // ─── RECIPIENT-SPECIFIC OPERATIONS ─────────────────────────────────────────────
 
 export const getMyAnnouncements = async (user, filters = {}) => {
+  console.log('=== GET MY ANNOUNCEMENTS DEBUG ===');
+  console.log('User from JWT:', user);
+  console.log('User role:', user?.role);
+  console.log('User parent_id:', user?.parent_id);
+  console.log('User academy_id:', user?.academy_id);
+  
   const { unread_only, page = 1, limit = 20 } = filters;
   
   // Get recipient type and ID based on user role
@@ -419,7 +468,11 @@ export const getMyAnnouncements = async (user, filters = {}) => {
     recipientId = user.parent_id;
   }
 
+  console.log('Recipient type:', recipientType);
+  console.log('Recipient ID:', recipientId);
+
   if (!recipientType || !recipientId) {
+    console.log('Missing recipient info, returning empty');
     return {
       announcements: [],
       pagination: {
@@ -431,7 +484,7 @@ export const getMyAnnouncements = async (user, filters = {}) => {
     };
   }
 
-  // Build where clause
+  // Build where clause - ROLE-BASED ISOLATION FOR RECIPIENTS
   const where = {
     status: 'PUBLISHED',
     recipients: {
@@ -445,6 +498,20 @@ export const getMyAnnouncements = async (user, filters = {}) => {
       { expires_at: { gt: new Date() } }
     ]
   };
+
+  // Additional role-based filtering
+  if (user.role === 'ACADEMY_ADMIN') {
+    // Academy Admin should NOT see Super Admin announcements unless explicitly targeted
+    where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
+  } else if (user.role === 'COACH') {
+    // Coach should NOT see Super Admin announcements
+    where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
+  } else if (user.role === 'PARENT') {
+    // Parent should NOT see Super Admin announcements
+    where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
+  }
+
+  console.log('Prisma where clause:', JSON.stringify(where, null, 2));
 
   const [announcements, total] = await Promise.all([
     prisma.announcement.findMany({
@@ -464,6 +531,9 @@ export const getMyAnnouncements = async (user, filters = {}) => {
     }),
     prisma.announcement.count({ where })
   ]);
+
+  console.log('Found announcements:', announcements.length);
+  console.log('Total count:', total);
 
   // Filter unread if requested
   let filteredAnnouncements = announcements;
@@ -529,6 +599,60 @@ export const markAsRead = async (user, announcement_id) => {
   });
 
   return readStatus;
+};
+
+export const markAllAsRead = async (user) => {
+  let recipientType, recipientId;
+
+  if (user.role === 'ACADEMY_ADMIN') {
+    recipientType = 'ACADEMY';
+    recipientId = user.academy_id;
+  } else if (user.role === 'COACH') {
+    recipientType = 'COACH';
+    recipientId = user.coach_id;
+  } else if (user.role === 'PARENT') {
+    recipientType = 'PARENT';
+    recipientId = user.parent_id;
+  }
+
+  // Get all unread announcements for this recipient
+  const unreadStatuses = await prisma.announcementReadStatus.findMany({
+    where: {
+      recipient_type: recipientType,
+      recipient_id: recipientId,
+      is_read: false,
+      announcement: {
+        status: 'PUBLISHED',
+        OR: [
+          { expires_at: null },
+          { expires_at: { gt: new Date() } }
+        ]
+      }
+    },
+    include: {
+      announcement: true
+    }
+  });
+
+  // Mark all as read
+  const now = new Date();
+  for (const status of unreadStatuses) {
+    await prisma.announcementReadStatus.update({
+      where: { read_status_id: status.read_status_id },
+      data: { is_read: true, read_at: now }
+    });
+
+    // Update read count on each announcement
+    const readCount = await prisma.announcementReadStatus.count({
+      where: { announcement_id: status.announcement_id, is_read: true }
+    });
+    await prisma.announcement.update({
+      where: { announcement_id: status.announcement_id },
+      data: { read_count: readCount }
+    });
+  }
+
+  return { marked: unreadStatuses.length };
 };
 
 export const getUnreadCount = async (user) => {

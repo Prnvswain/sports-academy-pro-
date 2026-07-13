@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken } from '../api/client';
 import { CoachBatchesProvider } from '../context/CoachBatchesContext';
 
@@ -36,6 +37,7 @@ const COACH_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: '📈' },
   { path: 'notes', label: 'Daily Notes', icon: '📝' },
   { path: 'fees', label: 'Fees', icon: '💳' },
+  { path: 'announcements', label: 'Announcements', icon: '📢' },
 ];
 
 function CoachLayoutShell() {
@@ -202,6 +204,7 @@ function CoachLayoutShell() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell userRole="COACH" />
             <ThemeToggle />
           </div>
         </header>

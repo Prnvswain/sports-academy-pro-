@@ -127,15 +127,8 @@ export const markAsRead = async (req, res, next) => {
 
 export const markAllAsRead = async (req, res, next) => {
   try {
-    // Get all unread announcements for the user
-    const myAnnouncements = await announcementsService.getMyAnnouncements(req.user, { unread_only: true, limit: 100 });
-    
-    // Mark each as read
-    for (const announcement of myAnnouncements.announcements) {
-      await announcementsService.markAsRead(req.user, announcement.announcement_id);
-    }
-    
-    res.json(successResponse('All announcements marked as read', { count: myAnnouncements.announcements.length }));
+    const result = await announcementsService.markAllAsRead(req.user);
+    res.json(successResponse('All announcements marked as read', result));
   } catch (error) {
     next(error);
   }

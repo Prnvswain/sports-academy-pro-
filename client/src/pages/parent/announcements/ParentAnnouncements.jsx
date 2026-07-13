@@ -28,7 +28,8 @@ export default function ParentAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all'); // all, unread
+  const [filter, setFilter] = useState('all'); // all, unread, read
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchAnnouncements();
@@ -37,8 +38,11 @@ export default function ParentAnnouncements() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const params = filter === 'unread' ? 'unread_only=true' : '';
-      const response = await parentGet(`/parent/announcements?${params}`);
+      const params = new URLSearchParams();
+      if (filter === 'unread') params.append('unread_only', 'true');
+      if (search) params.append('search', search);
+
+      const response = await parentGet(`/parent/announcements?${params.toString()}`);
       
       if (response?.data?.announcements) {
         setAnnouncements(response.data.announcements);
@@ -76,6 +80,21 @@ export default function ParentAnnouncements() {
     handleMarkAsRead(announcementId);
     navigate(`/parent/announcements/${announcementId}`);
   };
+
+  const handleSearch = (e) => {
+    setSearch(e.target.value);
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchAnnouncements();
+  };
+
+  const filteredAnnouncements = filter === 'read' 
+    ? announcements.filter(a => a.readStatuses?.[0]?.is_read)
+    : filter === 'unread'
+    ? announcements.filter(a => !a.readStatuses?.[0]?.is_read)
+    : announcements;
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -125,6 +144,29 @@ export default function ParentAnnouncements() {
           >
             Unread
           </button>
+          <button
+            onClick={() => setFilter('read')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === 'read' 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Read
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="mb-6">
+          <form onSubmit={handleSearchSubmit}>
+            <input
+              type="text"
+              value={search}
+              onChange={handleSearch}
+              placeholder="Search announcements..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </form>
         </div>
 
         {/* Announcements List */}
@@ -132,7 +174,7 @@ export default function ParentAnnouncements() {
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
           </div>
-        ) : announcements.length === 0 ? (
+        ) : filteredAnnouncements.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
@@ -141,7 +183,7 @@ export default function ParentAnnouncements() {
           </div>
         ) : (
           <div className="space-y-4">
-            {announcements.map((announcement) => {
+            {filteredAnnouncements.map((announcement) => {
               const isRead = announcement.readStatuses?.[0]?.is_read;
               return (
                 <motion.div

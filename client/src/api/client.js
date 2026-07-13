@@ -216,6 +216,22 @@ export async function coachPatch(path, body) {
   return api.patch(path, body, { headers }).then(unwrap);
 }
 
+export async function coachPut(path, body) {
+  const headers = { Authorization: `Bearer ${getCoachToken()}` };
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return api.put(path, body, { headers }).then(unwrap);
+}
+
+export async function coachDelete(path) {
+  return api
+    .delete(path, {
+      headers: { Authorization: `Bearer ${getCoachToken()}` }
+    })
+    .then(unwrap);
+}
+
 /* ==========================================
    🎯 SUPER ADMIN AUTHENTICATED WRAPPERS
    ========================================== */
