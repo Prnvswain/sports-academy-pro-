@@ -85,18 +85,7 @@ export async function adminGet(path) {
 export async function adminPost(path, body) {
   return api
     .post(path, body, {
-      headers: { 
-        Authorization: `Bearer ${getAdminToken()}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(unwrap);
-}
-
-export async function adminPatch(path, body) {
-  return api
-    .patch(path, body, {
-      headers: { 
+      headers: {
         Authorization: `Bearer ${getAdminToken()}`,
         'Content-Type': 'application/json'
       }
@@ -111,6 +100,15 @@ export async function adminPut(path, body) {
     headers['Content-Type'] = 'application/json';
   }
   return api.put(path, body, { headers }).then(unwrap);
+}
+
+export async function adminPatch(path, body) {
+  const headers = { Authorization: `Bearer ${getAdminToken()}` };
+  // Don't set Content-Type for FormData - let browser set it with boundary
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return api.patch(path, body, { headers }).then(unwrap);
 }
 
 export async function adminDelete(path) {

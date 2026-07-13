@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, MapPin, Upload, X, Save, AlertTriangle, Image as ImageIcon, Navigation } from 'lucide-react';
 import Loader from '../../components/Loader';
-import { adminGet, adminPut } from '../../api/client';
+import { adminGet, adminPut, adminPatch } from '../../api/client';
 
 export default function SettingsPanel() {
   const navigate = useNavigate();
@@ -190,7 +190,7 @@ export default function SettingsPanel() {
       await adminPut('/admin/settings', submitData);
 
       // Save attendance radius to GPS settings
-      await adminPut('/admin/gps/settings', {
+      await adminPatch('/admin/gps/settings', {
         attendance_radius_meters: radius
       });
 
