@@ -52,6 +52,7 @@ export default function SportsPanel() {
   const [academyLocationAddress, setAcademyLocationAddress] = useState('');
   const [academyLocationMessage, setAcademyLocationMessage] = useState('');
   const [academyLocationLoading, setAcademyLocationLoading] = useState(true);
+  const [academyAttendanceRadius, setAcademyAttendanceRadius] = useState(200);
 
   // ─── Fetch global sports for Browse modal ──────────────────────────────
   const loadSuperAdminSports = useCallback(async () => {
@@ -115,10 +116,19 @@ export default function SportsPanel() {
     setAcademyLocationAddress('');
 
     try {
-      const result = await adminGet('/admin/academy');
-      const academyData = result.data || result;
+      const [academyResult, gpsResult] = await Promise.all([
+        adminGet('/admin/academy'),
+        adminGet('/admin/gps/settings')
+      ]);
+
+      const academyData = academyResult.data || academyResult;
+      const gpsData = gpsResult.data || gpsResult;
+
       const latitude = academyData?.latitude != null ? parseFloat(academyData.latitude) : null;
       const longitude = academyData?.longitude != null ? parseFloat(academyData.longitude) : null;
+      const attendanceRadius = gpsData?.attendance_radius_meters || academyData?.attendance_radius_meters || 200;
+
+      setAcademyAttendanceRadius(attendanceRadius);
 
       if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
         setAcademyLocation({ latitude, longitude });
@@ -171,6 +181,14 @@ export default function SportsPanel() {
   useEffect(() => {
     loadSports();
     loadAcademyLocation();
+
+    // Listen for academy settings updates to refresh location and radius
+    const handleSettingsUpdate = () => {
+      loadAcademyLocation();
+    };
+
+    window.addEventListener('academySettingsUpdated', handleSettingsUpdate);
+    return () => window.removeEventListener('academySettingsUpdated', handleSettingsUpdate);
   }, [loadSports, loadAcademyLocation]);
 
   // ─── Close dropdown on outside click ───────────────────────────────────────
@@ -429,9 +447,10 @@ export default function SportsPanel() {
     setSharedForm((prev) => ({
       ...prev,
       use_custom_location: useCustom,
-      // If switching to default, clear custom coordinates
+      // If switching to default, clear custom coordinates and use academy radius
       latitude: useCustom ? prev.latitude : '',
       longitude: useCustom ? prev.longitude : '',
+      attendance_radius: useCustom ? prev.attendance_radius : academyAttendanceRadius.toString(),
     }));
 
     if (!useCustom) {

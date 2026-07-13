@@ -137,6 +137,14 @@ export default function AnalyticsPanel() {
       }
     };
     fetchAcademy();
+
+    // Listen for academy settings updates to refresh logo
+    const handleSettingsUpdate = () => {
+      fetchAcademy();
+    };
+
+    window.addEventListener('academySettingsUpdated', handleSettingsUpdate);
+    return () => window.removeEventListener('academySettingsUpdated', handleSettingsUpdate);
   }, []);
 
   if (loading) {
@@ -265,7 +273,7 @@ export default function AnalyticsPanel() {
             {academy?.logo_url && !logoError ? (
               <img
                 key={academy.logo_url}
-                src={academy.logo_url}
+                src={`${academy.logo_url}?t=${Date.now()}`}
                 alt="Academy Logo"
                 className="h-16 w-16 rounded-2xl border border-primary/20 object-cover shadow-lg shadow-primary/20"
                 onError={() => setLogoError(true)}

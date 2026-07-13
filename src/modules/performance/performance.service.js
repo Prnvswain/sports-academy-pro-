@@ -443,6 +443,34 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     throw error;
   }
 
+  // Daily lock check: Verify coach hasn't already scored this student today
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+  const existingScore = await prisma.performanceScore.findFirst({
+    where: {
+      student_id: parseInt(student_id, 10),
+      coach_id: parseInt(coachId, 10),
+      academy_id: academyId,
+      scored_at: {
+        gte: startOfDay,
+        lt: endOfDay
+      }
+    }
+  });
+
+  if (existingScore && userRole === 'coach') {
+    const error = new Error('Assessment already submitted today. You can only score a student once per calendar day.');
+    error.statusCode = 409; // Conflict
+    error.isDailyLock = true;
+    error.existingAssessment = {
+      assessment_id: existingScore.assessment_id,
+      scored_at: existingScore.scored_at
+    };
+    throw error;
+  }
+
   const scoreData = {
     academy_id: academyId,
     student_id: parseInt(student_id, 10),
@@ -520,6 +548,39 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     logger.error('PERFORMANCE: Failed to create performance score', error);
     throw error;
   }
+};
+
+export const checkDailyLock = async (academyId, coachId, studentId) => {
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+  const existingScore = await prisma.performanceScore.findFirst({
+    where: {
+      student_id: parseInt(studentId, 10),
+      coach_id: parseInt(coachId, 10),
+      academy_id: academyId,
+      scored_at: {
+        gte: startOfDay,
+        lt: endOfDay
+      }
+    },
+    orderBy: {
+      scored_at: 'desc'
+    }
+  });
+
+  if (existingScore) {
+    return {
+      locked: true,
+      assessment_id: existingScore.assessment_id,
+      scored_at: existingScore.scored_at
+    };
+  }
+
+  return {
+    locked: false
+  };
 };
 
 // Helper function to generate UUID for assessment grouping

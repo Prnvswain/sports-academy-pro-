@@ -37,6 +37,10 @@ router.use((req, res, next) => {
 router.get('/academy', adminController.getAcademyDetails);
 router.patch('/academy', upload.single('logo'), adminController.updateAcademyDetails);
 
+/* ─── SETTINGS ────────────────────────────────────────────────────────────── */
+router.get('/settings', adminController.getAcademyDetails);
+router.put('/settings', upload.single('logo'), adminController.updateAcademyDetails);
+
 /* ─── SPORTS CATALOG ────────────────────────────────────────────────────── */
 router.get('/sports', adminController.getSportsCatalog);
 router.get('/sports/global', adminController.getGlobalSports);
@@ -46,6 +50,7 @@ router.post(
   validationErrorHandler,
   adminController.createSport,
 );
+router.patch('/sports/:id', adminController.updateSport);
 router.patch('/sports/:id/status', adminController.updateSportStatus);
 router.delete('/sports/:id', adminController.deleteSport);
 router.post(

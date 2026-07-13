@@ -35,6 +35,9 @@ router.get('/assessments/history', performanceController.getAssessmentHistory);
 // Get specific assessment by ID
 router.get('/assessments/:assessmentId', performanceController.getAssessmentById);
 
+// Check daily lock status
+router.get('/check-daily-lock', performanceController.checkDailyLock);
+
 // Get student performance
 router.get('/students/:studentId', performanceController.getStudentPerformance);
 
