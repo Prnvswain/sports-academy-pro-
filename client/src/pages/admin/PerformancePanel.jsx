@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Loader from '../../components/Loader';
 import ModalWrapper from '../../components/ModalWrapper';
+import Avatar from '../../components/Avatar';
 import { adminGet, adminPatch, adminDelete } from '../../api/client';
 
 // Helper function to get sport icon from database or fallback
@@ -55,10 +56,13 @@ export default function PerformancePanel() {
   const [studentDashboardData, setStudentDashboardData] = useState(null);
   const [loadingStudentDashboard, setLoadingStudentDashboard] = useState(false);
   const [selectedAttributes, setSelectedAttributes] = useState([]);
+  const [visibleAttributes, setVisibleAttributes] = useState([]);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
   const [compareAssessments, setCompareAssessments] = useState({ assessment1: null, assessment2: null });
   const [dateRangeFilter, setDateRangeFilter] = useState('all');
   const [dashboardTab, setDashboardTab] = useState('overview');
+  const [graphType, setGraphType] = useState('smooth');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   const loadSports = useCallback(async () => {
     try {
@@ -356,7 +360,9 @@ export default function PerformancePanel() {
           if (score?.attribute?.name) allAttributes.add(score.attribute.name);
         });
       });
-      setSelectedAttributes(Array.from(allAttributes));
+      const attributesArray = Array.from(allAttributes);
+      setSelectedAttributes(attributesArray);
+      setVisibleAttributes(attributesArray);
     } catch (error) {
       console.error('DEBUG: Error loading student dashboard:', error);
       setMessage({ text: 'Failed to load student dashboard', type: 'error' });
@@ -365,26 +371,39 @@ export default function PerformancePanel() {
     }
   };
 
-  const getFilteredHistory = () => {
+  const getFilteredHistory = useCallback(() => {
     if (!studentDashboardData?.history) return [];
-    
+
     let filtered = [...studentDashboardData.history];
-    
+
     // Apply date range filter
     if (dateRangeFilter !== 'all') {
       const now = new Date();
       const days = parseInt(dateRangeFilter);
       const cutoffDate = new Date(now.setDate(now.getDate() - days));
-      
+
       filtered = filtered.filter(assessment => {
         if (!assessment?.scored_at) return false;
         const assessmentDate = new Date(assessment.scored_at);
         return assessmentDate >= cutoffDate;
       });
     }
-    
+
     return filtered;
-  };
+  }, [studentDashboardData, dateRangeFilter]);
+
+  const getFilteredStudents = useMemo(() => {
+    if (!studentSearchQuery) return students;
+
+    const query = studentSearchQuery.toLowerCase().trim();
+    return students.filter(student => {
+      const name = (student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim()).toLowerCase();
+      const studentId = String(student.student_id || '').toLowerCase();
+      const mobile = String(student.mobile || student.phone || '').toLowerCase();
+
+      return name.includes(query) || studentId.includes(query) || mobile.includes(query);
+    });
+  }, [students, studentSearchQuery]);
 
   const handleOpenStudentDashboard = (student) => {
     setSelectedStudentForDashboard(student);
@@ -436,72 +455,106 @@ export default function PerformancePanel() {
   };
 
   const getImprovementIndicators = (currentAssessment, previousAssessment) => {
-    if (!currentAssessment || !previousAssessment) return {};
-    
+    if (!currentAssessment) return null;
+    if (!previousAssessment) return { noPrevious: true };
+
     const indicators = {};
     const currentScores = {};
     const previousScores = {};
-    
+
     currentAssessment.scores?.forEach(score => {
       if (score?.attribute?.name) {
         currentScores[score.attribute.name] = score.score;
       }
     });
-    
+
     previousAssessment.scores?.forEach(score => {
       if (score?.attribute?.name) {
         previousScores[score.attribute.name] = score.score;
       }
     });
-    
+
+    let totalDiff = 0;
+    let count = 0;
+
     Object.keys(currentScores).forEach(attrName => {
       const current = currentScores[attrName];
-      const previous = previousScores[attrName] || 0;
-      const diff = current - previous;
-      
-      indicators[attrName] = {
-        current,
-        previous,
-        diff,
-        trend: diff > 0 ? 'up' : diff < 0 ? 'down' : 'same'
-      };
+      const previous = previousScores[attrName] !== undefined ? previousScores[attrName] : null;
+
+      if (previous !== null) {
+        const diff = current - previous;
+        totalDiff += diff;
+        count++;
+
+        indicators[attrName] = {
+          current,
+          previous,
+          diff,
+          trend: diff > 0 ? 'up' : diff < 0 ? 'down' : 'same'
+        };
+      }
     });
-    
-    return indicators;
+
+    // Calculate overall trend
+    const avgImprovement = count > 0 ? totalDiff / count : 0;
+    let overallTrend = 'stable';
+    if (avgImprovement > 0.1) overallTrend = 'Improving';
+    else if (avgImprovement < -0.1) overallTrend = 'Declining';
+
+    return {
+      indicators,
+      overallTrend,
+      avgImprovement: count > 0 ? avgImprovement : 0
+    };
   };
 
-  const prepareGraphData = () => {
+  const getAttributeColor = (attributeName) => {
+    const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'];
+    const index = selectedAttributes.indexOf(attributeName);
+    return colors[index % 5];
+  };
+
+  const prepareGraphData = useMemo(() => {
     const filteredHistory = getFilteredHistory();
-    if (!filteredHistory || selectedAttributes.length === 0) return [];
-    
+    if (!filteredHistory) return [];
+
     const assessments = filteredHistory
       .filter(a => a?.scores && a.scores.length > 0)
       .sort((a, b) => new Date(a.scored_at) - new Date(b.scored_at));
-    
-    return assessments.map(assessment => {
+
+    // Group by date to avoid duplicate X-axis labels
+    const groupedByDate = {};
+    assessments.forEach(assessment => {
+      const dateKey = assessment.scored_at ? new Date(assessment.scored_at).toLocaleDateString() : 'N/A';
+      if (!groupedByDate[dateKey]) {
+        groupedByDate[dateKey] = assessment;
+      }
+    });
+
+    return Object.values(groupedByDate).map(assessment => {
       const dataPoint = {
         date: assessment.scored_at ? new Date(assessment.scored_at).toLocaleDateString() : 'N/A',
         assessment_id: assessment.assessment_id || 'unknown'
       };
-      
-      // Add overall average
+
+      // Add overall average (always included)
       const avg = calculateAverageRating(assessment.scores);
       dataPoint['Overall'] = parseFloat(avg);
-      
-      // Add selected attributes
+
+      // Add visible attributes only
       assessment.scores?.forEach(score => {
-        if (score?.attribute?.name && selectedAttributes.includes(score.attribute.name)) {
+        if (score?.attribute?.name && visibleAttributes.includes(score.attribute.name)) {
           dataPoint[score.attribute.name] = score.score;
         }
       });
-      
+
       return dataPoint;
     });
-  };
+  }, [studentDashboardData, dateRangeFilter, visibleAttributes]);
 
   const handleAttributeToggle = (attributeName) => {
-    setSelectedAttributes(prev => 
-      prev.includes(attributeName) 
+    setVisibleAttributes(prev =>
+      prev.includes(attributeName)
         ? prev.filter(a => a !== attributeName)
         : [...prev, attributeName]
     );
@@ -1693,14 +1746,29 @@ export default function PerformancePanel() {
                   transition={{ duration: 0.3 }} 
                   className="bg-gradient-to-br from-surface-secondary/50 to-surface/30 border border-border rounded-2xl p-6 shadow-lg space-y-4"
                 >
-                  <div className="flex items-center gap-3 border-b border-border pb-4">
-                    <span className="text-2xl">📊</span>
-                    <div>
-                      <h3 className="text-foreground text-lg font-black tracking-tight">
-                        Student Performance Metrics
-                      </h3>
-                      <span className="text-xs text-muted-foreground font-normal block mt-1">Click on a student to open detailed tracking and history</span>
+                  <div className="flex items-center justify-between border-b border-border pb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">📊</span>
+                      <div>
+                        <h3 className="text-foreground text-lg font-black tracking-tight">
+                          Student Performance Metrics
+                        </h3>
+                        <span className="text-xs text-muted-foreground font-normal block mt-1">Click on a student to open detailed tracking and history</span>
+                      </div>
                     </div>
+                    <div className="text-xs text-muted-foreground">
+                      Students in Batch: {students.length}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      placeholder="Search by Name, Student ID, or Mobile..."
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-surface border border-border focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none text-sm transition-all"
+                    />
                   </div>
 
                   {loadingStudents ? (
@@ -1732,76 +1800,68 @@ export default function PerformancePanel() {
                       <h4 className="text-xl font-black text-foreground mb-3">No Students Enrolled</h4>
                       <p className="text-sm text-muted-foreground max-w-md mx-auto">Enroll students in this batch to start tracking their performance metrics and building comprehensive athlete profiles.</p>
                     </motion.div>
+                  ) : getFilteredStudents.length === 0 ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-gradient-to-br from-surface/50 to-surface-secondary/50 border border-dashed border-border rounded-2xl py-16 text-center"
+                    >
+                      <div className="text-7xl mb-6 animate-bounce">🔍</div>
+                      <h4 className="text-xl font-black text-foreground mb-3">No students found</h4>
+                      <p className="text-sm text-muted-foreground max-w-md mx-auto">Try adjusting your search or select a different batch.</p>
+                    </motion.div>
                   ) : (
-                    <div className="overflow-x-auto -mx-4 sm:mx-0">
-                      <table className="w-full text-sm min-w-[700px]">
-                        <thead>
-                          <tr className="border-b border-border bg-surface-secondary/30">
-                            <th className="bg-surface-secondary text-left p-4 font-bold text-foreground sticky left-0 z-10 shadow-md">Student Name</th>
-                            {attributes.map((attr, idx) => (
-                              <th key={attr?.id || attr?.name || idx} className="bg-surface-secondary text-center p-4 font-bold text-foreground whitespace-nowrap">
-                                <span className="flex items-center justify-center gap-1">
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    idx % 4 === 0 ? 'bg-emerald-500' : 
-                                    idx % 4 === 1 ? 'bg-blue-500' : 
-                                    idx % 4 === 2 ? 'bg-purple-500' : 'bg-orange-500'
-                                  }`}></span>
-                                  {attr?.name || 'Unknown'}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {getFilteredStudents.map((student, idx) => {
+                        const isSelected = selectedStudentForDashboard?.student_id === student.student_id;
+                        return (
+                          <motion.div
+                            key={student.student_id || student.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.05 }}
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleOpenStudentDashboard(student)}
+                            className={`bg-surface border rounded-xl p-4 cursor-pointer hover:shadow-lg transition-all ${
+                              isSelected
+                                ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-md'
+                                : 'border-border hover:border-accent/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-4 mb-3">
+                              <Avatar
+                                src={student.profile_photo}
+                                name={student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim()}
+                                size="xl"
+                                className="shadow-md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-foreground truncate">
+                                  {student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown'}
+                                </h4>
+                                {student.student_id && (
+                                  <p className="text-xs text-muted-foreground">ID: {student.student_id}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                              {student.age && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-xs text-muted-foreground">
+                                  <span>🎂</span>
+                                  <span>{student.age}</span>
                                 </span>
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {students.map((student, idx) => (
-                            <motion.tr
-                              key={student.student_id || student.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: idx * 0.03 }}
-                              whileHover={{ scale: 1.01, backgroundColor: 'hsl(var(--accent)/5)' }}
-                              className="border-b border-border/50 cursor-pointer transition-all"
-                              onClick={() => handleOpenStudentDashboard(student)}
-                            >
-                              <td className="p-4 sticky left-0 bg-surface z-10 shadow-sm">
-                                <div className="flex items-center gap-3">
-                                  <motion.div 
-                                    whileHover={{ scale: 1.1, rotate: 5 }}
-                                    className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold shadow-md"
-                                  >
-                                    {student.name?.charAt(0) || '?'}
-                                  </motion.div>
-                                  <span className="font-bold text-accent hover:underline">
-                                    {student.name || `${student.firstName || ''} ${student.lastName || ''}`}
-                                  </span>
-                                </div>
-                              </td>
-                              {attributes.map((attr, attrIdx) => {
-                                const rating = attr?.name ? (student.ratings?.[attr.name] || student.performance_metrics?.[attr.name]) : null;
-                                const colors = [
-                                  'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
-                                  'bg-blue-500/10 text-blue-600 border-blue-500/30',
-                                  'bg-purple-500/10 text-purple-600 border-purple-500/30',
-                                  'bg-orange-500/10 text-orange-600 border-orange-500/30'
-                                ];
-                                const colorClass = colors[attrIdx % colors.length];
-                                
-                                return (
-                                  <td key={attr?.id || attr?.name || attrIdx} className="text-center p-4 whitespace-nowrap">
-                                    {rating ? (
-                                      <span className={`${colorClass} border inline-block min-w-[70px] rounded-full px-3 py-1.5 text-xs font-bold shadow-sm`}>
-                                        {rating}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              )}
+                              {student.gender && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-xs text-muted-foreground">
+                                  <span>👤</span>
+                                  <span>{student.gender}</span>
+                                </span>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   )}
                 </motion.div>
@@ -2099,7 +2159,7 @@ export default function PerformancePanel() {
                       <span className="text-lg">📊</span> Select Attributes to Display
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {selectedAttributes.map((attr, idx) => (
+                      {selectedAttributes.filter(attr => attr !== 'Overall').map((attr, idx) => (
                         <motion.label
                           key={attr}
                           initial={{ opacity: 0, scale: 0.8 }}
@@ -2110,7 +2170,7 @@ export default function PerformancePanel() {
                         >
                           <input
                             type="checkbox"
-                            checked
+                            checked={visibleAttributes.includes(attr)}
                             onChange={() => handleAttributeToggle(attr)}
                             className="rounded accent-purple-500"
                           />
@@ -2126,12 +2186,29 @@ export default function PerformancePanel() {
                     transition={{ delay: 0.2 }}
                     className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-5"
                   >
-                    <h4 className="text-sm font-black text-cyan-600 mb-4 flex items-center gap-2">
-                      <span className="text-lg">📈</span> Performance Trend
-                    </h4>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-black text-cyan-600 flex items-center gap-2">
+                        <span className="text-lg">📈</span> Performance Trend
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Graph Style:</span>
+                        <button
+                          onClick={() => setGraphType('smooth')}
+                          className={`text-xs px-2 py-1 rounded-full transition-all ${graphType === 'smooth' ? 'bg-cyan-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-secondary'}`}
+                        >
+                          Smooth
+                        </button>
+                        <button
+                          onClick={() => setGraphType('straight')}
+                          className={`text-xs px-2 py-1 rounded-full transition-all ${graphType === 'straight' ? 'bg-cyan-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-secondary'}`}
+                        >
+                          Straight
+                        </button>
+                      </div>
+                    </div>
                     <div className="h-64 sm:h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%" minWidth={300}>
-                        <LineChart data={prepareGraphData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <LineChart data={prepareGraphData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/50" opacity={0.3} />
                           <XAxis 
                             dataKey="date" 
@@ -2147,17 +2224,46 @@ export default function PerformancePanel() {
                             tickLine={{ stroke: 'currentColor', opacity: 0.2 }}
                             axisLine={{ stroke: 'currentColor', opacity: 0.2 }}
                           />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'hsl(var(--surface))', 
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '12px',
-                              color: 'hsl(var(--foreground))',
-                              fontSize: '12px',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload || payload.length === 0) return null;
+
+                              const data = payload[0].payload;
+                              const entries = [];
+
+                              // Add Overall Average first
+                              if (data.Overall !== undefined) {
+                                entries.push({
+                                  name: 'Overall Average',
+                                  value: data.Overall.toFixed(1),
+                                  color: '#10b981'
+                                });
+                              }
+
+                              // Add visible attributes alphabetically
+                              const attrEntries = visibleAttributes
+                                .filter(attr => data[attr] !== undefined)
+                                .sort((a, b) => a.localeCompare(b))
+                                .map(attr => ({
+                                  name: attr,
+                                  value: data[attr].toFixed(1),
+                                  color: getAttributeColor(attr)
+                                }));
+
+                              entries.push(...attrEntries);
+
+                              return (
+                                <div className="bg-surface border border-border rounded-xl p-3 shadow-lg">
+                                  <p className="text-xs font-bold text-muted-foreground mb-2">{label}</p>
+                                  {entries.map((entry, idx) => (
+                                    <div key={idx} className="flex items-center justify-between gap-4 text-xs mb-1">
+                                      <span className="text-foreground font-medium">{entry.name}</span>
+                                      <span className="text-foreground font-bold">{entry.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
                             }}
-                            itemStyle={{ color: 'hsl(var(--foreground))' }}
-                            cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 2 }}
                           />
                           <Legend 
                             className="text-xs"
@@ -2190,10 +2296,10 @@ export default function PerformancePanel() {
                               <stop offset="100%" stopColor="#0891b2" stopOpacity={1} />
                             </linearGradient>
                           </defs>
-                          <Line 
-                            type="monotone" 
-                            dataKey="Overall" 
-                            stroke="url(#gradientOverall)" 
+                          <Line
+                            type={graphType === 'smooth' ? 'monotone' : 'linear'}
+                            dataKey="Overall"
+                            stroke="url(#gradientOverall)"
                             strokeWidth={3}
                             dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#059669' }}
                             activeDot={{ r: 6, fill: '#10b981', stroke: '#059669', strokeWidth: 3 }}
@@ -2201,14 +2307,14 @@ export default function PerformancePanel() {
                             animationDuration={1000}
                             animationBegin={0}
                           />
-                          {selectedAttributes.map((attr, idx) => {
+                          {visibleAttributes.map((attr, idx) => {
                             const gradients = ['url(#gradientBlue)', 'url(#gradientPurple)', 'url(#gradientOrange)', 'url(#gradientRed)', 'url(#gradientCyan)'];
                             const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'];
                             const strokeColors = ['#2563eb', '#7c3aed', '#d97706', '#dc2626', '#0891b2'];
                             return (
                               <Line
                                 key={attr}
-                                type="monotone"
+                                type={graphType === 'smooth' ? 'monotone' : 'linear'}
                                 dataKey={attr}
                                 stroke={gradients[idx % 5]}
                                 strokeWidth={2}
@@ -2303,51 +2409,79 @@ export default function PerformancePanel() {
                         <span className="text-lg">📊</span> Assessment Details
                       </h4>
                       
-                      {studentDashboardData?.history?.length > 1 && (
-                        <div className="mb-6 p-4 bg-white/50 dark:bg-surface/50 rounded-xl">
-                          <h5 className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
-                            <span>📈</span> Improvement Indicators (vs Previous Assessment)
-                          </h5>
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {(() => {
-                              const currentIndex = studentDashboardData.history.findIndex(
-                                a => a.assessment_id === selectedAssessment.assessment_id
-                              );
-                              const previousAssessment = currentIndex > 0 
-                                ? studentDashboardData.history[currentIndex + 1]
-                                : null;
-                              
-                              if (!previousAssessment) return null;
-                              
-                              const indicators = getImprovementIndicators(selectedAssessment, previousAssessment);
-                              
-                              return Object.entries(indicators).map(([attr, data], idx) => (
-                                <motion.div
-                                  key={attr}
-                                  initial={{ opacity: 0, scale: 0.95 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ delay: idx * 0.05 }}
-                                  className="flex items-center justify-between p-3 bg-surface rounded-xl"
-                                >
-                                  <span className="text-sm font-bold text-foreground">{attr}</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-bold text-foreground">{data.current}</span>
-                                    {data.trend === 'up' && (
-                                      <span className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-2 py-1 rounded-full">▲ +{data.diff}</span>
-                                    )}
-                                    {data.trend === 'down' && (
-                                      <span className="text-xs font-bold text-red-600 bg-red-500/20 px-2 py-1 rounded-full">▼ {data.diff}</span>
-                                    )}
-                                    {data.trend === 'same' && (
-                                      <span className="text-xs font-bold text-muted-foreground bg-surface-secondary px-2 py-1 rounded-full">━ 0</span>
-                                    )}
+                      {(() => {
+                        const currentIndex = studentDashboardData.history.findIndex(
+                          a => a.assessment_id === selectedAssessment.assessment_id
+                        );
+                        const previousAssessment = currentIndex > 0
+                          ? studentDashboardData.history[currentIndex + 1]
+                          : null;
+
+                        const improvementData = getImprovementIndicators(selectedAssessment, previousAssessment);
+
+                        return (
+                          <div className="mb-6 p-4 bg-white/50 dark:bg-surface/50 rounded-xl">
+                            <h5 className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
+                              <span>📈</span> Improvement Indicators (vs Previous Assessment)
+                            </h5>
+                            {improvementData?.noPrevious ? (
+                              <p className="text-sm text-muted-foreground italic">
+                                No previous assessment available for comparison.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="mb-4 p-3 bg-surface rounded-xl">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-muted-foreground">Overall Trend</span>
+                                    <span className={`text-sm font-bold ${
+                                      improvementData.overallTrend === 'Improving' ? 'text-emerald-600' :
+                                      improvementData.overallTrend === 'Declining' ? 'text-red-600' :
+                                      'text-muted-foreground'
+                                    }`}>
+                                      {improvementData.overallTrend}
+                                    </span>
                                   </div>
-                                </motion.div>
-                              ));
-                            })()}
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className="text-xs font-bold text-muted-foreground">Average Improvement</span>
+                                    <span className={`text-sm font-bold ${
+                                      improvementData.avgImprovement > 0 ? 'text-emerald-600' :
+                                      improvementData.avgImprovement < 0 ? 'text-red-600' :
+                                      'text-muted-foreground'
+                                    }`}>
+                                      {improvementData.avgImprovement > 0 ? '+' : ''}{improvementData.avgImprovement.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                  {Object.entries(improvementData.indicators || {}).map(([attr, data], idx) => (
+                                    <motion.div
+                                      key={attr}
+                                      initial={{ opacity: 0, scale: 0.95 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      transition={{ delay: idx * 0.05 }}
+                                      className="flex items-center justify-between p-3 bg-surface rounded-xl"
+                                    >
+                                      <span className="text-sm font-bold text-foreground">{attr}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-foreground">{data.current}</span>
+                                        {data.trend === 'up' && (
+                                          <span className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-2 py-1 rounded-full">▲ +{data.diff.toFixed(1)}</span>
+                                        )}
+                                        {data.trend === 'down' && (
+                                          <span className="text-xs font-bold text-red-600 bg-red-500/20 px-2 py-1 rounded-full">▼ {data.diff.toFixed(1)}</span>
+                                        )}
+                                        {data.trend === 'same' && (
+                                          <span className="text-xs font-bold text-muted-foreground bg-surface-secondary px-2 py-1 rounded-full">━ 0</span>
+                                        )}
+                                      </div>
+                                    </motion.div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                       
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {selectedAssessment.scores?.map((score, idx) => (

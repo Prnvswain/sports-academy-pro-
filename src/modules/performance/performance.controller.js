@@ -159,6 +159,19 @@ export const getAssessmentById = async (req, res, next) => {
   }
 };
 
+export const checkDailyLock = async (req, res, next) => {
+  try {
+    const data = await performanceService.checkDailyLock(
+      req.user.academy_id,
+      req.user.coach_id,
+      req.query.student_id
+    );
+    res.json(successResponse('Daily lock status retrieved successfully', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getBatchPerformance = async (req, res, next) => {
   try {
     const data = await performanceService.getBatchPerformance(

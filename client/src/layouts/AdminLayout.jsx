@@ -41,6 +41,7 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: '📈' },
   { path: 'enquiries', label: 'Enquiries Desk', icon: '✉️' },
   { path: 'reports', label: 'Reports', icon: '📄' },
+  { path: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export default function AdminLayout() {
@@ -81,6 +82,14 @@ export default function AdminLayout() {
       }
     };
     fetchAcademy();
+
+    // Listen for academy settings updates to refresh logo
+    const handleSettingsUpdate = () => {
+      fetchAcademy();
+    };
+
+    window.addEventListener('academySettingsUpdated', handleSettingsUpdate);
+    return () => window.removeEventListener('academySettingsUpdated', handleSettingsUpdate);
   }, []);
 
   useEffect(() => {
@@ -113,7 +122,7 @@ export default function AdminLayout() {
           >
             {academy?.logo_url ? (
               <img
-                src={academy.logo_url}
+                src={`${academy.logo_url}?t=${Date.now()}`}
                 alt="Academy Logo"
                 className="h-10 w-10 rounded-full object-cover border border-primary/20 shadow-sm transition-transform hover:scale-105 cursor-pointer"
               />

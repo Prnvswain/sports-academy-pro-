@@ -16,6 +16,7 @@ import logger from '../../utils/logger.js';
 import { calculateAgeAndCategory } from '../../utils/age.util.js';
 import * as parentService from '../parent/parent.service.js';
 import { uploadToImageKit, deleteFromImageKit, validateImageFile } from '../../utils/imagekit.util.js';
+import { calculateStudentFee } from '../../utils/fee.util.js';
 
 const normalizeGender = (gender) => {
   if (!gender) return 'Other';
@@ -63,7 +64,7 @@ export const getAcademyDetails = async (academy_id) => {
   return academy;
 };
 
-export const updateAcademyDetails = async (academy_id, { name, owner_name, email, phone_number, address, city, state, country, pincode, logo }) => {
+export const updateAcademyDetails = async (academy_id, { name, owner_name, email, phone_number, address, city, state, country, pincode, logo, latitude, longitude, attendance_radius_meters }) => {
   const academyId = parseInt(academy_id, 10);
 
   // Check if academy exists
@@ -109,13 +110,25 @@ export const updateAcademyDetails = async (academy_id, { name, owner_name, email
     logo_file_id = uploadResult.fileId;
   }
 
+  // Validate attendance radius
+  let radius = existingAcademy.attendance_radius_meters;
+  if (attendance_radius_meters !== undefined) {
+    const radiusNum = parseInt(attendance_radius_meters, 10);
+    if (radiusNum < 100 || radiusNum > 5000) {
+      const error = new Error('Attendance radius must be between 100 and 5000 meters');
+      error.statusCode = 400;
+      throw error;
+    }
+    radius = radiusNum;
+  }
+
   // Update academy details
   const updatedAcademy = await prisma.academy.update({
     where: { academy_id: academyId },
     data: {
-      name: name || existingAcademy.name,
-      owner_name: owner_name || existingAcademy.owner_name,
-      email: email || existingAcademy.email,
+      name: name !== undefined ? name : existingAcademy.name,
+      owner_name: owner_name !== undefined ? owner_name : existingAcademy.owner_name,
+      email: email !== undefined ? email : existingAcademy.email,
       phone_number: phone_number !== undefined ? phone_number : existingAcademy.phone_number,
       address: address !== undefined ? address : existingAcademy.address,
       city: city !== undefined ? city : existingAcademy.city,
@@ -123,7 +136,10 @@ export const updateAcademyDetails = async (academy_id, { name, owner_name, email
       country: country !== undefined ? country : existingAcademy.country,
       pincode: pincode !== undefined ? pincode : existingAcademy.pincode,
       logo_url,
-      logo_file_id
+      logo_file_id,
+      latitude: latitude !== undefined ? parseFloat(latitude) : existingAcademy.latitude,
+      longitude: longitude !== undefined ? parseFloat(longitude) : existingAcademy.longitude,
+      attendance_radius_meters: radius
     }
   });
 
@@ -702,6 +718,45 @@ export const updateSportStatus = async (academy_id, sport_id, data) => {
   return result;
 };
 
+export const updateSport = async (academy_id, sport_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const sportId = parseInt(sport_id, 10);
+
+  const sport = await prisma.sport.findFirst({
+    where: {
+      sport_id: sportId,
+      academy_id: academyId,
+    },
+  });
+
+  if (!sport) {
+    logger.error('Sport not found', { sportId, academyId });
+    const error = new Error('Sport not found in this academy');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Build update data object
+  const updateData = {};
+  if (data.base_fee !== undefined) {
+    updateData.base_fee = parseFloat(data.base_fee);
+  }
+  if (data.name !== undefined) {
+    updateData.name = data.name;
+  }
+  if (data.description !== undefined) {
+    updateData.description = data.description;
+  }
+
+  const updatedSport = await prisma.sport.update({
+    where: { sport_id: sportId },
+    data: updateData,
+  });
+
+  logger.info('Sport updated successfully', { sport_id: sportId, academy_id: academyId });
+  return updatedSport;
+};
+
 export const deleteSport = async (academy_id, sport_id) => {
   const academyId = parseInt(academy_id, 10);
   const sportId = parseInt(sport_id, 10);
@@ -1147,11 +1202,13 @@ export const createStudent = async (academy_id, data) => {
     });
   }
 
-  // Calculate final fee
+  // Calculate final fee using the same logic as the centralized fee utility
+  // totalSportsFee is already the sum of base fees from sports
   const registrationFee = parseFloat(data.registration_fee || 0);
   const additionalCharges = parseFloat(data.additional_charges || 0);
   const discount = parseFloat(data.discount || 0);
 
+  // Apply multiplier only once to the base sports fee
   const sportsFeeWithMultiplier = totalSportsFee * planMultiplier;
   const finalFee = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
 
@@ -1933,16 +1990,9 @@ export const getStudentLedger = async (academy_id, student_id) => {
   });
 
   const totalFeeDue = enrollments.reduce((sum, e) => {
-    const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
-    const registrationFee = Number(e.registration_fee || 0);
-    const additionalCharges = Number(e.additional_charges || 0);
-    const discount = Number(e.discount || 0);
-    // Safely read the loaded multiplier from the duration_plan relation
-    const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
-    const sportsFeeWithMultiplier = baseFee * durationMultiplier;
-    const enrollmentTotal =
-      sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
-    return sum + enrollmentTotal;
+    // Use the centralized fee calculation utility
+    const feeBreakdown = calculateStudentFee(e);
+    return sum + feeBreakdown.totalComputedFee;
   }, 0);
 
   // Since due_date doesn't exist in schema, set overdue and pending fees to 0
@@ -2000,16 +2050,10 @@ export const getStudentsFeeSummary = async (academy_id) => {
   // Calculate fee summary for each student
   const studentsSummary = await Promise.all(
     students.map(async (student) => {
-      // Calculate total fee due from enrollments
+      // Calculate total fee due from enrollments using centralized fee utility
       const totalFeeDue = student.enrollments.reduce((sum, e) => {
-        const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
-        const registrationFee = Number(e.registration_fee || 0);
-        const additionalCharges = Number(e.additional_charges || 0);
-        const discount = Number(e.discount || 0);
-        const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
-        const sportsFeeWithMultiplier = baseFee * durationMultiplier;
-        const enrollmentTotal = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
-        return sum + enrollmentTotal;
+        const feeBreakdown = calculateStudentFee(e);
+        return sum + feeBreakdown.totalComputedFee;
       }, 0);
 
       // Calculate total paid from receipts
@@ -2194,10 +2238,9 @@ export const getPendingDues = async (academy_id) => {
     const totalPaid = receipts.reduce((sum, r) => sum + Number(r.amount), 0);
 
     const totalFeeDue = student.enrollments.reduce((sum, e) => {
-      const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
-      // Safely read the loaded multiplier from the duration_plan relation
-      const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
-      return sum + baseFee * durationMultiplier;
+      // Use the centralized fee calculation utility
+      const feeBreakdown = calculateStudentFee(e);
+      return sum + feeBreakdown.totalComputedFee;
     }, 0);
 
     const balanceOutstanding = totalFeeDue - totalPaid;

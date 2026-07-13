@@ -37,6 +37,7 @@ export default function CoachPerformancePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showLiveSummary, setShowLiveSummary] = useState(true);
+  const [dailyLock, setDailyLock] = useState(null);
 
   const loadBatches = useCallback(async () => {
     try {
@@ -172,6 +173,9 @@ export default function CoachPerformancePage() {
     if (selectedStudent) {
       loadStudentPerformance(selectedStudent.student_id);
       loadAssessmentHistory(selectedStudent.student_id);
+      checkDailyLock(selectedStudent.student_id);
+    } else {
+      setDailyLock(null);
     }
   }, [selectedStudent, loadStudentPerformance, loadAssessmentHistory]);
 
@@ -185,6 +189,25 @@ export default function CoachPerformancePage() {
     setSelectedStudent(student);
     setMessage({ text: '', type: '' });
     setShowHistory(false);
+  };
+
+  const checkDailyLock = async (studentId) => {
+    if (!studentId) return;
+    try {
+      const result = await coachGet(`/coach/performance/check-daily-lock?student_id=${studentId}`);
+      if (result.data && result.data.locked) {
+        setDailyLock({
+          locked: true,
+          assessment_id: result.data.assessment_id,
+          scored_at: result.data.scored_at
+        });
+      } else {
+        setDailyLock(null);
+      }
+    } catch (error) {
+      // If endpoint doesn't exist or fails, assume no lock
+      setDailyLock(null);
+    }
   };
 
   const handleAssessmentClick = (assessment) => {
@@ -704,11 +727,25 @@ ${remarks || 'No notes provided'}
                   <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
                   
                   <div className="p-6 border-b border-border/50 bg-surface/30">
-                    <h3 className="text-xl font-black tracking-tight text-foreground">
-                      Metrics Scoring Ledger
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-black tracking-tight text-foreground">
+                        Metrics Scoring Ledger
+                      </h3>
+                      {dailyLock && dailyLock.locked && (
+                        <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-300 dark:border-amber-500/30">
+                          <span className="text-amber-700 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
+                            🔒 Assessment already submitted today
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {dailyLock && dailyLock.locked && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Submitted at: {new Date(dailyLock.scored_at).toLocaleString()}
+                      </p>
+                    )}
                   </div>
-                  
+
                   <div className="p-6 space-y-6 bg-background/30 flex-1">
                     {attributes.length > 0 ? attributes.map((attr) => {
                       const currentScore = scores[attr.attribute_id] || 0;
@@ -755,15 +792,15 @@ ${remarks || 'No notes provided'}
                                   <motion.button
                                     key={val}
                                     type="button"
-                                    disabled={submitting}
+                                    disabled={submitting || (dailyLock && dailyLock.locked)}
                                     whileHover={{ scale: 1.3 }}
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => handleScoreChange(attr.attribute_id, val)}
                                     className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-black transition-all duration-300 outline-none ${
-                                      isSelected 
-                                        ? 'bg-amber-400 border-amber-400 text-amber-950 shadow-[0_0_12px_rgba(251,191,36,0.6)]' 
+                                      isSelected
+                                        ? 'bg-amber-400 border-amber-400 text-amber-950 shadow-[0_0_12px_rgba(251,191,36,0.6)]'
                                         : 'bg-surface border-border text-muted-foreground hover:border-amber-300'
-                                    } ${isExactlySelected ? 'ring-4 ring-amber-400/30' : ''}`}
+                                    } ${isExactlySelected ? 'ring-4 ring-amber-400/30' : ''} ${(dailyLock && dailyLock.locked) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   >
                                     {val}
                                   </motion.button>
@@ -787,10 +824,10 @@ ${remarks || 'No notes provided'}
                       whileTap={{ scale: 0.98 }}
                       type="button"
                       onClick={handleSubmitScores}
-                      disabled={submitting}
+                      disabled={submitting || (dailyLock && dailyLock.locked)}
                       className="w-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 rounded-xl py-4 text-sm font-black tracking-wide transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-2"
                     >
-                      {submitting ? 'Saving...' : '💾 Save Evaluation'}
+                      {dailyLock && dailyLock.locked ? '🔒 Assessment Locked' : submitting ? 'Saving...' : '💾 Save Evaluation'}
                     </motion.button>
                   </div>
                 </div>
@@ -814,7 +851,7 @@ ${remarks || 'No notes provided'}
                           className="w-full text-sm p-4 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 outline-none resize-none transition-all placeholder:text-muted-foreground/50"
                           placeholder="Add observations, tactical notes, or feedback..."
                           value={remarks}
-                          disabled={submitting}
+                          disabled={submitting || (dailyLock && dailyLock.locked)}
                           onChange={(e) => setRemarks(e.target.value)}
                         />
                       </div>

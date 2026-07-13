@@ -200,7 +200,7 @@ model User {
   password_hash     String?
   google_id         String?   @unique
   avatar_url        String?
-  auth_provider     String?   @default("email") // 'email' or 'google'
+  auth_provider     String?   @default("email")
   profile_completed Boolean   @default(false)
   role              UserRole  @default(ACADEMY_ADMIN)
   is_deleted        Boolean   @default(false)
@@ -211,6 +211,7 @@ model User {
   academy            Academy?          @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "users_academy_id_fk")
   marked_attendances CoachAttendance[]
   approved_receipts  Receipt[]         @relation("ReceiptApprovedBy")
+  created_receipts   Receipt[]         @relation("ReceiptCreatedBy")
 
   @@index([academy_id])
   @@index([google_id])
@@ -358,7 +359,7 @@ model Batch {
   announcements       Announcement[]
   weekly_reports      WeeklyPerformanceReport[]
   attendanceAuditLogs AttendanceAuditLog[]
-  coachAttendances    CoachAttendance[] @relation("coachAttendances")
+  coachAttendances    CoachAttendance[]         @relation("coachAttendances")
 
   @@index([academy_id])
   @@index([sport_id])
@@ -488,7 +489,7 @@ model Receipt {
   student      Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "receipts_student_id_fk")
   approved_by  User?   @relation("ReceiptApprovedBy", fields: [approved_by_user_id], references: [user_id], map: "receipts_approved_by_fk")
   collected_by Coach?  @relation("ReceiptCollectedBy", fields: [collected_by_coach_id], references: [coach_id], map: "receipts_collected_by_fk")
-  created_by  User?   @relation("ReceiptCreatedBy", fields: [created_by_user_id], references: [user_id], map: "receipts_created_by_fk")
+  created_by   User?   @relation("ReceiptCreatedBy", fields: [created_by_user_id], references: [user_id], map: "receipts_created_by_fk")
 
   @@index([academy_id])
   @@index([student_id])
@@ -643,17 +644,17 @@ model PerformanceAttribute {
 }
 
 model PerformanceScore {
-  score_id       Int      @id @default(autoincrement())
-  academy_id     Int
-  student_id     Int
-  attribute_id   Int
-  coach_id       Int
-  batch_id       Int?
-  assessment_id  String?  @db.VarChar(36) // UUID for grouping scores from a single assessment session
-  score          Int
-  notes          String?  @db.Text
-  scored_at      DateTime @default(now())
-  created_at     DateTime @default(now())
+  score_id      Int      @id @default(autoincrement())
+  academy_id    Int
+  student_id    Int
+  attribute_id  Int
+  coach_id      Int
+  batch_id      Int?
+  assessment_id String?  @db.VarChar(36) // UUID for grouping scores from a single assessment session
+  score         Int
+  notes         String?  @db.Text
+  scored_at     DateTime @default(now())
+  created_at    DateTime @default(now())
 
   academy   Academy              @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "perf_score_academy_id_fk")
   student   Student              @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "perf_score_student_id_fk")

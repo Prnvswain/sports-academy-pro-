@@ -27,6 +27,7 @@ import PerformancePanel from './pages/admin/PerformancePanel';
 import EnquiriesPanel from './pages/admin/EnquiriesPanel';
 import GpsSettingsPanel from './pages/admin/GpsSettingsPanel';
 import AdminPlansPanel from './pages/admin/PlansPanel';
+import SettingsPanel from './pages/admin/SettingsPanel';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="performance" element={<PerformancePanel />} />
             <Route path="enquiries" element={<EnquiriesPanel />} />
             <Route path="gps-settings" element={<GpsSettingsPanel />} />
+            <Route path="settings" element={<SettingsPanel />} />
             <Route path="import" element={<Navigate to="/admin/students" replace />} />
             <Route path="analytics" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>

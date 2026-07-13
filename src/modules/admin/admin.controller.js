@@ -121,6 +121,20 @@ export const updateSportStatus = async (req, res, next) => {
   }
 };
 
+export const updateSport = async (req, res, next) => {
+  try {
+    const sport = await adminService.updateSport(
+      req.user.academy_id,
+      req.params.id,
+      req.body,
+    );
+    res.json(successResponse('Sport updated successfully', sport));
+  } catch (err) {
+    logger.error('Failed to update sport', err);
+    next(err);
+  }
+};
+
 export const deleteSport = async (req, res, next) => {
   try {
     await adminService.deleteSport(req.user.academy_id, req.params.id);

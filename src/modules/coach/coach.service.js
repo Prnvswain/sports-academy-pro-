@@ -6,6 +6,7 @@ import {
 } from '../../services/mail.service.js';
 import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
+import { calculateStudentFee } from '../../utils/fee.util.js';
 
 const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
@@ -120,16 +121,10 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
   console.log('[getCoachStudentsFeeSummary] Calculating fee summary for each student...');
   const studentsSummary = await Promise.all(
     students.map(async (student) => {
-      // Calculate total fee due from enrollments (only from coach's batches)
+      // Calculate total fee due from enrollments (only from coach's batches) using centralized fee utility
       const totalFeeDue = student.enrollments.reduce((sum, e) => {
-        const baseFee = Number(e.batch?.sport?.base_fee || e.sports_fee || 0);
-        const registrationFee = Number(e.registration_fee || 0);
-        const additionalCharges = Number(e.additional_charges || 0);
-        const discount = Number(e.discount || 0);
-        const durationMultiplier = e.duration_plan ? parseFloat(e.duration_plan.multiplier) : 1;
-        const sportsFeeWithMultiplier = baseFee * durationMultiplier;
-        const enrollmentTotal = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
-        return sum + enrollmentTotal;
+        const feeBreakdown = calculateStudentFee(e);
+        return sum + feeBreakdown.totalComputedFee;
       }, 0);
 
       // Calculate total paid from receipts

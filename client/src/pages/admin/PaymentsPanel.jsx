@@ -3,6 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPatch, adminPost } from '../../api/client';
+import { calculateStudentFee, calculateBalance } from '../../utils/fee.util.js';
 
 const emptyForm = {
   student_id: '',
@@ -153,10 +154,9 @@ export default function AccountsPanel() {
       console.error('Failed to fetch student ledger:', error);
       setStudentFeeData(null);
       if (studentObj) {
-        const regFee = parseFloat(studentObj.registration_fee || studentObj.registrationFee || 0);
-        const additionalCharges = parseFloat(studentObj.additional_charges || studentObj.additionalCharges || 0);
-        const discount = parseFloat(studentObj.discount || 0);
-        const pendingAmount = Math.max(0, regFee + additionalCharges - discount);
+        // Use the centralized fee calculation utility for fallback
+        const feeBreakdown = calculateStudentFee(studentObj);
+        const pendingAmount = Math.max(0, feeBreakdown.totalComputedFee - (studentObj.paid_amount || 0));
 
         setForm((prev) => ({
           ...prev,
@@ -283,36 +283,9 @@ export default function AccountsPanel() {
         // Get latest enrollment
         const latestEnrollment = student.enrollments[student.enrollments.length - 1];
         
-        // Calculate multiplier
-        const dynamicMultiplier = parseFloat(
-          latestEnrollment?.duration_plan?.multiplier ||
-            latestEnrollment?.plan_multiplier ||
-            latestEnrollment?.planMultiplier ||
-            1,
-        );
-
-        // Calculate sports fee with multiplier
-        const rawBaseSportsFee = parseFloat(
-          latestEnrollment?.sports_base_fee ||
-            latestEnrollment?.sportsBaseFee ||
-            latestEnrollment?.sports_fee ||
-            0,
-        );
-        const totalMultipliedSportsFee = rawBaseSportsFee * dynamicMultiplier;
-
-        // Get other fee components
-        const regFeeAmount = parseFloat(latestEnrollment?.registration_fee || 0);
-        const additionalSurchargesAmount = parseFloat(latestEnrollment?.additional_charges || 0);
-        const appliedDiscountAmount = parseFloat(latestEnrollment?.discount || 0);
-
-        // Calculate Total Computed Fee (Decided)
-        const accurateTotalComputedFee =
-          totalMultipliedSportsFee +
-          regFeeAmount +
-          additionalSurchargesAmount -
-          appliedDiscountAmount;
-
-        return sum + accurateTotalComputedFee;
+        // Use the centralized fee calculation utility
+        const feeBreakdown = calculateStudentFee(latestEnrollment);
+        return sum + feeBreakdown.totalComputedFee;
       }
       return sum;
     }, 0);
@@ -413,7 +386,9 @@ export default function AccountsPanel() {
   const getStudentAmount = (student) => {
     if (student?.enrollments && student.enrollments.length > 0) {
       const latestEnrollment = student.enrollments[student.enrollments.length - 1];
-      return latestEnrollment.final_fee || latestEnrollment.sports_fee || 0;
+      // Use the centralized fee calculation utility
+      const feeBreakdown = calculateStudentFee(latestEnrollment);
+      return feeBreakdown.totalComputedFee;
     }
     return 0;
   };

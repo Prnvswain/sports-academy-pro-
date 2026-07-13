@@ -105,14 +105,12 @@ export async function adminPatch(path, body) {
 }
 
 export async function adminPut(path, body) {
-  return api
-    .put(path, body, {
-      headers: { 
-        Authorization: `Bearer ${getAdminToken()}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(unwrap);
+  const headers = { Authorization: `Bearer ${getAdminToken()}` };
+  // Don't set Content-Type for FormData - let browser set it with boundary
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return api.put(path, body, { headers }).then(unwrap);
 }
 
 export async function adminDelete(path) {

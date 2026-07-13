@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Eye, Lock, Unlock, Key, Trash2, Edit, Camera, X, Wallet } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, Lock, Unlock, Key, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { useFormDraft } from '../../hooks/useFormDraft';
 import { useFormValidation, validationRules } from '../../hooks/useFormValidation';
 import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
+import { calculateStudentFee, getPlanName, calculateBalance } from '../../utils/fee.util.js';
 
 const formatCurrency = (value) =>
   Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '0.00';
@@ -17,6 +18,74 @@ const normalizeGender = (gender) => {
   if (['female', 'f'].includes(normalized)) return 'Female';
   if (['other'].includes(normalized)) return 'Other';
   return 'Not Specified';
+};
+
+// Calendar helper functions
+const getDaysInMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startDayOfWeek = firstDay.getDay();
+
+  const days = [];
+  // Add empty cells for days before the first day of the month
+  for (let i = 0; i < startDayOfWeek; i++) {
+    days.push(null);
+  }
+  // Add days of the month
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(new Date(year, month, i));
+  }
+  return days;
+};
+
+const isSameDay = (date1, date2) => {
+  if (!date1 || !date2) return false;
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};
+
+const isSunday = (date) => {
+  return date.getDay() === 0;
+};
+
+const isToday = (date) => {
+  const today = new Date();
+  return isSameDay(date, today);
+};
+
+const isFutureDate = (date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date > today;
+};
+
+const getAttendanceForDate = (attendanceRecords, date) => {
+  if (!attendanceRecords || !date) return null;
+  return attendanceRecords.find((record) => {
+    const recordDate = new Date(record.date);
+    return isSameDay(recordDate, date);
+  });
+};
+
+const getAttendanceColor = (date, attendanceRecords, selectedDate) => {
+  if (isToday(date)) return 'bg-blue-500 text-white';
+  if (isSunday(date)) return 'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-300';
+  if (isFutureDate(date)) return 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600';
+
+  const attendance = getAttendanceForDate(attendanceRecords, date);
+  if (attendance) {
+    if (attendance.status === 'PRESENT') return 'bg-green-500 text-white';
+    if (attendance.status === 'ABSENT') return 'bg-red-600 text-white';
+    if (attendance.status === 'LATE') return 'bg-yellow-500 text-white';
+  }
+
+  return 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700';
 };
 
 const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
@@ -39,36 +108,13 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
       plan.plan_id === currentStudentPlan,
   );
 
-  const dynamicMultiplier = exactPlanMatch
-    ? parseFloat(exactPlanMatch.multiplier)
-    : parseFloat(
-        latestEnrollment?.duration_plan?.multiplier ||
-          latestEnrollment?.plan_multiplier ||
-          latestEnrollment?.planMultiplier ||
-          1,
-      );
-
-  const rawBaseSportsFee = parseFloat(
-    latestEnrollment?.sports_base_fee ||
-      latestEnrollment?.sportsBaseFee ||
-      latestEnrollment?.sports_fee ||
-      0,
+  // Use the centralized fee calculation utility
+  const feeBreakdown = calculateStudentFee(latestEnrollment);
+  const balanceInfo = calculateBalance(
+    latestEnrollment,
+    studentRecord?.amount_paid || studentRecord?.amountPaid || studentData?.amount_paid || studentData?.amountPaid || 0
   );
-  const totalMultipliedSportsFee = rawBaseSportsFee * dynamicMultiplier;
-  const regFeeAmount = parseFloat(latestEnrollment?.registration_fee || 0);
-  const additionalSurchargesAmount = parseFloat(latestEnrollment?.additional_charges || 0);
-  const appliedDiscountAmount = parseFloat(latestEnrollment?.discount || 0);
-  const accurateTotalComputedFee =
-    totalMultipliedSportsFee + regFeeAmount + additionalSurchargesAmount - appliedDiscountAmount;
-  const dynamicAmountPaidFromLedger = parseFloat(
-    studentRecord?.amount_paid || studentRecord?.amountPaid || studentData?.amount_paid || studentData?.amountPaid || 0,
-  );
-  const finalOutstandingDuesBalance = Math.max(0, accurateTotalComputedFee - dynamicAmountPaidFromLedger);
-  const durationPlanName =
-    latestEnrollment?.duration_plan?.name ||
-    studentRecord?.duration_plan ||
-    studentRecord?.durationPlan ||
-    'Standard';
+  const durationPlanName = getPlanName(latestEnrollment);
 
   return (
     <motion.div
@@ -91,12 +137,12 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
         <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Sports Base Fee</span>
-            <span className="font-semibold text-slate-800">₹{formatCurrency(rawBaseSportsFee)}</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.sportsBaseFee)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>Plan Multiplier</span>
             <span className="font-medium text-slate-700">
-              {Number.isFinite(Number(dynamicMultiplier)) ? Number(dynamicMultiplier).toFixed(1) : '1.0'}x
+              {Number.isFinite(Number(feeBreakdown.planMultiplier)) ? Number(feeBreakdown.planMultiplier).toFixed(1) : '1.0'}x
               {' '}({durationPlanName})
             </span>
           </div>
@@ -105,44 +151,57 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
         <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Sports Fee</span>
-            <span className="font-semibold text-slate-800">₹{formatCurrency(totalMultipliedSportsFee)}</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.sportsFee)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>Registration Fee</span>
-            <span className="font-medium text-slate-700">₹{formatCurrency(regFeeAmount)}</span>
+            <span className="font-medium text-slate-700">₹{formatCurrency(feeBreakdown.registrationFee)}</span>
           </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Additional Charges</span>
-            <span className="font-semibold text-slate-800">₹{formatCurrency(additionalSurchargesAmount)}</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.additionalCharges)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
             <span>Discount</span>
-            <span className="font-medium text-rose-600">-₹{formatCurrency(appliedDiscountAmount)}</span>
+            <span className="font-medium text-rose-600">-₹{formatCurrency(feeBreakdown.discount)}</span>
           </div>
         </div>
 
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Total Computed Fee</span>
-            <span className="font-semibold text-slate-800">₹{formatCurrency(accurateTotalComputedFee)}</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.totalComputedFee)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-emerald-700">
             <span>Amount Paid</span>
-            <span className="font-medium">₹{formatCurrency(dynamicAmountPaidFromLedger)}</span>
+            <span className="font-medium">₹{formatCurrency(balanceInfo.amountPaid)}</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Balance Due</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(balanceInfo.balanceDue)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-rose-700">
+            <span>Status</span>
+            <span className="font-medium text-rose-700">
+              {balanceInfo.balanceDue > 0 ? 'Pending' : 'Paid'}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className={`mt-4 rounded-xl border p-4 ${finalOutstandingDuesBalance > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-600 text-white'}`}>
+      <div className={`mt-4 rounded-xl border p-4 ${balanceInfo.balanceDue > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-600 text-white'}`}>
         <div className="flex items-center justify-between">
-          <span className={`text-sm font-semibold ${finalOutstandingDuesBalance > 0 ? 'text-rose-700' : 'text-white'}`}>
+          <span className={`text-sm font-semibold ${balanceInfo.balanceDue > 0 ? 'text-rose-700' : 'text-white'}`}>
             Total Balance Due
           </span>
-          <span className={`text-lg font-bold ${finalOutstandingDuesBalance > 0 ? 'text-rose-700' : 'text-white'}`}>
-            ₹{formatCurrency(finalOutstandingDuesBalance)}
+          <span className={`text-lg font-bold ${balanceInfo.balanceDue > 0 ? 'text-rose-700' : 'text-white'}`}>
+            ₹{formatCurrency(balanceInfo.balanceDue)}
           </span>
         </div>
       </div>
@@ -293,7 +352,11 @@ export default function StudentsPanel() {
   const [editPhotoPreview, setEditPhotoPreview] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showRemovePhotoConfirm, setShowRemovePhotoConfirm] = useState(false);
-  
+
+  // Calendar state for attendance view
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+
   // Search query states for dropdowns
   const [sportSearchQuery, setSportSearchQuery] = useState('');
   const [batchSearchQuery, setBatchSearchQuery] = useState('');
@@ -829,7 +892,8 @@ export default function StudentsPanel() {
     setPhotoPreview(null);
     setLoadingDetails(true);
     try {
-      const detailsRes = await adminGet(`/admin/students/${student.student_id}/details`);
+      const studentId = student.student_id || student.id;
+      const detailsRes = await adminGet(`/admin/students/${studentId}/details`);
       setStudentDetails(detailsRes.data);
       // Initialize edit form with student data
       setEditStudentForm({
@@ -1519,25 +1583,22 @@ export default function StudentsPanel() {
                             <span className="font-semibold">
                               ₹
                               {formatCurrency(
-                                studentDetails.enrollments.reduce(
-                                  (sum, e) =>
-                                    sum +
-                                    (Number(e?.registration_fee || e?.registrationFee || 0) || 0),
-                                  0,
-                                ),
+                                studentDetails.enrollments.reduce((sum, e) => {
+                                  const feeBreakdown = calculateStudentFee(e);
+                                  return sum + feeBreakdown.registrationFee;
+                                }, 0),
                               )}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Total Monthly Fee:</span>
+                            <span>Total Sports Fee:</span>
                             <span className="font-semibold">
                               ₹
                               {formatCurrency(
-                                studentDetails.enrollments.reduce(
-                                  (sum, e) =>
-                                    sum + (Number(e?.monthly_fee || e?.monthlyFee || 0) || 0),
-                                  0,
-                                ),
+                                studentDetails.enrollments.reduce((sum, e) => {
+                                  const feeBreakdown = calculateStudentFee(e);
+                                  return sum + feeBreakdown.sportsFee;
+                                }, 0),
                               )}
                             </span>
                           </div>
@@ -1546,13 +1607,10 @@ export default function StudentsPanel() {
                             <span className="font-semibold">
                               ₹
                               {formatCurrency(
-                                studentDetails.enrollments.reduce(
-                                  (sum, e) =>
-                                    sum +
-                                    (Number(e?.additional_charges || e?.additionalCharges || 0) ||
-                                      0),
-                                  0,
-                                ),
+                                studentDetails.enrollments.reduce((sum, e) => {
+                                  const feeBreakdown = calculateStudentFee(e);
+                                  return sum + feeBreakdown.additionalCharges;
+                                }, 0),
                               )}
                             </span>
                           </div>
@@ -1561,10 +1619,10 @@ export default function StudentsPanel() {
                             <span className="text-danger font-semibold">
                               -₹
                               {formatCurrency(
-                                studentDetails.enrollments.reduce(
-                                  (sum, e) => sum + (Number(e?.discount || 0) || 0),
-                                  0,
-                                ),
+                                studentDetails.enrollments.reduce((sum, e) => {
+                                  const feeBreakdown = calculateStudentFee(e);
+                                  return sum + feeBreakdown.discount;
+                                }, 0),
                               )}
                             </span>
                           </div>
@@ -1574,16 +1632,8 @@ export default function StudentsPanel() {
                               ₹
                               {formatCurrency(
                                 studentDetails.enrollments.reduce((sum, e) => {
-                                  const regFee =
-                                    Number(e?.registration_fee || e?.registrationFee || 0) || 0;
-                                  const monthlyFee =
-                                    Number(e?.monthly_fee || e?.monthlyFee || 0) || 0;
-                                  const addCharges =
-                                    Number(e?.additional_charges || e?.additionalCharges || 0) || 0;
-                                  const discount = Number(e?.discount || 0) || 0;
-                                  return (
-                                    sum + Math.max(0, regFee + monthlyFee + addCharges - discount)
-                                  );
+                                  const feeBreakdown = calculateStudentFee(e);
+                                  return sum + feeBreakdown.totalComputedFee;
                                 }, 0),
                               )}
                             </span>
@@ -1598,18 +1648,8 @@ export default function StudentsPanel() {
                         </h5>
                         {studentDetails.enrollments.map((enrollment, idx) => {
                           const enrollmentId = enrollment?.enrollment_id || enrollment?.id || idx;
-                          const regFee =
-                            parseFloat(
-                              enrollment?.registration_fee || enrollment?.registrationFee || 0,
-                            ) || 0;
-                          const monthlyFee =
-                            parseFloat(enrollment?.monthly_fee || enrollment?.monthlyFee || 0) || 0;
-                          const addCharges =
-                            parseFloat(
-                              enrollment?.additional_charges || enrollment?.additionalCharges || 0,
-                            ) || 0;
-                          const discount = parseFloat(enrollment?.discount || 0) || 0;
-                          const netDue = Math.max(0, regFee + monthlyFee + addCharges - discount);
+                          // Use the centralized fee calculation utility
+                          const feeBreakdown = calculateStudentFee(enrollment);
                           const sportName =
                             typeof enrollment?.sport === 'string'
                               ? enrollment.sport
@@ -1619,12 +1659,13 @@ export default function StudentsPanel() {
                             <div key={enrollmentId} className="border-b pb-2 last:border-0">
                               <p className="font-semibold">{sportName}</p>
                               <div className="mt-1 grid grid-cols-2 gap-2">
-                                <span>Registration: ₹{formatCurrency(regFee)}</span>
-                                <span>Monthly: ₹{formatCurrency(monthlyFee)}</span>
-                                <span>Additional: ₹{formatCurrency(addCharges)}</span>
-                                <span>Discount: -₹{formatCurrency(discount)}</span>
+                                <span>Base Fee: ₹{formatCurrency(feeBreakdown.sportsBaseFee)}</span>
+                                <span>Sports Fee: ₹{formatCurrency(feeBreakdown.sportsFee)}</span>
+                                <span>Registration: ₹{formatCurrency(feeBreakdown.registrationFee)}</span>
+                                <span>Additional: ₹{formatCurrency(feeBreakdown.additionalCharges)}</span>
+                                <span>Discount: -₹{formatCurrency(feeBreakdown.discount)}</span>
                                 <span className="text-success col-span-2 font-bold">
-                                  Net Due: ₹{formatCurrency(netDue)}
+                                  Net Due: ₹{formatCurrency(feeBreakdown.totalComputedFee)}
                                 </span>
                               </div>
                             </div>
@@ -3316,39 +3357,208 @@ export default function StudentsPanel() {
                 {/* Attendance History Tab */}
                 {modalTab === 'attendance' && (
                   <div>
-                    <h4 className="mb-3 font-semibold">Attendance History</h4>
-                    {studentDetails.attendance && studentDetails.attendance.length > 0 ? (
-                      <div className="space-y-2">
-                        {studentDetails.attendance.map((record) => (
-                          <div key={record.attendance_id} className="rounded border p-3">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold">
-                                {new Date(record.date).toLocaleDateString()}
-                              </span>
-                              <span
-                                className={`rounded px-2 py-0.5 text-xs font-semibold ${
-                                  record.status === 'PRESENT'
-                                    ? 'bg-success/15 text-success'
-                                    : record.status === 'ABSENT'
-                                      ? 'bg-error/15 text-error'
-                                      : record.status === 'LATE'
-                                        ? 'bg-warning/15 text-warning'
-                                        : 'bg-muted'
-                                }`}
-                              >
-                                {record.status}
-                              </span>
-                            </div>
-                            <div className="mt-2 text-sm">
-                              <p>Batch: {record.batch?.name || '—'}</p>
-                              {record.remarks && <p>Remarks: {record.remarks}</p>}
-                            </div>
-                          </div>
-                        ))}
+                    <h4 className="mb-3 font-semibold">Attendance Calendar</h4>
+
+                    {/* Legend */}
+                    <div className="mb-4 flex flex-wrap gap-3 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded bg-green-500"></div>
+                        <span>Present</span>
                       </div>
-                    ) : (
-                      <p className="text-muted text-center">No attendance records found.</p>
-                    )}
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded bg-red-600"></div>
+                        <span>Absent</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded bg-red-100 dark:bg-red-900/30"></div>
+                        <span>Sunday</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded bg-blue-500"></div>
+                        <span>Today</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded bg-yellow-500"></div>
+                        <span>Late</span>
+                      </div>
+                    </div>
+
+                    {/* Month Navigation */}
+                    <div className="mb-4 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                        className="btn-secondary btn-sm flex items-center gap-1"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </button>
+                      <h5 className="text-lg font-semibold">
+                        {calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </h5>
+                      <button
+                        type="button"
+                        onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                        className="btn-secondary btn-sm flex items-center gap-1"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="mb-4"
+                    >
+                      <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground mb-2">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {getDaysInMonth(calendarMonth).map((date, index) => {
+                          if (!date) {
+                            return <div key={`empty-${index}`} className="aspect-square"></div>;
+                          }
+
+                          const attendance = getAttendanceForDate(studentDetails.attendance, date);
+                          const isDateSelected = selectedDate && isSameDay(date, selectedDate);
+                          const isDateFuture = isFutureDate(date);
+
+                          return (
+                            <motion.button
+                              key={date.toISOString()}
+                              type="button"
+                              disabled={isDateFuture}
+                              whileHover={!isDateFuture ? { scale: 1.05 } : {}}
+                              whileTap={!isDateFuture ? { scale: 0.95 } : {}}
+                              onClick={() => !isDateFuture && setSelectedDate(date)}
+                              className={`aspect-square rounded-lg text-xs font-medium transition-all ${
+                                getAttendanceColor(date, studentDetails.attendance, selectedDate)
+                              } ${isDateSelected ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
+                            >
+                              {date.getDate()}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+
+                    {/* Monthly Attendance Summary */}
+                    <div className="mb-4 rounded-lg bg-surface-secondary/50 border border-border p-4">
+                      <h5 className="mb-3 font-semibold">Monthly Summary</h5>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded bg-green-500"></div>
+                          <span>Present: <strong>{studentDetails.attendance?.filter(a => a.status === 'PRESENT' && new Date(a.date).getMonth() === calendarMonth.getMonth() && new Date(a.date).getFullYear() === calendarMonth.getFullYear()).length || 0}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded bg-red-600"></div>
+                          <span>Absent: <strong>{studentDetails.attendance?.filter(a => a.status === 'ABSENT' && new Date(a.date).getMonth() === calendarMonth.getMonth() && new Date(a.date).getFullYear() === calendarMonth.getFullYear()).length || 0}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded bg-yellow-500"></div>
+                          <span>Late: <strong>{studentDetails.attendance?.filter(a => a.status === 'LATE' && new Date(a.date).getMonth() === calendarMonth.getMonth() && new Date(a.date).getFullYear() === calendarMonth.getFullYear()).length || 0}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-3 w-3 rounded bg-red-100 dark:bg-red-900/30"></div>
+                          <span>Sundays: <strong>{getDaysInMonth(calendarMonth).filter(d => d && isSunday(d)).length}</strong></span>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <span className="text-sm">
+                          Attendance Percentage: <strong className="text-primary">
+                            {(() => {
+                              const presentCount = studentDetails.attendance?.filter(a => a.status === 'PRESENT' && new Date(a.date).getMonth() === calendarMonth.getMonth() && new Date(a.date).getFullYear() === calendarMonth.getFullYear()).length || 0;
+                              const absentCount = studentDetails.attendance?.filter(a => a.status === 'ABSENT' && new Date(a.date).getMonth() === calendarMonth.getMonth() && new Date(a.date).getFullYear() === calendarMonth.getFullYear()).length || 0;
+                              const total = presentCount + absentCount;
+                              return total > 0 ? ((presentCount / total) * 100).toFixed(1) + '%' : '0%';
+                            })()}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Attendance Details Panel */}
+                    <AnimatePresence>
+                      {selectedDate && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="rounded-lg bg-surface-secondary/50 border border-border p-4"
+                        >
+                          <h5 className="mb-3 font-semibold flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                          </h5>
+                          {(() => {
+                            const attendance = getAttendanceForDate(studentDetails.attendance, selectedDate);
+                            if (attendance) {
+                              return (
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Status:</span>
+                                    <span
+                                      className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                                        attendance.status === 'PRESENT'
+                                          ? 'bg-success/15 text-success'
+                                          : attendance.status === 'ABSENT'
+                                            ? 'bg-error/15 text-error'
+                                            : attendance.status === 'LATE'
+                                              ? 'bg-warning/15 text-warning'
+                                              : 'bg-muted'
+                                      }`}
+                                    >
+                                      {attendance.status}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Batch:</span>
+                                    <span>{attendance.batch?.name || '—'}</span>
+                                  </div>
+                                  {attendance.check_in_time && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Check-in:</span>
+                                      <span>{new Date(attendance.check_in_time).toLocaleTimeString()}</span>
+                                    </div>
+                                  )}
+                                  {attendance.check_out_time && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Check-out:</span>
+                                      <span>{new Date(attendance.check_out_time).toLocaleTimeString()}</span>
+                                    </div>
+                                  )}
+                                  {attendance.remarks && (
+                                    <div>
+                                      <span className="text-muted-foreground">Remarks:</span>
+                                      <p className="mt-1">{attendance.remarks}</p>
+                                    </div>
+                                  )}
+                                  {attendance.marked_by && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Marked By:</span>
+                                      <span>{attendance.marked_by}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <p className="text-muted-foreground text-sm">No attendance recorded for this date.</p>
+                              );
+                            }
+                          })()}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
