@@ -1,13 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 export default function ParentSettings() {
-  const navigate = useNavigate();
-  const [profileData, setProfileData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -17,74 +10,39 @@ export default function ParentSettings() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    fetchParentProfile();
-  }, []);
-
-  const fetchParentProfile = async () => {
-    try {
-      const token = localStorage.getItem('parent_token');
-      const userData = localStorage.getItem('parent_user');
-      
-      if (userData) {
-        const user = JSON.parse(userData);
-        setProfileData({
-          name: user.name || '',
-          email: user.email || '',
-          phone: user.phone || '',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch parent profile:', error);
-    }
-  };
-
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
-
-    try {
-      const token = localStorage.getItem('parent_token');
-      const response = await fetch('/api/v1/parent/update-profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('Profile updated successfully!');
-        // Update local storage
-        localStorage.setItem('parent_user', JSON.stringify(data.data.parent));
-      } else {
-        setError(data.message || 'Failed to update profile');
-      }
-    } catch (error) {
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
     // Frontend validation
+    if (!passwordData.currentPassword) {
+      setError('Current password is required');
+      return;
+    }
+
+    if (!passwordData.newPassword) {
+      setError('New password is required');
+      return;
+    }
+
     if (passwordData.newPassword.length < 6) {
       setError('New password must be at least 6 characters');
       return;
     }
 
+    if (passwordData.newPassword.length > 50) {
+      setError('New password must be at most 50 characters');
+      return;
+    }
+
+    if (!passwordData.confirmPassword) {
+      setError('Confirm password is required');
+      return;
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError('New password and confirm password do not match');
+      setError('Passwords do not match');
       return;
     }
 
@@ -93,7 +51,7 @@ export default function ParentSettings() {
     try {
       const token = localStorage.getItem('parent_token');
       const response = await fetch('/api/v1/parent/change-password', {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -114,10 +72,10 @@ export default function ParentSettings() {
           confirmPassword: '',
         });
       } else {
-        setError(data.message || 'Failed to change password');
+        setError(data.message || 'Something went wrong. Please try again.');
       }
     } catch (error) {
-      setError('Failed to connect to server');
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -128,7 +86,7 @@ export default function ParentSettings() {
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your profile and security settings</p>
+        <p className="text-gray-600 mt-1">Manage your security settings</p>
       </div>
 
       {/* Success/Error Alerts */}
@@ -142,58 +100,6 @@ export default function ParentSettings() {
           {error}
         </div>
       )}
-
-      {/* Profile Settings Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Profile Settings</h2>
-          <p className="text-sm text-gray-500 mt-1">Update your personal information</p>
-        </div>
-        <form onSubmit={handleProfileSubmit} className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Parent Name
-            </label>
-            <input
-              type="text"
-              value={profileData.name}
-              onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={profileData.email}
-              onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mobile Number
-            </label>
-            <input
-              type="tel"
-              value={profileData.phone}
-              onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Updating...' : 'Update Profile'}
-          </button>
-        </form>
-      </div>
 
       {/* Change Password Card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -225,12 +131,13 @@ export default function ParentSettings() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               required
               minLength={6}
+              maxLength={50}
             />
-            <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+            <p className="text-xs text-gray-500 mt-1">Minimum 6 characters, maximum 50 characters</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Confirm New Password
+              Confirm Password
             </label>
             <input
               type="password"
@@ -239,6 +146,7 @@ export default function ParentSettings() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               required
               minLength={6}
+              maxLength={50}
             />
           </div>
           <button

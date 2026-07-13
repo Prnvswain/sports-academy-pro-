@@ -2,6 +2,8 @@ import app from './src/app.js';
 import { PORT, NODE_ENV } from './src/config/app.config.js';
 import { verifySmtpConnection } from './src/services/mail.service.js';
 import { ensureSuperAdminFromEnv } from './src/modules/super-admin/super-admin.service.js';
+import { startFeeCronJobs } from './src/jobs/feeCron.js';
+import { startAnnouncementCronJobs } from './src/jobs/announcementCron.js';
 import logger from './src/utils/logger.js';
 
 const startServer = async () => {
@@ -46,6 +48,18 @@ const startServer = async () => {
     await verifySmtpConnection();
   } catch (error) {
     logger.error('SMTP connection check failed', {
+      message: error.message,
+      stack: error.stack
+    });
+  }
+
+  // Start cron jobs
+  try {
+    startFeeCronJobs();
+    startAnnouncementCronJobs();
+    logger.info('All cron jobs started successfully');
+  } catch (error) {
+    logger.error('Cron jobs initialization failed', {
       message: error.message,
       stack: error.stack
     });

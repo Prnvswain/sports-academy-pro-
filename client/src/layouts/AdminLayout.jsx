@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import BroadcastModal from '../components/BroadcastModal';
 import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet, getAdminToken } from '../api/client';
 
@@ -41,6 +42,7 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: '📈' },
   { path: 'enquiries', label: 'Enquiries Desk', icon: '✉️' },
   { path: 'reports', label: 'Reports', icon: '📄' },
+  { path: 'announcements', label: 'Announcements', icon: '🔔' },
 ];
 
 export default function AdminLayout() {
@@ -263,6 +265,7 @@ export default function AdminLayout() {
             >
               📢
             </motion.button>
+            <NotificationBell userRole="ACADEMY_ADMIN" />
             <div className="h-6 w-px bg-border/60 mx-1 hidden sm:block"></div>
             <ThemeToggle />
           </div>

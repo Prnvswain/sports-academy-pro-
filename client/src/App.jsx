@@ -42,6 +42,16 @@ import ParentPerformance from './pages/parent/ParentPerformance';
 import ParentFees from './pages/parent/ParentFees';
 import ParentProfile from './pages/parent/ParentProfile';
 import ParentSettings from './pages/parent/ParentSettings';
+import ParentAnnouncements from './pages/parent/announcements/ParentAnnouncements';
+import ParentAnnouncementDetails from './pages/parent/announcements/ParentAnnouncementDetails';
+import CreateAnnouncement from './pages/admin/announcements/CreateAnnouncement';
+import AnnouncementHistory from './pages/admin/announcements/AnnouncementHistory';
+import AnnouncementDetails from './pages/admin/announcements/AnnouncementDetails';
+import AnnouncementStats from './pages/admin/announcements/AnnouncementStats';
+import SuperAdminCreateAnnouncement from './pages/super-admin/announcements/SuperAdminCreateAnnouncement';
+import SuperAdminAnnouncementHistory from './pages/super-admin/announcements/SuperAdminAnnouncementHistory';
+import SuperAdminAnnouncementDetails from './pages/super-admin/announcements/SuperAdminAnnouncementDetails';
+import SuperAdminAnnouncementStats from './pages/super-admin/announcements/SuperAdminAnnouncementStats';
 
 export default function App() {
   return (
@@ -104,6 +114,10 @@ export default function App() {
             <Route path="gps-settings" element={<GpsSettingsPanel />} />
             <Route path="import" element={<Navigate to="/admin/students" replace />} />
             <Route path="analytics" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="announcements" element={<AnnouncementHistory />} />
+            <Route path="announcements/create" element={<CreateAnnouncement />} />
+            <Route path="announcements/:id" element={<AnnouncementDetails />} />
+            <Route path="announcements/:id/stats" element={<AnnouncementStats />} />
           </Route>
 
           {/* Secure Coach Operations Dashboard Panel Route Configurations */}
@@ -141,6 +155,8 @@ export default function App() {
             <Route path="fees" element={<ParentFees />} />
             <Route path="profile" element={<ParentProfile />} />
             <Route path="settings" element={<ParentSettings />} />
+            <Route path="announcements" element={<ParentAnnouncements />} />
+            <Route path="announcements/:id" element={<ParentAnnouncementDetails />} />
           </Route>
 
           {/* Hidden Gateways (Intentionally Omitted From Direct Public References) */}
@@ -158,6 +174,10 @@ export default function App() {
             <Route path="academies" element={<AcademiesPanel />} />
             <Route path="plans" element={<SuperAdminPlansPanel />} />
             <Route path="controller" element={<ControllerPanel />} />
+            <Route path="announcements" element={<SuperAdminAnnouncementHistory />} />
+            <Route path="announcements/create" element={<SuperAdminCreateAnnouncement />} />
+            <Route path="announcements/:id" element={<SuperAdminAnnouncementDetails />} />
+            <Route path="announcements/:id/stats" element={<SuperAdminAnnouncementStats />} />
           </Route>
 
           {/* Fallback Catch-All Wildcard Mapping Logic */}

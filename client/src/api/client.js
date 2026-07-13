@@ -82,15 +82,16 @@ export async function adminGet(path) {
     .then(unwrap);
 }
 
-export async function adminPost(path, body) {
-  return api
-    .post(path, body, {
-      headers: { 
-        Authorization: `Bearer ${getAdminToken()}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(unwrap);
+export async function adminPost(path, body, options = {}) {
+  const headers = { 
+    Authorization: `Bearer ${getAdminToken()}`
+  };
+  
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  
+  return api.post(path, body, { headers, ...options }).then(unwrap);
 }
 
 export async function adminPatch(path, body) {
@@ -313,7 +314,7 @@ export async function parentGet(path) {
     .then(unwrap);
 }
 
-export async function parentPost(path, body) {
+export async function parentPost(path, body, options = {}) {
   const headers = {
     Authorization: `Bearer ${getParentToken()}`
   };
@@ -322,7 +323,7 @@ export async function parentPost(path, body) {
     headers['Content-Type'] = 'application/json';
   }
 
-  return api.post(path, body, { headers }).then(unwrap);
+  return api.post(path, body, { headers, ...options }).then(unwrap);
 }
 
 export async function parentPatch(path, body) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, Link, useLocation, NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import { SIDEBAR_COLLAPSED_KEY } from '../api/client';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
@@ -12,6 +13,7 @@ const PARENT_NAV_ITEMS = [
   { path: 'attendance', label: 'Attendance', icon: '📅' },
   { path: 'performance', label: 'Performance', icon: '⚡' },
   { path: 'fees', label: 'Fees', icon: '💰' },
+  { path: 'announcements', label: 'Announcements', icon: '🔔' },
   { path: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
@@ -251,6 +253,7 @@ function ParentLayoutShell() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell userRole="PARENT" />
             <ThemeToggle />
           </div>
         </header>
