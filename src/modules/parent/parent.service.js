@@ -82,18 +82,30 @@ export const authenticateParent = async ({ email, password, academy_id }) => {
   let parent;
   const normalizedEmail = email.trim().toLowerCase();
 
+  console.log('=== PARENT AUTH DEBUG ===');
+  console.log('Email:', normalizedEmail);
+  console.log('Academy ID:', academy_id);
+  console.log('Password provided:', password ? 'YES' : 'NO');
+
   logger.info('Parent authentication attempt', { email: normalizedEmail, academy_id });
 
   if (academy_id) {
     parent = await findParentByEmail(normalizedEmail, academy_id);
   } else {
     // If no academy_id provided, find by email only (first active match)
+    console.log('Finding parent by email only...');
     parent = await prisma.parent.findFirst({
       where: {
         email: normalizedEmail,
         is_active: true,
       },
     });
+  }
+
+  console.log('Parent found:', parent ? 'YES' : 'NO');
+  if (parent) {
+    console.log('Parent ID:', parent.parent_id);
+    console.log('Parent active:', parent.is_active);
   }
 
   if (!parent) {
@@ -106,6 +118,7 @@ export const authenticateParent = async ({ email, password, academy_id }) => {
   logger.info('Parent found, verifying password', { parent_id: parent.parent_id, email: parent.email });
 
   const isValidPassword = await bcrypt.compare(password, parent.password_hash);
+  console.log('Password valid:', isValidPassword);
 
   if (!isValidPassword) {
     logger.warn('Invalid password for parent', { parent_id: parent.parent_id, email: parent.email });

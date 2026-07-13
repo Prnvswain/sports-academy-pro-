@@ -153,10 +153,91 @@ async function main() {
     }
   }
 
+  // Create a test parent
+  const parentEmail = 'parent@sportsacademy.com';
+  const existingParent = await prisma.parent.findFirst({
+    where: { academy_id: academy.academy_id, email: parentEmail }
+  });
+  let parent;
+  if (!existingParent) {
+    parent = await prisma.parent.create({
+      data: {
+        academy_id: academy.academy_id,
+        name: 'Test Parent',
+        email: parentEmail,
+        phone: '8000000000',
+        password_hash: passwordHash,
+        is_active: true,
+        must_change_password: false
+      }
+    });
+  } else {
+    parent = existingParent;
+  }
+
+  // Create a sport for the academy if not exists
+  const sport = await prisma.sport.findFirst({
+    where: { academy_id: academy.academy_id }
+  });
+  let sportId = sport?.sport_id;
+  if (!sportId) {
+    const newSport = await prisma.sport.create({
+      data: {
+        academy_id: academy.academy_id,
+        name: 'Cricket',
+        global_sport_id: 1
+      }
+    });
+    sportId = newSport.sport_id;
+  }
+
+  // Create a batch for the academy if not exists
+  const batch = await prisma.batch.findFirst({
+    where: { academy_id: academy.academy_id }
+  });
+  let batchId = batch?.batch_id;
+  if (!batchId) {
+    const newBatch = await prisma.batch.create({
+      data: {
+        academy_id: academy.academy_id,
+        sport_id: sportId,
+        name: 'Morning Batch',
+        capacity: 30,
+        status: RecordStatus.ACTIVE
+      }
+    });
+    batchId = newBatch.batch_id;
+  }
+
+  // Create a test student linked to the parent
+  const existingStudent = await prisma.student.findFirst({
+    where: { parent_id: parent.parent_id }
+  });
+  if (!existingStudent) {
+    const student = await prisma.student.create({
+      data: {
+        academy_id: academy.academy_id,
+        parent_id: parent.parent_id,
+        name: 'Test Student Child',
+        first_name: 'Test',
+        last_name: 'Student',
+        phone: '7000000000',
+        parent_name: 'Test Parent',
+        parent_phone: '8000000000',
+        parent_email: parentEmail,
+        sport_id: sportId,
+        batch_id: batchId,
+        status: RecordStatus.ACTIVE,
+        is_deleted: false
+      }
+    });
+  }
+
   console.log('✅ Seed complete');
   console.log('   Super Admin: superadmin@sportsacademy.com / 123456');
   console.log('   Academy Admin: admin@sportsacademy.com / 123456');
   console.log('   Coach: coach1@sportsacademy.com / 123456');
+  console.log('   Parent: parent@sportsacademy.com / 123456');
 }
 
 main()

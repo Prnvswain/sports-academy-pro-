@@ -85,7 +85,7 @@ export async function adminGet(path) {
 export async function adminPost(path, body) {
   return api
     .post(path, body, {
-      headers: {
+      headers: { 
         Authorization: `Bearer ${getAdminToken()}`,
         'Content-Type': 'application/json'
       }
@@ -211,6 +211,22 @@ export async function coachPatch(path, body) {
   return api.patch(path, body, { headers }).then(unwrap);
 }
 
+export async function coachPut(path, body) {
+  const headers = { Authorization: `Bearer ${getCoachToken()}` };
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return api.put(path, body, { headers }).then(unwrap);
+}
+
+export async function coachDelete(path) {
+  return api
+    .delete(path, {
+      headers: { Authorization: `Bearer ${getCoachToken()}` }
+    })
+    .then(unwrap);
+}
+
 /* ==========================================
    🎯 SUPER ADMIN AUTHENTICATED WRAPPERS
    ========================================== */
@@ -309,7 +325,7 @@ export async function parentGet(path) {
     .then(unwrap);
 }
 
-export async function parentPost(path, body) {
+export async function parentPost(path, body, options = {}) {
   const headers = {
     Authorization: `Bearer ${getParentToken()}`
   };
@@ -318,7 +334,7 @@ export async function parentPost(path, body) {
     headers['Content-Type'] = 'application/json';
   }
 
-  return api.post(path, body, { headers }).then(unwrap);
+  return api.post(path, body, { headers, ...options }).then(unwrap);
 }
 
 export async function parentPatch(path, body) {

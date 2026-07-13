@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import { clearSuperAdminToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
 
-import { LayoutDashboard, Bell, Building2, Calendar, CreditCard, Sliders, Settings } from 'lucide-react';
+import { LayoutDashboard, Bell, Building2, Calendar, CreditCard, Sliders, Settings, Megaphone } from 'lucide-react';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
 const PRODUCT_LOGO = 'SP';
@@ -16,6 +16,7 @@ export const SUPER_ADMIN_NAV_ITEMS = [
   { path: 'plans', label: 'Plans', icon: Calendar },
   { path: 'payments', label: 'Payments', icon: CreditCard },
   { path: 'controller', label: 'Controller', icon: Sliders },
+  { path: 'announcements', label: 'Announcements', icon: Megaphone },
   { path: 'settings', label: 'Settings', icon: Settings },
 ];
 

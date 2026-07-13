@@ -218,12 +218,6 @@ router.get('/performance/attributes', performanceController.getAttributes);
 router.get('/performance/approval-queue', performanceController.getApprovalQueue);
 router.get('/performance/sport-attributes/:sportId', performanceController.getSportAttributes);
 
-/* ─── SMART BROADCAST CENTER ─────────────────────────────────────────────── */
-router.get('/announcements', adminController.getAnnouncements);
-router.post('/announcements', adminController.createAnnouncement);
-router.get('/coaches/:coachId/notifications', adminController.getCoachNotifications);
-router.patch('/notifications/:notificationId/read', adminController.markNotificationAsRead);
-
 /* ─── GPS ATTENDANCE SETTINGS ────────────────────────────────────────────── */
 router.get('/gps/settings', gpsController.getGpsSettings);
 router.patch('/gps/settings', gpsController.updateGpsSettings);

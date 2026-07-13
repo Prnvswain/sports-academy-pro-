@@ -88,6 +88,51 @@ enum AnnouncementTargetType {
   BATCH_COACHES
   PARENTS_ALL
   PARENTS_DUE
+  ALL_ACADEMIES
+  SELECTED_ACADEMIES
+  ALL_COACHES
+  SELECTED_COACHES
+  ALL_PARENTS
+  SELECTED_PARENTS
+  ALL_STUDENTS
+  SELECTED_STUDENTS
+  BY_SPORT
+  BY_BATCH
+  INDIVIDUAL
+}
+
+enum AnnouncementCategory {
+  ANNOUNCEMENT
+  URGENT
+  HOLIDAY
+  FEE
+  COMPETITION
+  TRAINING
+  MAINTENANCE
+  GENERAL
+  SPORTS_EVENT
+  EMERGENCY
+}
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
 }
 
 // ─── Platform ────────────────────────────────────────────────────────────────
@@ -165,9 +210,9 @@ model Academy {
   enquiries              Enquiry[]
   enrollments            StudentEnrollment[]
   daily_notes            DailyStudentNote[]
-  announcements          Announcement[]
   gps_settings           GpsAttendanceSettings?
   attendance_audit_logs  AttendanceAuditLog[]
+  new_announcements      Announcement[]
 
   @@map("academies")
 }
@@ -818,37 +863,91 @@ model PasswordReset {
 }
 
 model Announcement {
-  announcement_id Int      @id @default(autoincrement())
-  academy_id      Int
-  title           String
-  message         String   @db.Text
-  target_type     String
-  batch_id        Int?
-  created_at      DateTime @default(now())
+  announcement_id     Int                    @id @default(autoincrement())
+  academy_id          Int?
+  batch_id            Int?
+  sender_type         String                 // SUPER_ADMIN, ACADEMY_ADMIN, COACH
+  sender_id           Int?                   // ID of sender based on sender_type
+  title               String
+  message             String                 @db.Text
+  category            AnnouncementCategory
+  priority            AnnouncementPriority    @default(NORMAL)
+  status              AnnouncementStatus      @default(DRAFT)
+  target_type         AnnouncementTargetType
+  scheduled_for       DateTime?
+  expires_at          DateTime?
+  published_at        DateTime?
+  total_recipients    Int                    @default(0)
+  delivered_count     Int                    @default(0)
+  read_count          Int                    @default(0)
+  created_at          DateTime               @default(now())
+  updated_at          DateTime               @updatedAt
 
-  academy       Academy             @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "announcements_academy_id_fk")
-  batch         Batch?              @relation(fields: [batch_id], references: [batch_id], map: "announcements_batch_id_fk")
-  notifications InAppNotification[]
+  academy               Academy?               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "announcements_academy_id_fk")
+  batch                 Batch?                 @relation(fields: [batch_id], references: [batch_id], map: "announcements_batch_id_fk")
+  recipients            AnnouncementRecipient[]
+  attachments           AnnouncementAttachment[]
+  readStatuses          AnnouncementReadStatus[]
 
   @@index([academy_id])
-  @@index([target_type])
+  @@index([batch_id])
+  @@index([sender_type, sender_id])
+  @@index([status])
+  @@index([scheduled_for])
+  @@index([expires_at])
+  @@index([category])
+  @@index([priority])
   @@map("announcements")
 }
 
-model InAppNotification {
-  notification_id Int      @id @default(autoincrement())
+model AnnouncementRecipient {
+  recipient_id       Int            @id @default(autoincrement())
+  announcement_id    Int
+  recipient_type     String         // COACH, PARENT, STUDENT
+  recipient_id_field Int            // ID of the recipient
+  delivery_status    DeliveryStatus @default(PENDING)
+  delivered_at       DateTime?
+  created_at         DateTime       @default(now())
+
+  announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "announcement_recipients_announcement_id_fk")
+
+  @@index([announcement_id])
+  @@index([recipient_type, recipient_id_field])
+  @@index([delivery_status])
+  @@map("announcement_recipients")
+}
+
+model AnnouncementAttachment {
+  attachment_id   Int      @id @default(autoincrement())
   announcement_id Int
-  coach_id        Int?
-  student_id      Int?
+  file_name      String
+  file_url       String
+  file_type      String
+  file_size      Int      // in bytes
+  created_at     DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "announcement_attachments_announcement_id_fk")
+
+  @@index([announcement_id])
+  @@map("announcement_attachments")
+}
+
+model AnnouncementReadStatus {
+  read_status_id   Int      @id @default(autoincrement())
+  announcement_id  Int
+  recipient_type  String   // COACH, PARENT, STUDENT
+  recipient_id    Int
   is_read         Boolean  @default(false)
+  read_at         DateTime?
   created_at      DateTime @default(now())
 
-  announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "in_app_notif_announcement_id_fk")
+  announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "announcement_read_status_announcement_id_fk")
 
-  @@index([coach_id])
-  @@index([student_id])
+  @@unique([announcement_id, recipient_type, recipient_id])
+  @@index([announcement_id])
+  @@index([recipient_type, recipient_id])
   @@index([is_read])
-  @@map("in_app_notifications")
+  @@map("announcement_read_status")
 }
 
 model Fee {

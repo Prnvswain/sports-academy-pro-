@@ -1,5 +1,6 @@
 import express from 'express';
 import * as parentController from './parent.controller.js';
+import * as announcementsController from '../announcements/announcements.controller.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 import { body } from 'express-validator';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
@@ -8,6 +9,7 @@ import { upload } from '../../config/multer.config.js';
 const router = express.Router();
 
 // Public routes
+
 router.post(
   '/login',
   [
@@ -69,5 +71,23 @@ router.patch('/payments/:receiptId/proof', upload.single('proof_file'), parentCo
 router.get('/children/:child_id/performance', parentController.getChildPerformance);
 router.get('/children/:child_id/performance/history', parentController.getChildPerformanceHistory);
 router.get('/children/:child_id/performance/analytics', parentController.getChildPerformanceAnalytics);
+router.get('/children/:child_id/performance/dashboard', parentController.getChildPerformanceDashboard);
+
+// ─── ANNOUNCEMENT ROUTES ─────────────────────────────────────────────────────
+
+// Get my announcements (as recipient)
+router.get('/announcements', announcementsController.getMyAnnouncements);
+
+// Get single announcement details
+router.get('/announcements/:id', announcementsController.getAnnouncementById);
+
+// Mark announcement as read
+router.patch('/announcements/:id/read', announcementsController.markAsRead);
+
+// Mark all announcements as read
+router.patch('/announcements/read-all', announcementsController.markAllAsRead);
+
+// Get unread count
+router.get('/announcements/unread-count', announcementsController.getUnreadCount);
 
 export default router;

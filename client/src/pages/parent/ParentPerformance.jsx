@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Loader from '../../components/Loader';
 import { parentGet } from '../../api/client';
 
 export default function ParentPerformance() {
+  const navigate = useNavigate();
   const [children, setChildren] = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
   const [studentDashboardData, setStudentDashboardData] = useState(null);
@@ -31,14 +33,16 @@ export default function ParentPerformance() {
     if (!childId) return;
     try {
       setLoadingDashboard(true);
-      const [historyResult, analyticsResult] = await Promise.all([
+      const [historyResult, analyticsResult, dashboardResult] = await Promise.all([
         parentGet(`/parent/children/${childId}/performance/history`),
-        parentGet(`/parent/children/${childId}/performance/analytics`)
+        parentGet(`/parent/children/${childId}/performance/analytics`),
+        parentGet(`/parent/children/${childId}/performance/dashboard`)
       ]);
       
       setStudentDashboardData({
         history: historyResult.data?.assessments || [],
-        analytics: analyticsResult.data || analyticsResult
+        analytics: analyticsResult.data || analyticsResult,
+        dashboard: dashboardResult.data || null
       });
       
       // Select all attributes by default
@@ -106,6 +110,62 @@ export default function ParentPerformance() {
     });
     
     return personalBests;
+  };
+
+  const getStrongestSkills = () => {
+    if (!studentDashboardData?.history) return [];
+    
+    const skillScores = {};
+    studentDashboardData.history.forEach(assessment => {
+      assessment.scores?.forEach(score => {
+        const skillName = score.attribute.name;
+        if (!skillScores[skillName]) {
+          skillScores[skillName] = { total: 0, count: 0 };
+        }
+        skillScores[skillName].total += score.score;
+        skillScores[skillName].count += 1;
+      });
+    });
+
+    return Object.entries(skillScores)
+      .map(([skill, data]) => ({
+        skill,
+        average: (data.total / data.count).toFixed(1)
+      }))
+      .sort((a, b) => b.average - a.average)
+      .slice(0, 3);
+  };
+
+  const getNeedsImprovement = () => {
+    if (!studentDashboardData?.history) return [];
+    
+    const skillScores = {};
+    studentDashboardData.history.forEach(assessment => {
+      assessment.scores?.forEach(score => {
+        const skillName = score.attribute.name;
+        if (!skillScores[skillName]) {
+          skillScores[skillName] = { total: 0, count: 0 };
+        }
+        skillScores[skillName].total += score.score;
+        skillScores[skillName].count += 1;
+      });
+    });
+
+    return Object.entries(skillScores)
+      .map(([skill, data]) => ({
+        skill,
+        average: (data.total / data.count).toFixed(1)
+      }))
+      .sort((a, b) => a.average - b.average)
+      .slice(0, 3);
+  };
+
+  const getImprovementIndicator = (current, previous) => {
+    if (!previous) return null;
+    const diff = current - previous;
+    if (diff > 0.5) return { icon: '▲', label: 'Improved', color: 'text-green-600' };
+    if (diff < -0.5) return { icon: '▼', label: 'Declined', color: 'text-red-600' };
+    return { icon: '▬', label: 'Stable', color: 'text-gray-600' };
   };
 
   const getFilteredHistory = () => {
@@ -262,7 +322,7 @@ export default function ParentPerformance() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="bg-surface border border-border rounded-xl p-4">
               <div className="text-xs text-muted-foreground mb-1">Overall Rating</div>
               <div className="text-2xl font-black text-emerald-600">
@@ -286,6 +346,47 @@ export default function ParentPerformance() {
               <div className="text-2xl font-black text-amber-600">
                 {studentDashboardData?.analytics?.behaviourAverage?.toFixed(1) || '0.0'}
               </div>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-xs text-muted-foreground mb-1">Attendance Rate</div>
+              <div className="text-2xl font-black text-cyan-600">
+                {studentDashboardData?.dashboard?.attendanceRate || '0'}%
+              </div>
+            </div>
+          </div>
+
+          {/* Strongest Skills & Needs Improvement */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <h4 className="text-sm font-black text-foreground mb-3">Strongest Skills</h4>
+              {getStrongestSkills().length > 0 ? (
+                <ul className="space-y-2">
+                  {getStrongestSkills().map((skill, index) => (
+                    <li key={index} className="flex justify-between items-center">
+                      <span className="text-sm text-foreground">{skill.skill}</span>
+                      <span className="text-sm font-bold text-emerald-600">{skill.average}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">No data available</p>
+              )}
+            </div>
+
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <h4 className="text-sm font-black text-foreground mb-3">Needs Improvement</h4>
+              {getNeedsImprovement().length > 0 ? (
+                <ul className="space-y-2">
+                  {getNeedsImprovement().map((skill, index) => (
+                    <li key={index} className="flex justify-between items-center">
+                      <span className="text-sm text-foreground">{skill.skill}</span>
+                      <span className="text-sm font-bold text-orange-600">{skill.average}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">No data available</p>
+              )}
             </div>
           </div>
 
@@ -379,11 +480,15 @@ export default function ParentPerformance() {
 
           {/* Assessment Timeline */}
           <div className="bg-surface border border-border rounded-xl p-6">
-            <h4 className="text-sm font-black text-foreground mb-4">Assessment Timeline</h4>
+            <h4 className="text-sm font-black text-foreground mb-4">Assessment History</h4>
             <div className="space-y-3 max-h-64 overflow-y-auto">
-              {getFilteredHistory().map(assessment => {
+              {getFilteredHistory().map((assessment, index) => {
                 const avg = calculateAverageRating(assessment.scores);
                 const grade = calculateGrade(parseFloat(avg));
+                const prevAssessment = getFilteredHistory()[index + 1];
+                const prevAvg = prevAssessment ? calculateAverageRating(prevAssessment.scores) : null;
+                const improvement = getImprovementIndicator(parseFloat(avg), parseFloat(prevAvg));
+                
                 return (
                   <motion.button
                     key={assessment.assessment_id}
@@ -417,6 +522,11 @@ export default function ParentPerformance() {
                         </div>
                       </div>
                     </div>
+                    {improvement && (
+                      <div className={`text-xs font-medium mt-2 ${improvement.color}`}>
+                        {improvement.icon} {improvement.label}
+                      </div>
+                    )}
                   </motion.button>
                 );
               })}
