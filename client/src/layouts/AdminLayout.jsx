@@ -42,6 +42,7 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: '📈' },
   { path: 'enquiries', label: 'Enquiries Desk', icon: '✉️' },
   { path: 'reports', label: 'Reports', icon: '📄' },
+  { path: 'announcements', label: 'Announcements', icon: '📢' },
   { path: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
