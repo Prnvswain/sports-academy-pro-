@@ -1,983 +1,1966 @@
 // SAMS — Production SaaS schema (MySQL)
+
 generator client {
+
   provider = "prisma-client-js"
+
   output   = "../src/generated/prisma"
+
 }
 
+
+
 datasource db {
+
   provider = "mysql"
+
   url      = env("DATABASE_URL")
+
 }
+
+
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
+
+
 enum UserRole {
+
   SUPER_ADMIN
+
   ACADEMY_ADMIN
+
   COACH
+
   PARENT
+
 }
+
+
 
 enum SubscriptionTier {
+
   FREE
+
   PRO
+
   PLUS
+
 }
+
+
 
 enum RecordStatus {
+
   ACTIVE
+
   INACTIVE
+
 }
+
+
 
 enum AcademyStatus {
+
   PENDING
+
   ACTIVE
+
   SUSPENDED
+
   EXPIRED
+
 }
+
+
 
 enum AttendanceStatus {
+
   PRESENT
+
   ABSENT
+
   LATE
+
   LEAVE
+
   HALF_DAY
+
 }
+
+
 
 enum CoachAttendanceStatus {
+
   PRESENT
+
   ABSENT
+
   LATE
+
 }
+
+
 
 enum ReceiptStatus {
+
   PENDING
+
   COMPLETED
+
   FAILED
+
   VOID
+
 }
+
+
 
 enum FeeStatus {
+
   PENDING
+
   PAID
+
   OVERDUE
+
   WAIVED
+
 }
+
+
 
 enum AttributeRequestStatus {
+
   PENDING
+
   APPROVED
+
   REJECTED
+
 }
+
+
 
 enum NotificationType {
+
   DUE_FEE
+
   OVERDUE_FEE
+
   COACH_ABSENT
+
   SUBSCRIPTION_EXPIRY
+
   NEW_STUDENT
+
   ATTENDANCE_REMINDER
+
   PERFORMANCE_REMINDER
+
   PERFORMANCE_REPORT
+
   ATTRIBUTE_REQUEST
+
   GENERAL
+
 }
+
+
 
 enum AnnouncementTargetType {
+
   COACHES
+
   BATCH_COACHES
+
   PARENTS_ALL
+
   PARENTS_DUE
+
   ALL_ACADEMIES
+
   SELECTED_ACADEMIES
+
   ALL_COACHES
+
   SELECTED_COACHES
+
   ALL_PARENTS
+
   SELECTED_PARENTS
+
   ALL_STUDENTS
+
   SELECTED_STUDENTS
+
   BY_SPORT
+
   BY_BATCH
+
   INDIVIDUAL
+
 }
+
+
 
 enum AnnouncementCategory {
+
   ANNOUNCEMENT
+
   URGENT
+
   HOLIDAY
+
   FEE
+
   COMPETITION
+
   TRAINING
+
   MAINTENANCE
+
   GENERAL
+
   SPORTS_EVENT
+
   EMERGENCY
+
 }
+
+
 
 enum AnnouncementPriority {
+
   LOW
+
   NORMAL
+
   HIGH
+
   CRITICAL
+
 }
+
+
 
 enum AnnouncementStatus {
+
   DRAFT
+
   SCHEDULED
+
   PUBLISHED
+
   EXPIRED
+
   ARCHIVED
+
 }
 
+
+
 enum DeliveryStatus {
+
   PENDING
+
   DELIVERED
+
   FAILED
+
 }
+
+
 
 // ─── Platform ────────────────────────────────────────────────────────────────
 
+
+
 model SuperAdmin {
+
   super_admin_id Int      @id @default(autoincrement())
+
   name           String
+
   email          String   @unique
+
   password_hash  String
+
   is_active      Boolean  @default(true)
+
   created_at     DateTime @default(now())
+
   updated_at     DateTime @updatedAt
 
+
+
   @@map("super_admins")
+
 }
+
+
 
 model PlatformPlan {
+
   plan_id       Int              @id @default(autoincrement())
+
   tier          SubscriptionTier @unique
+
   name          String
+
   max_coaches   Int?
+
   max_students  Int?
+
   price_monthly Decimal          @default(0) @db.Decimal(10, 2)
+
   is_active     Boolean          @default(true)
+
   created_at    DateTime         @default(now())
+
   updated_at    DateTime         @updatedAt
 
+
+
   @@map("platform_plans")
+
 }
+
+
 
 // ─── Academy (tenant) ────────────────────────────────────────────────────────
 
+
+
 model Academy {
+
   academy_id               Int              @id @default(autoincrement())
+
   name                     String
+
   owner_name               String?
+
   email                    String?          @unique
+
   phone_number             String?
+
   address                  String?          @db.Text
+
   city                     String?
+
   state                    String?
+
   country                  String?
+
   pincode                  String?
+
   latitude                 Decimal?         @db.Decimal(10, 7)
+
   longitude                Decimal?         @db.Decimal(10, 7)
+
   logo_url                 String?
+
   logo_file_id             String?
+
   subscription_tier        SubscriptionTier @default(FREE)
+
   subscription_plan        String? // legacy string field
+
   subscription_starts_at   DateTime?
+
   subscription_expires_at  DateTime?
+
   status                   AcademyStatus    @default(PENDING)
+
   registration_fee_default Decimal          @default(0) @db.Decimal(10, 2)
+
   attendance_radius_meters Int              @default(100)
+
   receipt_template         String?          @db.Text
+
   notification_prefs       String?          @db.Text
+
   created_at               DateTime         @default(now())
+
   updated_at               DateTime         @updatedAt
 
+
+
   users                  User[]
+
   coaches                Coach[]
+
   parents                Parent[]
+
   sports                 Sport[]
+
   duration_plans         DurationPlan[]
+
   batches                Batch[]
+
   students               Student[]
+
   receipts               Receipt[]
+
   fees                   Fee[]
+
   student_attendances    StudentAttendance[]
+
   coach_attendances      CoachAttendance[]
+
   performance_attributes PerformanceAttribute[]
+
   performance_scores     PerformanceScore[]
+
   notifications          Notification[]
+
   audit_logs             AuditLog[]
+
   enquiries              Enquiry[]
+
   enrollments            StudentEnrollment[]
+
   daily_notes            DailyStudentNote[]
+
   gps_settings           GpsAttendanceSettings?
+
   attendance_audit_logs  AttendanceAuditLog[]
+
   new_announcements      Announcement[]
 
+
+
   @@map("academies")
+
 }
 
+
+
 // GPS Attendance Settings per Academy
+
 model GpsAttendanceSettings {
+
   settings_id              Int      @id @default(autoincrement())
+
   academy_id               Int      @unique
+
   gps_verification_enabled Boolean  @default(true)
+
   attendance_radius_meters Int      @default(200)
+
   admin_override_enabled   Boolean  @default(true)
+
   require_student_gps      Boolean  @default(true)
+
   require_coach_gps        Boolean  @default(true)
+
   created_at               DateTime @default(now())
+
   updated_at               DateTime @updatedAt
+
+
 
   academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "gps_settings_academy_id_fk")
 
+
+
   @@map("gps_attendance_settings")
+
 }
+
+
 
 model User {
+
   user_id           Int       @id @default(autoincrement())
+
   academy_id        Int?
+
   name              String
+
   first_name        String?
+
   middle_name       String?
+
   last_name         String?
+
   email             String    @unique
+
   password_hash     String?
+
   google_id         String?   @unique
+
   avatar_url        String?
+
   auth_provider     String?   @default("email")
+
   profile_completed Boolean   @default(false)
+
   role              UserRole  @default(ACADEMY_ADMIN)
+
   is_deleted        Boolean   @default(false)
+
   deleted_at        DateTime?
+
   created_at        DateTime  @default(now())
+
   updated_at        DateTime  @updatedAt
 
+
+
   academy            Academy?          @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "users_academy_id_fk")
+
   marked_attendances CoachAttendance[]
+
   approved_receipts  Receipt[]         @relation("ReceiptApprovedBy")
+
   created_receipts   Receipt[]         @relation("ReceiptCreatedBy")
 
+
+
   @@index([academy_id])
+
   @@index([google_id])
+
   @@map("users")
+
 }
+
+
 
 model Parent {
+
   parent_id            Int       @id @default(autoincrement())
+
   academy_id           Int
+
   name                 String
+
   email                String
+
   phone                String?
+
   password_hash        String
+
   is_active            Boolean   @default(true)
+
   must_change_password Boolean   @default(true)
+
   last_login_at        DateTime?
+
   created_at           DateTime  @default(now())
+
   updated_at           DateTime  @updatedAt
 
+
+
   academy  Academy   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "parents_academy_id_fk")
+
   students Student[]
 
+
+
   @@unique([email, academy_id])
+
   @@index([academy_id])
+
   @@map("parents")
+
 }
+
+
 
 model Coach {
+
   coach_id       Int          @id @default(autoincrement())
+
   academy_id     Int
+
   name           String
+
   first_name     String?
+
   middle_name    String?
+
   last_name      String?
+
   specialization String?
+
   phone_number   String?
+
   email          String?
+
   password_hash  String?
+
   status         RecordStatus @default(ACTIVE)
+
   is_deleted     Boolean      @default(false)
+
   deleted_at     DateTime?
+
   created_at     DateTime     @default(now())
+
   updated_at     DateTime     @updatedAt
 
+
+
   academy               Academy                   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "coaches_academy_id_fk")
+
   batch_assignments     BatchCoach[]
+
   student_attendances   StudentAttendance[]
+
   coach_attendances     CoachAttendance[]
+
   collected_receipts    Receipt[]                 @relation("ReceiptCollectedBy")
+
   performance_attrs     PerformanceAttribute[]    @relation("AttrRequestedBy")
+
   performance_scores    PerformanceScore[]
+
   enrollments           StudentEnrollment[]
+
   daily_notes           DailyStudentNote[]
+
   weekly_reports        WeeklyPerformanceReport[]
+
   attendance_audit_logs AttendanceAuditLog[]
 
+
+
   @@unique([academy_id, email])
+
   @@map("coaches")
+
 }
+
+
 
 // ─── Sports & plans ──────────────────────────────────────────────────────────
 
+
+
 model GlobalSport {
+
   id         Int      @id @default(autoincrement())
+
   name       String   @unique
+
   icon       String   @default("🏅")
+
   attributes String   @db.Text // JSON array of attributes
+
   created_at DateTime @default(now())
+
   updated_at DateTime @updatedAt
 
+
+
   sports Sport[]
+
 }
+
+
 
 model Sport {
+
   sport_id            Int          @id @default(autoincrement())
+
   name                String
+
   description         String?      @db.Text
+
   base_fee            Decimal      @default(0) @db.Decimal(10, 2)
+
   status              RecordStatus @default(ACTIVE)
+
   academy_id          Int?
+
   is_custom           Boolean      @default(false)
+
   sport_center        String?      @db.Text
+
   latitude            Decimal?     @db.Decimal(10, 7)
+
   longitude           Decimal?     @db.Decimal(10, 7)
+
   use_custom_location Boolean      @default(false)
+
   global_sport_id     Int?
+
   created_at          DateTime     @default(now())
+
   updated_at          DateTime     @updatedAt
 
+
+
   academy             Academy?               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_academy_id_fk")
+
   globalSport         GlobalSport?           @relation(fields: [global_sport_id], references: [id], map: "sports_global_sport_id_fk")
+
   batches             Batch[]
+
   students            Student[]
+
   enrollments         StudentEnrollment[]
+
   perf_attrs          PerformanceAttribute[]
+
   attendanceAuditLogs AttendanceAuditLog[]
 
+
+
   @@unique([name, academy_id])
+
   @@index([academy_id])
+
   @@index([global_sport_id])
+
   @@map("sports")
+
 }
+
+
 
 /// Duration plans (1/3/6/12 months) — separate from subscription tiers
+
 model DurationPlan {
+
   plan_id         Int          @id @default(autoincrement())
+
   academy_id      Int
+
   name            String
+
   duration_months Int
+
   multiplier      Decimal      @default(1) @db.Decimal(5, 2)
+
   status          RecordStatus @default(ACTIVE)
+
   created_at      DateTime     @default(now())
+
   updated_at      DateTime     @updatedAt
 
+
+
   academy     Academy             @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "duration_plans_academy_id_fk")
+
   enrollments StudentEnrollment[]
 
+
+
   @@index([academy_id])
+
   @@map("duration_plans")
+
 }
+
+
 
 // ─── Batches ─────────────────────────────────────────────────────────────────
 
+
+
 model Batch {
+
   batch_id     Int          @id @default(autoincrement())
+
   academy_id   Int
+
   name         String
+
   sport_id     Int?
+
   timing       String?
+
   start_time   String?
+
   end_time     String?
+
   max_capacity Int?
+
   status       RecordStatus @default(ACTIVE)
+
   created_at   DateTime     @default(now())
+
   updated_at   DateTime     @updatedAt
 
+
+
   academy             Academy                   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "batches_academy_id_fk")
+
   sport               Sport?                    @relation(fields: [sport_id], references: [sport_id], map: "batches_sport_id_fk")
+
   coaches             BatchCoach[]
+
   students            Student[]
+
   student_attendances StudentAttendance[]
+
   enrollments         StudentEnrollment[]
+
   performance_scores  PerformanceScore[]
+
   daily_notes         DailyStudentNote[]
+
   announcements       Announcement[]
+
   weekly_reports      WeeklyPerformanceReport[]
+
   attendanceAuditLogs AttendanceAuditLog[]
+
   coachAttendances    CoachAttendance[]         @relation("coachAttendances")
 
+
+
   @@index([academy_id])
+
   @@index([sport_id])
+
   @@map("batches")
+
 }
+
+
 
 model BatchCoach {
+
   batch_coach_id Int      @id @default(autoincrement())
+
   batch_id       Int
+
   coach_id       Int
+
   created_at     DateTime @default(now())
 
+
+
   batch Batch @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "batch_coaches_batch_id_fk")
+
   coach Coach @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "batch_coaches_coach_id_fk")
 
+
+
   @@unique([batch_id, coach_id])
+
   @@map("batch_coaches")
+
 }
+
+
 
 // ─── Students & enrollment ───────────────────────────────────────────────────
 
+
+
 model Student {
+
   student_id    Int          @id @default(autoincrement())
+
   academy_id    Int
+
   parent_id     Int?
+
   name          String
+
   first_name    String?
+
   middle_name   String?
+
   last_name     String?
+
   phone         String?
+
   parent_name   String?
+
   parent_phone  String?
+
   parent_email  String?
+
   dob           DateTime?    @db.Date
+
   age           Int?
+
   category      String?
+
   profile_photo String?      @db.Text
+
   joining_date  DateTime?    @db.Date
+
   gender        String?
+
   sport_id      Int?
+
   batch_id      Int?
+
   blood_group   String?
+
   height        Decimal?     @db.Decimal(5, 2)
+
   weight        Decimal?     @db.Decimal(5, 2)
+
   fees_status   String       @default("unpaid")
+
   status        RecordStatus @default(ACTIVE)
+
   exit_reason   String?
+
   exit_note     String?      @db.Text
+
   is_deleted    Boolean      @default(false)
+
   deleted_at    DateTime?
+
   created_at    DateTime     @default(now())
+
   updated_at    DateTime     @updatedAt
 
+
+
   academy               Academy                   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "students_academy_id_fk")
+
   parent                Parent?                   @relation(fields: [parent_id], references: [parent_id], onDelete: SetNull, map: "students_parent_id_fk")
+
   sport                 Sport?                    @relation(fields: [sport_id], references: [sport_id], map: "students_sport_id_fk")
+
   batch                 Batch?                    @relation(fields: [batch_id], references: [batch_id], map: "students_batch_id_fk")
+
   enrollments           StudentEnrollment[]
+
   receipts              Receipt[]
+
   student_attendances   StudentAttendance[]
+
   fees                  Fee[]
+
   performance_scores    PerformanceScore[]
+
   daily_notes           DailyStudentNote[]
+
   weekly_reports        WeeklyPerformanceReport[]
+
   attendance_audit_logs AttendanceAuditLog[]
 
+
+
   @@index([academy_id])
+
   @@index([batch_id])
+
   @@map("students")
+
 }
+
+
 
 model StudentEnrollment {
+
   enrollment_id      Int       @id @default(autoincrement())
+
   academy_id         Int
+
   student_id         Int
+
   sport_id           Int
+
   duration_plan_id   Int?
+
   batch_id           Int?
+
   coach_id           Int?
+
   registration_fee   Decimal   @default(0) @db.Decimal(10, 2)
+
   sports_fee         Decimal   @default(0) @db.Decimal(10, 2)
+
   additional_charges Decimal   @default(0) @db.Decimal(10, 2)
+
   discount           Decimal   @default(0) @db.Decimal(10, 2)
+
   final_fee          Decimal   @default(0) @db.Decimal(10, 2)
+
   paid_amount        Decimal   @default(0) @db.Decimal(10, 2)
+
   next_due_date      DateTime? @db.Date
+
   is_active          Boolean   @default(true)
+
   is_paused          Boolean   @default(false)
+
   pause_start_date   DateTime? @db.Date
+
   pause_end_date     DateTime? @db.Date
+
   pause_duration_days Int?
+
   pause_unit         String?   @db.VarChar(20)
+
   pause_reason       String?   @db.Text
+
   remaining_validity Int?
+
   plan_start_date    DateTime? @db.Date
+
   plan_end_date      DateTime? @db.Date
+
   created_at         DateTime  @default(now())
+
   updated_at         DateTime  @updatedAt
 
+
+
   academy       Academy       @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "enrollments_academy_id_fk")
+
   student       Student       @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "enrollments_student_id_fk")
+
   sport         Sport         @relation(fields: [sport_id], references: [sport_id], onDelete: Cascade, map: "enrollments_sport_id_fk")
+
   duration_plan DurationPlan? @relation(fields: [duration_plan_id], references: [plan_id], map: "enrollments_duration_plan_id_fk")
+
   batch         Batch?        @relation(fields: [batch_id], references: [batch_id], map: "enrollments_batch_id_fk")
+
   coach         Coach?        @relation(fields: [coach_id], references: [coach_id], map: "enrollments_coach_id_fk")
 
+
+
   @@index([student_id])
+
   @@index([academy_id, next_due_date])
+
   @@map("student_enrollments")
+
 }
+
+
 
 // ─── Accounts (receipts) ─────────────────────────────────────────────────────
 
+
+
 model Receipt {
+
   receipt_id            Int           @id @default(autoincrement())
+
   receipt_number        String        @unique
+
   academy_id            Int
+
   student_id            Int
+
   amount                Decimal       @db.Decimal(10, 2)
+
   discount              Decimal       @default(0) @db.Decimal(10, 2)
+
   additional_charges    Decimal       @default(0) @db.Decimal(10, 2)
+
   payment_date          DateTime
+
   method                String?
+
   status                ReceiptStatus @default(PENDING)
+
   proof_url             String?
+
   remarks               String?       @db.Text
+
   rejected_reason       String?       @db.Text
+
   approved_by_user_id   Int?
+
   collected_by_coach_id Int?
+
   created_by_user_id    Int?
+
   pdf_url               String?
+
   created_at            DateTime      @default(now())
+
   updated_at            DateTime      @updatedAt
 
+
+
   academy      Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "receipts_academy_id_fk_unique")
+
   student      Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "receipts_student_id_fk")
+
   approved_by  User?   @relation("ReceiptApprovedBy", fields: [approved_by_user_id], references: [user_id], map: "receipts_approved_by_fk")
+
   collected_by Coach?  @relation("ReceiptCollectedBy", fields: [collected_by_coach_id], references: [coach_id], map: "receipts_collected_by_fk")
+
   created_by   User?   @relation("ReceiptCreatedBy", fields: [created_by_user_id], references: [user_id], map: "receipts_created_by_fk")
 
+
+
   @@index([academy_id])
+
   @@index([student_id])
+
   @@map("receipts")
+
 }
+
+
 
 // ─── Attendance ────────────────────────────────────────────────────────────────
 
+
+
 model AttendanceAuditLog {
+
   audit_id                 Int      @id @default(autoincrement())
+
   academy_id               Int
+
   coach_id                 Int?
+
   student_id               Int?
+
   batch_id                 Int
+
   sport_id                 Int?
+
   gps_latitude             Decimal? @db.Decimal(10, 7)
+
   gps_longitude            Decimal? @db.Decimal(10, 7)
+
   sport_center_latitude    Decimal? @db.Decimal(10, 7)
+
   sport_center_longitude   Decimal? @db.Decimal(10, 7)
+
   distance_meters          Int?
+
   gps_accuracy_meters      Int?
+
   attendance_radius_meters Int?
+
   batch_start_time         String?
+
   batch_end_time           String?
+
   attendance_start_time    DateTime
+
   attendance_submit_time   DateTime
+
   status                   String // On Time, Late, Absent, Blocked, GPS Verified, Location Out of Range
+
   reason                   String?  @db.Text
+
   location_verified        Boolean  @default(false)
+
   location_source          String? // academy, sport
+
   device_info              String?  @db.Text
+
   ip_address               String?
+
   created_at               DateTime @default(now())
 
+
+
   academy Academy  @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "attendance_audit_academy_id_fk")
+
   coach   Coach?   @relation(fields: [coach_id], references: [coach_id], onDelete: SetNull, map: "attendance_audit_coach_id_fk")
+
   student Student? @relation(fields: [student_id], references: [student_id], onDelete: SetNull, map: "attendance_audit_student_id_fk")
+
   batch   Batch    @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "attendance_audit_batch_id_fk")
+
   sport   Sport?   @relation(fields: [sport_id], references: [sport_id], onDelete: SetNull, map: "attendance_audit_sport_id_fk")
 
+
+
   @@index([academy_id])
+
   @@index([coach_id])
+
   @@index([student_id])
+
   @@index([batch_id])
+
   @@index([created_at])
+
   @@map("attendance_audit_logs")
+
 }
+
+
 
 model StudentAttendance {
+
   attendance_id                 Int              @id @default(autoincrement())
+
   academy_id                    Int
+
   student_id                    Int
+
   batch_id                      Int
+
   date                          DateTime         @db.Date
+
   status                        AttendanceStatus
+
   marked_by_coach_id            Int?
+
   remarks                       String?          @db.Text
+
   latitude                      Decimal?         @db.Decimal(10, 7)
+
   longitude                     Decimal?         @db.Decimal(10, 7)
+
   distance_from_location_meters Int?
+
   location_verified             Boolean          @default(false)
+
   created_at                    DateTime         @default(now())
+
   updated_at                    DateTime         @updatedAt
 
+
+
   academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "student_att_academy_id_fk")
+
   student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "student_att_student_id_fk")
+
   batch   Batch   @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "student_att_batch_id_fk")
+
   coach   Coach?  @relation(fields: [marked_by_coach_id], references: [coach_id], map: "student_att_coach_id_fk")
 
+
+
   @@unique([student_id, batch_id, date])
+
   @@index([academy_id, date])
+
   @@map("student_attendance")
+
 }
+
+
 
 model CoachAttendance {
+
   attendance_id                 Int                   @id @default(autoincrement())
+
   coach_id                      Int
+
   academy_id                    Int
+
   batch_id                      Int
+
   date                          DateTime              @db.Date
+
   status                        CoachAttendanceStatus
+
   clock_in_time                 DateTime?
+
   clock_out_time                DateTime?
+
   is_clocked_in                 Boolean               @default(false)
+
   marked_by_admin_id            Int?
+
   latitude                      Decimal?              @db.Decimal(10, 7)
+
   longitude                     Decimal?              @db.Decimal(10, 7)
+
   distance_from_location_meters Int?
+
   location_verified             Boolean               @default(false)
+
   remarks                       String?               @db.Text
+
   created_at                    DateTime              @default(now())
+
   updated_at                    DateTime              @updatedAt
 
+
+
   coach   Coach   @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "coach_att_coach_id_fk")
+
   academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "coach_att_academy_id_fk")
+
   batch   Batch   @relation("coachAttendances", fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "coach_att_batch_id_fk")
+
   admin   User?   @relation(fields: [marked_by_admin_id], references: [user_id], map: "coach_att_admin_id_fk")
 
+
+
   @@unique([coach_id, batch_id, date])
+
   @@map("coach_attendance")
+
 }
+
+
 
 // ─── Daily Student Notes ───────────────────────────────────────────────────────
 
+
+
 model DailyStudentNote {
+
   note_id           Int       @id @default(autoincrement())
+
   academy_id        Int
+
   student_id        Int
+
   batch_id          Int
+
   coach_id          Int
+
   note_date         DateTime  @db.Date
+
   performance_notes String?   @db.Text
+
   behaviour_notes   String?   @db.Text
+
   achievements      String?   @db.Text
+
   improvement_areas String?   @db.Text
+
   emailed_at        DateTime?
+
   created_at        DateTime  @default(now())
+
   updated_at        DateTime  @updatedAt
 
+
+
   academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "daily_notes_academy_id_fk")
+
   student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "daily_notes_student_id_fk")
+
   batch   Batch   @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "daily_notes_batch_id_fk")
+
   coach   Coach   @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "daily_notes_coach_id_fk")
 
+
+
   @@index([academy_id, student_id])
+
   @@index([academy_id, note_date])
+
   @@map("daily_student_notes")
+
 }
+
+
 
 // ─── Performance tracker ───────────────────────────────────────────────────────
 
+
+
 model PerformanceAttribute {
+
   attribute_id          Int                    @id @default(autoincrement())
+
   academy_id            Int
+
   sport_id              Int
+
   name                  String
+
   status                AttributeRequestStatus @default(PENDING)
+
   requested_by_coach_id Int?
+
   reviewed_at           DateTime?
+
   is_deleted            Boolean                @default(false)
+
   created_at            DateTime               @default(now())
+
   updated_at            DateTime               @updatedAt
 
+
+
   academy      Academy             @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "perf_attr_academy_id_fk")
+
   sport        Sport               @relation(fields: [sport_id], references: [sport_id], onDelete: Cascade, map: "perf_attr_sport_id_fk")
+
   requested_by Coach?              @relation("AttrRequestedBy", fields: [requested_by_coach_id], references: [coach_id], map: "perf_attr_coach_id_fk")
+
   scores       PerformanceScore[]
+
   ratings      PerformanceRating[]
 
+
+
   @@unique([sport_id, name, academy_id])
+
   @@map("performance_attributes")
+
 }
+
+
 
 model PerformanceScore {
+
   score_id      Int      @id @default(autoincrement())
+
   academy_id    Int
+
   student_id    Int
+
   attribute_id  Int
+
   coach_id      Int
+
   batch_id      Int?
+
   assessment_id String?  @db.VarChar(36) // UUID for grouping scores from a single assessment session
+
   score         Int
+
   notes         String?  @db.Text
+
   scored_at     DateTime @default(now())
+
   created_at    DateTime @default(now())
 
+
+
   academy   Academy              @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "perf_score_academy_id_fk")
+
   student   Student              @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "perf_score_student_id_fk")
+
   attribute PerformanceAttribute @relation(fields: [attribute_id], references: [attribute_id], onDelete: Cascade, map: "perf_score_attribute_id_fk")
+
   coach     Coach                @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "perf_score_coach_id_fk")
+
   batch     Batch?               @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "perf_score_batch_id_fk")
 
+
+
   @@index([student_id, attribute_id])
+
   @@index([assessment_id])
+
   @@index([batch_id])
+
   @@index([scored_at])
+
   @@map("performance_scores")
+
 }
+
+
 
 model WeeklyPerformanceReport {
+
   report_id       Int      @id @default(autoincrement())
+
   student_id      Int
+
   batch_id        Int
+
   coach_id        Int
+
   week_start_date DateTime @db.Date
+
   created_at      DateTime @default(now())
+
   updated_at      DateTime @updatedAt
 
+
+
   student Student             @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "weekly_report_student_id_fk")
+
   batch   Batch               @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "weekly_report_batch_id_fk")
+
   coach   Coach               @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "weekly_report_coach_id_fk")
+
   ratings PerformanceRating[]
 
+
+
   @@unique([student_id, batch_id, week_start_date])
+
   @@index([student_id])
+
   @@index([batch_id])
+
   @@index([week_start_date])
+
   @@map("weekly_performance_reports")
+
 }
+
+
 
 model PerformanceRating {
+
   rating_id    Int      @id @default(autoincrement())
+
   report_id    Int
+
   attribute_id Int
+
   score        Int
+
   created_at   DateTime @default(now())
+
   updated_at   DateTime @updatedAt
 
+
+
   report    WeeklyPerformanceReport @relation(fields: [report_id], references: [report_id], onDelete: Cascade, map: "perf_rating_report_id_fk")
+
   attribute PerformanceAttribute    @relation(fields: [attribute_id], references: [attribute_id], onDelete: Cascade, map: "perf_rating_attribute_id_fk")
 
+
+
   @@unique([report_id, attribute_id])
+
   @@index([report_id])
+
   @@map("performance_ratings")
+
 }
+
+
 
 // ─── Enquiries ───────────────────────────────────────────────────────────────
 
+
+
 enum EnquiryStatus {
+
   NEW
+
   CONTACTED
+
   TRIAL_SCHEDULED
+
   TRIAL_COMPLETED
+
   CONVERTED
+
   CLOSED
+
   NOT_INTERESTED
+
 }
+
+
 
 enum EnquirySource {
+
   WALK_IN
+
   PHONE
+
   WEBSITE
+
   WHATSAPP
+
   REFERRAL
+
   SOCIAL_MEDIA
+
 }
 
+
+
 model Enquiry {
+
   enquiry_id              Int            @id @default(autoincrement())
+
   academy_id              Int?
+
   student_name            String
+
   parent_name             String?
+
   phone                   String
+
   email                   String?
+
   sport_interested        String?        @db.Text
+
   interested_sports       Json?
+
   age                     Int?
+
   gender                  String?
+
   enquiry_source          EnquirySource?
+
   enquiry_date            DateTime       @default(now())
+
   follow_up_date          DateTime?
+
   status                  EnquiryStatus  @default(NEW)
+
   notes                   String?        @db.Text
+
   converted_to_student_id Int?
+
   created_at              DateTime       @default(now())
+
   updated_at              DateTime       @updatedAt
+
+
 
   academy Academy? @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "enquiries_academy_id_fk")
 
+
+
   @@index([academy_id, created_at])
+
   @@index([academy_id, status])
+
   @@index([follow_up_date])
+
   @@map("enquiries")
+
 }
+
+
 
 // ─── Notifications & audit ─────────────────────────────────────────────────────
 
+
+
 model Notification {
+
   notification_id Int              @id @default(autoincrement())
+
   academy_id      Int?
+
   user_id         Int?
+
   coach_id        Int?
+
   type            NotificationType
+
   title           String
+
   body            String           @db.Text
+
   is_read         Boolean          @default(false)
+
   metadata        String?          @db.Text
+
   created_at      DateTime         @default(now())
+
+
 
   academy Academy? @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "notifications_academy_id_fk")
 
+
+
   @@index([academy_id, is_read])
+
   @@map("notifications")
+
 }
 
+
+
 model AuditLog {
+
   audit_id    Int      @id @default(autoincrement())
+
   academy_id  Int?
+
   actor_type  String
+
   actor_id    Int?
+
   action      String
+
   entity_type String?
+
   entity_id   Int?
+
   metadata    String?  @db.Text
+
   ip_address  String?
+
   created_at  DateTime @default(now())
+
+
 
   academy Academy? @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "audit_logs_academy_id_fk")
 
+
+
   @@index([academy_id, created_at])
+
   @@map("audit_logs")
+
 }
+
+
 
 // ─── System Configurations ───────────────────────────────────────────────────
 
+
+
 model GlobalSetting {
+
   setting_id    Int      @id @default(autoincrement())
+
   setting_key   String   @unique
+
   setting_value String   @db.Text
+
   created_at    DateTime @default(now())
+
   updated_at    DateTime @updatedAt
 
+
+
   @@map("global_settings")
+
 }
+
+
 
 model PasswordReset {
+
   reset_id     Int      @id @default(autoincrement())
+
   email        String
+
   code_hash    String
+
   account_type String
+
   expires_at   DateTime
+
   created_at   DateTime @default(now())
 
+
+
   @@index([email])
+
   @@map("password_resets")
+
 }
+
+
 
 model Announcement {
+
   announcement_id     Int                    @id @default(autoincrement())
+
   academy_id          Int?
+
   batch_id            Int?
+
   sender_type         String                 // SUPER_ADMIN, ACADEMY_ADMIN, COACH
+
   sender_id           Int?                   // ID of sender based on sender_type
+
   title               String
+
   message             String                 @db.Text
+
   category            AnnouncementCategory
+
   priority            AnnouncementPriority    @default(NORMAL)
+
   status              AnnouncementStatus      @default(DRAFT)
+
   target_type         AnnouncementTargetType
+
   scheduled_for       DateTime?
+
   expires_at          DateTime?
+
   published_at        DateTime?
+
   total_recipients    Int                    @default(0)
+
   delivered_count     Int                    @default(0)
+
   read_count          Int                    @default(0)
+
   created_at          DateTime               @default(now())
+
   updated_at          DateTime               @updatedAt
 
+
+
   academy               Academy?               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "announcements_academy_id_fk")
+
   batch                 Batch?                 @relation(fields: [batch_id], references: [batch_id], map: "announcements_batch_id_fk")
+
   recipients            AnnouncementRecipient[]
+
   attachments           AnnouncementAttachment[]
+
   readStatuses          AnnouncementReadStatus[]
 
+
+
   @@index([academy_id])
+
   @@index([batch_id])
+
   @@index([sender_type, sender_id])
+
   @@index([status])
+
   @@index([scheduled_for])
+
   @@index([expires_at])
+
   @@index([category])
+
   @@index([priority])
+
   @@map("announcements")
+
 }
 
+
+
 model AnnouncementRecipient {
+
   recipient_id       Int            @id @default(autoincrement())
+
   announcement_id    Int
+
   recipient_type     String         // COACH, PARENT, STUDENT
+
   recipient_id_field Int            // ID of the recipient
+
   delivery_status    DeliveryStatus @default(PENDING)
+
   delivered_at       DateTime?
+
   created_at         DateTime       @default(now())
+
+
 
   announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "announcement_recipients_announcement_id_fk")
 
+
+
   @@index([announcement_id])
+
   @@index([recipient_type, recipient_id_field])
+
   @@index([delivery_status])
+
   @@map("announcement_recipients")
+
 }
 
+
+
 model AnnouncementAttachment {
+
   attachment_id   Int      @id @default(autoincrement())
+
   announcement_id Int
+
   file_name      String
+
   file_url       String
+
   file_type      String
+
   file_size      Int      // in bytes
+
   created_at     DateTime @default(now())
+
+
 
   announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "announcement_attachments_announcement_id_fk")
 
+
+
   @@index([announcement_id])
+
   @@map("announcement_attachments")
+
 }
 
+
+
 model AnnouncementReadStatus {
+
   read_status_id   Int      @id @default(autoincrement())
+
   announcement_id  Int
+
   recipient_type  String   // COACH, PARENT, STUDENT
+
   recipient_id    Int
+
   is_read         Boolean  @default(false)
+
   read_at         DateTime?
+
   created_at      DateTime @default(now())
+
+
 
   announcement Announcement @relation(fields: [announcement_id], references: [announcement_id], onDelete: Cascade, map: "announcement_read_status_announcement_id_fk")
 
+
+
   @@unique([announcement_id, recipient_type, recipient_id])
+
   @@index([announcement_id])
+
   @@index([recipient_type, recipient_id])
+
   @@index([is_read])
+
   @@map("announcement_read_status")
+
 }
+
+
 
 model Fee {
+
   fee_id      Int       @id @default(autoincrement())
+
   academy_id  Int
+
   student_id  Int
+
   amount_due  Decimal   @db.Decimal(10, 2)
+
   due_date    DateTime
+
   status      FeeStatus @default(PENDING)
+
   description String?
+
   paid_amount Decimal   @default(0) @db.Decimal(10, 2)
+
   paid_at     DateTime?
+
   created_at  DateTime  @default(now())
+
   updated_at  DateTime  @updatedAt
 
+
+
   academy Academy @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "fees_academy_id_fk")
+
   student Student @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "fees_student_id_fk")
 
+
+
   @@index([academy_id])
+
   @@index([student_id])
+
   @@index([due_date])
+
   @@index([status])
+
   @@map("fees")
+
 }
+
