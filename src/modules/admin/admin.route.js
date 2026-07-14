@@ -115,6 +115,8 @@ router.post(
   validationErrorHandler,
   adminController.exitStudent,
 );
+router.put('/students/:student_id/pause', adminController.pauseStudentPlan);
+router.put('/students/:student_id/resume', adminController.resumeStudentPlan);
 router.delete('/students/:student_id', adminController.deleteStudent);
 
 /* ─── BATCHES TIMING & CAPACITY ─────────────────────────────────────────── */

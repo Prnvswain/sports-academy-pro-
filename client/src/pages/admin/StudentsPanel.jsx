@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, Lock, Unlock, Key, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { useFormDraft } from '../../hooks/useFormDraft';
@@ -331,6 +331,7 @@ export default function StudentsPanel() {
   const [filterCategory, setFilterCategory] = useState('');
   const [filterGender, setFilterGender] = useState('');
   const [filterWeightClass, setFilterWeightClass] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [customMaxAge, setCustomMaxAge] = useState('');
   const [customMaxWeight, setCustomMaxWeight] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -361,6 +362,16 @@ export default function StudentsPanel() {
   const [sportSearchQuery, setSportSearchQuery] = useState('');
   const [batchSearchQuery, setBatchSearchQuery] = useState('');
   const [isBatchesDropdownOpen, setIsBatchesDropdownOpen] = useState(false);
+
+  // Pause plan modal state
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [selectedStudentForPause, setSelectedStudentForPause] = useState(null);
+  const [pauseForm, setPauseForm] = useState({
+    pause_start_date: new Date().toISOString().split('T')[0],
+    pause_duration: '',
+    pause_duration_unit: 'days',
+    reason: ''
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -884,6 +895,46 @@ export default function StudentsPanel() {
     alert('Reset credentials functionality to be implemented');
   };
 
+  const handlePausePlan = (student) => {
+    setSelectedStudentForPause(student);
+    setShowPauseModal(true);
+  };
+
+  const handleResumePlan = async (studentId) => {
+    if (!window.confirm('Resume this student\'s plan?')) {
+      return;
+    }
+    try {
+      await adminPut(`/admin/students/${studentId}/resume`);
+      setMessage({ text: 'Student plan resumed successfully.', type: 'success' });
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleSubmitPause = async () => {
+    if (!pauseForm.pause_duration) {
+      setMessage({ text: 'Please enter pause duration', type: 'error' });
+      return;
+    }
+
+    try {
+      await adminPut(`/admin/students/${selectedStudentForPause.student_id}/pause`, pauseForm);
+      setMessage({ text: 'Student plan paused successfully.', type: 'success' });
+      setShowPauseModal(false);
+      setPauseForm({
+        pause_start_date: new Date().toISOString().split('T')[0],
+        pause_duration: '',
+        pause_duration_unit: 'days',
+        reason: ''
+      });
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
   const handleStudentClick = async (student) => {
     setSelectedStudent(student);
     setShowStudentModal(true);
@@ -1178,13 +1229,25 @@ export default function StudentsPanel() {
       }
     }
 
+    let matchesStatus = true;
+    if (filterStatus) {
+      if (filterStatus === 'paused') {
+        matchesStatus = student.is_paused === true;
+      } else if (filterStatus === 'active') {
+        matchesStatus = !student.is_paused && (student.status?.toUpperCase() === 'ACTIVE' || student.isActive);
+      } else if (filterStatus === 'inactive') {
+        matchesStatus = !student.is_paused && (student.status?.toUpperCase() !== 'ACTIVE' && !student.isActive);
+      }
+    }
+
     return (
       matchesSearch &&
       matchesSport &&
       matchesBatch &&
       matchesCategory &&
       matchesGender &&
-      matchesWeight
+      matchesWeight &&
+      matchesStatus
     );
   });
 
@@ -1312,6 +1375,22 @@ export default function StudentsPanel() {
                 onChange={(e) => setCustomMaxAge(e.target.value)}
               />
             )}
+          </div>
+          <div className="w-full min-w-0 sm:w-auto">
+            <select
+              className="input-field w-full"
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setSelectedStudent(null);
+                setSelectedStudentForView(null);
+              }}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
           <div className="w-full min-w-0 sm:w-auto">
             <select
@@ -1746,13 +1825,14 @@ export default function StudentsPanel() {
                     )}
                     <th className="pb-3">Name</th>
                     <th className="px-2 pb-3">Age</th>
-                    <th className="px-2 pb-3">Category</th>
                     <th className="px-2 pb-3">Sports</th>
                     <th className="px-2 pb-3">Batch</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                       Status
                     </th>
-                    <th className="px-2 pb-3">Fees</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Attendance
+                    </th>
                     <th className="px-2 pb-3">Actions</th>
                   </tr>
                 </thead>
@@ -1760,7 +1840,7 @@ export default function StudentsPanel() {
                   {filteredStudents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={isBulkEditMode ? 9 : 8}
+                        colSpan={isBulkEditMode ? 8 : 7}
                         className="text-muted py-8 text-center text-xs"
                       >
                         No active students found.
@@ -1768,8 +1848,6 @@ export default function StudentsPanel() {
                     </tr>
                   ) : (
                     filteredStudents.map((student, index) => {
-                      const feeStatus = student?.fees_status || student?.feesStatus || 'unpaid';
-                      const feeStatusLabel = feeStatus.toUpperCase();
                       const isInactive = student.status?.toUpperCase() !== 'ACTIVE' && !student.isActive;
 
                       return (
@@ -1815,31 +1893,6 @@ export default function StudentsPanel() {
                           </td>
                           <td className="text-muted">{student.age || '—'}</td>
                           <td>
-                            {student.category ? (
-                              <span
-                                className={`rounded px-2 py-0.5 text-xs ${
-                                  student.category === 'U8'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : student.category === 'U10'
-                                      ? 'bg-green-100 text-green-800'
-                                      : student.category === 'U12'
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : student.category === 'U14'
-                                          ? 'bg-orange-100 text-orange-800'
-                                          : student.category === 'U16'
-                                            ? 'bg-red-100 text-red-800'
-                                            : student.category === 'U18'
-                                              ? 'bg-purple-100 text-purple-800'
-                                              : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {student.category}
-                              </span>
-                            ) : (
-                              <span className="text-muted">—</span>
-                            )}
-                          </td>
-                          <td>
                             {student.enrollments &&
                             Array.isArray(student.enrollments) &&
                             student.enrollments.length > 0 ? (
@@ -1861,24 +1914,60 @@ export default function StudentsPanel() {
                             {student.batch?.name || student.enrollments?.[0]?.batch?.name || '—'}
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                            {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                            {student.is_paused ? (
+                              <div className="relative group">
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded text-xs font-semibold cursor-help">PAUSED</span>
+                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-xl z-10 w-48">
+                                  <p className="font-semibold mb-1">Paused Since:</p>
+                                  <p className="text-gray-300 mb-2">
+                                    {student.pause_start_date ? new Date(student.pause_start_date).toLocaleDateString() : '—'}
+                                  </p>
+                                  <p className="font-semibold mb-1">Resume Date:</p>
+                                  <p className="text-gray-300 mb-2">
+                                    {student.pause_end_date ? new Date(student.pause_end_date).toLocaleDateString() : '—'}
+                                  </p>
+                                  <p className="font-semibold mb-1">Paused Duration:</p>
+                                  <p className="text-gray-300">
+                                    {student.pause_duration_days ? `${student.pause_duration_days} days` : '—'}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
                               <span className="badge-active">ACTIVE</span>
                             ) : (
                               <span className="badge-inactive">INACTIVE</span>
                             )}
                           </td>
-                          <td>
-                            <span
-                              className={
-                                feeStatusLabel === 'PAID'
-                                  ? 'badge-paid'
-                                  : feeStatusLabel === 'PARTIAL'
-                                    ? 'badge-partial'
-                                    : 'badge-pending'
-                              }
-                            >
-                              {feeStatusLabel}
-                            </span>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm">
+                            <div className="relative group">
+                              <div className="flex items-center gap-2 text-xs cursor-help">
+                                <span className="text-green-600 font-semibold">
+                                  {student.attendance_summary?.present_count || 0}
+                                </span>
+                                <span className="text-gray-400">|</span>
+                                <span className="text-red-600 font-semibold">
+                                  {student.attendance_summary?.absent_count || 0}
+                                </span>
+                              </div>
+                              <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-xl z-10 w-48">
+                                <p className="font-semibold mb-1">Total Sessions:</p>
+                                <p className="text-gray-300 mb-2">
+                                  {(student.attendance_summary?.present_count || 0) + (student.attendance_summary?.absent_count || 0)}
+                                </p>
+                                <p className="font-semibold mb-1">Present:</p>
+                                <p className="text-green-400 mb-2">
+                                  {student.attendance_summary?.present_count || 0}
+                                </p>
+                                <p className="font-semibold mb-1">Absent:</p>
+                                <p className="text-red-400 mb-2">
+                                  {student.attendance_summary?.absent_count || 0}
+                                </p>
+                                <p className="font-semibold mb-1">Attendance %:</p>
+                                <p className="text-gray-300">
+                                  {((student.attendance_summary?.present_count || 0) / ((student.attendance_summary?.present_count || 0) + (student.attendance_summary?.absent_count || 0)) * 100).toFixed(1)}%
+                                </p>
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-2">
@@ -1910,7 +1999,7 @@ export default function StudentsPanel() {
                                   onClick={() => handleDeactivate(student.student_id)}
                                   title="Deactivate Student"
                                 >
-                                  <Unlock className="w-4 h-4" />
+                                  <Lock className="w-4 h-4" />
                                 </button>
                               ) : (
                                 <button
@@ -1919,19 +2008,30 @@ export default function StudentsPanel() {
                                   onClick={() => handleMarkActive(student.student_id)}
                                   title="Activate Student"
                                 >
-                                  <Lock className="w-4 h-4" />
+                                  <Unlock className="w-4 h-4" />
                                 </button>
                               )}
 
-                              {/* Reset Credentials - Key Icon */}
-                              <button
-                                type="button"
-                                className="p-2 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
-                                onClick={() => handleResetCredentials(student.student_id)}
-                                title="Reset Password"
-                              >
-                                <Key className="w-4 h-4" />
-                              </button>
+                              {/* Pause/Resume - Pause/Play Icon */}
+                              {student.is_paused ? (
+                                <button
+                                  type="button"
+                                  className="p-2 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                                  onClick={() => handleResumePlan(student.student_id)}
+                                  title="Resume Plan"
+                                >
+                                  <Play className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="p-2 rounded-full bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition-colors"
+                                  onClick={() => handlePausePlan(student)}
+                                  title="Pause Plan"
+                                >
+                                  <Pause className="w-4 h-4" />
+                                </button>
+                              )}
 
                               {/* Remove - Trash Icon */}
                               <button
@@ -4312,6 +4412,147 @@ export default function StudentsPanel() {
       </div>
     </div>
   )}
+
+  {/* Pause Plan Modal */}
+  <AnimatePresence>
+    {showPauseModal && selectedStudentForPause && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        onClick={() => setShowPauseModal(false)}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-gradient-to-r from-yellow-500 to-orange-500 px-6 py-4">
+            <h3 className="text-xl font-bold text-white">Pause Student Plan</h3>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* Student Info */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+              <Avatar src={selectedStudentForPause.profile_photo} name={selectedStudentForPause.name} size="lg" />
+              <div>
+                <h4 className="font-bold text-lg">{selectedStudentForPause.name}</h4>
+                <p className="text-sm text-gray-600">
+                  {selectedStudentForPause.sport?.name || '—'} • {selectedStudentForPause.batch?.name || '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Plan Details */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">Current Plan:</span>
+                <p className="font-semibold">{selectedStudentForPause.enrollments?.[0]?.duration_plan?.name || '—'}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">Plan End Date:</span>
+                <p className="font-semibold">
+                  {selectedStudentForPause.enrollments?.[0]?.plan_end_date
+                    ? new Date(selectedStudentForPause.enrollments[0].plan_end_date).toLocaleDateString()
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Pause Form */}
+            <div className="space-y-4 pt-4 border-t">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pause Start Date</label>
+                <input
+                  type="date"
+                  value={pauseForm.pause_start_date}
+                  onChange={(e) => setPauseForm({ ...pauseForm, pause_start_date: e.target.value })}
+                  className="w-full p-2 border rounded-md"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={pauseForm.pause_duration}
+                    onChange={(e) => setPauseForm({ ...pauseForm, pause_duration: e.target.value })}
+                    placeholder="Enter duration"
+                    className="w-full p-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                  <select
+                    value={pauseForm.pause_duration_unit}
+                    onChange={(e) => setPauseForm({ ...pauseForm, pause_duration_unit: e.target.value })}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                    <option value="months">Months</option>
+                  </select>
+                </div>
+              </div>
+
+              {pauseForm.pause_duration && (
+                <div className="p-3 bg-blue-50 rounded-lg text-sm">
+                  <p className="font-semibold text-blue-800">Calculated Resume Date:</p>
+                  <p className="text-blue-600">
+                    {calculateResumeDate(pauseForm.pause_start_date, pauseForm.pause_duration, pauseForm.pause_duration_unit)}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason (Optional)</label>
+                <textarea
+                  value={pauseForm.reason}
+                  onChange={(e) => setPauseForm({ ...pauseForm, reason: e.target.value })}
+                  placeholder="Enter reason for pausing..."
+                  rows="3"
+                  className="w-full p-2 border rounded-md resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowPauseModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitPause}
+                className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600"
+              >
+                Pause Plan
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
     </motion.div>
   );
+};
+
+// Helper function to calculate resume date
+const calculateResumeDate = (startDate, duration, unit) => {
+  if (!startDate || !duration) return '—';
+  const start = new Date(startDate);
+  const days = unit === 'days' ? parseInt(duration) : unit === 'weeks' ? parseInt(duration) * 7 : parseInt(duration) * 30;
+  const resumeDate = new Date(start);
+  resumeDate.setDate(resumeDate.getDate() + days);
+  return resumeDate.toLocaleDateString();
 };

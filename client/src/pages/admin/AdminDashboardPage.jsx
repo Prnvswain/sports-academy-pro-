@@ -86,6 +86,8 @@ export default function AnalyticsPanel() {
         total_revenue: data.total_revenue ?? 0,
         active_coach_count: data.active_coach_count ?? 0,
         active_student_count: data.active_student_count ?? 0,
+        paused_student_count: data.paused_student_count ?? 0,
+        inactive_student_count: data.inactive_student_count ?? 0,
         total_batches: data.total_batches ?? 0,
         attendance_percent: data.attendance_percent ?? 0,
         payment_summary: {
@@ -104,6 +106,8 @@ export default function AnalyticsPanel() {
         total_revenue: 0,
         active_coach_count: 0,
         active_student_count: 0,
+        paused_student_count: 0,
+        inactive_student_count: 0,
         total_batches: 0,
         attendance_percent: 0,
         payment_summary: {
@@ -409,20 +413,40 @@ export default function AnalyticsPanel() {
             onClick={() => navigate('/admin/coaches')}
           />
 
-          <StatCard 
-            title="Active Students" 
-            value={safeMetrics.active_student_count ?? 0} 
-            icon={Icons.Players} 
+          <StatCard
+            title="Active Students"
+            value={safeMetrics.active_student_count ?? 0}
+            icon={Icons.Players}
             colorClass="text-blue-600 dark:text-blue-400"
             bgLight="bg-blue-50" bgDark="bg-blue-500/10"
             textClass="text-foreground"
             onClick={() => navigate('/admin/students')}
           />
 
-          <StatCard 
-            title="Total Batches" 
-            value={safeMetrics.total_batches ?? 0} 
-            icon={Icons.Stopwatch} 
+          <StatCard
+            title="Paused Students"
+            value={safeMetrics.paused_student_count ?? 0}
+            icon={Icons.Stopwatch}
+            colorClass="text-yellow-600 dark:text-yellow-400"
+            bgLight="bg-yellow-50" bgDark="bg-yellow-500/10"
+            textClass="text-foreground"
+            onClick={() => navigate('/admin/students')}
+          />
+
+          <StatCard
+            title="Inactive Students"
+            value={safeMetrics.inactive_student_count ?? 0}
+            icon={Icons.RedCard}
+            colorClass="text-red-600 dark:text-red-400"
+            bgLight="bg-red-50" bgDark="bg-red-500/10"
+            textClass="text-foreground"
+            onClick={() => navigate('/admin/students')}
+          />
+
+          <StatCard
+            title="Total Batches"
+            value={safeMetrics.total_batches ?? 0}
+            icon={Icons.Stopwatch}
             colorClass="text-cyan-600 dark:text-cyan-400"
             bgLight="bg-cyan-50" bgDark="bg-cyan-500/10"
             textClass="text-foreground"

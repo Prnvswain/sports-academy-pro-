@@ -492,6 +492,15 @@ model StudentEnrollment {
   paid_amount        Decimal   @default(0) @db.Decimal(10, 2)
   next_due_date      DateTime? @db.Date
   is_active          Boolean   @default(true)
+  is_paused          Boolean   @default(false)
+  pause_start_date   DateTime? @db.Date
+  pause_end_date     DateTime? @db.Date
+  pause_duration_days Int?
+  pause_unit         String?   @db.VarChar(20)
+  pause_reason       String?   @db.Text
+  remaining_validity Int?
+  plan_start_date    DateTime? @db.Date
+  plan_end_date      DateTime? @db.Date
   created_at         DateTime  @default(now())
   updated_at         DateTime  @updatedAt
 

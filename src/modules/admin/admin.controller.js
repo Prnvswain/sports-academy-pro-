@@ -273,6 +273,35 @@ export const deleteStudent = async (req, res, next) => {
   }
 };
 
+export const pauseStudentPlan = async (req, res, next) => {
+  try {
+    const result = await adminService.pauseStudentPlan(
+      req.user.academy_id,
+      req.params.student_id,
+      req.body,
+      req.user.user_id,
+    );
+    res.json(successResponse('Student plan paused successfully', result));
+  } catch (err) {
+    logger.error('Failed to pause student plan', err);
+    next(err);
+  }
+};
+
+export const resumeStudentPlan = async (req, res, next) => {
+  try {
+    const result = await adminService.resumeStudentPlan(
+      req.user.academy_id,
+      req.params.student_id,
+      req.user.user_id,
+    );
+    res.json(successResponse('Student plan resumed successfully', result));
+  } catch (err) {
+    logger.error('Failed to resume student plan', err);
+    next(err);
+  }
+};
+
 export const getAllBatches = async (req, res, next) => {
   try {
     const batches = await adminService.getAllBatches(req.user.academy_id);
