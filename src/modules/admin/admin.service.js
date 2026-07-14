@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
 import { NOT_DELETED, softDeletePayload } from '../../utils/softDelete.util.js';
 import { generateTempPassword } from '../../utils/password.util.js';
+import { createNotification } from '../notifications/notifications.service.js';
 import {
   sendCoachOnboardingEmail,
   sendStudentExitEmail,
@@ -1078,13 +1079,50 @@ export const getAllStudents = async (academy_id) => {
       orderBy: { created_at: 'desc' },
     });
 
-    // Add direct batch and sport properties for active enrollment
+    // Get attendance counts for all students
+    const studentIds = students.map(s => s.student_id);
+    const attendanceRecords = await prisma.studentAttendance.groupBy({
+      by: ['student_id', 'status'],
+      where: {
+        student_id: { in: studentIds },
+        academy_id: parseInt(academy_id, 10),
+      },
+      _count: {
+        status: true,
+      },
+    });
+
+    // Build attendance summary map
+    const attendanceMap = {};
+    attendanceRecords.forEach(record => {
+      if (!attendanceMap[record.student_id]) {
+        attendanceMap[record.student_id] = {
+          present_count: 0,
+          absent_count: 0,
+        };
+      }
+      if (record.status === 'PRESENT') {
+        attendanceMap[record.student_id].present_count = record._count.status;
+      } else if (record.status === 'ABSENT') {
+        attendanceMap[record.student_id].absent_count = record._count.status;
+      }
+    });
+
+    // Add direct batch, sport, attendance summary, and pause state properties
     const studentsWithBatch = students.map(student => {
       const activeEnrollment = student.enrollments?.[0] || null;
       return {
         ...student,
         batch: activeEnrollment?.batch || null,
         sport: activeEnrollment?.sport || null,
+        attendance_summary: attendanceMap[student.student_id] || {
+          present_count: 0,
+          absent_count: 0,
+        },
+        is_paused: activeEnrollment?.is_paused || false,
+        pause_end_date: activeEnrollment?.pause_end_date || null,
+        pause_start_date: activeEnrollment?.pause_start_date || null,
+        pause_duration_days: activeEnrollment?.pause_duration_days || null,
       };
     });
 
@@ -1092,6 +1130,196 @@ export const getAllStudents = async (academy_id) => {
   } catch (error) {
     console.error('Error in getAllStudents:', error);
     return [];
+  }
+};
+
+export const pauseStudentPlan = async (academy_id, student_id, pauseData, admin_user_id) => {
+  try {
+    const academyId = parseInt(academy_id, 10);
+    const studentId = parseInt(student_id, 10);
+
+    // Get the active enrollment
+    const enrollment = await prisma.studentEnrollment.findFirst({
+      where: {
+        student_id: studentId,
+        academy_id: academyId,
+        is_active: true,
+      },
+      include: {
+        duration_plan: true,
+      },
+    });
+
+    if (!enrollment) {
+      const error = new Error('No active enrollment found for this student');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (enrollment.is_paused) {
+      const error = new Error('Student plan is already paused');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Calculate pause duration in days
+    const { pause_start_date, pause_duration, pause_duration_unit, reason } = pauseData;
+    const startDate = new Date(pause_start_date);
+    let durationDays = parseInt(pause_duration);
+    if (pause_duration_unit === 'weeks') {
+      durationDays *= 7;
+    } else if (pause_duration_unit === 'months') {
+      durationDays *= 30;
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + durationDays);
+
+    // Calculate remaining validity (days from today to plan end date)
+    const today = new Date();
+    const currentPlanEndDate = enrollment.plan_end_date ? new Date(enrollment.plan_end_date) : null;
+    let remainingValidity = 0;
+    if (currentPlanEndDate && currentPlanEndDate > today) {
+      remainingValidity = Math.ceil((currentPlanEndDate - today) / (1000 * 60 * 60 * 24));
+    }
+
+    // Calculate new plan end date (extend by pause duration)
+    let newPlanEndDate = currentPlanEndDate;
+    if (currentPlanEndDate) {
+      newPlanEndDate = new Date(currentPlanEndDate);
+      newPlanEndDate.setDate(newPlanEndDate.getDate() + durationDays);
+    }
+
+    // Update enrollment with pause details
+    const updatedEnrollment = await prisma.studentEnrollment.update({
+      where: { enrollment_id: enrollment.enrollment_id },
+      data: {
+        is_paused: true,
+        pause_start_date: startDate,
+        pause_end_date: endDate,
+        pause_duration_days: durationDays,
+        pause_unit: pause_duration_unit || 'days',
+        pause_reason: reason,
+        remaining_validity: remainingValidity,
+        plan_end_date: newPlanEndDate,
+      },
+    });
+
+    // Log audit entry
+    await logAudit({
+      academy_id: academyId,
+      actor_type: 'ADMIN',
+      actor_id: admin_user_id,
+      action: 'PAUSE_STUDENT_PLAN',
+      entity_type: 'StudentEnrollment',
+      entity_id: enrollment.enrollment_id,
+      metadata: {
+        student_id: studentId,
+        pause_start_date: pause_start_date,
+        pause_duration_days: durationDays,
+        reason: reason,
+      },
+    });
+
+    // Notify the coach
+    if (enrollment.coach_id) {
+      await createNotification(academyId, {
+        type: 'STUDENT_PLAN_PAUSED',
+        title: 'Student Plan Paused',
+        body: `Student plan has been paused for ${durationDays} days`,
+        coach_id: enrollment.coach_id,
+        metadata: {
+          student_id: studentId,
+          enrollment_id: enrollment.enrollment_id,
+          pause_duration: durationDays,
+          resume_date: endDate.toISOString(),
+        },
+      });
+    }
+
+    return updatedEnrollment;
+  } catch (error) {
+    logger.error('Error in pauseStudentPlan:', error);
+    throw error;
+  }
+};
+
+export const resumeStudentPlan = async (academy_id, student_id, admin_user_id) => {
+  try {
+    const academyId = parseInt(academy_id, 10);
+    const studentId = parseInt(student_id, 10);
+
+    // Get the paused enrollment
+    const enrollment = await prisma.studentEnrollment.findFirst({
+      where: {
+        student_id: studentId,
+        academy_id: academyId,
+        is_active: true,
+        is_paused: true,
+      },
+    });
+
+    if (!enrollment) {
+      const error = new Error('No paused enrollment found for this student');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Update enrollment to resume
+    const today = new Date();
+    const currentPlanEndDate = enrollment.plan_end_date ? new Date(enrollment.plan_end_date) : null;
+
+    // Recalculate remaining validity based on the extended plan end date
+    let remainingValidity = 0;
+    if (currentPlanEndDate && currentPlanEndDate > today) {
+      remainingValidity = Math.ceil((currentPlanEndDate - today) / (1000 * 60 * 60 * 24));
+    }
+
+    const updatedEnrollment = await prisma.studentEnrollment.update({
+      where: { enrollment_id: enrollment.enrollment_id },
+      data: {
+        is_paused: false,
+        pause_start_date: null,
+        pause_end_date: null,
+        pause_duration_days: null,
+        pause_unit: null,
+        pause_reason: null,
+        remaining_validity: remainingValidity,
+      },
+    });
+
+    // Log audit entry
+    await logAudit({
+      academy_id: academyId,
+      actor_type: 'ADMIN',
+      actor_id: admin_user_id,
+      action: 'RESUME_STUDENT_PLAN',
+      entity_type: 'StudentEnrollment',
+      entity_id: enrollment.enrollment_id,
+      metadata: {
+        student_id: studentId,
+        previous_pause_duration: enrollment.pause_duration_days,
+      },
+    });
+
+    // Notify the coach
+    if (enrollment.coach_id) {
+      await createNotification(academyId, {
+        type: 'STUDENT_PLAN_RESUMED',
+        title: 'Student Plan Resumed',
+        body: 'Student plan has been resumed',
+        coach_id: enrollment.coach_id,
+        metadata: {
+          student_id: studentId,
+          enrollment_id: enrollment.enrollment_id,
+        },
+      });
+    }
+
+    return updatedEnrollment;
+  } catch (error) {
+    logger.error('Error in resumeStudentPlan:', error);
+    throw error;
   }
 };
 
@@ -2535,6 +2763,8 @@ export const getAcademyReport = async (academy_id) => {
     const [
       activeCoaches,
       activeStudents,
+      pausedStudents,
+      inactiveStudents,
       totalBatches,
       revenueAggregate,
       paidStudents,
@@ -2548,6 +2778,15 @@ export const getAcademyReport = async (academy_id) => {
     ] = await Promise.all([
       prisma.coach.count({ where: activeCoachFilter }).catch(() => 0),
       prisma.student.count({ where: { ...activeStudentFilter, status: 'ACTIVE' } }).catch(() => 0),
+      prisma.studentEnrollment.count({
+        where: {
+          academy_id: academyId,
+          is_active: true,
+          is_paused: true,
+          student: { ...NOT_DELETED, status: 'ACTIVE' }
+        }
+      }).catch(() => 0),
+      prisma.student.count({ where: { ...activeStudentFilter, status: 'INACTIVE' } }).catch(() => 0),
       prisma.batch.count({ where: { academy_id: academyId, status: 'ACTIVE' } }).catch(() => 0),
       prisma.receipt
         .aggregate({
@@ -2639,6 +2878,8 @@ export const getAcademyReport = async (academy_id) => {
     return {
       active_coach_count: activeCoaches || 0,
       active_student_count: activeStudents || 0,
+      paused_student_count: pausedStudents || 0,
+      inactive_student_count: inactiveStudents || 0,
       total_batches: totalBatches || 0,
       total_revenue: revenueAggregate._sum?.amount || 0,
       attendance_percent: attendancePercent || 0,

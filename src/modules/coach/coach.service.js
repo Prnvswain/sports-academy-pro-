@@ -577,7 +577,21 @@ export const getCoachBatches = async (coach_id, academy_id) => {
           use_custom_location: true
         }
       },
-      students: { where: { ...NOT_DELETED, status: 'ACTIVE' } }
+      students: {
+        where: {
+          ...NOT_DELETED,
+          status: 'ACTIVE'
+        },
+        include: {
+          enrollments: {
+            where: {
+              is_active: true,
+              is_paused: false
+            },
+            take: 1
+          }
+        }
+      }
     }
   });
 
@@ -607,6 +621,11 @@ export const getCoachBatches = async (coach_id, academy_id) => {
     },
     batches: batches.map(batch => ({
       ...batch,
+      students: batch.students.filter(student => {
+        // Filter out students with paused enrollments
+        const hasActiveEnrollment = student.enrollments && student.enrollments.length > 0;
+        return hasActiveEnrollment;
+      }),
       academy: {
         latitude: academy?.latitude ? parseFloat(academy.latitude) : null,
         longitude: academy?.longitude ? parseFloat(academy.longitude) : null,
