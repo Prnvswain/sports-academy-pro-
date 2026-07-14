@@ -4,7 +4,21 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import { clearSuperAdminToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
 
-import { LayoutDashboard, Bell, Building2, Calendar, CreditCard, Sliders, Settings, Megaphone } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Bell, 
+  Building2, 
+  Calendar, 
+  CreditCard, 
+  Sliders, 
+  Settings, 
+  Megaphone,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Home
+} from 'lucide-react';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
 const PRODUCT_LOGO = 'SP';
@@ -31,7 +45,7 @@ export default function SuperAdminLayout() {
   );
 
   useEffect(() => {
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
   const handleLogout = () => {
@@ -44,156 +58,183 @@ export default function SuperAdminLayout() {
   const pageTitle = PAGE_TITLES[location.pathname.split('/').pop()] || 'Dashboard';
 
   return (
-    <div className="bg-slate-50 flex h-screen w-screen overflow-hidden">
+    // Main App Background remains dynamic according to theme variables
+    <div className="bg-background text-foreground flex h-screen w-screen overflow-hidden transition-colors duration-300">
+      
+      {/* Sidebar - Dark Gradient (Slate to Emerald) */}
       <motion.aside
-        initial={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
-        animate={{ width: sidebarCollapsed ? '4.5rem' : '16rem' }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className={`bg-slate-50/90 backdrop-blur-md border-r border-slate-200/80 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden fixed inset-y-0 left-0 z-20 -translate-x-full lg:relative lg:translate-x-0 ${sidebarOpen ? '!translate-x-0' : ''}`}
+        initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
+        animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className={`bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/60 border-r border-emerald-900/30 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
-        <div className="border-b border-slate-200/60 flex items-center justify-between p-4 bg-white/50">
+        {/* Sidebar Header / Logo */}
+        <div className="flex h-16 items-center justify-between border-b border-emerald-900/40 px-4 shrink-0">
           <Link
             to="/super-admin/dashboard"
-            className="text-slate-800 flex items-center gap-2 font-extrabold no-underline hover:text-emerald-600 transition-colors"
-            onClick={() => setSidebarCollapsed((c) => !c)}
+            className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
+            onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
           >
-            <span className="bg-emerald-500 text-white flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs shadow-sm cursor-pointer">
+            {/* Glowing Logo Badge */}
+            <span className="bg-lime-400 text-slate-950 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-[0_0_12px_rgba(132,204,22,0.4)] transition-transform hover:scale-105">
               {PRODUCT_LOGO}
             </span>
             <motion.span
               initial={{ opacity: 1 }}
-              animate={{ opacity: sidebarCollapsed ? 0 : 1 }}
+              animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
               transition={{ duration: 0.2 }}
-              className={!sidebarCollapsed ? '' : 'hidden'}
+              className="font-black tracking-wide text-white whitespace-nowrap text-sm cursor-pointer uppercase"
             >
-              {PRODUCT_NAME}
+              Super <span className="text-lime-400">Admin</span>
             </motion.span>
           </Link>
           <motion.button
             type="button"
-            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/70 rounded-md p-1 sidebar-toggle-button hidden lg:inline-flex transition-all"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-colors"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            {sidebarCollapsed ? '»' : '«'}
+            {sidebarCollapsed ? <ChevronRight size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} strokeWidth={2.5} />}
           </motion.button>
         </div>
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Super Admin sections">
-          {SUPER_ADMIN_NAV_ITEMS.map((item, index) => (
-            <NavLink
-              key={item.path}
-              to={`/super-admin/${item.path}`}
-              end
-              title={sidebarCollapsed ? item.label : undefined}
-              data-nav={item.path}
-              className={({ isActive }) => {
-                const IconComponent = item.icon;
-                return `
-                  relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
-                  ${isActive 
-                    ? 'bg-emerald-50 text-emerald-600 font-semibold' 
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/70'
-                  }
-                  ${sidebarCollapsed ? 'justify-center px-2' : ''}
-                `;
-              }}
-              onClick={closeMobileSidebar}
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <div className="absolute left-0 w-1 h-5 bg-emerald-500 rounded-r-md" />
-                  )}
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <item.icon className="w-5 h-5" />
-                  </motion.div>
-                  <motion.span
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: sidebarCollapsed ? 0 : 1 }}
-                    transition={{ duration: 0.2 }}
-                    className={!sidebarCollapsed ? '' : 'hidden'}
-                  >
-                    {item.label}
-                  </motion.span>
-                </>
-              )}
-            </NavLink>
-          ))}
+
+        {/* Navigation Links - Scrollbar Hidden but fully scrollable */}
+        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" aria-label="Super Admin sections">
+          {SUPER_ADMIN_NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={`/super-admin/${item.path}`}
+                end
+                title={sidebarCollapsed ? item.label : undefined}
+                data-nav={item.path}
+                onClick={closeMobileSidebar}
+                className={({ isActive }) =>
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-xl group outline-none font-bold ${
+                    sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+                  } ${
+                    isActive
+                      // Premium Dark Contrast: Lime Green Background with Dark Text + Glow
+                      ? 'bg-lime-400 text-slate-950 shadow-[0_4px_20px_rgba(132,204,22,0.3)] translate-x-1'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-lime-300'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <motion.span
+                      className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
+                      whileHover={{ scale: 1.15, rotate: isActive ? 0 : 5 }}
+                      transition={{ duration: 0.3 }}
+                      aria-hidden="true"
+                    >
+                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                    </motion.span>
+                    <motion.span
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
+                      transition={{ duration: 0.2 }}
+                      className="relative z-10 whitespace-nowrap tracking-wide"
+                    >
+                      {item.label}
+                    </motion.span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
-        <div className="border-t border-slate-200/60 p-3 bg-white/50">
-          <motion.div
-            className="mb-2"
+
+        {/* Sidebar Footer / Actions */}
+        <div className="border-t border-emerald-900/40 p-4 space-y-2 shrink-0">
+          <motion.button
+            type="button"
+            className="w-full flex justify-center items-center rounded-xl text-sm py-2 font-semibold transition-all bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <Link
-              to="/"
-              className="block w-full text-center px-4 py-2 text-sm font-medium text-slate-600 bg-white/70 border border-slate-200/60 rounded-lg hover:bg-slate-100/70 hover:border-slate-300 transition-all no-underline hover:text-slate-900"
-            >
-              Back to Home
+            <Link to="/" className="text-inherit no-underline flex items-center justify-center gap-2 w-full">
+              <Home size={16} strokeWidth={2.5} />
+              {!sidebarCollapsed && <span>Back to Home</span>}
             </Link>
-          </motion.div>
+          </motion.button>
           <motion.button
             type="button"
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-all shadow-sm"
+            className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
+              sidebarCollapsed 
+              ? 'text-slate-500 hover:bg-red-500/20 hover:text-red-400' 
+              : 'bg-white/5 text-slate-300 hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+            }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            title={sidebarCollapsed ? "Sign Out" : undefined}
           >
-            Sign Out
+            <LogOut size={16} strokeWidth={2.5} />
+            {!sidebarCollapsed && <span>Sign Out</span>}
           </motion.button>
         </div>
       </motion.aside>
 
+      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3 }}
             type="button"
-            className="fixed inset-0 z-10 bg-slate-900/10 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden cursor-default outline-none"
             aria-label="Close sidebar"
             onClick={closeMobileSidebar}
           />
         )}
       </AnimatePresence>
 
-      <motion.div
-        className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-slate-50"
-      >
-        <header className="bg-white/70 backdrop-blur-md sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/60 px-4 lg:px-8 flex-shrink-0">
-          <div className="flex items-center gap-3">
+      {/* Main Content Area */}
+      <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background/50">
+        
+        {/* Top Header */}
+        <header className="bg-background/80 backdrop-blur-xl border-b border-border/40 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-[0_4px_24px_rgba(0,0,0,0.01)]">
+          <div className="flex items-center gap-4">
             <motion.button
               type="button"
-              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/70 rounded-md p-2 sidebar-toggle-button lg:hidden transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              ☰
+              <Menu size={20} strokeWidth={2.5} />
             </motion.button>
-            <h1 className="text-lg font-bold text-slate-800">{pageTitle}</h1>
+            <div className="flex flex-col">
+              <span className="text-lg font-extrabold tracking-tight text-foreground/90 uppercase">
+                {pageTitle}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
           </div>
         </header>
-        <main className="flex-1 min-w-0 p-4 lg:p-8 overflow-x-hidden">
+
+        {/* Route Outlet */}
+        <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
+          {/* Ambient Background Glow */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden flex justify-center z-0">
+             <div className="w-full max-w-5xl h-full bg-[radial-gradient(ellipse_at_top,rgba(var(--color-accent-primary),0.03)_0%,transparent_70%)]"></div>
+          </div>
+          
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="w-full min-w-0"
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="w-full min-w-0 relative z-10"
           >
             <Outlet />
           </motion.div>

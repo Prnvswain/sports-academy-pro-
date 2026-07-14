@@ -103,22 +103,10 @@ export default function AnalyticsPanel() {
     } catch (err) {
       setError(err.message || 'Failed to communicate with analytics backend runtime engine.');
       setMetrics({
-        total_revenue: 0,
-        active_coach_count: 0,
-        active_student_count: 0,
-        paused_student_count: 0,
-        inactive_student_count: 0,
-        total_batches: 0,
-        attendance_percent: 0,
-        payment_summary: {
-          paid_students: 0,
-          unpaid_students: 0,
-        },
-        pending_dues: 0,
-        performance_scores_count: 0,
-        daily_notes_count: 0,
-        monthly_revenue: 0,
-        monthly_attendance: 0,
+        total_revenue: 0, active_coach_count: 0, active_student_count: 0, paused_student_count: 0,
+        inactive_student_count: 0, total_batches: 0, attendance_percent: 0,
+        payment_summary: { paid_students: 0, unpaid_students: 0 }, pending_dues: 0,
+        performance_scores_count: 0, daily_notes_count: 0, monthly_revenue: 0, monthly_attendance: 0,
       });
     } finally {
       setLoading(false);
@@ -142,18 +130,14 @@ export default function AnalyticsPanel() {
     };
     fetchAcademy();
 
-    // Listen for academy settings updates to refresh logo
-    const handleSettingsUpdate = () => {
-      fetchAcademy();
-    };
-
+    const handleSettingsUpdate = () => { fetchAcademy(); };
     window.addEventListener('academySettingsUpdated', handleSettingsUpdate);
     return () => window.removeEventListener('academySettingsUpdated', handleSettingsUpdate);
   }, []);
 
   if (loading) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center bg-transparent">
+      <div className="flex min-h-[60vh] items-center justify-center bg-transparent">
         <Loader message="Loading academy analytics…" />
       </div>
     );
@@ -161,29 +145,17 @@ export default function AnalyticsPanel() {
 
   if (error) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center bg-transparent p-6">
+      <div className="flex min-h-[60vh] items-center justify-center bg-transparent p-4">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", bounce: 0.4 }}
-          className="card max-w-md text-center ring-1 ring-danger/30"
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          className="bg-card border border-border max-w-md text-center p-6 rounded-2xl shadow-md"
         >
-          <motion.div 
-            animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-danger/10"
-          >
-            <Icons.RedCard className="h-8 w-8 text-danger" />
-          </motion.div>
-          <h3 className="mb-2 text-xl font-bold text-foreground">Foul Play! (Error)</h3>
-          <p className="mb-6 text-sm text-muted-foreground">{error}</p>
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            type="button" 
-            className="btn-primary w-full"
-            onClick={loadAnalytics}
-          >
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-950">
+            <Icons.RedCard className="h-6 w-6 text-red-500" />
+          </div>
+          <h3 className="mb-1 text-lg font-black text-foreground">Foul Play! (Error)</h3>
+          <p className="mb-5 text-xs font-semibold text-muted-foreground">{error}</p>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" className="w-full bg-red-500 text-white font-bold py-2.5 rounded-xl text-sm" onClick={loadAnalytics}>
             Retry Connection
           </motion.button>
         </motion.div>
@@ -193,379 +165,175 @@ export default function AnalyticsPanel() {
 
   const safeMetrics = metrics || {};
   const summary = safeMetrics.payment_summary || { paid_students: 0, unpaid_students: 0 };
-  
-  // Data for visual graphs (calculated from existing safe data ONLY)
   const totalStudents = (summary.paid_students || 0) + (summary.unpaid_students || 0);
   const paidPercentage = totalStudents > 0 ? ((summary.paid_students / totalStudents) * 100).toFixed(1) : 0;
   const unpaidPercentage = totalStudents > 0 ? ((summary.unpaid_students / totalStudents) * 100).toFixed(1) : 0;
 
-  // Animations
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08, delayChildren: 0.1 }
-    }
-  };
+  const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } };
+  const itemVariants = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 400, damping: 28 } } };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30, scale: 0.95 },
-    show: { 
-      opacity: 1, 
-      y: 0, 
-      scale: 1,
-      transition: { type: 'spring', stiffness: 400, damping: 25 } 
-    }
-  };
-
-  // Reusable Animated Card Component
-  const StatCard = ({ title, value, icon: Icon, colorClass, bgLight, bgDark, textClass, onClick, extraContent }) => {
+  // Reusable Highly Compact StatCard Component
+  const StatCard = ({ title, value, icon: Icon, borderClass, bgClass, textClass, onClick, extraContent }) => {
     const isClickable = !!onClick;
     return (
       <motion.div
         variants={itemVariants}
         onClick={onClick}
-        whileHover={isClickable ? { y: -6, scale: 1.02, transition: { type: 'spring', stiffness: 300 } } : { y: -4 }}
-        className={`card group relative flex h-full flex-col justify-between overflow-hidden p-6 transition-all duration-300 ${isClickable ? 'cursor-pointer hover:border-primary/40 hover:shadow-lg' : ''}`}
+        whileHover={isClickable ? { y: -3, scale: 1.01 } : { y: -2 }}
+        className={`bg-card border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm ${borderClass} ${isClickable ? 'cursor-pointer' : ''}`}
       >
-        <div className={`absolute -right-8 -top-8 h-36 w-36 rounded-full blur-3xl opacity-20 transition-all duration-500 ${bgLight} dark:${bgDark} group-hover:scale-150 group-hover:opacity-30`} />
-        
-        <div className="relative z-10 mb-4 flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            <span className="text-[0.68rem] font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
-              {title}
-            </span>
-            <motion.span 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className={`text-3xl font-black tracking-tight ${textClass}`}
-            >
-              {value}
-            </motion.span>
+        <div className="flex items-start justify-between w-full">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 block">{title}</span>
+            <span className={`text-2xl font-black tracking-tight block ${textClass}`}>{value}</span>
           </div>
-          
-          <motion.div 
-            whileHover={{ rotate: 15, scale: 1.15 }}
-            className={`flex h-14 w-14 items-center justify-center rounded-2xl ${bgLight} dark:${bgDark} ${colorClass} shadow-inner transition-colors duration-300`}
-          >
-            <Icon className="h-7 w-7" />
-          </motion.div>
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bgClass} border border-current/10 shadow-inner`}>
+            <Icon className={`h-5 w-5 ${textClass}`} />
+          </div>
         </div>
-
-        {extraContent && (
-          <div className="relative z-10 mt-auto w-full pt-2">
-            {extraContent}
-          </div>
-        )}
+        {extraContent && <div className="w-full mt-3">{extraContent}</div>}
       </motion.div>
     );
   };
 
   return (
-    <div className="w-full bg-transparent font-sans">
-      <div className="mx-auto max-w-[1600px] space-y-8">
-        
-        {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, type: 'spring' }}
-          className="card flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <div className="flex items-center gap-4">
-            {academy?.logo_url && !logoError ? (
-              <img
-                key={academy.logo_url}
-                src={`${academy.logo_url}?t=${Date.now()}`}
-                alt="Academy Logo"
-                className="h-16 w-16 rounded-2xl border border-primary/20 object-cover shadow-lg shadow-primary/20"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent-hover shadow-lg shadow-primary/20">
-                <Icons.Trophy className="h-8 w-8 text-white" />
-              </div>
-            )}
-            <div>
-              <h2 className="text-3xl font-black tracking-tight text-foreground">
-                {academy?.name || 'Academy'} <span className="text-primary">Dashboard</span>
-              </h2>
-              <p className="mt-1 text-sm font-semibold text-muted-foreground">
-                Live operational analytics and sports metrics.
-              </p>
-            </div>
+    <div className="w-full bg-transparent font-sans p-2 space-y-6">
+      
+      {/* Top Bar Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          {academy?.logo_url && !logoError ? (
+            <img key={academy.logo_url} src={`${academy.logo_url}?t=${Date.now()}`} alt="Logo" className="h-11 w-11 rounded-xl border border-border object-cover" onError={() => setLogoError(true)} />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md"><Icons.Trophy className="h-5 w-5" /></div>
+          )}
+          <div>
+            <h2 className="text-xl font-black text-foreground tracking-tight">{academy?.name || 'Academy'} Analytics</h2>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Live Operational Engine</p>
           </div>
+        </div>
+        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={loadAnalytics} className="bg-surface border border-border text-foreground hover:bg-surface-secondary px-4 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 self-start sm:self-center">
+          <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          Sync Runtime
+        </motion.button>
+      </motion.div>
 
-          <motion.button
-            type="button"
-            onClick={loadAnalytics}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="btn-secondary group flex items-center justify-center gap-2 sm:w-auto"
-          >
-            <motion.div
-              animate={loading ? { rotate: 360 } : {}}
-              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            >
-              <svg className="h-4 w-4 transition-transform group-hover:rotate-180 text-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-              </svg>
-            </motion.div>
-            Sync Data
-          </motion.button>
-        </motion.div>
-
-        {/* Real-time Visually Generated Graphs */}
-        <AnimatePresence>
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
-          >
-            {/* Payment Distribution Graph Component */}
-            <div className="card flex flex-col justify-center p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Student Fee Distribution</h3>
-                <span className="rounded-full bg-surface px-3 py-1 text-xs font-bold text-foreground/80 ring-1 ring-border/50">Total: {totalStudents}</span>
-              </div>
-              
-              <div className="relative flex h-6 w-full overflow-hidden rounded-full bg-surface shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${paidPercentage}%` }}
-                  transition={{ duration: 1.2, ease: "easeOut" }}
-                  className="h-full bg-teal-500 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]"
-                />
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${unpaidPercentage}%` }}
-                  transition={{ duration: 1.2, ease: "easeOut", delay: 0.2 }}
-                  className="h-full bg-rose-500 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]"
-                />
-              </div>
-              <div className="mt-4 flex justify-between text-xs font-bold">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-teal-500" />
-                  <span className="text-teal-600 dark:text-teal-400">Paid ({paidPercentage}%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-rose-500" />
-                  <span className="text-rose-600 dark:text-rose-400">Unpaid ({unpaidPercentage}%)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Attendance Performance Graph Component */}
-            <div className="card flex flex-col justify-center p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Academy Attendance Pulse</h3>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary ring-1 ring-primary/20">30 Days</span>
-              </div>
-              
-              <div className="relative h-6 w-full overflow-hidden rounded-full bg-surface shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${safeMetrics.attendance_percent ?? 0}%` }}
-                  transition={{ duration: 1.5, type: "spring", bounce: 0.2 }}
-                  className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-primary to-teal-500 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2)]"
-                />
-              </div>
-              <div className="mt-4 flex justify-between text-xs font-bold text-muted-foreground">
-                <span>0%</span>
-                <span className="text-sm text-primary">{safeMetrics.attendance_percent ?? 0}% Active</span>
-                <span>100%</span>
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Dashboard Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid auto-rows-fr grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-        >
-          <StatCard 
-            title="Total Revenue" 
-            value={formatCurrency(safeMetrics.total_revenue)} 
-            icon={Icons.Chart} 
-            colorClass="text-emerald-600 dark:text-emerald-400"
-            bgLight="bg-emerald-50" bgDark="bg-emerald-500/10"
-            textClass="text-emerald-600 dark:text-emerald-400"
-            onClick={() => navigate('/admin/accounts')}
-            extraContent={
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface">
-                <motion.div initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 1, delay: 0.5 }} className="h-full bg-emerald-500" />
-              </div>
-            }
-          />
-          
-          <StatCard 
-            title="Active Coaches" 
-            value={safeMetrics.active_coach_count ?? 0} 
-            icon={Icons.Whistle} 
-            colorClass="text-indigo-600 dark:text-indigo-400"
-            bgLight="bg-indigo-50" bgDark="bg-indigo-500/10"
-            textClass="text-foreground"
-            onClick={() => navigate('/admin/coaches')}
-          />
-
-          <StatCard
-            title="Active Students"
-            value={safeMetrics.active_student_count ?? 0}
-            icon={Icons.Players}
-            colorClass="text-blue-600 dark:text-blue-400"
-            bgLight="bg-blue-50" bgDark="bg-blue-500/10"
-            textClass="text-foreground"
-            onClick={() => navigate('/admin/students')}
-          />
-
-          <StatCard
-            title="Paused Students"
-            value={safeMetrics.paused_student_count ?? 0}
-            icon={Icons.Stopwatch}
-            colorClass="text-yellow-600 dark:text-yellow-400"
-            bgLight="bg-yellow-50" bgDark="bg-yellow-500/10"
-            textClass="text-foreground"
-            onClick={() => navigate('/admin/students')}
-          />
-
-          <StatCard
-            title="Inactive Students"
-            value={safeMetrics.inactive_student_count ?? 0}
-            icon={Icons.RedCard}
-            colorClass="text-red-600 dark:text-red-400"
-            bgLight="bg-red-50" bgDark="bg-red-500/10"
-            textClass="text-foreground"
-            onClick={() => navigate('/admin/students')}
-          />
-
-          <StatCard
-            title="Total Batches"
-            value={safeMetrics.total_batches ?? 0}
-            icon={Icons.Stopwatch}
-            colorClass="text-cyan-600 dark:text-cyan-400"
-            bgLight="bg-cyan-50" bgDark="bg-cyan-500/10"
-            textClass="text-foreground"
-            onClick={() => navigate('/admin/batches')}
-          />
-
-          <StatCard 
-            title="Paid Students" 
-            value={summary.paid_students ?? 0} 
-            icon={Icons.CheckBadge} 
-            colorClass="text-teal-600 dark:text-teal-400"
-            bgLight="bg-teal-50" bgDark="bg-teal-500/10"
-            textClass="text-teal-600 dark:text-teal-400"
-            onClick={() => navigate('/admin/students?status=paid')}
-          />
-
-          <StatCard 
-            title="Unpaid Students" 
-            value={summary.unpaid_students ?? 0} 
-            icon={Icons.RedCard} 
-            colorClass="text-rose-600 dark:text-rose-400"
-            bgLight="bg-rose-50" bgDark="bg-rose-500/10"
-            textClass="text-rose-600 dark:text-rose-400"
-            onClick={() => navigate('/admin/students?status=unpaid')}
-            extraContent={
-               summary.unpaid_students > 0 && (
-                <motion.span 
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1, repeat: Infinity, repeatType: "reverse", duration: 1.5 }}
-                  className="text-[0.65rem] font-bold uppercase tracking-widest text-danger"
-                >
-                  Action Required
-                </motion.span>
-              )
-            }
-          />
-
-          <StatCard 
-            title="Pending Dues" 
-            value={formatCurrency(safeMetrics.pending_dues ?? 0)} 
-            icon={Icons.RedCard} 
-            colorClass="text-orange-600 dark:text-orange-400"
-            bgLight="bg-orange-50" bgDark="bg-orange-500/10"
-            textClass="text-orange-600 dark:text-orange-400"
-          />
-
-          <StatCard 
-            title="Performance Scores" 
-            value={safeMetrics.performance_scores_count ?? 0} 
-            icon={Icons.Star} 
-            colorClass="text-fuchsia-600 dark:text-fuchsia-400"
-            bgLight="bg-fuchsia-50" bgDark="bg-fuchsia-500/10"
-            textClass="text-fuchsia-600 dark:text-fuchsia-400"
-          />
-
-          <StatCard 
-            title="Daily Notes" 
-            value={safeMetrics.daily_notes_count ?? 0} 
-            icon={Icons.TacticsBoard} 
-            colorClass="text-sky-600 dark:text-sky-400"
-            bgLight="bg-sky-50" bgDark="bg-sky-500/10"
-            textClass="text-sky-600 dark:text-sky-400"
-          />
-
-          <StatCard 
-            title="This Month Revenue" 
-            value={formatCurrency(safeMetrics.monthly_revenue ?? 0)} 
-            icon={Icons.Chart} 
-            colorClass="text-emerald-500 dark:text-emerald-400"
-            bgLight="bg-emerald-50" bgDark="bg-emerald-500/10"
-            textClass="text-emerald-600 dark:text-emerald-400"
-            onClick={() => navigate('/admin/accounts')}
-          />
-
-          <StatCard 
-            title="This M. Attendance" 
-            value={safeMetrics.monthly_attendance ?? 0} 
-            icon={Icons.CalendarCheck} 
-            colorClass="text-emerald-500 dark:text-emerald-400"
-            bgLight="bg-emerald-50" bgDark="bg-emerald-500/10"
-            textClass="text-foreground"
-          />
-        </motion.div>
-
-        {/* Animated Workspace Info Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5, type: 'spring' }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary to-accent-hover p-8 shadow-xl shadow-primary/10"
-        >
-          {/* Decorative Background Elements */}
-          <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ duration: 100, repeat: Infinity, ease: "linear" }}
-            className="absolute -right-20 -top-40 text-white/5"
-          >
-            <Icons.TacticsBoard className="h-96 w-96" />
-          </motion.div>
-          
-          <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
-            <motion.div 
-              whileHover={{ scale: 1.1, rotate: 10 }}
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-md"
-            >
-              <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-              </svg>
-            </motion.div>
-            <div>
-              <h3 className="text-xl font-black tracking-wide text-white">Workspace Overview</h3>
-              <p className="mt-2 max-w-4xl text-sm font-medium leading-relaxed text-white/90">
-                Revenue sums reflect completed payments across your academy boundary. Coach and student
-                metrics display live operational records, excluding soft-deleted archives, giving you real-time oversight.
-              </p>
-            </div>
+      {/* Visual Distributions Panel */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+          <div className="mb-2.5 flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Fee Allocation Mix</h3>
+            <span className="bg-surface border border-border px-2 py-0.5 text-[10px] font-bold rounded text-foreground">Total: {totalStudents}</span>
           </div>
-        </motion.div>
+          <div className="relative flex h-3.5 w-full overflow-hidden rounded-full bg-surface shadow-inner border border-border/50">
+            <motion.div initial={{ width: 0 }} animate={{ width: `${paidPercentage}%` }} transition={{ duration: 1 }} className="h-full bg-teal-500" />
+            <motion.div initial={{ width: 0 }} animate={{ width: `${unpaidPercentage}%` }} transition={{ duration: 1, delay: 0.1 }} className="h-full bg-rose-500" />
+          </div>
+          <div className="mt-2 flex justify-between text-[10px] font-bold">
+            <span className="text-teal-600 dark:text-teal-400 flex items-center gap-1">● Paid ({paidPercentage}%)</span>
+            <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1">● Unpaid ({unpaidPercentage}%)</span>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+          <div className="mb-2.5 flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Academy Attendance Pulse</h3>
+            <span className="bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold rounded border border-primary/20">30-Day Cycle</span>
+          </div>
+          <div className="relative h-3.5 w-full overflow-hidden rounded-full bg-surface shadow-inner border border-border/50">
+            <motion.div initial={{ width: 0 }} animate={{ width: `${safeMetrics.attendance_percent ?? 0}%` }} transition={{ type: "spring", stiffness: 200 }} className="h-full bg-primary" />
+          </div>
+          <div className="mt-2 flex justify-between text-[10px] font-bold text-muted-foreground">
+            <span>0% Line</span>
+            <span className="text-primary font-black text-xs">{safeMetrics.attendance_percent ?? 0}% Live Attendance</span>
+            <span>Optimal</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Grid Layout Cards */}
+      <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         
-      </div>
+        <StatCard 
+          title="Total Revenue" value={formatCurrency(safeMetrics.total_revenue)} icon={Icons.Chart} 
+          borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-emerald-600 dark:text-emerald-400"
+          onClick={() => navigate('/admin/accounts')}
+          extraContent={
+            <div className="h-1 w-full bg-surface rounded-full overflow-hidden"><div className="h-full bg-emerald-500 w-full" /></div>
+          }
+        />
+
+        <StatCard 
+          title="Active Coaches" value={safeMetrics.active_coach_count ?? 0} icon={Icons.Whistle} 
+          borderClass="border-indigo-200 dark:border-indigo-900/40" bgClass="bg-indigo-50 dark:bg-indigo-500/10" textClass="text-indigo-600 dark:text-indigo-400"
+          onClick={() => navigate('/admin/coaches')}
+        />
+
+        <StatCard 
+          title="Active Students" value={safeMetrics.active_student_count ?? 0} icon={Icons.Players} 
+          borderClass="border-blue-200 dark:border-blue-900/40" bgClass="bg-blue-50 dark:bg-blue-500/10" textClass="text-blue-600 dark:text-blue-400"
+          onClick={() => navigate('/admin/students')}
+        />
+
+        <StatCard 
+          title="Paused Students" value={safeMetrics.paused_student_count ?? 0} icon={Icons.Stopwatch} 
+          borderClass="border-amber-200 dark:border-amber-900/40" bgClass="bg-amber-50 dark:bg-amber-500/10" textClass="text-amber-600 dark:text-amber-400"
+          onClick={() => navigate('/admin/students')}
+        />
+
+        <StatCard 
+          title="Inactive Students" value={safeMetrics.inactive_student_count ?? 0} icon={Icons.RedCard} 
+          borderClass="border-rose-200 dark:border-rose-900/40" bgClass="bg-rose-50 dark:bg-rose-500/10" textClass="text-rose-600 dark:text-rose-400"
+          onClick={() => navigate('/admin/students')}
+        />
+
+        <StatCard 
+          title="Total Batches" value={safeMetrics.total_batches ?? 0} icon={Icons.Stopwatch} 
+          borderClass="border-cyan-200 dark:border-cyan-900/40" bgClass="bg-cyan-50 dark:bg-cyan-500/10" textClass="text-cyan-600 dark:text-cyan-400"
+          onClick={() => navigate('/admin/batches')}
+        />
+
+        <StatCard 
+          title="Paid Accounts" value={summary.paid_students ?? 0} icon={Icons.CheckBadge} 
+          borderClass="border-teal-200 dark:border-teal-900/40" bgClass="bg-teal-50 dark:bg-teal-500/10" textClass="text-teal-600 dark:text-teal-400"
+          onClick={() => navigate('/admin/students?status=paid')}
+        />
+
+        <StatCard 
+          title="Unpaid Accounts" value={summary.unpaid_students ?? 0} icon={Icons.RedCard} 
+          borderClass="border-red-200 dark:border-red-900/40" bgClass="bg-red-50 dark:bg-red-500/10" textClass="text-red-600 dark:text-red-400"
+          onClick={() => navigate('/admin/students?status=unpaid')}
+          extraContent={summary.unpaid_students > 0 && <span className="text-[9px] font-black text-red-500 uppercase tracking-wider animate-pulse block">Review Pipeline</span>}
+        />
+
+        <StatCard 
+          title="Pending Dues" value={formatCurrency(safeMetrics.pending_dues ?? 0)} icon={Icons.RedCard} 
+          borderClass="border-orange-200 dark:border-orange-900/40" bgClass="bg-orange-50 dark:bg-orange-500/10" textClass="text-orange-600 dark:text-orange-400"
+        />
+
+        <StatCard 
+          title="Evaluations Log" value={safeMetrics.performance_scores_count ?? 0} icon={Icons.Star} 
+          borderClass="border-fuchsia-200 dark:border-fuchsia-900/40" bgClass="bg-fuchsia-50 dark:bg-fuchsia-500/10" textClass="text-fuchsia-600 dark:text-fuchsia-400"
+        />
+
+        <StatCard 
+          title="Daily Notes" value={safeMetrics.daily_notes_count ?? 0} icon={Icons.TacticsBoard} 
+          borderClass="border-sky-200 dark:border-sky-900/40" bgClass="bg-sky-50 dark:bg-sky-500/10" textClass="text-sky-600 dark:text-sky-400"
+        />
+
+        <StatCard 
+          title="Monthly Revenue" value={formatCurrency(safeMetrics.monthly_revenue ?? 0)} icon={Icons.Chart} 
+          borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-emerald-600 dark:text-emerald-400"
+          onClick={() => navigate('/admin/accounts')}
+        />
+
+        <StatCard 
+          title="Monthly Attendance" value={safeMetrics.monthly_attendance ?? 0} icon={Icons.CalendarCheck} 
+          borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-foreground font-black"
+        />
+      </motion.div>
     </div>
   );
 }
