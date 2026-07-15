@@ -1770,6 +1770,82 @@ export default function StudentsPanel() {
 
 
 
+  const handlePauseStudent = async (student) => {
+
+    try {
+
+      const pauseReason = prompt('Enter pause reason (optional):');
+
+      const payload = { pause_reason: pauseReason || '' };
+
+      await adminPost(`/admin/students/${student.student_id}/pause`, payload);
+
+      setMessage({ text: 'Student plan paused successfully.', type: 'success' });
+
+      loadData();
+
+    } catch (error) {
+
+      setMessage({ text: error.message, type: 'error' });
+
+    }
+
+  };
+
+
+
+  const handleResumeStudent = async (studentId) => {
+
+    try {
+
+      await adminPost(`/admin/students/${studentId}/resume`);
+
+      setMessage({ text: 'Student plan resumed successfully.', type: 'success' });
+
+      loadData();
+
+    } catch (error) {
+
+      setMessage({ text: error.message, type: 'error' });
+
+    }
+
+  };
+
+
+
+  const handleExitStudent = async (student) => {
+
+    const exitReason = prompt('Enter exit reason (required):');
+
+    if (!exitReason) {
+
+      setMessage({ text: 'Exit reason is required.', type: 'error' });
+
+      return;
+
+    }
+
+    try {
+
+      const payload = { exit_reason: exitReason };
+
+      await adminPost(`/admin/students/${student.student_id}/exit`, payload);
+
+      setMessage({ text: 'Student exited successfully.', type: 'success' });
+
+      loadData();
+
+    } catch (error) {
+
+      setMessage({ text: error.message, type: 'error' });
+
+    }
+
+  };
+
+
+
   const handleStudentClick = async (student) => {
 
     setSelectedStudent(student);
@@ -2241,6 +2317,79 @@ export default function StudentsPanel() {
     }
 
   };
+
+
+
+  const handleBulkPause = async () => {
+
+    if (selectedIds.length === 0) return;
+
+    const pauseReason = prompt('Enter pause reason (optional):');
+
+    setMessage({ text: '', type: '' });
+
+    try {
+
+      await adminPost('/admin/students/bulk-action', {
+
+        action: 'pause',
+
+        student_ids: selectedIds,
+
+        pause_reason: pauseReason || '',
+
+      });
+
+      setMessage({ text: 'Students paused successfully', type: 'success' });
+
+      setSelectedIds([]);
+
+      setIsBulkEditMode(false);
+
+      loadData();
+
+    } catch (error) {
+
+      setMessage({ text: error.message, type: 'error' });
+
+    }
+
+  };
+
+
+
+  const handleBulkResume = async () => {
+
+    if (selectedIds.length === 0) return;
+
+    setMessage({ text: '', type: '' });
+
+    try {
+
+      await adminPost('/admin/students/bulk-action', {
+
+        action: 'resume',
+
+        student_ids: selectedIds,
+
+      });
+
+      setMessage({ text: 'Students resumed successfully', type: 'success' });
+
+      setSelectedIds([]);
+
+      setIsBulkEditMode(false);
+
+      loadData();
+
+    } catch (error) {
+
+      setMessage({ text: error.message, type: 'error' });
+
+    }
+
+  };
+
 
 
 
@@ -3448,6 +3597,18 @@ export default function StudentsPanel() {
 
                 </button>
 
+                <button type="button" className="btn-secondary btn-sm" onClick={handleBulkPause}>
+
+                  Bulk Pause ({selectedIds.length})
+
+                </button>
+
+                <button type="button" className="btn-secondary btn-sm" onClick={handleBulkResume}>
+
+                  Bulk Resume ({selectedIds.length})
+
+                </button>
+
               </motion.div>
 
             )}
@@ -3789,6 +3950,68 @@ export default function StudentsPanel() {
                                 </button>
 
                               )}
+
+
+
+                              {/* Pause/Resume Plan - Pause/Play Icon */}
+
+                              {student.enrollments?.some(e => e.is_paused) ? (
+
+                                <button
+
+                                  type="button"
+
+                                  className="p-2 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+
+                                  onClick={() => handleResumeStudent(student.student_id)}
+
+                                  title="Resume Student Plan"
+
+                                >
+
+                                  <Play className="w-4 h-4" />
+
+                                </button>
+
+                              ) : (
+
+                                <button
+
+                                  type="button"
+
+                                  className="p-2 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+
+                                  onClick={() => handlePauseStudent(student)}
+
+                                  title="Pause Student Plan"
+
+                                >
+
+                                  <Pause className="w-4 h-4" />
+
+                                </button>
+
+                              )}
+
+
+
+                              {/* Exit Student - X Icon */}
+
+                              <button
+
+                                type="button"
+
+                                className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+
+                                onClick={() => handleExitStudent(student)}
+
+                                title="Exit Student"
+
+                              >
+
+                                <X className="w-4 h-4" />
+
+                              </button>
 
 
 

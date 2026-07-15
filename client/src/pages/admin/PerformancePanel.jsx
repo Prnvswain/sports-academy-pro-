@@ -514,6 +514,139 @@ export default function PerformancePanel() {
     return colors[index % 5];
   };
 
+  const handleExportPDF = () => {
+    if (!selectedStudentForDashboard || !studentDashboardData) {
+      setMessage({ text: 'No data available to export', type: 'error' });
+      return;
+    }
+
+    // Create a simple text-based PDF using window.print
+    const printContent = `
+      <html>
+        <head>
+          <title>${selectedStudentForDashboard.name}_Performance_Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .student-info { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+            .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+            .info-item { }
+            .info-label { font-size: 12px; color: #666; font-weight: bold; }
+            .info-value { font-size: 14px; font-weight: bold; }
+            .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+            .section-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+            .rating-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+            .rating-card { padding: 10px; background: #f9f9f9; border-radius: 6px; text-align: center; }
+            .rating-value { font-size: 24px; font-weight: bold; color: #10b981; }
+            .rating-label { font-size: 12px; color: #666; }
+            .assessment-item { padding: 10px; margin: 5px 0; background: #f9f9f9; border-radius: 6px; }
+            .parameter-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .parameter-item { display: flex; justify-content: space-between; padding: 8px; background: #f5f5f5; border-radius: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Student Performance Report</h1>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div class="student-info">
+            <div>
+              <h2>${selectedStudentForDashboard.name || 'Unknown'}</h2>
+              <div class="info-grid">
+                <div class="info-item">
+                  <div class="info-label">Sport</div>
+                  <div class="info-value">${selectedStudentForDashboard?.batch?.sport?.name || selectedStudentForDashboard?.sport?.name || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Batch</div>
+                  <div class="info-value">${selectedStudentForDashboard?.batch?.name || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Coach</div>
+                  <div class="info-value">${selectedStudentForDashboard?.coach?.name || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Last Assessment</div>
+                  <div class="info-value">${studentDashboardData?.history?.[0]?.scored_at ? new Date(studentDashboardData.history[0].scored_at).toLocaleDateString() : 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Overall Ratings</div>
+            <div class="rating-grid">
+              <div class="rating-card">
+                <div class="rating-value">${studentDashboardData?.analytics?.overallAverage?.toFixed(1) || '0.0'}</div>
+                <div class="rating-label">Overall</div>
+              </div>
+              <div class="rating-card">
+                <div class="rating-value">${studentDashboardData?.analytics?.technicalAverage?.toFixed(1) || '0.0'}</div>
+                <div class="rating-label">Technical</div>
+              </div>
+              <div class="rating-card">
+                <div class="rating-value">${studentDashboardData?.analytics?.physicalAverage?.toFixed(1) || '0.0'}</div>
+                <div class="rating-label">Physical</div>
+              </div>
+              <div class="rating-card">
+                <div class="rating-value">${studentDashboardData?.analytics?.behaviourAverage?.toFixed(1) || '0.0'}</div>
+                <div class="rating-label">Behaviour</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Current Parameters Assessment</div>
+            <div class="parameter-grid">
+              ${attributes.map((attr, idx) => `
+                <div class="parameter-item">
+                  <span>${attr?.name || 'Unknown'}</span>
+                  <span>${attr?.name && selectedStudentForDashboard?.ratings ? (selectedStudentForDashboard.ratings[attr.name] || 'N/A') : 'N/A'}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Assessment History</div>
+            ${studentDashboardData?.history?.map((assessment, idx) => {
+              const avg = calculateAverageRating(assessment.scores);
+              const grade = calculateGrade(parseFloat(avg));
+              return `
+                <div class="assessment-item">
+                  <strong>${new Date(assessment.scored_at).toLocaleDateString()}</strong> - 
+                  Grade: ${grade} - 
+                  Average: ${avg} - 
+                  Coach: ${assessment.coach?.name || 'Unknown'}
+                </div>
+              `;
+            }).join('') || '<p>No assessments available</p>'}
+          </div>
+
+          <div class="section">
+            <div class="section-title">Personal Best Records</div>
+            <div class="parameter-grid">
+              ${Object.entries(getPersonalBests()).map(([attr, best]) => `
+                <div class="parameter-item">
+                  <span>${attr}</span>
+                  <span>${best.score} (${new Date(best.date).toLocaleDateString()})</span>
+                </div>
+              `).join('') || '<p>No personal best records available</p>'}
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+
+    setMessage({ text: 'PDF report generated successfully', type: 'success' });
+  };
+
   const prepareGraphData = useMemo(() => {
     const filteredHistory = getFilteredHistory();
     if (!filteredHistory) return [];
@@ -1878,10 +2011,10 @@ export default function PerformancePanel() {
         modalId="student-dashboard"
         contentClassName="bg-white dark:bg-slate-900 border border-border rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col overflow-hidden"
       >
-        <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between shrink-0">
+        <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-foreground">Student Performance Dashboard</h2>
-            <p className="text-sm text-muted-foreground mt-1">{selectedStudentForDashboard?.name || 'Student'}</p>
+            <h2 className="text-lg sm:text-xl font-black text-foreground">Student Performance Dashboard</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{selectedStudentForDashboard?.name || 'Student'}</p>
           </div>
           <button
             onClick={handleCloseStudentDashboard}
@@ -1891,83 +2024,202 @@ export default function PerformancePanel() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           {loadingStudentDashboard ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader />
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Student Header */}
-              <div className="bg-gradient-to-r from-emerald-500/10 to-accent/10 border border-border rounded-2xl p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/20 flex items-center justify-center text-2xl sm:text-3xl font-black text-emerald-600 border-2 border-emerald-500/30 shrink-0">
-                    {selectedStudentForDashboard?.name?.charAt(0) || '?'}
-                  </div>
-                  <div className="flex-1 w-full">
-                    <h3 className="text-xl sm:text-2xl font-black text-foreground">{selectedStudentForDashboard?.name || 'Unknown'}</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mt-4">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Sport</div>
-                        <div className="text-sm font-bold text-foreground">{selectedStudentForDashboard?.sport?.name || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Batch</div>
-                        <div className="text-sm font-bold text-foreground">{selectedStudentForDashboard?.batch?.name || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Coach</div>
-                        <div className="text-sm font-bold text-foreground">{selectedStudentForDashboard?.coach?.name || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Last Assessment</div>
-                        <div className="text-sm font-bold text-foreground">
-                          {studentDashboardData?.history?.[0]?.scored_at 
-                            ? new Date(studentDashboardData.history[0].scored_at).toLocaleDateString() 
-                            : 'N/A'}
-                        </div>
-                      </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-5"
+            >
+              {/* Skeleton Header */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-4 sm:p-6 shadow-xl"
+              >
+                <div className="flex items-center gap-4 sm:gap-6">
+                  <motion.div
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-500 p-1 shadow-xl"
+                  >
+                    <div className="w-full h-full rounded-full bg-surface-secondary animate-pulse"></div>
+                  </motion.div>
+                  <div className="flex-1 space-y-3">
+                    <div className="h-6 w-48 bg-surface-secondary rounded-lg animate-pulse"></div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="h-12 bg-white/50 dark:bg-slate-800/50 rounded-xl animate-pulse"></div>
+                      ))}
                     </div>
                   </div>
-                  <div className="text-center shrink-0">
-                    <div className="text-3xl sm:text-4xl font-black text-emerald-600">
-                      {studentDashboardData?.analytics?.overallAverage?.toFixed(1) || '0.0'}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">Overall Rating</div>
-                  </div>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 animate-pulse"></div>
                 </div>
+              </motion.div>
+
+              {/* Skeleton Stats */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
+                  >
+                    <div className="h-8 w-20 bg-surface-secondary rounded-lg animate-pulse mb-3"></div>
+                    <div className="h-12 w-16 bg-surface-secondary rounded-xl animate-pulse"></div>
+                  </motion.div>
+                ))}
               </div>
 
+              {/* Skeleton Parameters */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
+              >
+                <div className="h-6 w-48 bg-surface-secondary rounded-lg animate-pulse mb-4"></div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className="h-20 bg-white/50 dark:bg-slate-800/50 rounded-2xl animate-pulse"></div>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <div className="space-y-4">
+              {/* Student Header */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-emerald-500/10 dark:shadow-slate-900/50"
+              >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/20 via-cyan-500/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-500/10 via-pink-500/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                  <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                    className="relative shrink-0"
+                  >
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-500 p-1 shadow-xl shadow-emerald-500/30">
+                      <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 to-cyan-600 dark:from-emerald-400 dark:to-cyan-400">
+                        {selectedStudentForDashboard?.name?.charAt(0) || '?'}
+                      </div>
+                    </div>
+                    <motion.div
+                      animate={{ rotate: [0, 5, -5, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+                      className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xs shadow-lg"
+                    >
+                      ⭐
+                    </motion.div>
+                  </motion.div>
+
+                  <div className="flex-1 w-full">
+                    <motion.h3
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl sm:text-3xl font-black text-foreground tracking-tight"
+                    >
+                      {selectedStudentForDashboard?.name || 'Unknown'}
+                    </motion.h3>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4"
+                    >
+                      {[
+                        { label: 'Sport', value: selectedStudentForDashboard?.sport?.name || 'N/A', icon: '🏆' },
+                        { label: 'Batch', value: selectedStudentForDashboard?.batch?.name || 'N/A', icon: '👥' },
+                        { label: 'Coach', value: selectedStudentForDashboard?.coach?.name || 'N/A', icon: '👨‍🏫' },
+                        { label: 'Last Assessment', value: studentDashboardData?.history?.[0]?.scored_at ? new Date(studentDashboardData.history[0]?.scored_at).toLocaleDateString() : 'N/A', icon: '📅' }
+                      ].map((item, idx) => (
+                        <motion.div
+                          key={item.label}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 + idx * 0.05 }}
+                          className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-white/20 dark:border-slate-700/30"
+                        >
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold mb-1">
+                            <span>{item.icon}</span>
+                            {item.label}
+                          </div>
+                          <div className="text-sm font-bold text-foreground">{item.value}</div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.4, type: "spring", stiffness: 200, damping: 15 }}
+                    className="relative shrink-0"
+                  >
+                    <div className="bg-gradient-to-br from-emerald-500 via-cyan-500 to-blue-500 rounded-2xl p-4 sm:p-6 shadow-xl shadow-emerald-500/30 text-center">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl"></div>
+                      <div className="relative z-10">
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 15 }}
+                          className="text-4xl sm:text-5xl font-black text-white"
+                        >
+                          {studentDashboardData?.analytics?.overallAverage?.toFixed(1) || '0.0'}
+                        </motion.div>
+                        <div className="text-xs font-bold text-white/90 mt-1">Overall Rating</div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </motion.div>
+
               {/* Dashboard Tabs */}
-              <div className="flex gap-2 border-b border-border pb-4 overflow-x-auto">
+              <div className="flex gap-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-2 border border-white/20 dark:border-slate-700/30">
                 {['overview', 'trends', 'history', 'comparison'].map((tab) => (
                   <motion.button
                     key={tab}
                     type="button"
                     onClick={() => setDashboardTab(tab)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap relative overflow-hidden ${
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`relative flex-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap overflow-hidden ${
                       dashboardTab === tab
-                        ? 'bg-gradient-to-r from-accent to-cyan-500 text-white shadow-lg'
-                        : 'bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-secondary'
+                        ? 'text-white'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {dashboardTab === tab && (
                       <motion.div
                         layoutId="activeTabDashboard"
-                        className="absolute inset-0 bg-gradient-to-r from-accent to-cyan-500"
+                        className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500"
                         initial={false}
                         transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       />
                     )}
-                    <span className="relative z-10 capitalize flex items-center gap-2">
-                      {tab === 'overview' && '📊'}
-                      {tab === 'trends' && '📈'}
-                      {tab === 'history' && '📅'}
-                      {tab === 'comparison' && '⚖️'}
-                      {tab}
-                    </span>
+                    <motion.div
+                      className="relative z-10 flex items-center justify-center gap-2"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <motion.span
+                        animate={dashboardTab === tab ? { rotate: [0, -10, 10, 0] } : {}}
+                        transition={{ duration: 0.5 }}
+                      >
+                        {tab === 'overview' && '📊'}
+                        {tab === 'trends' && '📈'}
+                        {tab === 'history' && '📅'}
+                        {tab === 'comparison' && '⚖️'}
+                      </motion.span>
+                      <span className="capitalize">{tab}</span>
+                    </motion.div>
                   </motion.button>
                 ))}
               </div>
@@ -1977,136 +2229,120 @@ export default function PerformancePanel() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <motion.div
-                      whileHover={{ scale: 1.03, y: -4 }}
-                      className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 shadow-lg"
-                    >
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                      <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-2xl">⭐</span>
-                          <div className="text-xs font-bold text-white/90">Overall Rating</div>
+                    {[
+                      { icon: '⭐', label: 'Overall Rating', value: studentDashboardData?.analytics?.overallAverage?.toFixed(1) || '0.0', gradient: 'from-emerald-400 via-cyan-500 to-blue-500', shadow: 'shadow-emerald-500/30' },
+                      { icon: '🎯', label: 'Technical Rating', value: studentDashboardData?.analytics?.technicalAverage?.toFixed(1) || '0.0', gradient: 'from-blue-400 via-indigo-500 to-purple-500', shadow: 'shadow-blue-500/30' },
+                      { icon: '💪', label: 'Physical Rating', value: studentDashboardData?.analytics?.physicalAverage?.toFixed(1) || '0.0', gradient: 'from-purple-400 via-pink-500 to-rose-500', shadow: 'shadow-purple-500/30' },
+                      { icon: '🤝', label: 'Behaviour Rating', value: studentDashboardData?.analytics?.behaviourAverage?.toFixed(1) || '0.0', gradient: 'from-orange-400 via-amber-500 to-yellow-500', shadow: 'shadow-orange-500/30' }
+                    ].map((stat, idx) => (
+                      <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        whileHover={{ scale: 1.05, y: -8 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
+                      >
+                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.gradient} opacity-20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2`}></div>
+                        <div className="relative z-10">
+                          <motion.div
+                            initial={{ rotate: -10 }}
+                            animate={{ rotate: 0 }}
+                            transition={{ delay: idx * 0.1 + 0.2, type: "spring" }}
+                            className="text-3xl mb-3"
+                          >
+                            {stat.icon}
+                          </motion.div>
+                          <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">{stat.label}</div>
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: idx * 0.1 + 0.3, type: "spring", stiffness: 200 }}
+                            className={`text-4xl font-black bg-gradient-to-br ${stat.gradient} bg-clip-text text-transparent`}
+                          >
+                            {stat.value}
+                          </motion.div>
                         </div>
-                        <motion.div 
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ duration: 0.5, type: "spring" }}
-                          className="text-3xl font-black text-white"
-                        >
-                          {studentDashboardData?.analytics?.overallAverage?.toFixed(1) || '0.0'}
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.03, y: -4 }}
-                      className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 shadow-lg"
-                    >
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                      <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-2xl">🎯</span>
-                          <div className="text-xs font-bold text-white/90">Technical Rating</div>
-                        </div>
-                        <motion.div 
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
-                          className="text-3xl font-black text-white"
-                        >
-                          {studentDashboardData?.analytics?.technicalAverage?.toFixed(1) || '0.0'}
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.03, y: -4 }}
-                      className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-5 shadow-lg"
-                    >
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                      <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-2xl">💪</span>
-                          <div className="text-xs font-bold text-white/90">Physical Rating</div>
-                        </div>
-                        <motion.div 
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
-                          className="text-3xl font-black text-white"
-                        >
-                          {studentDashboardData?.analytics?.physicalAverage?.toFixed(1) || '0.0'}
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.03, y: -4 }}
-                      className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-5 shadow-lg"
-                    >
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                      <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-2xl">🤝</span>
-                          <div className="text-xs font-bold text-white/90">Behaviour Rating</div>
-                        </div>
-                        <motion.div 
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ duration: 0.5, type: "spring", delay: 0.3 }}
-                          className="text-3xl font-black text-white"
-                        >
-                          {studentDashboardData?.analytics?.behaviourAverage?.toFixed(1) || '0.0'}
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                  </div>
-
-                  <div className="bg-surface-secondary border border-border rounded-xl p-4">
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Current Parameters Assessment</h5>
-                    <div className="grid grid-cols-2 gap-3">
-                      {attributes.map((attr, idx) => (
-                        <div key={attr?.id || attr?.name || idx} className="flex justify-between items-center p-2 bg-surface rounded-lg border border-border/50">
-                          <span className="text-xs font-medium text-muted-foreground">{attr?.name || 'Unknown'}</span>
-                          <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded">
-                            {attr?.name && selectedStudentForDashboard?.ratings ? (selectedStudentForDashboard.ratings[attr.name] || 'N/A') : 'N/A'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                      </motion.div>
+                    ))}
                   </div>
 
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-2xl p-5"
+                    transition={{ delay: 0.4 }}
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <h4 className="text-sm font-black text-emerald-600 mb-4 flex items-center gap-2">
-                      <span className="text-lg">🏆</span> Personal Best Records
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <h5 className="relative z-10 text-sm font-black uppercase tracking-wider text-foreground mb-4 flex items-center gap-2">
+                      <span className="text-xl">📊</span> Current Parameters Assessment
+                    </h5>
+                    <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {attributes.map((attr, idx) => (
+                        <motion.div
+                          key={attr?.id || attr?.name || idx}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.5 + idx * 0.05 }}
+                          whileHover={{ scale: 1.05 }}
+                          className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-3 border border-white/20 dark:border-slate-700/30 shadow-sm"
+                        >
+                          <div className="text-xs font-medium text-muted-foreground mb-2">{attr?.name || 'Unknown'}</div>
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.6 + idx * 0.05, type: "spring", stiffness: 200 }}
+                            className="text-2xl font-black bg-gradient-to-br from-cyan-500 to-blue-600 bg-clip-text text-transparent"
+                          >
+                            {attr?.name && selectedStudentForDashboard?.ratings ? (selectedStudentForDashboard.ratings[attr.name] || 'N/A') : 'N/A'}
+                          </motion.div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
+                  >
+                    <div className="absolute top-0 left-0 w-48 h-48 bg-gradient-to-br from-yellow-500/20 via-orange-500/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+                    <h4 className="relative z-10 text-sm font-black uppercase tracking-wider text-foreground mb-4 flex items-center gap-2">
+                      <motion.span
+                        animate={{ rotate: [0, -10, 10, 0] }}
+                        transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                        className="text-xl"
+                      >
+                        🏆
+                      </motion.span>
+                      Personal Best Records
                     </h4>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="relative z-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {Object.entries(getPersonalBests()).map(([attr, best], idx) => (
                         <motion.div
                           key={attr}
-                          initial={{ opacity: 0, scale: 0.95 }}
+                          initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.4 + idx * 0.05 }}
-                          whileHover={{ scale: 1.02 }}
-                          className="bg-white/50 dark:bg-surface/50 rounded-xl p-4 hover:bg-white/80 dark:hover:bg-surface/80 transition-all"
+                          transition={{ delay: 0.6 + idx * 0.05 }}
+                          whileHover={{ scale: 1.05, y: -4 }}
+                          className="bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-amber-500/10 rounded-2xl p-4 border border-yellow-500/20 hover:border-yellow-500/40 transition-all"
                         >
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-bold text-foreground">{attr}</span>
-                            <motion.span 
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ delay: 0.5 + idx * 0.05, type: "spring" }}
-                              className="text-2xl font-black text-emerald-600"
+                            <span className="text-xs font-bold text-foreground">{attr}</span>
+                            <motion.div
+                              initial={{ scale: 0, rotate: -180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              transition={{ delay: 0.7 + idx * 0.05, type: "spring", stiffness: 200 }}
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-sm font-black text-white shadow-lg"
                             >
                               {best.score}
-                            </motion.span>
+                            </motion.div>
                           </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <span>📅</span>
                             {new Date(best.date).toLocaleDateString()}
                           </div>
@@ -2122,23 +2358,25 @@ export default function PerformancePanel() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-2xl p-5"
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <div className="flex flex-wrap gap-4 items-center">
-                      <div>
-                        <label className="text-xs font-bold text-blue-600 block mb-2 flex items-center gap-1">
-                          <span>📅</span> Date Range
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="relative z-10 flex flex-wrap gap-4 items-center">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-2 flex items-center gap-2">
+                          <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>📅</motion.span>
+                          Date Range
                         </label>
                         <motion.select
                           whileFocus={{ scale: 1.02 }}
                           value={dateRangeFilter}
                           onChange={(e) => setDateRangeFilter(e.target.value)}
-                          className="text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                          className="w-full text-sm p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-blue-500/30 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
                         >
                           <option value="all">All Time</option>
                           <option value="30">Last 30 Days</option>
@@ -2153,12 +2391,14 @@ export default function PerformancePanel() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-2xl p-5"
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <h4 className="text-sm font-black text-purple-600 mb-4 flex items-center gap-2">
-                      <span className="text-lg">📊</span> Select Attributes to Display
+                    <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+                    <h4 className="relative z-10 text-sm font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-4 flex items-center gap-2">
+                      <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-lg">📊</motion.span>
+                      Select Attributes to Display
                     </h4>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="relative z-10 flex flex-wrap gap-2">
                       {selectedAttributes.filter(attr => attr !== 'Overall').map((attr, idx) => (
                         <motion.label
                           key={attr}
@@ -2166,15 +2406,26 @@ export default function PerformancePanel() {
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: 0.2 + idx * 0.05 }}
                           whileHover={{ scale: 1.05 }}
-                          className="flex items-center gap-2 text-sm cursor-pointer bg-white/50 dark:bg-surface/50 px-3 py-1.5 rounded-full border border-purple-500/30 hover:border-purple-500 transition-all"
+                          whileTap={{ scale: 0.95 }}
+                          className={`flex items-center gap-2 text-sm cursor-pointer px-4 py-2 rounded-full border transition-all ${
+                            visibleAttributes.includes(attr)
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-500 shadow-lg shadow-purple-500/30'
+                              : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-purple-500/30 hover:border-purple-500 text-foreground'
+                          }`}
                         >
                           <input
                             type="checkbox"
                             checked={visibleAttributes.includes(attr)}
                             onChange={() => handleAttributeToggle(attr)}
-                            className="rounded accent-purple-500"
+                            className="sr-only"
                           />
-                          <span className="font-medium text-foreground">{attr}</span>
+                          <motion.span
+                            animate={visibleAttributes.includes(attr) ? { scale: [1, 1.2, 1] } : {}}
+                            transition={{ duration: 0.3 }}
+                          >
+                            {visibleAttributes.includes(attr) ? '✓' : ''}
+                          </motion.span>
+                          <span className="font-medium">{attr}</span>
                         </motion.label>
                       ))}
                     </div>
@@ -2184,29 +2435,34 @@ export default function PerformancePanel() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.2 }}
-                    className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-2xl p-5"
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-black text-cyan-600 flex items-center gap-2">
-                        <span className="text-lg">📈</span> Performance Trend
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="relative z-10 flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-black uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-2">
+                        <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-lg">📈</motion.span>
+                        Performance Trend
                       </h4>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Graph Style:</span>
-                        <button
+                      <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl p-1 border border-cyan-500/20">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => setGraphType('smooth')}
-                          className={`text-xs px-2 py-1 rounded-full transition-all ${graphType === 'smooth' ? 'bg-cyan-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-secondary'}`}
+                          className={`text-xs px-3 py-1.5 rounded-lg transition-all font-bold ${graphType === 'smooth' ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                           Smooth
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => setGraphType('straight')}
-                          className={`text-xs px-2 py-1 rounded-full transition-all ${graphType === 'straight' ? 'bg-cyan-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-secondary'}`}
+                          className={`text-xs px-3 py-1.5 rounded-lg transition-all font-bold ${graphType === 'straight' ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                           Straight
-                        </button>
+                        </motion.button>
                       </div>
                     </div>
-                    <div className="h-64 sm:h-80 w-full">
+                    <div className="relative z-10 h-56 sm:h-72 w-full bg-white/30 dark:bg-slate-800/30 backdrop-blur-sm rounded-2xl p-4 border border-cyan-500/10">
                       <ResponsiveContainer width="100%" height="100%" minWidth={300}>
                         <LineChart data={prepareGraphData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/50" opacity={0.3} />
@@ -2339,45 +2595,47 @@ export default function PerformancePanel() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-2xl p-5"
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <h4 className="text-sm font-black text-emerald-600 mb-4 flex items-center gap-2">
-                      <span className="text-lg">📅</span> Assessment Timeline
+                    <div className="absolute top-0 left-0 w-48 h-48 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+                    <h4 className="relative z-10 text-sm font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-4 flex items-center gap-2">
+                      <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-lg">📅</motion.span>
+                      Assessment Timeline
                     </h4>
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                    <div className="relative z-10 space-y-3 max-h-64 overflow-y-auto pr-2">
                       {getFilteredHistory().map((assessment, idx) => {
                         const avg = calculateAverageRating(assessment.scores);
                         const grade = calculateGrade(parseFloat(avg));
                         return (
                           <motion.button
                             key={assessment.assessment_id}
-                            initial={{ opacity: 0, x: -10 }}
+                            initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: idx * 0.05 }}
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
+                            whileHover={{ scale: 1.02, x: 4 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => handleAssessmentSelect(assessment)}
-                            className={`w-full text-left p-4 rounded-xl border transition-all ${
+                            className={`w-full text-left p-4 rounded-2xl border transition-all ${
                               selectedAssessment?.assessment_id === assessment.assessment_id
-                                ? 'border-emerald-500 bg-emerald-500/20 shadow-lg'
-                                : 'border-border hover:border-emerald-400 bg-white/50 dark:bg-surface/50'
+                                ? 'bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border-emerald-500 shadow-lg shadow-emerald-500/20'
+                                : 'bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-white/20 dark:border-slate-700/30 hover:border-emerald-400 hover:bg-white/70 dark:hover:bg-slate-800/70'
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
-                                <motion.div 
-                                  whileHover={{ scale: 1.1, rotate: 5 }}
-                                  className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-black text-white shadow-md"
+                                <motion.div
+                                  whileHover={{ scale: 1.1, rotate: 10 }}
+                                  className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-500 flex items-center justify-center text-sm font-black text-white shadow-lg"
                                 >
                                   {grade}
                                 </motion.div>
                                 <div>
-                                  <div className="font-bold text-foreground">
+                                  <div className="text-sm font-bold text-foreground">
                                     {new Date(assessment.scored_at).toLocaleDateString()}
                                   </div>
                                   <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -2387,7 +2645,14 @@ export default function PerformancePanel() {
                                 </div>
                               </div>
                               <div className="text-right">
-                                <div className="text-lg font-black text-foreground">{avg}</div>
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: idx * 0.05 + 0.1, type: "spring", stiffness: 200 }}
+                                  className="text-2xl font-black bg-gradient-to-br from-emerald-500 to-cyan-500 bg-clip-text text-transparent"
+                                >
+                                  {avg}
+                                </motion.div>
                                 <div className="text-xs text-muted-foreground">
                                   {assessment.scores?.length || 0} metrics
                                 </div>
@@ -2403,13 +2668,17 @@ export default function PerformancePanel() {
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-2xl p-5"
+                      className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                     >
-                      <h4 className="text-sm font-black text-blue-600 mb-4 flex items-center gap-2">
-                        <span className="text-lg">📊</span> Assessment Details
+                      <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                      <h4 className="relative z-10 text-sm font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-4 flex items-center gap-2">
+                        <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-lg">📊</motion.span>
+                        Assessment Details
                       </h4>
-                      
+
                       {(() => {
+                        if (!studentDashboardData?.history) return null;
+
                         const currentIndex = studentDashboardData.history.findIndex(
                           a => a.assessment_id === selectedAssessment.assessment_id
                         );
@@ -2420,9 +2689,10 @@ export default function PerformancePanel() {
                         const improvementData = getImprovementIndicators(selectedAssessment, previousAssessment);
 
                         return (
-                          <div className="mb-6 p-4 bg-white/50 dark:bg-surface/50 rounded-xl">
-                            <h5 className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
-                              <span>📈</span> Improvement Indicators (vs Previous Assessment)
+                          <div className="relative z-10 mb-6 p-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-slate-700/30">
+                            <h5 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3 flex items-center gap-2">
+                              <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>📈</motion.span>
+                              Improvement Indicators (vs Previous Assessment)
                             </h5>
                             {improvementData?.noPrevious ? (
                               <p className="text-sm text-muted-foreground italic">
@@ -2430,48 +2700,72 @@ export default function PerformancePanel() {
                               </p>
                             ) : (
                               <>
-                                <div className="mb-4 p-3 bg-surface rounded-xl">
+                                <div className="mb-4 p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-2xl border border-blue-500/20">
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-muted-foreground">Overall Trend</span>
-                                    <span className={`text-sm font-bold ${
-                                      improvementData.overallTrend === 'Improving' ? 'text-emerald-600' :
-                                      improvementData.overallTrend === 'Declining' ? 'text-red-600' :
-                                      'text-muted-foreground'
-                                    }`}>
+                                    <motion.span
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      className={`text-sm font-bold px-3 py-1 rounded-full ${
+                                        improvementData.overallTrend === 'Improving' ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30' :
+                                        improvementData.overallTrend === 'Declining' ? 'bg-red-500/20 text-red-600 border border-red-500/30' :
+                                        'bg-surface-secondary text-muted-foreground border border-border'
+                                      }`}
+                                    >
                                       {improvementData.overallTrend}
-                                    </span>
+                                    </motion.span>
                                   </div>
-                                  <div className="flex items-center justify-between mt-2">
+                                  <div className="flex items-center justify-between mt-3">
                                     <span className="text-xs font-bold text-muted-foreground">Average Improvement</span>
-                                    <span className={`text-sm font-bold ${
-                                      improvementData.avgImprovement > 0 ? 'text-emerald-600' :
-                                      improvementData.avgImprovement < 0 ? 'text-red-600' :
-                                      'text-muted-foreground'
-                                    }`}>
+                                    <motion.span
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      transition={{ delay: 0.1 }}
+                                      className={`text-sm font-bold px-3 py-1 rounded-full ${
+                                        improvementData.avgImprovement > 0 ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30' :
+                                        improvementData.avgImprovement < 0 ? 'bg-red-500/20 text-red-600 border border-red-500/30' :
+                                        'bg-surface-secondary text-muted-foreground border border-border'
+                                      }`}
+                                    >
                                       {improvementData.avgImprovement > 0 ? '+' : ''}{improvementData.avgImprovement.toFixed(2)}
-                                    </span>
+                                    </motion.span>
                                   </div>
                                 </div>
                                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                   {Object.entries(improvementData.indicators || {}).map(([attr, data], idx) => (
                                     <motion.div
                                       key={attr}
-                                      initial={{ opacity: 0, scale: 0.95 }}
+                                      initial={{ opacity: 0, scale: 0.9 }}
                                       animate={{ opacity: 1, scale: 1 }}
                                       transition={{ delay: idx * 0.05 }}
-                                      className="flex items-center justify-between p-3 bg-surface rounded-xl"
+                                      whileHover={{ scale: 1.05 }}
+                                      className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl border border-white/20 dark:border-slate-700/30"
                                     >
                                       <span className="text-sm font-bold text-foreground">{attr}</span>
                                       <div className="flex items-center gap-2">
                                         <span className="text-sm font-bold text-foreground">{data.current}</span>
                                         {data.trend === 'up' && (
-                                          <span className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-2 py-1 rounded-full">▲ +{data.diff.toFixed(1)}</span>
+                                          <motion.span
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ delay: idx * 0.05 + 0.1 }}
+                                            className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-2 py-1 rounded-full border border-emerald-500/30"
+                                          >
+                                            ▲ +{data.diff.toFixed(1)}
+                                          </motion.span>
                                         )}
                                         {data.trend === 'down' && (
-                                          <span className="text-xs font-bold text-red-600 bg-red-500/20 px-2 py-1 rounded-full">▼ {data.diff.toFixed(1)}</span>
+                                          <motion.span
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ delay: idx * 0.05 + 0.1 }}
+                                            className="text-xs font-bold text-red-600 bg-red-500/20 px-2 py-1 rounded-full border border-red-500/30"
+                                          >
+                                            ▼ {data.diff.toFixed(1)}
+                                          </motion.span>
                                         )}
                                         {data.trend === 'same' && (
-                                          <span className="text-xs font-bold text-muted-foreground bg-surface-secondary px-2 py-1 rounded-full">━ 0</span>
+                                          <span className="text-xs font-bold text-muted-foreground bg-surface-secondary px-2 py-1 rounded-full border border-border">━ 0</span>
                                         )}
                                       </div>
                                     </motion.div>
@@ -2482,23 +2776,29 @@ export default function PerformancePanel() {
                           </div>
                         );
                       })()}
-                      
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+                      <div className="relative z-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {selectedAssessment.scores?.map((score, idx) => (
                           <motion.div
                             key={score.attribute?.attribute_id || idx}
-                            initial={{ opacity: 0, scale: 0.95 }}
+                            initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: idx * 0.05 }}
-                            className="bg-white/50 dark:bg-surface/50 rounded-xl p-4"
+                            whileHover={{ scale: 1.05, y: -4 }}
+                            className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 border border-white/20 dark:border-slate-700/30 shadow-sm"
                           >
                             <div className="flex justify-between items-center mb-3">
                               <span className="text-sm font-bold text-foreground">
                                 {score.attribute?.name || 'Unknown Parameter'}
                               </span>
-                              <span className="text-lg font-black text-emerald-600 bg-emerald-500/20 px-3 py-1 rounded-full">
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: idx * 0.05 + 0.1, type: "spring", stiffness: 200 }}
+                                className="text-lg font-black bg-gradient-to-br from-emerald-500 to-cyan-500 bg-clip-text text-transparent bg-emerald-500/20 px-3 py-1 rounded-full"
+                              >
                                 {score.score}/10
-                              </span>
+                              </motion.div>
                             </div>
                             <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
                               <motion.div
@@ -2515,10 +2815,11 @@ export default function PerformancePanel() {
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="mt-4 p-4 bg-white/50 dark:bg-surface/50 rounded-xl"
+                          className="relative z-10 mt-4 p-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-slate-700/30"
                         >
-                          <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                            <span>💬</span> Coach Notes
+                          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                            <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>💬</motion.span>
+                            Coach Notes
                           </div>
                           <p className="text-sm text-foreground">{selectedAssessment.notes}</p>
                         </motion.div>
@@ -2529,19 +2830,22 @@ export default function PerformancePanel() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-2xl p-5"
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <h4 className="text-sm font-black text-purple-600 mb-4 flex items-center gap-2">
-                      <span className="text-lg">💬</span> Coach Remarks History
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <h4 className="relative z-10 text-sm font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-4 flex items-center gap-2">
+                      <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-lg">💬</motion.span>
+                      Coach Remarks History
                     </h4>
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                    <div className="relative z-10 space-y-3 max-h-64 overflow-y-auto pr-2">
                       {studentDashboardData?.history?.filter(a => a.notes).map((assessment, idx) => (
                         <motion.div
                           key={assessment.assessment_id}
-                          initial={{ opacity: 0, x: -10 }}
+                          initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.05 }}
-                          className="bg-white/50 dark:bg-surface/50 rounded-xl p-4"
+                          whileHover={{ scale: 1.02 }}
+                          className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 border border-white/20 dark:border-slate-700/30"
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="text-xs font-bold text-foreground">
@@ -2574,20 +2878,23 @@ export default function PerformancePanel() {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/30 rounded-2xl p-5"
+                    className="relative overflow-hidden bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-3xl p-5 shadow-xl"
                   >
-                    <h4 className="text-sm font-black text-orange-600 mb-4 flex items-center gap-2">
-                      <span className="text-lg">⚖️</span> Assessment Comparison
+                    <div className="absolute top-0 left-0 w-48 h-48 bg-gradient-to-br from-orange-500/20 via-amber-500/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+                    <h4 className="relative z-10 text-sm font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-4 flex items-center gap-2">
+                      <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }} className="text-lg">⚖️</motion.span>
+                      Assessment Comparison
                     </h4>
-                    <div className="grid gap-4 sm:grid-cols-2 mb-6">
+                    <div className="relative z-10 grid gap-4 sm:grid-cols-2 mb-4">
                       <div>
-                        <label className="text-xs font-bold text-orange-600 block mb-2 flex items-center gap-1">
-                          <span>📅</span> Select First Assessment
+                        <label className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 block mb-2 flex items-center gap-2">
+                          <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>📅</motion.span>
+                          Select First Assessment
                         </label>
                         <motion.select
                           whileFocus={{ scale: 1.02 }}
@@ -2598,7 +2905,7 @@ export default function PerformancePanel() {
                             );
                             handleCompareSelect('assessment1', assessment);
                           }}
-                          className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                          className="w-full text-sm p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-orange-500/30 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all shadow-sm"
                         >
                           <option value="">-- Select --</option>
                           {studentDashboardData?.history?.map(assessment => (
@@ -2609,8 +2916,9 @@ export default function PerformancePanel() {
                         </motion.select>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-orange-600 block mb-2 flex items-center gap-1">
-                          <span>📅</span> Select Second Assessment
+                        <label className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 block mb-2 flex items-center gap-2">
+                          <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>📅</motion.span>
+                          Select Second Assessment
                         </label>
                         <motion.select
                           whileFocus={{ scale: 1.02 }}
@@ -2621,7 +2929,7 @@ export default function PerformancePanel() {
                             );
                             handleCompareSelect('assessment2', assessment);
                           }}
-                          className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                          className="w-full text-sm p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-orange-500/30 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all shadow-sm"
                         >
                           <option value="">-- Select --</option>
                           {studentDashboardData?.history?.map(assessment => (
@@ -2637,28 +2945,29 @@ export default function PerformancePanel() {
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-3"
+                        className="relative z-10 space-y-3"
                       >
-                        <h5 className="text-xs font-bold text-foreground flex items-center gap-2">
-                          <span>📊</span> Comparison Results
+                        <h5 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                          <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>📊</motion.span>
+                          Comparison Results
                         </h5>
                         {(() => {
                           const scores1 = {};
                           const scores2 = {};
-                          
+
                           compareAssessments.assessment1.scores?.forEach(score => {
                             if(score?.attribute?.name) scores1[score.attribute.name] = score.score;
                           });
-                          
+
                           compareAssessments.assessment2.scores?.forEach(score => {
                             if(score?.attribute?.name) scores2[score.attribute.name] = score.score;
                           });
-                          
+
                           const allAttributes = new Set([
                             ...Object.keys(scores1),
                             ...Object.keys(scores2)
                           ]);
-                          
+
                           return Array.from(allAttributes).map((attr, idx) => {
                             const s1 = scores1[attr] || 0;
                             const s2 = scores2[attr] || 0;
@@ -2667,30 +2976,49 @@ export default function PerformancePanel() {
                             return (
                               <motion.div
                                 key={attr}
-                                initial={{ opacity: 0, x: -10 }}
+                                initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: idx * 0.05 }}
-                                whileHover={{ scale: 1.01 }}
-                                className="flex items-center justify-between p-4 bg-white/50 dark:bg-surface/50 rounded-xl"
+                                whileHover={{ scale: 1.02, y: -2 }}
+                                className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-white/20 dark:border-slate-700/30 shadow-sm"
                               >
                                 <span className="text-sm font-bold text-foreground">{attr}</span>
-                                <div className="flex items-center gap-4">
-                                  <span className="text-sm font-bold text-muted-foreground bg-surface-secondary px-3 py-1 rounded-lg">{s1}</span>
-                                  <motion.span 
-                                    animate={{ x: [0, 5, 0] }}
-                                    transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
-                                    className="text-orange-500 font-bold"
+                                <div className="flex items-center gap-3">
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: idx * 0.05 + 0.1 }}
+                                    className="w-10 h-10 rounded-xl bg-surface-secondary flex items-center justify-center text-sm font-black text-muted-foreground border border-border"
+                                  >
+                                    {s1}
+                                  </motion.div>
+                                  <motion.span
+                                    animate={{ x: [0, 8, 0] }}
+                                    transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 3 }}
+                                    className="text-orange-500 font-bold text-lg"
                                   >
                                     →
                                   </motion.span>
-                                  <span className="text-sm font-bold text-foreground bg-surface-secondary px-3 py-1 rounded-lg">{s2}</span>
-                                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${
-                                    diff > 0 ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30' :
-                                    diff < 0 ? 'bg-red-500/20 text-red-600 border border-red-500/30' :
-                                    'bg-surface-secondary text-muted-foreground border border-border'
-                                  }`}>
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: idx * 0.05 + 0.15 }}
+                                    className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm font-black text-white shadow-lg"
+                                  >
+                                    {s2}
+                                  </motion.div>
+                                  <motion.span
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: idx * 0.05 + 0.2, type: "spring", stiffness: 200 }}
+                                    className={`text-xs font-bold px-3 py-1.5 rounded-full border ${
+                                      diff > 0 ? 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30' :
+                                      diff < 0 ? 'bg-red-500/20 text-red-600 border-red-500/30' :
+                                      'bg-surface-secondary text-muted-foreground border-border'
+                                    }`}
+                                  >
                                     {diff > 0 ? `+${diff}` : diff}
-                                  </span>
+                                  </motion.span>
                                 </div>
                               </motion.div>
                             );
@@ -2703,17 +3031,29 @@ export default function PerformancePanel() {
               )}
 
               {/* Export Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-3 text-sm font-bold transition-colors">
-                  📄 Export PDF
-                </button>
-                <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl py-3 text-sm font-bold transition-colors">
-                  📊 Export Excel
-                </button>
-                <button className="flex-1 bg-surface border border-border hover:bg-surface-secondary text-foreground rounded-xl py-3 text-sm font-bold transition-colors">
-                  🖨️ Print
-                </button>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row gap-3"
+              >
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleExportPDF()}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white rounded-2xl py-4 text-sm font-bold transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
+                >
+                  <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>📄</motion.span>
+                  Export PDF
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex-1 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-white/20 dark:border-slate-700/30 hover:bg-white/70 dark:hover:bg-slate-800/70 text-foreground rounded-2xl py-4 text-sm font-bold transition-all flex items-center justify-center gap-2"
+                >
+                  <motion.span animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>🖨️</motion.span>
+                  Print
+                </motion.button>
+              </motion.div>
             </div>
           )}
         </div>

@@ -1115,7 +1115,18 @@ export const getBatchPerformance = async (academyId, batchId, query = {}) => {
   console.log('Student where clause:', JSON.stringify(studentWhere, null, 2));
 
   const batchStudents = await prisma.student.findMany({
-    where: studentWhere
+    where: studentWhere,
+    include: {
+      batch: true,
+      sport: true,
+      enrollments: {
+        where: { is_active: true },
+        include: {
+          batch: true,
+          sport: true,
+        }
+      }
+    }
   });
 
   console.log('Total enrolled students found:', batchStudents.length);

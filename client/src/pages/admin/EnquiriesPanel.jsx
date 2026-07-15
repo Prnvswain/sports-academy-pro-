@@ -309,6 +309,16 @@ export default function EnquiriesPanel() {
     }
   };
 
+  const handleCompleteFollowUp = async (enquiryId) => {
+    try {
+      await adminPost(`/admin/enquiries/${enquiryId}/follow-up/complete`);
+      fetchEnquiries();
+      showToast('Follow-up marked as completed', 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to complete follow-up', 'error');
+    }
+  };
+
   const handleConvertToStudent = async () => {
     if (selectedEnquiry?.status === 'CONVERTED') {
       showToast('Enquiry is already converted', 'error');
@@ -714,10 +724,22 @@ export default function EnquiriesPanel() {
                     </td>
                     <td className="font-medium text-foreground/80 text-sm">
                       {enq.follow_up_date ? (
-                         <span className="flex items-center gap-1.5">
-                           <span className="text-muted-foreground/60 text-xs">📅</span>
-                           {formatDate(enq.follow_up_date)}
-                         </span>
+                         <div className="flex items-center gap-2">
+                           <span className="flex items-center gap-1.5">
+                             <span className="text-muted-foreground/60 text-xs">📅</span>
+                             {formatDate(enq.follow_up_date)}
+                           </span>
+                           {enq.status !== 'CONVERTED' && (
+                             <motion.button
+                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                               onClick={() => handleCompleteFollowUp(enq.id)}
+                               className="btn-sm text-[10px] font-bold bg-success/10 text-success hover:bg-success hover:text-white border border-transparent hover:border-success transition-colors px-2 py-0.5"
+                               title="Mark follow-up as completed"
+                             >
+                               Complete
+                             </motion.button>
+                           )}
+                         </div>
                       ) : '—'}
                     </td>
                     <td>

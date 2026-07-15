@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link, useLocation, NavLink } from 'react-router-do
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
+import BrandingLogo from '../components/BrandingLogo';
 import { SIDEBAR_COLLAPSED_KEY } from '../api/client';
 
 // Energetic sports icons
@@ -138,24 +139,12 @@ function ParentLayoutShell() {
       >
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between px-4 shrink-0 border-b border-emerald-900/40">
-          <Link
+          <BrandingLogo
             to="/parent/dashboard"
-            className="flex items-center gap-3 no-underline outline-none"
-            onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-          >
-            {/* Glowing Logo Badge */}
-            <span className="bg-lime-400 text-slate-950 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-[0_0_12px_rgba(132,204,22,0.4)]">
-              {PRODUCT_LOGO}
-            </span>
-            <motion.span
-              initial={{ opacity: 1 }}
-              animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
-              transition={{ duration: 0.2 }}
-              className="font-black tracking-widest text-white text-[13px] whitespace-nowrap uppercase"
-            >
-              Sports <span className="text-lime-400">Pro</span>
-            </motion.span>
-          </Link>
+            collapsed={sidebarCollapsed}
+            onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
+          />
           
           <button
             type="button"

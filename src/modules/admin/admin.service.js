@@ -2126,6 +2126,8 @@ export const getAllStudents = async (academy_id) => {
 
       include: {
 
+        batch: true,
+        sport: true,
         enrollments: {
 
           include: {
@@ -2721,59 +2723,40 @@ export const createStudent = async (academy_id, data) => {
 
 
   // Validate batch capacity if batch is provided
+  // Handle both batch_id (single) and batch_ids (array) from frontend
+  const batchIds = Array.isArray(data.batch_ids)
+    ? data.batch_ids
+    : data.batch_id
+      ? [data.batch_id]
+      : [];
 
-  if (data.batch_id) {
+  const primaryBatchId = batchIds.length > 0 ? parseInt(batchIds[0], 10) : null;
 
-    const batchId = parseInt(data.batch_id, 10);
-
+  if (primaryBatchId) {
     const batch = await prisma.batch.findFirst({
-
       where: {
-
-        batch_id: batchId,
-
+        batch_id: primaryBatchId,
         academy_id: academyId,
-
         status: 'ACTIVE',
-
       },
-
       include: {
-
         _count: {
-
           select: { students: true },
-
         },
-
       },
-
     });
 
-
-
     if (!batch) {
-
       const error = new Error('Batch not found');
-
       error.statusCode = 404;
-
       throw error;
-
     }
-
-
 
     if (batch.max_capacity !== null && batch._count.students >= batch.max_capacity) {
-
       const error = new Error('Batch is at full capacity');
-
       error.statusCode = 400;
-
       throw error;
-
     }
-
   }
 
 
@@ -2810,7 +2793,7 @@ export const createStudent = async (academy_id, data) => {
 
       sport_id: sportIds.length > 0 ? parseInt(sportIds[0], 10) : null, // Primary sport for backward compatibility
 
-      batch_id: data.batch_id ? parseInt(data.batch_id, 10) : null,
+      batch_id: primaryBatchId,
 
       blood_group: data.blood_group,
 
@@ -2860,7 +2843,7 @@ export const createStudent = async (academy_id, data) => {
 
         duration_plan_id: durationPlanId,
 
-        batch_id: index === 0 && data.batch_id ? parseInt(data.batch_id, 10) : null, // Only first sport gets batch
+        batch_id: index === 0 && primaryBatchId ? primaryBatchId : null, // Only first sport gets batch
 
         registration_fee: index === 0 ? registrationFee : 0, // Registration fee only for primary enrollment
 
@@ -4102,13 +4085,17 @@ export const getStudentsFeeSummary = async (academy_id) => {
 
 
 
-  // Get all active students for the academy
+  // Get all active students for the academy (exclude deleted and inactive students)
 
   const students = await prisma.student.findMany({
 
     where: {
 
       academy_id: academyId,
+
+      is_deleted: false,
+
+      status: 'ACTIVE',
 
     },
 
@@ -4119,6 +4106,8 @@ export const getStudentsFeeSummary = async (academy_id) => {
         where: {
 
           academy_id: academyId,
+
+          is_active: true,
 
         },
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BroadcastModal from '../components/BroadcastModal';
+import BrandingLogo from '../components/BrandingLogo';
 import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet, getAdminToken } from '../api/client';
 
 // Sleek and Premium Sports SaaS Icons
@@ -140,32 +141,12 @@ export default function AdminLayout() {
       >
         {/* Sidebar Header / Logo */}
         <div className="flex h-16 items-center justify-between border-b border-emerald-900/40 px-4 shrink-0">
-          <Link
+          <BrandingLogo
             to="/admin/dashboard"
-            className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
-            onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-          >
-            {academy?.logo_url ? (
-              <img
-                src={`${academy.logo_url}?t=${Date.now()}`}
-                alt="Academy Logo"
-                className="h-9 w-9 rounded-xl object-cover border border-emerald-900/50 shadow-sm transition-transform hover:scale-105 cursor-pointer bg-slate-900"
-              />
-            ) : (
-              // Glowing Logo Badge
-              <span className="bg-lime-400 text-slate-950 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-[0_0_12px_rgba(132,204,22,0.4)] transition-transform hover:scale-105">
-                {academy?.name ? academy.name.substring(0, 2).toUpperCase() : PRODUCT_LOGO}
-              </span>
-            )}
-            <motion.span
-              initial={{ opacity: 1 }}
-              animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
-              transition={{ duration: 0.2 }}
-              className="font-black tracking-wide text-white whitespace-nowrap text-sm cursor-pointer uppercase"
-            >
-              {academy?.name || <>{PRODUCT_NAME.split(' ')[0]} <span className="text-lime-400">PRO</span></>}
-            </motion.span>
-          </Link>
+            collapsed={sidebarCollapsed}
+            onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
+          />
           <motion.button
             type="button"
             className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-colors"

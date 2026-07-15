@@ -170,6 +170,8 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
     include: {
 
+      batch: true,
+      sport: true,
       enrollments: {
 
         where: {
