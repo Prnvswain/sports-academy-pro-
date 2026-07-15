@@ -52,6 +52,11 @@ enum CoachAttendanceStatus {
 
 enum ReceiptStatus {
   PENDING
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  NEED_REUPLOAD
+  PAID
   COMPLETED
   FAILED
   VOID
@@ -528,8 +533,10 @@ model Receipt {
   additional_charges    Decimal       @default(0) @db.Decimal(10, 2)
   payment_date          DateTime
   method                String?
-  status                ReceiptStatus @default(PENDING)
+  status                ReceiptStatus @default(PENDING_VERIFICATION)
+  transaction_number    String?       @db.VarChar(50)
   proof_url             String?
+  payment_screenshot_url String?      @db.Text
   remarks               String?       @db.Text
   rejected_reason       String?       @db.Text
   approved_by_user_id   Int?
@@ -547,6 +554,7 @@ model Receipt {
 
   @@index([academy_id])
   @@index([student_id])
+  @@index([status])
   @@map("receipts")
 }
 

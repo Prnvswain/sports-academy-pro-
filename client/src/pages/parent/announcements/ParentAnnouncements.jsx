@@ -76,9 +76,15 @@ export default function ParentAnnouncements() {
     }
   };
 
-  const handleViewDetails = (announcementId) => {
+  const handleViewDetails = (announcementId, announcement) => {
     handleMarkAsRead(announcementId);
-    navigate(`/parent/announcements/${announcementId}`);
+    
+    // If it's a payment-related announcement, redirect to Fees page with Receipts modal open
+    if (announcement.category === 'PAYMENT' || (announcement.title && announcement.title.includes('Payment'))) {
+      navigate('/parent/fees', { state: { openReceipts: true } });
+    } else {
+      navigate(`/parent/announcements/${announcementId}`);
+    }
   };
 
   const handleSearch = (e) => {
@@ -190,7 +196,7 @@ export default function ParentAnnouncements() {
                   key={announcement.announcement_id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  onClick={() => handleViewDetails(announcement.announcement_id)}
+                  onClick={() => handleViewDetails(announcement.announcement_id, announcement)}
                   className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer ${!isRead ? 'border-l-4 border-l-blue-500' : ''}`}
                 >
                   <div className="flex items-start space-x-4">

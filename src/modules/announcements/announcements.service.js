@@ -507,7 +507,8 @@ export const getMyAnnouncements = async (user, filters = {}) => {
     // Coach should NOT see Super Admin announcements
     where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
   } else if (user.role === 'PARENT') {
-    // Parent should NOT see Super Admin announcements
+    // Parent should ONLY see announcements from Academy Admin and Coaches
+    // They should NOT see Super Admin announcements or internal admin communications
     where.sender_type = { in: ['ACADEMY_ADMIN', 'COACH'] };
   }
 

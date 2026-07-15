@@ -2663,27 +2663,139 @@ export const updatePaymentStatus = async (
 
   const targetStatus = String(status).toUpperCase();
 
+  // Validate status is allowed
+  const allowedStatuses = ['PENDING_VERIFICATION', 'APPROVED', 'REJECTED', 'NEED_REUPLOAD', 'PAID', 'COMPLETED', 'FAILED', 'VOID'];
+  if (!allowedStatuses.includes(targetStatus)) {
+    const error = new Error('Invalid payment status');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const updatedReceipt = await prisma.receipt.update({
     where: { receipt_id: payment.receipt_id },
     data: {
-      status: targetStatus === 'COMPLETED' ? 'COMPLETED' : 'FAILED',
+      status: targetStatus,
       approved_by_user_id:
-        targetStatus === 'COMPLETED' ? admin_user_id : payment.approved_by_user_id,
+        (targetStatus === 'APPROVED' || targetStatus === 'PAID' || targetStatus === 'COMPLETED') 
+          ? admin_user_id 
+          : payment.approved_by_user_id,
       rejected_reason:
-        targetStatus === 'REJECTED' || targetStatus === 'FAILED' ? rejected_reason || null : null,
+        (targetStatus === 'REJECTED' || targetStatus === 'NEED_REUPLOAD') 
+          ? rejected_reason || null 
+          : null,
     },
   });
 
-  if (targetStatus === 'COMPLETED') {
+  if (targetStatus === 'APPROVED' || targetStatus === 'PAID' || targetStatus === 'COMPLETED') {
     await prisma.student.update({
       where: { student_id: payment.student_id },
       data: { fees_status: 'paid' },
     });
-  } else {
+
+    // Create in-app notification for parent when payment is approved
+    try {
+      const student = await prisma.student.findUnique({
+        where: { student_id: payment.student_id },
+        select: { parent_id: true, name: true }
+      });
+
+      if (student && student.parent_id) {
+        const announcement = await prisma.announcement.create({
+          data: {
+            title: 'Payment Approved',
+            message: `Your payment of ₹${parseFloat(updatedReceipt.amount).toFixed(2)} for ${student.name} has been approved. Receipt is now available in the Receipts tab.`,
+            category: 'PAYMENT',
+            priority: 'HIGH',
+            target_type: 'SELECTED_PARENTS',
+            status: 'PUBLISHED',
+            published_at: new Date(),
+            total_recipients: 1,
+            sender_type: 'ACADEMY_ADMIN',
+            sender_id: admin_user_id,
+            academy_id: academy_id,
+            delivered_count: 1
+          }
+        });
+
+        await prisma.announcementRecipient.create({
+          data: {
+            announcement_id: announcement.announcement_id,
+            recipient_type: 'PARENT',
+            recipient_id_field: student.parent_id,
+            delivery_status: 'DELIVERED',
+            delivered_at: new Date()
+          }
+        });
+
+        await prisma.announcementReadStatus.create({
+          data: {
+            announcement_id: announcement.announcement_id,
+            recipient_type: 'PARENT',
+            recipient_id_field: student.parent_id
+          }
+        });
+
+        logger.info(`Payment approval notification created for parent_id: ${student.parent_id}`);
+      }
+    } catch (notificationError) {
+      logger.error('Failed to create payment approval notification:', notificationError);
+      // Don't throw error - notification is secondary to payment approval
+    }
+  } else if (targetStatus === 'REJECTED' || targetStatus === 'FAILED') {
     await prisma.student.update({
       where: { student_id: payment.student_id },
       data: { fees_status: 'unpaid' },
     });
+
+    // Create in-app notification for parent when payment is rejected
+    try {
+      const student = await prisma.student.findUnique({
+        where: { student_id: payment.student_id },
+        select: { parent_id: true, name: true }
+      });
+
+      if (student && student.parent_id) {
+        const announcement = await prisma.announcement.create({
+          data: {
+            title: 'Payment Rejected',
+            message: `Your payment of ₹${parseFloat(updatedReceipt.amount).toFixed(2)} for ${student.name} has been rejected. ${rejected_reason ? `Reason: ${rejected_reason}` : 'Please contact the academy for more details.'}`,
+            category: 'PAYMENT',
+            priority: 'HIGH',
+            target_type: 'SELECTED_PARENTS',
+            status: 'PUBLISHED',
+            published_at: new Date(),
+            total_recipients: 1,
+            sender_type: 'ACADEMY_ADMIN',
+            sender_id: admin_user_id,
+            academy_id: academy_id,
+            delivered_count: 1
+          }
+        });
+
+        await prisma.announcementRecipient.create({
+          data: {
+            announcement_id: announcement.announcement_id,
+            recipient_type: 'PARENT',
+            recipient_id_field: student.parent_id,
+            delivery_status: 'DELIVERED',
+            delivered_at: new Date()
+          }
+        });
+
+        await prisma.announcementReadStatus.create({
+          data: {
+            announcement_id: announcement.announcement_id,
+            recipient_type: 'PARENT',
+            recipient_id_field: student.parent_id
+          }
+        });
+
+        logger.info(`Payment rejection notification created for parent_id: ${student.parent_id}`);
+      }
+    } catch (notificationError) {
+      logger.error('Failed to create payment rejection notification:', notificationError);
+      // Don't throw error - notification is secondary to payment rejection
+    }
   }
 
   await logAudit({
@@ -2693,10 +2805,10 @@ export const updatePaymentStatus = async (
     action: 'PAYMENT_STATUS_UPDATED',
     entity_type: 'Receipt',
     entity_id: payment.receipt_id,
-    metadata: { status: targetStatus },
+    metadata: { status: targetStatus, rejected_reason },
   });
 
-  // Dispatch email notification asynchronously for COMPLETED or FAILED status
+  // Dispatch email notification asynchronously for APPROVED, REJECTED, or NEED_REUPLOAD status
   if (targetStatus === 'COMPLETED' || targetStatus === 'FAILED') {
     setImmediate(async () => {
       try {

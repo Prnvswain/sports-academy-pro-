@@ -26,20 +26,11 @@ router.post(
   '/payments',
   upload.single('proof_file'),
   [
-    body('student_id').custom((value) => {
-      if (!value) throw new Error('student_id is required');
-      return true;
-    }),
-    body('amount').custom((value) => {
-      if (!value || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
-        throw new Error('amount must be a positive number');
-      }
-      return true;
-    }),
-    body('payment_date').optional().isISO8601(),
-    body('method').optional().isIn(['cash', 'cheque', 'online', 'upi']),
+    body('student_id').notEmpty().withMessage('Student ID is required'),
+    body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('payment_date').notEmpty().withMessage('Payment date is required').isISO8601(),
+    body('method').isIn(['cash', 'cheque']).withMessage('Invalid payment method. Only Cash and Cheque are allowed for coach'),
     body('remarks').optional().isString(),
-    body('proof_url').optional().isString()
   ],
   validationErrorHandler,
   coachController.recordPayment
