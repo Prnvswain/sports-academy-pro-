@@ -169,18 +169,50 @@ export const getPayments = async (req, res, next) => {
   }
 };
 
+export const getReceiptById = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const receiptId = parseInt(req.params.receiptId, 10);
+    const receipt = await parentService.getParentReceiptById(parent_id, req.user.academy_id, receiptId);
+
+    return res.status(200).json(
+      successResponse('Receipt retrieved successfully', receipt)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const downloadReceipt = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const receiptId = parseInt(req.params.receiptId, 10);
+    const receipt = await parentService.getParentReceiptById(parent_id, req.user.academy_id, receiptId);
+
+    // Log audit event for download
+    await parentService.logReceiptDownload(parent_id, req.user.academy_id, receiptId, receipt.receipt_number);
+
+    return res.status(200).json(
+      successResponse('Receipt download logged successfully', receipt)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const recordPayment = async (req, res, next) => {
   try {
     const payload = { ...req.body };
 
     if (req.file) {
       payload.proof_url = req.file.path;
+      payload.proof_file = req.file;
     }
 
     const receipt = await parentService.recordParentPayment(req.user.id, req.user.academy_id, payload);
 
     return res.status(201).json(
-      successResponse('Payment submitted and pending admin approval', receipt)
+      successResponse('Your payment has been submitted successfully and is awaiting academy verification.', receipt)
     );
   } catch (error) {
     next(error);

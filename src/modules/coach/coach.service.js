@@ -15,8 +15,7 @@ import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
 
 import { calculateStudentFee } from '../../utils/fee.util.js';
-
-
+import * as receiptService from '../../services/receipt.service.js';
 
 const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
@@ -1833,8 +1832,20 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
   const academyId = parseInt(academy_id, 10);
 
   const studentId = parseInt(payload.student_id, 10);
+  const amount = parseFloat(payload.amount);
 
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const error = new Error('Amount must be a positive number');
+    error.statusCode = 400;
+    throw error;
+  }
 
+  // Validate payment method is allowed for coach (offline only)
+  if (!receiptService.isOfflinePaymentMethodAllowed(payload.method)) {
+    const error = new Error('Invalid payment method. Only Cash and Cheque are allowed for coach');
+    error.statusCode = 400;
+    throw error;
+  }
 
   const student = await prisma.student.findFirst({
 
@@ -1882,41 +1893,91 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
 
 
 
-  // Generate a temporary unique receipt tracking configuration identifier
-
-  const targetReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-
+  // Generate receipt number
+  const receiptNumber = await receiptService.generateReceiptNumber(academyId);
 
   const receipt = await prisma.receipt.create({
 
     data: {
-
-      receipt_number: targetReceiptNo,
-
+      receipt_number: receiptNumber,
       academy_id: academyId,
 
       student_id: studentId,
-
-      amount: payload.amount,
-
+      amount,
       payment_date: payload.payment_date ? new Date(payload.payment_date) : new Date(),
-
-      method: payload.method || 'cash',
-
-      status: 'PENDING',
-
+      method: payload.method,
+      status: 'PAID', // Coach offline payments are immediately marked as PAID
       remarks: payload.remarks || null,
 
       proof_url: payload.proof_url || null,
 
       collected_by_coach_id: coachId
-
-    }
-
+    },
+    include: {
+      student: {
+        select: {
+          name: true,
+          parent_name: true,
+        },
+      },
+    },
   });
 
+  // Update student fees status
+  await prisma.student.update({
+    where: { student_id: studentId },
+    data: { fees_status: 'paid' },
+  });
 
+  // Create in-app notification for parent when coach records payment
+  try {
+    const student = await prisma.student.findUnique({
+      where: { student_id: studentId },
+      select: { parent_id: true, name: true }
+    });
+
+    if (student && student.parent_id) {
+      const announcement = await prisma.announcement.create({
+        data: {
+          title: 'Payment Received',
+          message: `Your payment of ₹${amount.toFixed(2)} for ${student.name} has been received and recorded. Receipt is now available in the Receipts tab.`,
+          category: 'PAYMENT',
+          priority: 'HIGH',
+          target_type: 'SELECTED_PARENTS',
+          status: 'PUBLISHED',
+          published_at: new Date(),
+          total_recipients: 1,
+          sender_type: 'COACH',
+          sender_id: coachId,
+          academy_id: academyId,
+          delivered_count: 1
+        }
+      });
+
+      await prisma.announcementRecipient.create({
+        data: {
+          announcement_id: announcement.announcement_id,
+          recipient_type: 'PARENT',
+          recipient_id_field: student.parent_id,
+          delivery_status: 'DELIVERED',
+          delivered_at: new Date()
+        }
+      });
+
+      await prisma.announcementReadStatus.create({
+        data: {
+          announcement_id: announcement.announcement_id,
+          recipient_type: 'PARENT',
+          recipient_id_field: student.parent_id
+        }
+      });
+
+      logger.info(`Coach payment notification created for parent_id: ${student.parent_id}`);
+    }
+  } catch (notificationError) {
+    logger.error('Failed to create coach payment notification:', notificationError);
+    // Don't throw error - notification is secondary to payment recording
+  }
 
   await logAudit({
 

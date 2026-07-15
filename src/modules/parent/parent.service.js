@@ -5,6 +5,8 @@ import { JWT_SECRET, JWT_EXPIRE, BCRYPT_SALT_ROUNDS } from '../../config/app.con
 import { generateResetCode } from '../../utils/resetCode.util.js';
 import logger from '../../utils/logger.js';
 import { sendPasswordChangeEmail } from '../../services/email.service.js';
+import * as receiptService from '../../services/receipt.service.js';
+import { logAudit } from '../../utils/audit.util.js';
 
 export const createParentAccount = async ({ academy_id, name, email, phone, password }) => {
   const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
@@ -306,6 +308,18 @@ export const getParentPayments = async (parent_id, academy_id, student_id = null
           name: true,
         },
       },
+      approved_by: {
+        select: {
+          user_id: true,
+          name: true,
+        },
+      },
+      collected_by: {
+        select: {
+          coach_id: true,
+          name: true,
+        },
+      },
     },
     orderBy: {
       created_at: 'desc',
@@ -315,17 +329,140 @@ export const getParentPayments = async (parent_id, academy_id, student_id = null
 
   return payments.map((payment) => ({
     id: payment.receipt_id,
+    receipt_id: payment.receipt_id,
+    receipt_number: payment.receipt_number,
     student_id: payment.student_id,
     student_name: payment.student?.name,
     amount: payment.amount,
     method: payment.method,
     status: payment.status,
     payment_date: payment.payment_date,
+    transaction_number: payment.transaction_number,
     remarks: payment.remarks,
     proof_url: payment.proof_url,
+    payment_screenshot_url: payment.payment_screenshot_url,
     pdf_url: payment.pdf_url,
     created_at: payment.created_at,
+    approved_by_name: payment.approved_by?.name,
+    collected_by_name: payment.collected_by?.name,
   }));
+};
+
+export const getParentReceiptById = async (parent_id, academy_id, receipt_id) => {
+  const parentId = parseInt(parent_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const receiptId = parseInt(receipt_id, 10);
+
+  const receipt = await prisma.receipt.findFirst({
+    where: {
+      receipt_id: receiptId,
+      academy_id: academyId,
+      student: {
+        parent_id: parentId,
+        is_deleted: false,
+        status: 'ACTIVE'
+      },
+    },
+    include: {
+      student: {
+        include: {
+          academy: true,
+          sport: true,
+          batch: true,
+          parent: true,
+        },
+      },
+      approved_by: {
+        select: {
+          user_id: true,
+          name: true,
+        },
+      },
+      collected_by: {
+        select: {
+          coach_id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!receipt) {
+    const error = new Error('Receipt not found or you do not have permission to access it');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Log audit event
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'PARENT',
+    actor_id: parentId,
+    action: 'VIEW_RECEIPT',
+    entity_type: 'Receipt',
+    entity_id: receiptId,
+    metadata: { receipt_number: receipt.receipt_number },
+  });
+
+  return {
+    id: receipt.receipt_id,
+    receipt_id: receipt.receipt_id,
+    receipt_number: receipt.receipt_number,
+    amount: receipt.amount,
+    discount: receipt.discount,
+    additional_charges: receipt.additional_charges,
+    payment_date: receipt.payment_date,
+    method: receipt.method,
+    status: receipt.status,
+    transaction_number: receipt.transaction_number,
+    remarks: receipt.remarks,
+    proof_url: receipt.proof_url,
+    payment_screenshot_url: receipt.payment_screenshot_url,
+    pdf_url: receipt.pdf_url,
+    rejected_reason: receipt.rejected_reason,
+    created_at: receipt.created_at,
+    student: {
+      student_id: receipt.student.student_id,
+      name: receipt.student.name,
+      parent_name: receipt.student.parent_name,
+      parent_phone: receipt.student.parent_phone,
+      parent_email: receipt.student.parent_email,
+    },
+    academy: {
+      academy_id: receipt.student.academy.academy_id,
+      name: receipt.student.academy.name,
+      address: receipt.student.academy.address,
+      phone_number: receipt.student.academy.phone_number,
+      email: receipt.student.academy.email,
+      logo_url: receipt.student.academy.logo_url,
+    },
+    sport: {
+      sport_id: receipt.student.sport.sport_id,
+      name: receipt.student.sport.name,
+    },
+    batch: {
+      batch_id: receipt.student.batch.batch_id,
+      name: receipt.student.batch.name,
+    },
+    approved_by: receipt.approved_by,
+    collected_by: receipt.collected_by,
+  };
+};
+
+export const logReceiptDownload = async (parent_id, academy_id, receipt_id, receipt_number) => {
+  const parentId = parseInt(parent_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const receiptId = parseInt(receipt_id, 10);
+
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'PARENT',
+    actor_id: parentId,
+    action: 'DOWNLOAD_RECEIPT',
+    entity_type: 'Receipt',
+    entity_id: receiptId,
+    metadata: { receipt_number },
+  });
 };
 
 export const recordParentPayment = async (parent_id, academy_id, payload) => {
@@ -338,6 +475,31 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
     const error = new Error('Amount must be a positive number');
     error.statusCode = 400;
     throw error;
+  }
+
+  // Validate payment method is allowed for parent portal
+  if (!receiptService.isParentPaymentMethodAllowed(payload.method)) {
+    const error = new Error('Invalid payment method. Only UPI and Bank Transfer are allowed for parent portal');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate transaction number
+  const transactionValidation = receiptService.validateTransactionNumber(payload.transaction_number);
+  if (!transactionValidation.valid) {
+    const error = new Error(transactionValidation.error);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate payment screenshot if provided
+  if (payload.proof_file) {
+    const fileValidation = receiptService.validatePaymentScreenshot(payload.proof_file);
+    if (!fileValidation.valid) {
+      const error = new Error(fileValidation.error);
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   const student = await prisma.student.findFirst({
@@ -356,7 +518,9 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
     throw error;
   }
 
-  const receiptNumber = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  // Generate receipt number
+  const receiptNumber = await receiptService.generateReceiptNumber(academyId);
+
   const receipt = await prisma.receipt.create({
     data: {
       receipt_number: receiptNumber,
@@ -364,21 +528,29 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
       student_id: studentId,
       amount,
       payment_date: payload.payment_date ? new Date(payload.payment_date) : new Date(),
-      method: payload.method || 'cash',
-      status: 'PENDING',
+      method: payload.method,
+      status: 'PENDING_VERIFICATION',
+      transaction_number: transactionValidation.value,
+      payment_screenshot_url: payload.proof_url || null,
       remarks: payload.remarks || null,
-      proof_url: payload.proof_url || null,
+    },
+    include: {
+      student: {
+        select: {
+          name: true,
+          parent_name: true,
+        },
+      },
     },
   });
 
-  await logAudit({
+  logger.info('Parent payment submitted for verification', {
+    receipt_id: receipt.receipt_id,
+    receipt_number: receipt.receipt_number,
     academy_id: academyId,
-    actor_type: 'PARENT',
-    actor_id: parentId,
-    action: 'PAYMENT_RECORDED',
-    entity_type: 'Receipt',
-    entity_id: receipt.receipt_id,
-    metadata: { student_id: studentId, amount },
+    student_id: studentId,
+    amount,
+    method: payload.method,
   });
 
   return receipt;

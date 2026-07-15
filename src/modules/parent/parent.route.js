@@ -46,22 +46,17 @@ router.get('/children', parentController.getChildren);
 router.get('/children/:child_id', parentController.getChildDetails);
 router.get('/dashboard', parentController.getDashboard);
 router.get('/payments', parentController.getPayments);
+router.get('/payments/:receiptId', parentController.getReceiptById);
+router.get('/payments/:receiptId/download', parentController.downloadReceipt);
 router.post(
   '/payments',
   upload.single('proof_file'),
   [
-    body('student_id').custom((value) => {
-      if (!value) throw new Error('student_id is required');
-      return true;
-    }),
-    body('amount').custom((value) => {
-      if (!value || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
-        throw new Error('amount must be a positive number');
-      }
-      return true;
-    }),
-    body('payment_date').optional().isISO8601(),
-    body('method').optional().isIn(['cash', 'cheque', 'online', 'upi']),
+    body('student_id').notEmpty().withMessage('Student ID is required'),
+    body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('payment_date').notEmpty().withMessage('Payment date is required').isISO8601(),
+    body('method').isIn(['upi', 'bank_transfer', 'neft', 'rtgs', 'imps']).withMessage('Invalid payment method. Only UPI and Bank Transfer are allowed'),
+    body('transaction_number').isLength({ min: 12, max: 50 }).withMessage('Transaction number must be between 12 and 50 characters').matches(/^[a-zA-Z0-9]+$/).withMessage('Transaction number can only contain letters and numbers'),
     body('remarks').optional().isString(),
   ],
   validationErrorHandler,
@@ -78,16 +73,16 @@ router.get('/children/:child_id/performance/dashboard', parentController.getChil
 // Get my announcements (as recipient)
 router.get('/announcements', announcementsController.getMyAnnouncements);
 
+// Get unread count (must be before :id route)
+router.get('/announcements/unread-count', announcementsController.getUnreadCount);
+
+// Mark all announcements as read (must be before :id route)
+router.patch('/announcements/read-all', announcementsController.markAllAsRead);
+
 // Get single announcement details
 router.get('/announcements/:id', announcementsController.getAnnouncementById);
 
 // Mark announcement as read
 router.patch('/announcements/:id/read', announcementsController.markAsRead);
-
-// Mark all announcements as read
-router.patch('/announcements/read-all', announcementsController.markAllAsRead);
-
-// Get unread count
-router.get('/announcements/unread-count', announcementsController.getUnreadCount);
 
 export default router;

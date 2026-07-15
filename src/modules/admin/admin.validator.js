@@ -284,7 +284,7 @@ export const validate = (method) => {
       return [
         param('payment_id').isInt().withMessage('Invalid payment ID'),
         body('status')
-          .isIn(['pending', 'completed', 'failed', 'rejected'])
+          .isIn(['pending_verification', 'approved', 'rejected', 'need_reupload', 'paid', 'completed', 'failed', 'void'])
           .withMessage('Invalid status'),
         body('rejected_reason')
           .optional()

@@ -98,7 +98,6 @@ function ParentLayoutShell() {
 
   const closeMobileSidebar = () => setSidebarOpen(false);
 
-  // Light Loading Screen
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -106,7 +105,7 @@ function ParentLayoutShell() {
           <motion.div 
             animate={{ scale: [1, 1.15, 1] }} 
             transition={{ repeat: Infinity, duration: 1.2 }}
-            className="text-lime-500 mb-3"
+            className="text-[#b2f04d] mb-3"
           >
             <Activity size={36} strokeWidth={2.5} />
           </motion.div>
@@ -127,37 +126,44 @@ function ParentLayoutShell() {
   }
 
   return (
-    // Main App Background: Light Mode (bg-slate-50) and Dark Text (text-slate-900)
     <div className="bg-slate-50 text-slate-900 flex h-screen w-screen overflow-hidden antialiased font-sans">
       
-      {/* Sidebar - Dark Gradient with a mix of Deep Emerald/Green (Kept exactly as requested) */}
+      {/* Sidebar - Dark theme */}
       <motion.aside
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/60 border-r border-emerald-900/30 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl ${sidebarOpen ? '!translate-x-0' : ''}`}
+        className={`bg-[#0b1121] border-r border-slate-800/60 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-[4px_0_24px_rgba(0,0,0,0.15)] ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
-        {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between px-4 shrink-0 border-b border-emerald-900/40">
-          <BrandingLogo
+        <div className="flex h-16 items-center justify-between px-4 shrink-0 border-b border-slate-800/60">
+          <Link
             to="/parent/dashboard"
-            collapsed={sidebarCollapsed}
-            onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
-          />
+            className="flex items-center gap-3 no-underline outline-none"
+            onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
+          >
+            <span className="bg-[#b2f04d] text-[#0b1121] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter">
+              {PRODUCT_LOGO}
+            </span>
+            <motion.span
+              initial={{ opacity: 1 }}
+              animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
+              transition={{ duration: 0.2 }}
+              className="font-black tracking-widest text-white text-[13px] whitespace-nowrap uppercase"
+            >
+              Sports <span className="text-[#b2f04d]">Pro</span>
+            </motion.span>
+          </Link>
           
           <button
             type="button"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-colors"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-[#b2f04d] lg:flex shrink-0 transition-colors"
             onClick={() => setSidebarCollapsed((c) => !c)}
-            aria-label={sidebarCollapsed ? 'Expand' : 'Collapse'}
           >
             {sidebarCollapsed ? <ChevronRight size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} strokeWidth={2.5} />}
           </button>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1.5 custom-scrollbar" aria-label="Parent sections">
+        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-2 custom-scrollbar">
           {PARENT_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
@@ -168,20 +174,19 @@ function ParentLayoutShell() {
                 title={sidebarCollapsed ? item.label : undefined}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
-                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-xl group outline-none font-bold ${
-                    sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-200 rounded-xl group outline-none font-bold ${
+                    sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      // Premium Dark Contrast for Active Item
-                      ? 'bg-lime-400 text-slate-950 shadow-[0_4px_20px_rgba(132,204,22,0.3)] translate-x-1'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-lime-300'
+                      ? 'bg-[#b2f04d] text-[#0b1121]' 
+                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
                     <motion.span 
-                      whileHover={{ scale: 1.15, rotate: isActive ? 0 : 5 }}
+                      whileHover={{ scale: 1.1 }}
                       className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
                     >
                       <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
@@ -201,19 +206,18 @@ function ParentLayoutShell() {
           })}
         </nav>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-emerald-900/40 shrink-0">
+        <div className="p-4 border-t border-slate-800/60 shrink-0 bg-[#080d1a]">
           {!sidebarCollapsed && (
             <div className="text-xs text-slate-400 mb-3 px-1 truncate font-medium">
-              Parent: <br/><span className="text-white font-bold text-sm">{user?.name || 'Loading...'}</span>
+              Parent: <br/><span className="text-white font-extrabold text-[15px] block mt-0.5">{user?.name || 'Loading...'}</span>
             </div>
           )}
           <button
             type="button"
             className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
               sidebarCollapsed 
-              ? 'text-slate-500 hover:bg-red-500/20 hover:text-red-400' 
-              : 'bg-white/5 text-slate-300 hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+              ? 'text-slate-500 hover:bg-red-500/10 hover:text-red-400' 
+              : 'bg-white/5 text-slate-300 border border-slate-700/50 hover:bg-red-500 hover:border-red-500 hover:text-white'
             }`}
             onClick={handleLogout}
             title={sidebarCollapsed ? "Sign Out" : undefined}
@@ -224,7 +228,6 @@ function ParentLayoutShell() {
         </div>
       </motion.aside>
 
-      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.button
@@ -239,37 +242,70 @@ function ParentLayoutShell() {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area - Light Mode Maintained */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto relative">
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto relative bg-slate-50">
         
-        {/* Top Header - Light Mode Header */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0">
+        {/* Top Header - Dark Navy to match sidebar */}
+        {/* <header className="bg-[#0b1121] border-b border-slate-800/60 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-sm">
           <div className="flex items-center gap-4">
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 lg:hidden text-slate-500 hover:bg-slate-50 hover:text-slate-900 bg-white"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 lg:hidden text-slate-400 hover:bg-slate-800 hover:text-[#b2f04d] bg-transparent transition-colors"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu size={20} strokeWidth={2.5} />
             </button>
-            <div className="flex flex-col">
-              <span className="text-base font-black tracking-widest text-slate-900 uppercase">Headquarters</span>
+            
+            <div className="flex flex-col justify-center">
+              <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase leading-none mb-1">
+                Parent Portal
+              </span>
+              <span className="text-lg font-black tracking-tight text-white uppercase leading-none">
+                {user?.name || 'Loading...'}
+              </span>
             </div>
           </div>
+          
           <div className="flex items-center gap-4">
             <NotificationBell userRole="PARENT" />
             <ThemeToggle />
           </div>
-        </header>
+        </header> */}
+        {/* Yahan bg-[#84cc16] lagaya gaya hai, aur text ko dark (slate-900) kiya gaya hai taaki clear dikhe */}
+<header className="bg-[#84cc16] border-b border-lime-600/30 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-sm">
+  <div className="flex items-center gap-4">
+    <button
+      type="button"
+      className="flex h-10 w-10 items-center justify-center rounded-xl border border-lime-700/30 lg:hidden text-slate-800 hover:bg-black/10 bg-transparent transition-colors"
+      onClick={() => setSidebarOpen(true)}
+    >
+      <Menu size={20} strokeWidth={2.5} />
+    </button>
+    
+    <div className="flex flex-col justify-center">
+      <span className="text-[10px] font-bold tracking-widest text-slate-800/80 uppercase leading-none mb-1">
+        Parent Portal
+      </span>
+      {/* Name text slate-900 (dark) kar diya gaya hai */}
+      <span className="text-lg font-black tracking-tight text-slate-900 uppercase leading-none">
+        {user?.name || 'Loading...'}
+      </span>
+    </div>
+  </div>
+  
+  <div className="flex items-center gap-4">
+    <NotificationBell userRole="PARENT" />
+    <ThemeToggle />
+  </div>
+</header>
 
-        {/* Route Content Area */}
-        <main className="flex-1 min-w-0 p-4 lg:p-8 overflow-x-hidden relative">
+        {/* 🌟 YAHAN LIGHT GRADIENT WAPAS LAGA DIYA GAYA HAI 🌟 */}
+        <main className="flex-1 min-w-0 overflow-x-hidden relative flex flex-col bg-gradient-to-br from-[#effbe3] via-[#f8fafc] to-[#d8f4bc]">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full min-w-0 max-w-7xl mx-auto"
+            className="w-full h-full min-w-0 flex flex-col"
           >
             <Outlet />
           </motion.div>
