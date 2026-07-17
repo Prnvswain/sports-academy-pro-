@@ -481,24 +481,6 @@ export const getAcademyReport = async (req, res, next) => {
   }
 };
 
-export const getEnquiries = async (req, res, next) => {
-  try {
-    const enquiries = await adminService.getEnquiries(req.user.academy_id);
-    res.json(successResponse('Enquiries retrieved successfully', enquiries));
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const updateEnquiry = async (req, res, next) => {
-  try {
-    const enquiry = await adminService.updateEnquiry(req.user.academy_id, req.params.id, req.body);
-    res.json(successResponse('Enquiry updated successfully', enquiry));
-  } catch (err) {
-    next(err);
-  }
-};
-
 // Performance-related controllers removed - use /performance module routes instead
 
 export const getAttendance = async (req, res, next) => {

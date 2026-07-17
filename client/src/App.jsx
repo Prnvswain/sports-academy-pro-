@@ -31,6 +31,7 @@ import SettingsPanel from './pages/admin/SettingsPanel';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
+import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachNotesPage from './pages/coach/CoachNotesPage';
 import CoachFeesPage from './pages/coach/CoachFeesPage';
 import CoachPerformancePage from './pages/coach/CoachPerformancePage';
@@ -139,6 +140,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<CoachDashboardPage />} />
             <Route path="attendance" element={<CoachAttendancePage />} />
+            <Route path="students" element={<CoachStudentsPage />} />
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="performance" element={<CoachPerformancePage />} />

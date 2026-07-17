@@ -13,6 +13,7 @@ import { NotebookPen } from 'lucide-react';
 import {
   LayoutDashboard,
   ClipboardList,
+  GraduationCap,
   TrendingUp,
   Wallet,
   Megaphone,
@@ -50,6 +51,7 @@ const decodeJwtPayload = (token) => {
 const COACH_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: 'attendance', label: 'Attendance', icon: ClipboardList },
+  { path: 'students', label: 'Students', icon: GraduationCap },
   { path: 'performance', label: 'Performance Tracker', icon: TrendingUp },
   { path: 'fees', label: 'Fees', icon: Wallet },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },

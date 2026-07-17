@@ -197,10 +197,6 @@ router.get('/accounts/revenue-summary', adminController.getRevenueSummary);
 router.get('/analytics', adminController.getAcademyReport);
 router.get('/dashboard', adminController.getAcademyReport);
 
-/* ─── PUBLIC ENQUIRIES INTERFACE ────────────────────────────────────────── */
-router.get('/enquiries', adminController.getEnquiries);
-router.patch('/enquiries/:id', adminController.updateEnquiry);
-
 /* ─── PERFORMANCE TRACKER ──────────────────────────────────────────────────── */
 // Backward compatibility layer: Admin routes delegate to Performance module
 // These routes maintain frontend API compatibility while using Performance as single source of truth

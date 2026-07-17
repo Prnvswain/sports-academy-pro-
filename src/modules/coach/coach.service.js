@@ -23,14 +23,6 @@ const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
 export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id = null) => {
 
-  console.log('[getCoachStudentsFeeSummary] === START ===');
-
-  console.log('[getCoachStudentsFeeSummary] Coach ID:', coach_id, 'Type:', typeof coach_id);
-
-  console.log('[getCoachStudentsFeeSummary] Academy ID:', academy_id, 'Type:', typeof academy_id);
-
-  console.log('[getCoachStudentsFeeSummary] Batch ID:', batch_id, 'Type:', typeof batch_id);
-
   
 
   const coachId = parseInt(coach_id, 10);
@@ -41,17 +33,7 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
   
 
-  console.log('[getCoachStudentsFeeSummary] Parsed Coach ID:', coachId);
-
-  console.log('[getCoachStudentsFeeSummary] Parsed Academy ID:', academyId);
-
-  console.log('[getCoachStudentsFeeSummary] Parsed Batch ID:', batchId);
-
-
-
   // Get all batches assigned to this coach
-
-  console.log('[getCoachStudentsFeeSummary] Fetching batches assigned to coach...');
 
   const batches = await prisma.batch.findMany({
 
@@ -85,15 +67,7 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
 
 
-  console.log('[getCoachStudentsFeeSummary] Batches found:', batches.length);
-
-  console.log('[getCoachStudentsFeeSummary] Batch IDs:', batchIds);
-
-
-
   if (batchIds.length === 0) {
-
-    console.log('[getCoachStudentsFeeSummary] No batches assigned to coach, returning empty result');
 
     return {
 
@@ -122,15 +96,9 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
   // If batch_id filter is provided, check if it's assigned to this coach
 
   if (batchId && !batchIds.includes(batchId)) {
-
-    console.log('[getCoachStudentsFeeSummary] Batch', batchId, 'is notAssigned to coach');
-
     const error = new Error('Batch not assigned to this coach');
-
     error.statusCode = 403;
-
     throw error;
-
   }
 
 
@@ -139,13 +107,9 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
   const targetBatchIds = batchId ? [batchId] : batchIds;
 
-  console.log('[getCoachStudentsFeeSummary] Target batch IDs for query:', targetBatchIds);
-
 
 
   // Get students enrolled in coach's batches
-
-  console.log('[getCoachStudentsFeeSummary] Fetching students...');
 
   const students = await prisma.student.findMany({
 
@@ -214,6 +178,17 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
       },
 
       parent: true,
+      student_attendances: {
+        where: {
+          academy_id: academyId,
+        },
+        orderBy: { date: 'desc' },
+      },
+      fees: {
+        where: {
+          academy_id: academyId,
+        },
+      },
 
     },
 
@@ -221,25 +196,7 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
 
 
-  console.log('[getCoachStudentsFeeSummary] Students found:', students.length);
-
-  console.log('[getCoachStudentsFeeSummary] Sample student (first):', students.length > 0 ? {
-
-    student_id: students[0].student_id,
-
-    name: students[0].name,
-
-    enrollments_count: students[0].enrollments?.length,
-
-    receipts_count: students[0].receipts?.length
-
-  } : 'No students');
-
-
-
   // Calculate fee summary for each student
-
-  console.log('[getCoachStudentsFeeSummary] Calculating fee summary for each student...');
 
   const studentsSummary = await Promise.all(
 
@@ -293,15 +250,61 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
 
 
+      // Calculate attendance summary
+      const presentCount = student.student_attendances?.filter(a => a.status === 'PRESENT').length || 0;
+      const absentCount = student.student_attendances?.filter(a => a.status === 'ABSENT').length || 0;
+      const attendanceSummary = {
+        present_count: presentCount,
+        absent_count: absentCount,
+      };
+
+
+
       return {
 
         student_id: student.student_id,
 
         name: student.name,
 
-        parent_name: student.parent?.name || '',
+        profile_photo: student.profile_photo,
+
+        age: student.age,
+
+        gender: student.gender,
+
+        dob: student.dob,
+
+        height: student.height ? Number(student.height) : null,
+
+        weight: student.weight ? Number(student.weight) : null,
+
+        blood_group: student.blood_group,
+
+        category: student.category,
+
+        joining_date: student.joining_date,
+
+        status: student.status,
+
+        parent_name: student.parent?.name || student.parent_name || '',
+
+        parent_phone: student.parent?.phone || student.parent_phone || '',
+
+        parent_email: student.parent?.email || student.parent_email || '',
 
         phone: student.phone || student.parent?.phone || '',
+
+        batch: student.batch,
+
+        sport: student.sport,
+
+        enrollments: student.enrollments,
+
+        receipts: student.receipts,
+
+        student_attendances: student.student_attendances,
+
+        fees: student.fees,
 
         total_fee: totalFeeDue,
 
@@ -311,15 +314,13 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
         fee_status: feeStatus,
 
+        attendance_summary: attendanceSummary,
+
         last_paid_date: lastPaidDate,
 
         payment_count: student.receipts.length,
 
         batch_names: batchNames,
-
-        enrollments: student.enrollments,
-
-        receipts: student.receipts,
 
       };
 
@@ -343,22 +344,6 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
 
 
-  console.log('[getCoachStudentsFeeSummary] Summary stats:', {
-
-    totalStudents,
-
-    fullyPaid,
-
-    partiallyPaid,
-
-    unpaid,
-
-    totalOutstanding,
-
-  });
-
-
-
   const finalResponse = {
 
     students: studentsSummary,
@@ -378,24 +363,6 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
     },
 
   };
-
-
-
-  console.log('[getCoachStudentsFeeSummary] === FINAL RESPONSE ===');
-
-  console.log('[getCoachStudentsFeeSummary] Response structure:', {
-
-    hasStudents: Array.isArray(finalResponse.students),
-
-    studentsCount: finalResponse.students.length,
-
-    hasSummary: !!finalResponse.summary,
-
-    summaryKeys: finalResponse.summary ? Object.keys(finalResponse.summary) : [],
-
-  });
-
-  console.log('[getCoachStudentsFeeSummary] Returning response');
 
 
 

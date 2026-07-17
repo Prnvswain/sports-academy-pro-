@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, Edit } from 'lucide-react';
 import Loader from '../../components/Loader';
+import Avatar from '../../components/Avatar';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
 import { coachGet } from '../../api/client';
 import { useState, useEffect, useMemo } from 'react';
@@ -16,6 +18,8 @@ export default function CoachDashboardPage() {
   const [batchDetails, setBatchDetails] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
   // Load persisted filters
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function CoachDashboardPage() {
     const loadNotifications = async () => {
       try {
         setNotificationsLoading(true);
-        const result = await coachGet('/notifications');
+        const result = await coachGet('/coach/notifications');
         setNotifications(result.data || []);
       } catch (err) {
         console.error('Failed to load notifications:', err);
@@ -45,6 +49,22 @@ export default function CoachDashboardPage() {
       }
     };
     loadNotifications();
+  }, []);
+
+  // Load students from coach's batches
+  useEffect(() => {
+    const loadStudents = async () => {
+      try {
+        setStudentsLoading(true);
+        const result = await coachGet('/coach/students-fee-summary');
+        setStudents(result.data?.students || []);
+      } catch (err) {
+        console.error('Failed to load students:', err);
+      } finally {
+        setStudentsLoading(false);
+      }
+    };
+    loadStudents();
   }, []);
 
 
@@ -431,6 +451,128 @@ export default function CoachDashboardPage() {
                 </motion.article>
               ))}
             </motion.div>
+          )}
+        </motion.section>
+
+        {/* Students Section */}
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-8"
+        >
+          <div className="mb-6 flex items-center justify-between border-b border-border/50 pb-4">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <span className="text-2xl">🎓</span> My Students
+            </h2>
+            <Link to="/coach/students" className="text-sm text-primary hover:text-primary/80 font-semibold">
+              View All →
+            </Link>
+          </div>
+
+          {studentsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-secondary/10 rounded-2xl border border-dashed border-border">
+              <span className="text-4xl mb-4">👥</span>
+              <h3 className="text-lg font-bold text-foreground">No students found</h3>
+              <p className="text-sm text-muted-foreground mt-2">No students enrolled in your assigned batches yet.</p>
+            </div>
+          ) : (
+            <div className="card overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-border text-muted border-b text-xs font-bold uppercase tracking-wider">
+                    <th className="pb-3">Name</th>
+                    <th className="px-2 pb-3">Age</th>
+                    <th className="px-2 pb-3">Sport</th>
+                    <th className="px-2 pb-3">Batch</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Attendance
+                    </th>
+                    <th className="px-2 pb-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-border divide-y">
+                  {students.slice(0, 5).map((student, index) => {
+                    const isInactive = student.status?.toUpperCase() !== 'ACTIVE' && !student.isActive;
+                    return (
+                      <motion.tr
+                        key={student.student_id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                        className={`text-foreground cursor-pointer ${isInactive ? 'opacity-60 bg-gray-50' : ''}`}
+                        onClick={() => navigate(`/coach/students/${student.student_id}`)}
+                      >
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <Avatar src={student.profile_photo} name={student.name} size="sm" />
+                            <div>
+                              <p className="font-semibold">{student.name}</p>
+                              {student.parent_email && (
+                                <p className="text-muted text-xs">{student.parent_email}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-muted">{student.age || '—'}</td>
+                        <td>
+                          {student.sport?.name || student.enrollments?.[0]?.sport?.name || '—'}
+                        </td>
+                        <td className="text-muted">
+                          {student.batch?.name || student.enrollments?.[0]?.batch?.name || '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
+                          {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                            <span className="badge-active">ACTIVE</span>
+                          ) : (
+                            <span className="badge-inactive">INACTIVE</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-sm">
+                          <div className="flex items-center gap-2 text-xs font-semibold">
+                            <span className="text-emerald-600">
+                              {student.attendance_summary?.present_count || 0}
+                            </span>
+                            <span className="text-muted-foreground">|</span>
+                            <span className="text-rose-600">
+                              {student.attendance_summary?.absent_count || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                              onClick={() => navigate(`/coach/students/${student.student_id}`)}
+                              title="View Profile"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-2 rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+                              onClick={() => navigate(`/coach/students/${student.student_id}/edit`)}
+                              title="Edit Student"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </motion.section>
 

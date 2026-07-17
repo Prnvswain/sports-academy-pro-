@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { publicPost } from '../../api/client';
+import { useState, useEffect } from 'react';
+import { publicPost, publicGet } from '../../api/client';
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'];
 
@@ -30,20 +30,50 @@ export default function PublicEnquiryForm() {
     parent_name: '',
     age: '',
     gender: '',
-    interested_sports: [],
+    interested_sport: '',
     enquiry_source: '',
     follow_up_date: today,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [academy, setAcademy] = useState(null);
+  const [academyLoading, setAcademyLoading] = useState(true);
+
+  // Fetch academy data
+  useEffect(() => {
+    const fetchAcademy = async () => {
+      try {
+        // Try to get academy from URL or use default
+        const urlParams = new URLSearchParams(window.location.search);
+        const academyId = urlParams.get('academy_id');
+        
+        let academyData;
+        if (academyId) {
+          academyData = await publicGet(`/public/academy/${academyId}`);
+        } else {
+          // Try to get default academy
+          academyData = await publicGet('/public/academy');
+        }
+        
+        // Handle response format - data might be nested or direct
+        setAcademy(academyData.data || academyData);
+      } catch (error) {
+        console.error('Failed to fetch academy data:', error);
+        // Set fallback academy data
+        setAcademy({
+          academy_name: 'Sports Academy',
+          logo: null,
+        });
+      } finally {
+        setAcademyLoading(false);
+      }
+    };
+
+    fetchAcademy();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSportsChange = (e) => {
-    const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-    setFormData({ ...formData, interested_sports: selectedOptions });
   };
 
   const handleSubmit = async (e) => {
@@ -52,9 +82,9 @@ export default function PublicEnquiryForm() {
     setMessage({ text: '', type: '' });
 
     // Validation: At least one sport must be selected
-    if (formData.interested_sports.length === 0) {
+    if (!formData.interested_sport) {
       setMessage({
-        text: 'Please select at least one sport.',
+        text: 'Please select a sport.',
         type: 'error',
       });
       setLoading(false);
@@ -81,7 +111,7 @@ export default function PublicEnquiryForm() {
         parent_name: '',
         age: '',
         gender: '',
-        interested_sports: [],
+        interested_sport: '',
         enquiry_source: '',
         follow_up_date: today,
       });
@@ -99,9 +129,26 @@ export default function PublicEnquiryForm() {
     <div className="bg-surface flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="card bg-surface-secondary border-border border p-8 shadow-xl">
-          <div className="mb-8 text-center">
+          {/* Academy Header */}
+          <div className="mb-8 flex flex-col items-center text-center">
+            {academyLoading ? (
+              <div className="mb-4 h-16 w-16 animate-pulse rounded-full bg-slate-200"></div>
+            ) : academy?.logo ? (
+              <img
+                src={academy.logo}
+                alt={academy.academy_name || 'Academy Logo'}
+                className="mb-4 h-16 w-16 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <span className="text-2xl">🏛️</span>
+              </div>
+            )}
             <h1 className="text-foreground mb-2 text-3xl font-black tracking-tight">
-              Sports Academy Enquiry
+              {academy?.academy_name || 'Sports Academy'}
             </h1>
             <p className="text-muted text-sm">
               Join our elite training programs. Submit your details below.
@@ -223,27 +270,24 @@ export default function PublicEnquiryForm() {
             </div>
 
             <div>
-              <label className="label" htmlFor="interested_sports">
-                Interested Sports *
+              <label className="label" htmlFor="interested_sport">
+                Interested Sport *
               </label>
               <select
-                id="interested_sports"
-                name="interested_sports"
-                multiple
-                value={formData.interested_sports}
-                onChange={handleSportsChange}
-                className="input-field min-h-[120px]"
+                id="interested_sport"
+                name="interested_sport"
+                value={formData.interested_sport}
+                onChange={handleChange}
+                className="input-field"
                 required
               >
+                <option value="">Select a sport</option>
                 {SPORTS_OPTIONS.map((sport) => (
                   <option key={sport} value={sport}>
                     {sport}
                   </option>
                 ))}
               </select>
-              <p className="text-muted mt-1 text-xs">
-                Hold Ctrl/Cmd to select multiple sports
-              </p>
             </div>
 
             <div>
@@ -305,7 +349,10 @@ export default function PublicEnquiryForm() {
           </form>
 
           <div className="border-border mt-8 border-t pt-6 text-center">
-            <p className="text-muted text-xs">Powered by SAMS — Sports Academy Management System</p>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-muted text-xs">Powered by</span>
+              <span className="text-accent text-xs font-bold">Sports Academy Pro</span>
+            </div>
           </div>
         </div>
       </div>

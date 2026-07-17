@@ -294,6 +294,10 @@ export async function superAdminDelete(path) {
 export async function publicPost(path, body) {
   return api.post(path, body).then(unwrap);
 }
+
+export async function publicGet(path) {
+  return api.get(path).then(unwrap);
+}
 /* ==========================================
    🎯 PARENT AUTHENTICATED WRAPPERS
    ========================================== */

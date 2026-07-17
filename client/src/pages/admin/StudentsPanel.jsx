@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key } from 'lucide-react';
+import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter } from 'lucide-react';
 
 import Loader from '../../components/Loader';
 
@@ -684,8 +684,6 @@ export default function StudentsPanel() {
 
   const [bulkUploadResults, setBulkUploadResults] = useState(null);
 
-  const [selectedStudentForView, setSelectedStudentForView] = useState(null);
-
   const [isEditingStudent, setIsEditingStudent] = useState(false);
 
   const [editStudentForm, setEditStudentForm] = useState({});
@@ -705,6 +703,8 @@ export default function StudentsPanel() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [showRemovePhotoConfirm, setShowRemovePhotoConfirm] = useState(false);
+
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
 
 
 
@@ -795,6 +795,29 @@ export default function StudentsPanel() {
     loadData();
 
   }, [loadData]);
+
+
+
+  // Fetch batches for filter when sport is selected
+  useEffect(() => {
+    const fetchBatchesForFilter = async () => {
+      if (!filterSport) {
+        setAvailableBatches([]);
+        setFilterBatch('');
+        return;
+      }
+
+      try {
+        const result = await adminGet(`/admin/batches?sport_id=${filterSport}`);
+        setAvailableBatches(result.data || []);
+      } catch (error) {
+        console.error('Failed to load batches for filter:', error);
+        setAvailableBatches([]);
+      }
+    };
+
+    fetchBatchesForFilter();
+  }, [filterSport]);
 
 
 
@@ -1794,6 +1817,20 @@ export default function StudentsPanel() {
 
 
 
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterSport('');
+    setFilterBatch('');
+    setFilterCategory('');
+    setFilterGender('');
+    setFilterWeightClass('');
+    setCustomMaxAge('');
+    setCustomMaxWeight('');
+    setSelectedStudent(null);
+  };
+
+
+
   const handleResumeStudent = async (studentId) => {
 
     try {
@@ -1801,38 +1838,6 @@ export default function StudentsPanel() {
       await adminPost(`/admin/students/${studentId}/resume`);
 
       setMessage({ text: 'Student plan resumed successfully.', type: 'success' });
-
-      loadData();
-
-    } catch (error) {
-
-      setMessage({ text: error.message, type: 'error' });
-
-    }
-
-  };
-
-
-
-  const handleExitStudent = async (student) => {
-
-    const exitReason = prompt('Enter exit reason (required):');
-
-    if (!exitReason) {
-
-      setMessage({ text: 'Exit reason is required.', type: 'error' });
-
-      return;
-
-    }
-
-    try {
-
-      const payload = { exit_reason: exitReason };
-
-      await adminPost(`/admin/students/${student.student_id}/exit`, payload);
-
-      setMessage({ text: 'Student exited successfully.', type: 'success' });
 
       loadData();
 
@@ -2625,15 +2630,57 @@ export default function StudentsPanel() {
 
                 setSelectedStudent(null);
 
-                setSelectedStudentForView(null);
-
               }}
 
             />
 
           </div>
 
-          <div className="w-full min-w-0 sm:w-auto">
+          <motion.button
+
+            type="button"
+
+            onClick={() => setShowFilterPanel(!showFilterPanel)}
+
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              showFilterPanel 
+                ? 'bg-primary text-white' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+
+            <Filter className="w-4 h-4" />
+
+            Filters
+
+          </motion.button>
+
+        </div>
+
+
+
+        <AnimatePresence>
+
+          {showFilterPanel && (
+
+            <motion.div
+
+              initial={{ height: 0, opacity: 0 }}
+
+              animate={{ height: 'auto', opacity: 1 }}
+
+              exit={{ height: 0, opacity: 0 }}
+
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+
+              className="overflow-hidden"
+
+            >
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-4 border-t border-slate-200 mt-4">
 
             <select
 
@@ -2645,9 +2692,9 @@ export default function StudentsPanel() {
 
                 setFilterSport(e.target.value);
 
-                setSelectedStudent(null);
+                setFilterBatch(''); // Reset batch when sport changes
 
-                setSelectedStudentForView(null);
+                setSelectedStudent(null);
 
               }}
 
@@ -2667,23 +2714,19 @@ export default function StudentsPanel() {
 
             </select>
 
-          </div>
-
-          <div className="w-full min-w-0 sm:w-auto">
-
             <select
 
               className="input-field w-full"
 
               value={filterBatch}
 
+              disabled={!filterSport}
+
               onChange={(e) => {
 
                 setFilterBatch(e.target.value);
 
                 setSelectedStudent(null);
-
-                setSelectedStudentForView(null);
 
               }}
 
@@ -2703,10 +2746,6 @@ export default function StudentsPanel() {
 
             </select>
 
-          </div>
-
-          <div className="flex w-full min-w-0 gap-2 sm:w-auto">
-
             <select
 
               className="input-field w-full"
@@ -2718,8 +2757,6 @@ export default function StudentsPanel() {
                 setFilterCategory(e.target.value);
 
                 setSelectedStudent(null);
-
-                setSelectedStudentForView(null);
 
                 if (e.target.value !== 'Custom') {
 
@@ -2775,10 +2812,6 @@ export default function StudentsPanel() {
 
             )}
 
-          </div>
-
-          <div className="w-full min-w-0 sm:w-auto">
-
             <select
 
               className="input-field w-full"
@@ -2790,8 +2823,6 @@ export default function StudentsPanel() {
                 setFilterGender(e.target.value);
 
                 setSelectedStudent(null);
-
-                setSelectedStudentForView(null);
 
               }}
 
@@ -2807,10 +2838,6 @@ export default function StudentsPanel() {
 
             </select>
 
-          </div>
-
-          <div className="flex w-full min-w-0 gap-2 sm:w-auto">
-
             <select
 
               className="input-field w-full"
@@ -2822,8 +2849,6 @@ export default function StudentsPanel() {
                 setFilterWeightClass(e.target.value);
 
                 setSelectedStudent(null);
-
-                setSelectedStudentForView(null);
 
                 if (e.target.value !== 'Custom') {
 
@@ -2869,9 +2894,29 @@ export default function StudentsPanel() {
 
             )}
 
-          </div>
+            <button
 
-        </div>
+              type="button"
+
+              onClick={handleClearFilters}
+
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
+
+            >
+
+              <X className="w-4 h-4" />
+
+              Clear Filters
+
+            </button>
+
+            </div>
+
+            </motion.div>
+
+          )}
+
+        </AnimatePresence>
 
       </div>
 
@@ -3665,12 +3710,6 @@ export default function StudentsPanel() {
 
                     </th>
 
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-
-                      Attendance
-
-                    </th>
-
                     <th className="px-2 pb-3">Actions</th>
 
                   </tr>
@@ -3685,7 +3724,7 @@ export default function StudentsPanel() {
 
                       <td
 
-                        colSpan={isBulkEditMode ? 8 : 7}
+                        colSpan={isBulkEditMode ? 7 : 6}
 
                         className="text-muted py-8 text-center text-xs"
 
@@ -3759,19 +3798,7 @@ export default function StudentsPanel() {
 
                               <Avatar src={student.profile_photo} name={student.name} size="sm" />
 
-                              <div
-
-                                className="hover:text-accent cursor-pointer transition-colors hover:underline"
-
-                                onClick={(e) => {
-
-                                  e.stopPropagation();
-
-                                  setSelectedStudentForView(student);
-
-                                }}
-
-                              >
+                              <div>
 
                                 <p className="font-semibold">{student.name}</p>
 
@@ -3842,28 +3869,6 @@ export default function StudentsPanel() {
                               <span className="badge-inactive">INACTIVE</span>
 
                             )}
-
-                          </td>
-
-                          <td className="whitespace-nowrap px-6 py-4 text-sm">
-
-                            <div className="flex items-center gap-2 text-xs">
-
-                              <span className="text-green-600">
-
-                                🟢 Present: {student.attendance_summary?.present_count || 0}
-
-                              </span>
-
-                              <span className="text-gray-400">|</span>
-
-                              <span className="text-red-600">
-
-                                🔴 Absent: {student.attendance_summary?.absent_count || 0}
-
-                              </span>
-
-                            </div>
 
                           </td>
 
@@ -3992,26 +3997,6 @@ export default function StudentsPanel() {
                                 </button>
 
                               )}
-
-
-
-                              {/* Exit Student - X Icon */}
-
-                              <button
-
-                                type="button"
-
-                                className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-
-                                onClick={() => handleExitStudent(student)}
-
-                                title="Exit Student"
-
-                              >
-
-                                <X className="w-4 h-4" />
-
-                              </button>
 
 
 
@@ -7473,210 +7458,6 @@ export default function StudentsPanel() {
               <p className="text-muted text-center">Failed to load student details.</p>
 
             )}
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {/* Student Profile Detail Modal */}
-
-      {selectedStudentForView && (
-
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-
-          <div className="bg-surface border-border animate-fadeIn flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border shadow-xl">
-
-            <div className="bg-accent text-foreground flex flex-shrink-0 items-center justify-between px-8 py-4">
-
-              <h3 className="text-lg font-bold">Detailed Student Profile</h3>
-
-              <button
-
-                onClick={() => setSelectedStudentForView(null)}
-
-                className="text-foreground hover:text-muted text-xl font-bold"
-
-              >
-
-                &times;
-
-              </button>
-
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 overflow-y-auto p-8 text-sm md:grid-cols-2">
-
-              <div className="col-span-2 mb-4 border-b pb-2">
-
-                <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
-
-                  Personal Information
-
-                </h4>
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Full Name:</span>{' '}
-
-                {selectedStudentForView?.name ||
-
-                  `${selectedStudentForView?.firstName || ''} ${selectedStudentForView?.middleName || ''} ${selectedStudentForView?.lastName || ''}`}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Age / Gender:</span>{' '}
-
-                {selectedStudentForView?.age || '—'} years /{' '}
-
-                {normalizeGender(selectedStudentForView?.gender)}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Blood Group:</span>{' '}
-
-                {selectedStudentForView?.blood_group ||
-
-                  selectedStudentForView?.bloodGroup ||
-
-                  'Not Provided'}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Height:</span>{' '}
-
-                {selectedStudentForView?.height
-
-                  ? `${selectedStudentForView.height} cm`
-
-                  : 'Not Provided'}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Weight:</span>{' '}
-
-                {selectedStudentForView?.weight
-
-                  ? `${selectedStudentForView.weight} kg`
-
-                  : 'Not Provided'}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Joining Date:</span>{' '}
-
-                {selectedStudentForView?.joining_date
-
-                  ? new Date(selectedStudentForView.joining_date).toLocaleDateString()
-
-                  : '—'}
-
-              </div>
-
-
-
-              <div className="col-span-2 mb-4 mt-4 border-b pb-2">
-
-                <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
-
-                  Parent / Guardian Details
-
-                </h4>
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Parent Name:</span>{' '}
-
-                {selectedStudentForView?.parent_name || '—'}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Parent Phone:</span>{' '}
-
-                {selectedStudentForView?.parent_phone || '—'}
-
-              </div>
-
-              <div className="col-span-2">
-
-                <span className="text-muted block font-semibold">Parent Email:</span>{' '}
-
-                {selectedStudentForView?.parent_email || '—'}
-
-              </div>
-
-
-
-              <div className="col-span-2 mb-4 mt-4 border-b pb-2">
-
-                <h4 className="text-accent text-xs font-bold uppercase tracking-wider">
-
-                  Academy Enrollment Settings
-
-                </h4>
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Assigned Sport:</span>{' '}
-
-                {selectedStudentForView?.sport?.name || selectedStudentForView?.sports || '—'}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Batch Schedule:</span>{' '}
-
-                {selectedStudentForView?.batch?.name || 'Unassigned'}
-
-              </div>
-
-              <div>
-
-                <span className="text-muted block font-semibold">Fees Milestone Status:</span>{' '}
-
-                <span
-
-                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${selectedStudentForView?.fees_status === 'paid' ? 'bg-success/10 text-success border-success/20 border' : 'bg-warning/10 text-warning border-warning/20 border'}`}
-
-                >
-
-                  {selectedStudentForView?.fees_status || '—'}
-
-                </span>
-
-              </div>
-
-
-
-              {(() => {
-
-                return null;
-
-              })()}
-
-            </div>
 
           </div>
 

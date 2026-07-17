@@ -47,15 +47,30 @@ router.post(
         parent_name,
         age,
         gender,
+        interested_sport,
         enquiry_source,
         follow_up_date,
       } = req.body;
 
-      // Get the first active academy for public submissions
-      const academy = await prisma.academy.findFirst({
-        where: { status: 'ACTIVE' },
-        orderBy: { academy_id: 'asc' },
-      });
+      // Get academy_id from URL parameter or use first active academy
+      const urlParams = new URLSearchParams(req.originalUrl.split('?')[1]);
+      const academyIdParam = urlParams.get('academy_id');
+      
+      let academy;
+      if (academyIdParam) {
+        academy = await prisma.academy.findFirst({
+          where: { 
+            academy_id: parseInt(academyIdParam),
+            status: 'ACTIVE'
+          },
+        });
+      } else {
+        // Fallback to first active academy
+        academy = await prisma.academy.findFirst({
+          where: { status: 'ACTIVE' },
+          orderBy: { academy_id: 'asc' },
+        });
+      }
 
       if (!academy) {
         return res.status(400).json({
@@ -74,8 +89,11 @@ router.post(
           parent_name: parent_name || null,
           age: age ? parseInt(age) : null,
           gender: gender || null,
+          sport_interested: interested_sport || null,
+          interested_sports: interested_sport ? JSON.stringify([interested_sport]) : null,
           enquiry_source: enquiry_source || null,
           follow_up_date: follow_up_date ? new Date(follow_up_date) : null,
+          status: 'NEW',
         },
       });
 
@@ -85,6 +103,7 @@ router.post(
         phone,
         academy_id: academy.academy_id,
         enquiry_id: enquiry.enquiry_id,
+        sport_interested: interested_sport,
       });
 
       res.json(
@@ -114,6 +133,40 @@ router.get('/sports', async (req, res, next) => {
     }));
 
     res.json(successResponse('Global sports retrieved', formattedSports));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Public endpoint to fetch academy branding (no auth required)
+router.get('/academy', async (req, res, next) => {
+  try {
+    // Get the first active academy for public branding
+    const academy = await prisma.academy.findFirst({
+      where: { status: 'ACTIVE' },
+      orderBy: { academy_id: 'asc' },
+      select: {
+        academy_id: true,
+        name: true,
+        logo_url: true,
+      },
+    });
+
+    if (!academy) {
+      return res.json(
+        successResponse('No active academy found', {
+          academy_name: 'Sports Academy',
+          logo: null,
+        }),
+      );
+    }
+
+    res.json(
+      successResponse('Academy branding retrieved', {
+        academy_name: academy.name,
+        logo: academy.logo_url,
+      }),
+    );
   } catch (err) {
     next(err);
   }
