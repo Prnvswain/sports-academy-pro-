@@ -832,6 +832,18 @@ export const getStudentPerformance = async (academyId, studentId, query = {}) =>
     student_id: parseInt(studentId, 10)
   };
 
+  // Filter by date if provided, otherwise default to today
+  const { date } = query;
+  const targetDate = date ? new Date(date) : new Date();
+  targetDate.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(targetDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  where.scored_at = {
+    gte: targetDate,
+    lte: endOfDay
+  };
+
   const scores = await prisma.performanceScore.findMany({
     where,
     include: {
@@ -878,6 +890,7 @@ export const getStudentPerformance = async (academyId, studentId, query = {}) =>
 
   return {
     student_id: parseInt(studentId, 10),
+    date: targetDate,
     attributes: Object.values(grouped)
   };
 };

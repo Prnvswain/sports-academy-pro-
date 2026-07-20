@@ -78,6 +78,11 @@ export default function CoachAttendancePage() {
 
   const [showAutoMarkConfirm, setShowAutoMarkConfirm] = useState(false);
 
+  // Batch session state
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionTimer, setSessionTimer] = useState({});
+
 
 
   const selectedBatch = batches.find((b) => String(b.batch_id) === String(selectedBatchId));
@@ -674,6 +679,95 @@ export default function CoachAttendancePage() {
 
 
 
+  // Fetch active batch sessions
+  const fetchActiveSessions = async () => {
+    setSessionLoading(true);
+    try {
+      const response = await coachGet('/coach/batch-session/active');
+      setActiveSessions(response.data || []);
+      
+      // Initialize timer for each active session
+      const timers = {};
+      response.data?.forEach(session => {
+        timers[session.session_id] = session.duration_minutes;
+      });
+      setSessionTimer(timers);
+    } catch (error) {
+      console.error('Error fetching active sessions:', error);
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+
+
+  // Start batch session
+  const handleStartBatch = async () => {
+    if (!selectedBatch) return;
+    
+    setSessionLoading(true);
+    setMessage({ text: '', type: '' });
+    
+    try {
+      await coachPost('/coach/batch-session/start', { batch_id: selectedBatch.batch_id });
+      setMessage({ text: 'Batch session started successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      fetchActiveSessions();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+
+
+  // End batch session
+  const handleEndBatch = async () => {
+    if (!selectedBatch) return;
+    
+    setSessionLoading(true);
+    setMessage({ text: '', type: '' });
+    
+    try {
+      await coachPost('/coach/batch-session/end', { batch_id: selectedBatch.batch_id });
+      setMessage({ text: 'Batch session ended successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      fetchActiveSessions();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+
+
+  // Check if current batch has an active session
+  const hasActiveSession = activeSessions.some(s => s.batch_id === selectedBatch?.batch_id);
+  const currentActiveSession = activeSessions.find(s => s.batch_id === selectedBatch?.batch_id);
+
+
+
+  // Update session timer every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeSessions.length > 0) {
+        fetchActiveSessions();
+      }
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, [activeSessions]);
+
+
+
+  useEffect(() => {
+    fetchActiveSessions();
+  }, []);
+
+
+
   // Framer Motion Variants for views
 
   const viewVariants = {
@@ -1201,6 +1295,78 @@ export default function CoachAttendancePage() {
                   </div>
 
                 </div>
+
+
+
+                {/* Batch Session Controls */}
+                {coachAttendanceMarked && !hasActiveSession && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative"
+                  >
+                    <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-lg text-foreground">Start Batch Session</h3>
+                          <p className="text-sm text-muted-foreground mt-1">Begin tracking your training session time</p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleStartBatch}
+                          disabled={sessionLoading}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          <span className="text-xl">▶</span>
+                          Start Batch
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {hasActiveSession && currentActiveSession && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative"
+                  >
+                    <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-lg text-foreground">LIVE Session</h3>
+                              <span className="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold px-2 py-1 rounded-full">
+                                LIVE
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Duration: {currentActiveSession.duration_minutes} min
+                            </p>
+                          </div>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleEndBatch}
+                          disabled={sessionLoading}
+                          className="bg-red-500 hover:bg-red-600 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          <span className="text-xl">⏹</span>
+                          End Batch
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
 
 

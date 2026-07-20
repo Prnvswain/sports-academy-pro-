@@ -1709,6 +1709,7 @@ export const getAllCoaches = async (academy_id) =>
 export const createCoach = async (academy_id, data) => {
 
   const academyId = parseInt(academy_id, 10);
+  await assertSubscriptionLimits(academyId, 'coach');
 
   const email = data.email.trim().toLowerCase();
 
@@ -2140,8 +2141,6 @@ export const getAllStudents = async (academy_id) => {
 
           },
 
-          where: { is_active: true },
-
         },
 
         receipts: {
@@ -2379,6 +2378,7 @@ export const getStudentsByBatch = async (academy_id, batch_id) => {
 export const createStudent = async (academy_id, data) => {
 
   const academyId = parseInt(academy_id, 10);
+  await assertSubscriptionLimits(academyId, 'student');
 
 
 
@@ -6193,3 +6193,463 @@ const sendBroadcastEmail = async ({ to, recipientName, title, message }) => {
 
 };
 
+export const assertSubscriptionLimits = async (academyId, type) => {
+  const academy = await prisma.academy.findUnique({
+    where: { academy_id: academyId }
+  });
+  if (!academy) {
+    throw new Error("Academy not found");
+  }
+
+  const setting = await prisma.globalSetting.findUnique({
+    where: { setting_key: 'platform_subscription_plans' }
+  });
+  let activePlans = [];
+  if (setting) {
+    try {
+      activePlans = JSON.parse(setting.setting_value);
+    } catch (e) {}
+  }
+
+  const planName = academy.subscription_plan || academy.subscription_tier;
+  const activePlan = activePlans.find(p => p.id === planName || p.name === planName) || {
+    teacher_limit: academy.subscription_tier === 'FREE' ? 3 : academy.subscription_tier === 'PRO' ? 6 : null,
+    student_limit: academy.subscription_tier === 'FREE' ? 30 : academy.subscription_tier === 'PRO' ? 80 : null
+  };
+
+  if (type === 'coach') {
+    const maxCoaches = activePlan.teacher_limit;
+    if (maxCoaches !== null && maxCoaches !== undefined) {
+      const activeCoaches = await prisma.coach.count({
+        where: { academy_id: academyId, is_deleted: false, status: 'ACTIVE' }
+      });
+      if (activeCoaches >= maxCoaches) {
+        const error = new Error(`Coach limit reached (${maxCoaches} coaches maximum). Upgrade your plan to add more coaches.`);
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+  } else if (type === 'student') {
+    const maxStudents = activePlan.student_limit;
+    if (maxStudents !== null && maxStudents !== undefined) {
+      const activeStudents = await prisma.student.count({
+        where: { academy_id: academyId, is_deleted: false, status: 'ACTIVE' }
+      });
+      if (activeStudents >= maxStudents) {
+        const error = new Error(`Student limit reached (${maxStudents} students maximum). Upgrade your plan to add more students.`);
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+  }
+};
+
+export const getSubscriptionDetails = async (academy_id) => {
+  const academyId = parseInt(academy_id, 10);
+  
+  const [academy, activeCoaches, activeStudents, paymentsData] = await Promise.all([
+    prisma.academy.findUnique({
+      where: { academy_id: academyId }
+    }),
+    prisma.coach.count({
+      where: { academy_id: academyId, is_deleted: false, status: 'ACTIVE' }
+    }),
+    prisma.student.count({
+      where: { academy_id: academyId, is_deleted: false, status: 'ACTIVE' }
+    }),
+    prisma.globalSetting.findUnique({
+      where: { setting_key: 'platform_payments' }
+    })
+  ]);
+
+  if (!academy) {
+    throw new Error('Academy not found');
+  }
+
+  const { listPlans } = await import('../super-admin/super-admin.service.js');
+  const plans = await listPlans();
+  const activePlan = plans.find(p => p.id === academy.subscription_plan) || {
+    name: academy.subscription_plan || academy.subscription_tier,
+    teacher_limit: academy.subscription_tier === 'FREE' ? 3 : academy.subscription_tier === 'PRO' ? 6 : null,
+    student_limit: academy.subscription_tier === 'FREE' ? 30 : academy.subscription_tier === 'PRO' ? 80 : null,
+    features: academy.subscription_tier === 'FREE' 
+      ? ['Smart batch scheduling tracking', 'Automated email notification systems', 'Standard portal access support'] 
+      : ['Advanced analytic dashboard data', 'Pending fee transaction metrics', 'Priority live support channels']
+  };
+
+  const now = new Date();
+  const isExpired = academy.subscription_expires_at ? new Date(academy.subscription_expires_at) < now : false;
+  const daysRemaining = academy.subscription_expires_at
+    ? Math.max(0, Math.ceil((new Date(academy.subscription_expires_at) - now) / (1000 * 60 * 60 * 24)))
+    : null;
+
+  let allPayments = [];
+  if (paymentsData) {
+    try {
+      allPayments = JSON.parse(paymentsData.setting_value);
+    } catch (e) {}
+  }
+  const academyPayments = allPayments.filter(p => parseInt(p.academy_id, 10) === academyId);
+
+  const hasPayments = academyPayments.some(p => p.status === 'COMPLETED');
+  let trialStatus = 'Paid';
+  if (!hasPayments) {
+    trialStatus = isExpired ? 'Trial Expired' : 'Active Trial';
+  }
+
+  return {
+    current_plan: activePlan.name,
+    plan_id: activePlan.id || 'free',
+    plan_status: academy.status,
+    trial_status: trialStatus,
+    start_date: academy.subscription_starts_at,
+    expiry_date: academy.subscription_expires_at,
+    days_remaining: daysRemaining,
+    teacher_usage: activeCoaches,
+    teacher_limit: activePlan.teacher_limit,
+    student_usage: activeStudents,
+    student_limit: activePlan.student_limit,
+    plan_features: activePlan.features,
+    payment_history: academyPayments
+  };
+};
+
+export const getSuperAdminPlans = async () => {
+  const { listPlans } = await import('../super-admin/super-admin.service.js');
+  return listPlans();
+};
+
+export const getPaymentSettings = async () => {
+  const { getPaymentsData } = await import('../super-admin/super-admin.service.js');
+  const data = await getPaymentsData();
+  return data.settings;
+};
+
+export const purchaseSubscription = async (academy_id, data, user_id, ip) => {
+  const academyId = parseInt(academy_id, 10);
+  const plans = await getSuperAdminPlans();
+  const plan = plans.find(p => p.id === data.plan_id);
+  
+  if (!plan) {
+    throw new Error('Plan not found');
+  }
+
+  const academy = await prisma.academy.findUnique({
+    where: { academy_id: academyId }
+  });
+
+  const txSetting = await prisma.globalSetting.findUnique({
+    where: { setting_key: 'platform_payments' }
+  });
+
+  let transactions = [];
+  if (txSetting) {
+    try {
+      transactions = JSON.parse(txSetting.setting_value);
+    } catch (e) {}
+  }
+
+  const newTx = {
+    id: 'tx_' + Date.now(),
+    academy_id: academyId,
+    academy_name: academy?.name || 'Academy #' + academyId,
+    plan_id: plan.id,
+    plan_name: plan.name,
+    amount: parseFloat(data.amount || plan.price),
+    payment_method: data.payment_method || 'UPI',
+    transaction_id: data.transaction_id,
+    coupon_code: data.coupon_code || null,
+    status: data.auto_approve ? 'COMPLETED' : 'PENDING',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  transactions.unshift(newTx);
+
+  await prisma.globalSetting.upsert({
+    where: { setting_key: 'platform_payments' },
+    create: { setting_key: 'platform_payments', setting_value: JSON.stringify(transactions) },
+    update: { setting_value: JSON.stringify(transactions) }
+  });
+
+  if (newTx.status === 'COMPLETED') {
+    const expiresAt = new Date();
+    if (plan.duration === 'Yearly') {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    } else if (plan.duration === 'Half-Yearly') {
+      expiresAt.setMonth(expiresAt.getMonth() + 6);
+    } else if (plan.duration === 'Quarterly') {
+      expiresAt.setMonth(expiresAt.getMonth() + 3);
+    } else {
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+    }
+
+    let subscriptionTier = 'FREE';
+    const lowercaseId = String(plan.id).toLowerCase();
+    if (lowercaseId.includes('plus')) {
+      subscriptionTier = 'PLUS';
+    } else if (lowercaseId.includes('pro')) {
+      subscriptionTier = 'PRO';
+    }
+
+    await prisma.academy.update({
+      where: { academy_id: academyId },
+      data: {
+        subscription_plan: plan.id,
+        subscription_tier: subscriptionTier,
+        subscription_starts_at: new Date(),
+        subscription_expires_at: expiresAt,
+        status: 'ACTIVE'
+      }
+    });
+
+    await prisma.notification.create({
+      data: {
+        academy_id: academyId,
+        user_id,
+        type: 'GENERAL',
+        title: 'Subscription Activated',
+        body: `Your payment was verified. Your academy subscription to ${plan.name} has been activated until ${expiresAt.toLocaleDateString()}!`,
+        metadata: JSON.stringify({ subtype: 'payment_success', transaction_id: newTx.id })
+      }
+    });
+
+    await prisma.notification.create({
+      data: {
+        type: 'GENERAL',
+        title: 'New Plan Purchase Success',
+        body: `Academy "${academy?.name}" purchased ${plan.name} for ₹${newTx.amount} (Tx ID: ${newTx.transaction_id}).`,
+        metadata: JSON.stringify({ subtype: 'plan_purchase', academy_id: academyId, plan_id: plan.id })
+      }
+    });
+  } else {
+    await prisma.notification.create({
+      data: {
+        type: 'GENERAL',
+        title: 'New Subscription Payment Pending',
+        body: `Academy "${academy?.name}" submitted a payment reference for ${plan.name} (Tx ID: ${newTx.transaction_id}). Review required.`,
+        metadata: JSON.stringify({ subtype: 'payment_pending', academy_id: academyId, plan_id: plan.id, tx_id: newTx.id })
+      }
+    });
+  }
+
+  await logAudit({
+    actor_type: 'ACADEMY_ADMIN',
+    actor_id: user_id,
+    action: 'SUBSCRIPTION_PURCHASE_SUBMITTED',
+    entity_type: 'GlobalSetting',
+    metadata: { plan_id: plan.id, amount: newTx.amount },
+    ip_address: ip
+  });
+
+  return newTx;
+};
+
+export const getAcademyNotifications = async (academy_id, user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  
+  const notifications = await prisma.notification.findMany({
+    where: {
+      academy_id: academyId,
+      user_id: parseInt(user_id, 10)
+    },
+    orderBy: { created_at: 'desc' },
+    take: 50
+  });
+
+  return notifications.map(n => ({
+    ...n,
+    metadata: n.metadata ? JSON.parse(n.metadata) : null
+  }));
+};
+
+export const markAcademyNotificationAsRead = async (id) => {
+  return prisma.notification.update({
+    where: { notification_id: parseInt(id, 10) },
+    data: { is_read: true }
+  });
+};
+
+export const pauseStudentPlan = async (academy_id, student_id, data, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const { pause_start_date, pause_duration, pause_duration_unit, pause_end_date, pause_reason } = data;
+
+  // Calculate pause end date if duration is provided
+  let calculatedEndDate = pause_end_date;
+  if (pause_duration && pause_duration_unit && !pause_end_date) {
+    const startDate = new Date(pause_start_date || new Date());
+    const duration = parseInt(pause_duration, 10);
+    
+    switch (pause_duration_unit) {
+      case 'days':
+        startDate.setDate(startDate.getDate() + duration);
+        break;
+      case 'weeks':
+        startDate.setDate(startDate.getDate() + (duration * 7));
+        break;
+      case 'months':
+        startDate.setMonth(startDate.getMonth() + duration);
+        break;
+      default:
+        break;
+    }
+    calculatedEndDate = startDate.toISOString();
+  }
+
+  // Update student enrollment to pause status
+  let enrollment = await prisma.studentEnrollment.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      is_active: true
+    }
+  });
+
+  logger.info('Enrollment query result for pause', { student_id: studentId, academy_id: academyId, enrollmentFound: !!enrollment });
+
+  if (!enrollment) {
+    // Try to find any enrollment for this student in this academy (not just active)
+    const anyEnrollment = await prisma.studentEnrollment.findFirst({
+      where: {
+        student_id: studentId,
+        academy_id: academyId
+      }
+    });
+    
+    logger.info('Fallback enrollment query result', { student_id: studentId, academy_id: academyId, anyEnrollmentFound: !!anyEnrollment });
+    
+    if (anyEnrollment) {
+      // Use the found enrollment even if not marked as active
+      // Update it to active first
+      await prisma.studentEnrollment.update({
+        where: { enrollment_id: anyEnrollment.enrollment_id },
+        data: { is_active: true }
+      });
+      // Now use this enrollment
+      enrollment = anyEnrollment;
+    } else {
+      const error = new Error('No enrollment found for student in this academy');
+      error.statusCode = 404;
+      throw error;
+    }
+  }
+
+  // Calculate pause duration in days for the schema
+  let pauseDurationDays = null;
+  if (pause_duration && pause_duration_unit) {
+    const duration = parseInt(pause_duration, 10);
+    switch (pause_duration_unit) {
+      case 'days':
+        pauseDurationDays = duration;
+        break;
+      case 'weeks':
+        pauseDurationDays = duration * 7;
+        break;
+      case 'months':
+        pauseDurationDays = duration * 30; // Approximate
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Calculate remaining validity (days from pause end to plan end)
+  let remainingValidity = null;
+  if (calculatedEndDate && enrollment.plan_end_date) {
+    const pauseEnd = new Date(calculatedEndDate);
+    const planEnd = new Date(enrollment.plan_end_date);
+    const diffTime = planEnd - pauseEnd;
+    remainingValidity = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // Update enrollment with pause details using correct schema field names
+  const updatedEnrollment = await prisma.studentEnrollment.update({
+    where: { enrollment_id: enrollment.enrollment_id },
+    data: {
+      is_paused: true,
+      pause_start_date: pause_start_date ? new Date(pause_start_date) : new Date(),
+      pause_end_date: calculatedEndDate ? new Date(calculatedEndDate) : null,
+      pause_duration_days: pauseDurationDays,
+      pause_unit: pause_duration_unit || null,
+      remaining_validity: remainingValidity,
+      pause_reason: pause_reason || null
+    }
+  });
+
+  // Extend the plan end date by the pause duration
+  if (calculatedEndDate && enrollment.plan_end_date) {
+    const currentPlanEnd = new Date(enrollment.plan_end_date);
+    const pauseEnd = new Date(calculatedEndDate);
+    const extensionDays = Math.ceil((pauseEnd - new Date(pause_start_date || new Date())) / (1000 * 60 * 60 * 24));
+    
+    currentPlanEnd.setDate(currentPlanEnd.getDate() + extensionDays);
+    
+    await prisma.studentEnrollment.update({
+      where: { enrollment_id: enrollment.enrollment_id },
+      data: {
+        plan_end_date: currentPlanEnd
+      }
+    });
+  }
+
+  logger.info('Student plan paused', { student_id: studentId, academy_id: academyId, admin_user_id });
+
+  return updatedEnrollment;
+};
+
+export const resumeStudentPlan = async (academy_id, student_id, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Find paused enrollment
+  let enrollment = await prisma.studentEnrollment.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      is_active: true,
+      is_paused: true
+    }
+  });
+
+  logger.info('Paused enrollment query result for resume', { student_id: studentId, academy_id: academyId, enrollmentFound: !!enrollment });
+
+  if (!enrollment) {
+    const error = new Error('No paused enrollment found for student');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Resume the enrollment - clear all pause-related fields using correct schema names
+  const updatedEnrollment = await prisma.studentEnrollment.update({
+    where: { enrollment_id: enrollment.enrollment_id },
+    data: {
+      is_paused: false,
+      pause_start_date: null,
+      pause_end_date: null,
+      pause_duration_days: null,
+      pause_unit: null,
+      remaining_validity: null,
+      pause_reason: null
+    }
+  });
+
+  logger.info('Student plan resumed', { student_id: studentId, academy_id: academyId, admin_user_id });
+
+  return updatedEnrollment;
+};

@@ -25,6 +25,10 @@ export default function BatchesPanel() {
   const [editingBatchId, setEditingBatchId] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [overlapDetails, setOverlapDetails] = useState(null);
+  const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [sessionHistoryLoading, setSessionHistoryLoading] = useState(false);
+  const [sessionFilters, setSessionFilters] = useState({ batch_id: '', coach_id: '', date_from: '', date_to: '', status: '' });
 
   // States for Searchable Coach Dropdown
   const [coachSearch, setCoachSearch] = useState('');
@@ -271,6 +275,36 @@ export default function BatchesPanel() {
     setTimeout(() => setMessage({text: '', type: ''}), 4000);
   };
 
+  const loadSessionHistory = async () => {
+    setSessionHistoryLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (sessionFilters.batch_id) params.append('batch_id', sessionFilters.batch_id);
+      if (sessionFilters.coach_id) params.append('coach_id', sessionFilters.coach_id);
+      if (sessionFilters.date_from) params.append('date_from', sessionFilters.date_from);
+      if (sessionFilters.date_to) params.append('date_to', sessionFilters.date_to);
+      if (sessionFilters.status) params.append('status', sessionFilters.status);
+      
+      const result = await adminGet(`/admin/batch-sessions?${params.toString()}`);
+      setSessionHistory(result.data || []);
+    } catch (error) {
+      setMessage({ text: error.message, type: "error" });
+    } finally {
+      setSessionHistoryLoading(false);
+    }
+  };
+
+  const handleViewSessionHistory = () => {
+    setShowSessionHistory(true);
+    loadSessionHistory();
+  };
+
+  const handleCloseSessionHistory = () => {
+    setShowSessionHistory(false);
+    setSessionHistory([]);
+    setSessionFilters({ batch_id: '', coach_id: '', date_from: '', date_to: '', status: '' });
+  };
+
   const filteredBatches = (batches || []).filter(
     (batch) =>
       batch?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -341,6 +375,15 @@ export default function BatchesPanel() {
               </div>
             </div>
           </div>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleViewSessionHistory}
+            className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all"
+          >
+            <Clock className="w-5 h-5" />
+            Batch Session History
+          </motion.button>
         </div>
 
         {/* Overlap Conflict Modal using Portal */}
@@ -377,6 +420,161 @@ export default function BatchesPanel() {
                     >
                       Override & Save
                     </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+        {/* Batch Session History Modal using Portal */}
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {showSessionHistory && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+                <motion.div
+                  className="bg-card rounded-[2rem] shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-purple-200 dark:border-purple-900/50 flex flex-col"
+                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                  transition={{ type: "spring", bounce: 0.4 }}
+                >
+                  <div className="p-6 border-b border-border flex items-center justify-between bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-200 dark:border-purple-800">
+                        <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-black text-foreground">Batch Session History</h4>
+                        <p className="text-sm text-muted-foreground">View all batch sessions with attendance summaries</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCloseSessionHistory}
+                      className="p-2 rounded-lg hover:bg-surface-secondary transition-colors"
+                    >
+                      <X className="w-6 h-6 text-muted-foreground" />
+                    </button>
+                  </div>
+
+                  {/* Filters */}
+                  <div className="p-4 border-b border-border bg-surface/50">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                      <select
+                        value={sessionFilters.batch_id}
+                        onChange={(e) => setSessionFilters({...sessionFilters, batch_id: e.target.value})}
+                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      >
+                        <option value="">All Batches</option>
+                        {batches.map(b => (
+                          <option key={b.batch_id} value={b.batch_id}>{b.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={sessionFilters.coach_id}
+                        onChange={(e) => setSessionFilters({...sessionFilters, coach_id: e.target.value})}
+                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      >
+                        <option value="">All Coaches</option>
+                        {coaches.map(c => (
+                          <option key={c.coach_id} value={c.coach_id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="date"
+                        value={sessionFilters.date_from}
+                        onChange={(e) => setSessionFilters({...sessionFilters, date_from: e.target.value})}
+                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        placeholder="From Date"
+                      />
+                      <input
+                        type="date"
+                        value={sessionFilters.date_to}
+                        onChange={(e) => setSessionFilters({...sessionFilters, date_to: e.target.value})}
+                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        placeholder="To Date"
+                      />
+                      <select
+                        value={sessionFilters.status}
+                        onChange={(e) => setSessionFilters({...sessionFilters, status: e.target.value})}
+                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      >
+                        <option value="">All Status</option>
+                        <option value="SCHEDULED">Scheduled</option>
+                        <option value="LIVE">Live</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="MISSED">Missed</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={loadSessionHistory}
+                      className="mt-3 w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg transition-colors"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+
+                  {/* Session List */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {sessionHistoryLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                      </div>
+                    ) : sessionHistory.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Clock className="w-16 h-16 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-bold text-foreground">No sessions found</h3>
+                        <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters or check back later.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {sessionHistory.map((session) => (
+                          <div key={session.session_id} className="bg-surface border border-border rounded-xl p-4 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h5 className="font-bold text-foreground">{session.batch_name}</h5>
+                                <p className="text-sm text-muted-foreground">{session.sport_name} • {session.timing}</p>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                session.status === 'LIVE' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                session.status === 'MISSED' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                              }`}>
+                                {session.status}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground text-xs">Date</p>
+                                <p className="font-semibold">{new Date(session.session_date).toLocaleDateString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Start Time</p>
+                                <p className="font-semibold">{session.start_time ? new Date(session.start_time).toLocaleTimeString() : 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Duration</p>
+                                <p className="font-semibold">{session.duration_minutes ? `${session.duration_minutes} min` : 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Coach</p>
+                                <p className="font-semibold">{session.coach_name}</p>
+                              </div>
+                            </div>
+                            {session.attendance_summary && (
+                              <div className="mt-3 pt-3 border-t border-border flex gap-4 text-xs">
+                                <span className="text-emerald-600 font-bold">Present: {session.attendance_summary.present}</span>
+                                <span className="text-rose-600 font-bold">Absent: {session.attendance_summary.absent}</span>
+                                <span className="text-amber-600 font-bold">Late: {session.attendance_summary.late}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </div>

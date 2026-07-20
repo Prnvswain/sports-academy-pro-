@@ -753,10 +753,7 @@ export default function CoachStudentsPage() {
                           <button
                             type="button"
                             className="p-2 rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
-                            onClick={() => {
-                              setSelectedStudent(student);
-                              setShowEditModal(true);
-                            }}
+                            onClick={() => handleEditStudent(student)}
                             title="Edit Student"
                           >
                             <Edit className="w-4 h-4" />
@@ -1331,22 +1328,6 @@ export default function CoachStudentsPage() {
                       step="0.1"
                     />
                   </div>
-                </div>
-                
-                {/* Joining Date */}
-                <div>
-                  <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editJoiningDate">
-                    Joining Date
-                  </label>
-                  <input
-                    id="editJoiningDate"
-                    type="date"
-                    className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
-                    value={editStudentForm.joining_date || ''}
-                    onChange={(e) =>
-                      setEditStudentForm({ ...editStudentForm, joining_date: e.target.value })
-                    }
-                  />
                 </div>
                 
                 {/* Save Message */}

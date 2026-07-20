@@ -2,8 +2,9 @@ import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/app.config.js';
 import { errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
+import prisma from '../config/prisma.js';
 
-export const authenticate = (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -21,6 +22,29 @@ export const authenticate = (req, res, next) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.user = decoded;
+
+      // Check academy suspension for ACADEMY_ADMIN and COACH roles
+      if (decoded.role === 'ACADEMY_ADMIN' || decoded.role === 'COACH') {
+        const academy = await prisma.academy.findUnique({
+          where: { academy_id: decoded.academy_id },
+          select: { status: true, name: true }
+        });
+
+        if (!academy) {
+          return res.status(401).json(errorResponse('Unauthorized: Academy not found'));
+        }
+
+        if (academy.status === 'SUSPENDED') {
+          logger.warn('Login attempt blocked - Academy suspended', { 
+            academy_id: decoded.academy_id, 
+            academy_name: academy.name,
+            user_role: decoded.role,
+            user_id: decoded.user_id 
+          });
+          return res.status(403).json(errorResponse('Academy account is suspended. Please contact support.'));
+        }
+      }
+
       next();
     } catch (err) {
       logger.warn('Token validation failed', { reason: err.message });

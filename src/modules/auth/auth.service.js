@@ -49,20 +49,47 @@ export const signupAcademy = async ({
   await validateAcademyAdminEmailUniqueness({ prisma, email });
 
   const password_hash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-  const planKey = normalizePlanId(subscription_plan);
-  const planLimits = getPlanLimits(subscription_plan);
-  const subscription_expires_at = addDays(new Date(), planLimits.trialDays);
+  
+  // Load dynamic trial settings
+  let trialEnabled = true;
+  let trialDurationDays = 14;
+  let trialDefaultPlan = 'free';
+  try {
+    const trialSetting = await prisma.globalSetting.findUnique({
+      where: { setting_key: 'platform_trial_settings' }
+    });
+    if (trialSetting) {
+      const ts = JSON.parse(trialSetting.setting_value);
+      trialEnabled = !!ts.enabled;
+      trialDurationDays = parseInt(ts.duration_days, 10) || 14;
+      trialDefaultPlan = ts.default_plan_id || 'free';
+    }
+  } catch (e) {
+    // Ignore fallback to standard values
+  }
+
+  let planKey = trialDefaultPlan;
+  let trialDays = trialDurationDays;
+
+  if (!trialEnabled) {
+    planKey = normalizePlanId(subscription_plan);
+    trialDays = 0; // immediate expiry
+  }
+
+  const planLimits = getPlanLimits(planKey);
+  const subscription_expires_at = addDays(new Date(), trialDays);
 
   // Convert empty phone_number to null for optional field
   const normalizedPhone = phone_number && phone_number.trim() ? phone_number.trim() : null;
 
-  // Map lowercase plan keys to uppercase enum values for subscription_tier
-  const tierMapping = {
-    'free': 'FREE',
-    'pro': 'PRO',
-    'plus': 'PLUS'
-  };
-  const subscriptionTier = tierMapping[planKey] || 'FREE';
+  // Dynamically resolve tier from planKey
+  let subscriptionTier = 'FREE';
+  const lowercasePlanKey = String(planKey).toLowerCase();
+  if (lowercasePlanKey.includes('plus')) {
+    subscriptionTier = 'PLUS';
+  } else if (lowercasePlanKey.includes('pro')) {
+    subscriptionTier = 'PRO';
+  }
 
   // Validate attendance radius
   if (attendance_radius_meters) {
@@ -166,6 +193,20 @@ export const signupAcademy = async ({
 
       return { academy, user };
     });
+
+    // Notify Super Admin of new academy registration
+    try {
+      await prisma.notification.create({
+        data: {
+          type: 'GENERAL',
+          title: 'New Academy Registered',
+          body: `Academy "${result.academy.name}" was registered by ${result.academy.owner_name} (${result.academy.email}).`,
+          metadata: JSON.stringify({ subtype: 'new_academy', academy_id: result.academy.academy_id })
+        }
+      });
+    } catch (e) {
+      logger.error('Failed to create new academy registration notification:', e);
+    }
 
     const token = jwt.sign(
       {

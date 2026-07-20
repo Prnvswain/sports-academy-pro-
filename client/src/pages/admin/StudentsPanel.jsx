@@ -698,6 +698,17 @@ export default function StudentsPanel() {
 
   const [photoPreview, setPhotoPreview] = useState(null);
 
+  // Pause modal state
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [pauseStudent, setPauseStudent] = useState(null);
+  const [pauseForm, setPauseForm] = useState({
+    pause_start_date: new Date().toISOString().split('T')[0],
+    pause_duration: '',
+    pause_duration_unit: 'days',
+    pause_end_date: '',
+    pause_reason: ''
+  });
+
   const [editPhotoPreview, setEditPhotoPreview] = useState(null);
 
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -1793,26 +1804,69 @@ export default function StudentsPanel() {
 
 
 
-  const handlePauseStudent = async (student) => {
+  const handlePauseStudent = (student) => {
+    setPauseStudent(student);
+    setPauseForm({
+      pause_start_date: new Date().toISOString().split('T')[0],
+      pause_duration: '',
+      pause_duration_unit: 'days',
+      pause_end_date: '',
+      pause_reason: ''
+    });
+    setShowPauseModal(true);
+  };
+
+  const handlePauseSubmit = async (e) => {
+    e.preventDefault();
+    if (!pauseStudent) return;
 
     try {
+      const payload = {
+        pause_start_date: pauseForm.pause_start_date,
+        pause_duration: pauseForm.pause_duration,
+        pause_duration_unit: pauseForm.pause_duration_unit,
+        pause_end_date: pauseForm.pause_end_date,
+        pause_reason: pauseForm.pause_reason
+      };
 
-      const pauseReason = prompt('Enter pause reason (optional):');
-
-      const payload = { pause_reason: pauseReason || '' };
-
-      await adminPost(`/admin/students/${student.student_id}/pause`, payload);
-
+      await adminPut(`/admin/students/${pauseStudent.student_id}/pause`, payload);
       setMessage({ text: 'Student plan paused successfully.', type: 'success' });
-
+      setShowPauseModal(false);
+      setPauseStudent(null);
       loadData();
-
     } catch (error) {
-
       setMessage({ text: error.message, type: 'error' });
-
     }
+  };
 
+  const calculateResumeDate = () => {
+    if (!pauseForm.pause_start_date) return null;
+    
+    if (pauseForm.pause_end_date) {
+      return new Date(pauseForm.pause_end_date).toLocaleDateString();
+    }
+    
+    if (pauseForm.pause_duration && pauseForm.pause_duration_unit) {
+      const startDate = new Date(pauseForm.pause_start_date);
+      const duration = parseInt(pauseForm.pause_duration, 10);
+      
+      switch (pauseForm.pause_duration_unit) {
+        case 'days':
+          startDate.setDate(startDate.getDate() + duration);
+          break;
+        case 'weeks':
+          startDate.setDate(startDate.getDate() + (duration * 7));
+          break;
+        case 'months':
+          startDate.setMonth(startDate.getMonth() + duration);
+          break;
+        default:
+          return null;
+      }
+      return startDate.toLocaleDateString();
+    }
+    
+    return null;
   };
 
 
@@ -8572,6 +8626,144 @@ export default function StudentsPanel() {
     </div>
 
   )}
+
+  {/* Pause Student Modal */}
+  {showPauseModal && pauseStudent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="card animate-premiumModal max-w-md w-full"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Pause Student Plan</h3>
+          <button
+            type="button"
+            onClick={() => setShowPauseModal(false)}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handlePauseSubmit} className="space-y-4">
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Student
+            </label>
+            <div className="text-sm font-semibold text-slate-900">
+              {pauseStudent.name || `${pauseStudent.first_name || ''} ${pauseStudent.last_name || ''}`}
+            </div>
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="pause_start_date">
+              Pause Start Date
+            </label>
+            <input
+              type="date"
+              id="pause_start_date"
+              className="input-field w-full"
+              value={pauseForm.pause_start_date}
+              onChange={(e) => setPauseForm({ ...pauseForm, pause_start_date: e.target.value })}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Pause Duration
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="number"
+                id="pause_duration"
+                className="input-field w-full"
+                placeholder="Duration"
+                value={pauseForm.pause_duration}
+                onChange={(e) => setPauseForm({ ...pauseForm, pause_duration: e.target.value, pause_end_date: '' })}
+                min="1"
+              />
+              <select
+                id="pause_duration_unit"
+                className="input-field w-full"
+                value={pauseForm.pause_duration_unit}
+                onChange={(e) => setPauseForm({ ...pauseForm, pause_duration_unit: e.target.value, pause_end_date: '' })}
+              >
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+                <option value="months">Months</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="pause_end_date">
+              Or Custom End Date
+            </label>
+            <input
+              type="date"
+              id="pause_end_date"
+              className="input-field w-full"
+              value={pauseForm.pause_end_date}
+              onChange={(e) => setPauseForm({ ...pauseForm, pause_end_date: e.target.value, pause_duration: '', pause_duration_unit: 'days' })}
+              min={pauseForm.pause_start_date}
+            />
+          </div>
+
+          {calculateResumeDate() && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-emerald-800">
+                Estimated Resume Date: <span className="font-bold">{calculateResumeDate()}</span>
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="pause_reason">
+              Pause Reason (Optional)
+            </label>
+            <textarea
+              id="pause_reason"
+              className="input-field w-full"
+              rows="3"
+              placeholder="Enter reason for pause..."
+              value={pauseForm.pause_reason}
+              onChange={(e) => setPauseForm({ ...pauseForm, pause_reason: e.target.value })}
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowPauseModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
+            >
+              Pause Plan
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  )}
+
+
 
     </motion.div>
 

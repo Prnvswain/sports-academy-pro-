@@ -408,6 +408,8 @@ model Academy {
 
   fees                   Fee[]
 
+  batch_sessions         BatchSession[]
+
   student_attendances    StudentAttendance[]
 
   coach_attendances      CoachAttendance[]
@@ -630,6 +632,8 @@ model Coach {
 
   attendance_audit_logs AttendanceAuditLog[]
 
+  batch_sessions        BatchSession[]
+
 
 
   @@unique([academy_id, email])
@@ -816,6 +820,8 @@ model Batch {
 
   coachAttendances    CoachAttendance[]         @relation("coachAttendances")
 
+  batchSessions       BatchSession[]
+
 
 
   @@index([academy_id])
@@ -849,6 +855,78 @@ model BatchCoach {
   @@unique([batch_id, coach_id])
 
   @@map("batch_coaches")
+
+}
+
+
+
+// ─── Batch Sessions ───────────────────────────────────────────────────────────
+
+
+
+enum BatchSessionStatus {
+
+  SCHEDULED
+
+  LIVE
+
+  COMPLETED
+
+  MISSED
+
+}
+
+
+
+model BatchSession {
+
+  session_id         Int                @id @default(autoincrement())
+
+  batch_id           Int
+
+  coach_id           Int
+
+  academy_id         Int
+
+  session_date       DateTime           @db.Date
+
+  start_time         DateTime?
+
+  end_time           DateTime?
+
+  duration_minutes   Int?
+
+  status             BatchSessionStatus @default(SCHEDULED)
+
+  attendance_summary String?            @db.Text // JSON: {present: 5, absent: 2, late: 1}
+
+  notes              String?            @db.Text
+
+  created_at         DateTime           @default(now())
+
+  updated_at         DateTime           @updatedAt
+
+
+
+  batch              Batch              @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "batch_sessions_batch_id_fk")
+
+  coach              Coach              @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "batch_sessions_coach_id_fk")
+
+  academy            Academy            @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "batch_sessions_academy_id_fk")
+
+
+
+  @@index([batch_id])
+
+  @@index([coach_id])
+
+  @@index([academy_id])
+
+  @@index([session_date])
+
+  @@index([status])
+
+  @@map("batch_sessions")
 
 }
 

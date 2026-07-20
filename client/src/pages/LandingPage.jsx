@@ -207,6 +207,29 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const { isInstallable, promptInstall } = usePwaInstall();
 
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPublicPlans = async () => {
+      try {
+        const response = await fetch('/api/v1/public/plans');
+        const data = await response.json();
+        if (data.success) {
+          setPlans(data.data);
+        } else {
+          setPlans(PRICING_PLANS);
+        }
+      } catch (err) {
+        console.error('Failed to load public plans:', err);
+        setPlans(PRICING_PLANS);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+    fetchPublicPlans();
+  }, []);
+
   const [contactForm, setContactForm] = useState(() => {
     const savedDraft = localStorage.getItem('sams_draft_public_contact');
     return savedDraft ? JSON.parse(savedDraft) : initialContact;
@@ -220,11 +243,6 @@ export default function LandingPage() {
     localStorage.setItem('sams_draft_public_contact', JSON.stringify(contactForm));
   }, [contactForm]);
 
-  const handleContactChange = (event) => {
-    const { name, value } = event.target;
-    setContactForm((prev) => ({ ...prev, [name]: value }));
-  };
-
   const selectPlan = (planId) => {
     navigate('/signup');
   };
@@ -233,6 +251,11 @@ export default function LandingPage() {
     setContactForm(initialContact);
     localStorage.removeItem('sams_draft_public_contact');
     setActiveModal(null);
+  };
+
+  const handleContactChange = (event) => {
+    const { name, value } = event.target;
+    setContactForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleContactSubmit = async (event) => {
@@ -678,55 +701,61 @@ export default function LandingPage() {
           variants={staggerParent}
           className="grid gap-6 lg:grid-cols-3 items-center"
         >
-          {PRICING_PLANS.map((plan) => (
-            <motion.article
-              key={plan.id}
-              variants={fadeUp}
-              className={`relative flex flex-col justify-between p-8 transition-all border ${
-                plan.featured 
-                ? 'bg-slate-900 text-white shadow-xl border-slate-900 lg:-translate-y-3 scale-[1.02] z-10 rounded-xl' 
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg hover:shadow-md'
-              }`}
-            >
-              <div>
-                {plan.featured && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-lime-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-slate-900 rounded-full shadow-md">
-                    Recommended
-                  </span>
-                )}
-                <p className={`text-xs font-black uppercase tracking-widest ${plan.featured ? 'text-lime-400' : 'text-slate-500'}`}>{plan.name}</p>
-                <p className="my-5 text-4xl font-black tracking-tight">
-                  ${plan.price} <span className="text-xs font-bold text-slate-500">/mo</span>
-                </p>
-                
-                <ul className={`my-6 space-y-3 text-xs font-medium border-t pt-6 ${plan.featured ? 'border-slate-700' : 'border-slate-100 dark:border-slate-700'}`}>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className={`h-4 w-4 ${plan.featured ? 'text-lime-400' : 'text-slate-400'}`} />
-                    <span>Up to <strong className="font-black">{plan.coaches}</strong> Coaches</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className={`h-4 w-4 ${plan.featured ? 'text-lime-400' : 'text-slate-400'}`} />
-                    <span>Up to <strong className="font-black">{plan.students}</strong> Students</span>
-                  </li>
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2">
-                      <CheckCircle2 className={`h-4 w-4 ${plan.featured ? 'text-lime-400' : 'text-slate-400'}`} />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <button
-                type="button"
-                className={`w-full py-3 text-xs font-black uppercase tracking-wider transition-all ${
-                  plan.featured ? 'bg-lime-500 text-slate-900 hover:bg-lime-400 shadow-md' : 'bg-transparent border-2 border-slate-900 dark:border-slate-500 text-slate-900 dark:text-white hover:bg-slate-900 hover:text-white rounded'
+          {plans.map((plan) => {
+            const isFeatured = plan.featured || plan.id === 'pro' || String(plan.name).toLowerCase().includes('pro');
+            const coachesLimit = plan.teacher_limit === null ? 'Unlimited' : plan.teacher_limit;
+            const studentsLimit = plan.student_limit === null ? 'Unlimited' : plan.student_limit;
+            
+            return (
+              <motion.article
+                key={plan.id}
+                variants={fadeUp}
+                className={`relative flex flex-col justify-between p-8 transition-all border ${
+                  isFeatured 
+                  ? 'bg-slate-900 text-white shadow-xl border-slate-900 lg:-translate-y-3 scale-[1.02] z-10 rounded-xl' 
+                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg hover:shadow-md'
                 }`}
-                onClick={() => selectPlan(plan.id)}
               >
-                Choose {plan.name}
-              </button>
-            </motion.article>
-          ))}
+                <div>
+                  {isFeatured && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-lime-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-slate-900 rounded-full shadow-md">
+                      Recommended
+                    </span>
+                  )}
+                  <p className={`text-xs font-black uppercase tracking-widest ${isFeatured ? 'text-lime-400' : 'text-slate-500'}`}>{plan.name}</p>
+                  <p className="my-5 text-4xl font-black tracking-tight">
+                    ₹{plan.price} <span className="text-xs font-bold text-slate-500">/ {plan.duration || 'mo'}</span>
+                  </p>
+                  
+                  <ul className={`my-6 space-y-3 text-xs font-medium border-t pt-6 ${isFeatured ? 'border-slate-700' : 'border-slate-100 dark:border-slate-700'}`}>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className={`h-4 w-4 ${isFeatured ? 'text-lime-400' : 'text-slate-400'}`} />
+                      <span>Up to <strong className="font-black">{coachesLimit}</strong> Coaches</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className={`h-4 w-4 ${isFeatured ? 'text-lime-400' : 'text-slate-400'}`} />
+                      <span>Up to <strong className="font-black">{studentsLimit}</strong> Students</span>
+                    </li>
+                    {plan.features?.map((feature) => (
+                      <li key={feature} className="flex items-center gap-2">
+                        <CheckCircle2 className={`h-4 w-4 ${isFeatured ? 'text-lime-400' : 'text-slate-400'}`} />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  className={`w-full py-3 text-xs font-black uppercase tracking-wider transition-all ${
+                    isFeatured ? 'bg-lime-500 text-slate-900 hover:bg-lime-400 shadow-md' : 'bg-transparent border-2 border-slate-900 dark:border-slate-500 text-slate-900 dark:text-white hover:bg-slate-900 hover:text-white rounded'
+                  }`}
+                  onClick={() => selectPlan(plan.id)}
+                >
+                  Choose {plan.name}
+                </button>
+              </motion.article>
+            );
+          })}
         </motion.div>
       </section>
 

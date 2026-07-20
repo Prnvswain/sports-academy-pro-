@@ -905,7 +905,14 @@ export default function ParentFees() {
                                     >
                                       {uploadingProof ? '...' : 'Save'}
                                     </motion.button>
-                                    <button onClick={() => { setProofFileForReplace(null); setReplacingPaymentId(null); }} className="text-muted-foreground hover:text-foreground p-0.5">✕</button>
+                                    <span 
+                                      onClick={() => { setProofFileForReplace(null); setReplacingPaymentId(null); }} 
+                                      className="text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
+                                      role="button"
+                                      tabIndex={0}
+                                    >
+                                      ✕
+                                    </span>
                                   </motion.div>
                                 )}
                               </AnimatePresence>

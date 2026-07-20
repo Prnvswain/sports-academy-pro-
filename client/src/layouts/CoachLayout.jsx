@@ -85,27 +85,27 @@ function CoachLayoutShell() {
   const closeMobileSidebar = () => setSidebarOpen(false);
 
   return (
-    // Main App Background remains dynamic according to your theme variables
-    <div className="bg-background text-foreground flex h-screen w-screen overflow-hidden transition-colors duration-300">
+    // Main App Background with Soft Greenish-White Gradient
+    <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-white to-[#f4fce3] text-slate-900 transition-colors duration-300">
       
-      {/* Sidebar - Dark Gradient (Slate to Emerald) */}
+      {/* Sidebar - Deep Navy/Black Theme */}
       <motion.aside
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/60 border-r border-emerald-900/30 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl ${sidebarOpen ? '!translate-x-0' : ''}`}
+        className={`bg-[#0f172a] border-r border-slate-800 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
         {/* Sidebar Header / Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-emerald-900/40 px-4 shrink-0">
+        <div className="flex h-16 items-center justify-between px-4 shrink-0 bg-[#0a0f1d] border-b border-slate-800">
           <BrandingLogo
             to="/coach/dashboard"
             collapsed={sidebarCollapsed}
             onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-[#84cc16]"
           />
           <motion.button
             type="button"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-colors"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white lg:flex shrink-0 transition-colors"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             whileHover={{ scale: 1.05 }}
@@ -115,8 +115,8 @@ function CoachLayoutShell() {
           </motion.button>
         </div>
 
-        {/* Navigation Links - Scrollbar Hidden but fully scrollable */}
-        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" aria-label="Coach sections">
+        {/* Navigation Links - Clean, minimal list */}
+        <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" aria-label="Coach sections">
           {COACH_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
@@ -129,12 +129,12 @@ function CoachLayoutShell() {
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
                   `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-xl group outline-none font-bold ${
-                    sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+                    sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      // Premium Dark Contrast: Lime Green Background with Dark Text + Glow
-                      ? 'bg-lime-400 text-slate-950 shadow-[0_4px_20px_rgba(132,204,22,0.3)] translate-x-1'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-lime-300'
+                      // Active state matches the Lime Green reference exactly
+                      ? 'bg-[#a3e635] text-slate-950 shadow-md'
+                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
                 }
               >
@@ -142,11 +142,11 @@ function CoachLayoutShell() {
                   <>
                     <motion.span
                       className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
-                      whileHover={{ scale: 1.15, rotate: isActive ? 0 : 5 }}
-                      transition={{ duration: 0.3 }}
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ duration: 0.2 }}
                       aria-hidden="true"
                     >
-                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2.5} />
                     </motion.span>
                     <motion.span
                       initial={{ opacity: 1 }}
@@ -164,18 +164,18 @@ function CoachLayoutShell() {
         </nav>
 
         {/* Sidebar Footer / Actions */}
-        <div className="border-t border-emerald-900/40 p-4 space-y-2 shrink-0">
+        <div className="p-4 shrink-0 bg-[#0a0f1d] border-t border-slate-800">
           {!sidebarCollapsed && (
-            <div className="text-xs text-slate-400 mb-3 px-1 truncate font-medium">
-              Logged in as: <br/><span className="text-white font-bold text-sm">{coachUser?.name || 'Loading...'}</span>
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-3 px-2 truncate font-bold">
+              Coach Profile: <br/><span className="text-white font-black text-sm capitalize">{coachUser?.name || 'Loading...'}</span>
             </div>
           )}
           <motion.button
             type="button"
-            className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
+            className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-3 font-bold transition-all ${
               sidebarCollapsed 
-              ? 'text-slate-500 hover:bg-red-500/20 hover:text-red-400' 
-              : 'bg-white/5 text-slate-300 hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+              ? 'text-slate-500 hover:bg-slate-800 hover:text-white' 
+              : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600'
             }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.02 }}
@@ -197,7 +197,7 @@ function CoachLayoutShell() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             type="button"
-            className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden cursor-default outline-none"
+            className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden cursor-default outline-none"
             aria-label="Close sidebar"
             onClick={closeMobileSidebar}
           />
@@ -205,14 +205,14 @@ function CoachLayoutShell() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background/50">
+      <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         
-        {/* Top Header */}
-        <header className="bg-background/80 backdrop-blur-xl border-b border-border/40 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-[0_4px_24px_rgba(0,0,0,0.01)]">
+        {/* Top Header - Vibrant Lime Green matching the UI reference */}
+        <header className="bg-[#84cc16] text-slate-950 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-sm">
           <div className="flex items-center gap-4">
             <motion.button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/10 lg:hidden text-slate-900 hover:bg-black/20"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
               whileHover={{ scale: 1.05 }}
@@ -221,7 +221,8 @@ function CoachLayoutShell() {
               <Menu size={20} strokeWidth={2.5} />
             </motion.button>
             <div className="flex flex-col">
-              <span className="text-lg font-extrabold tracking-tight text-foreground/90 uppercase">Coach Portal</span>
+              <span className="text-[11px] font-bold tracking-widest uppercase opacity-80 mb-0.5">App Portal</span>
+              <span className="text-xl font-black tracking-tight uppercase leading-none">Coach Portal</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -229,28 +230,28 @@ function CoachLayoutShell() {
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowDailyNotes(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 bg-surface text-foreground hover:bg-surface-secondary hover:text-primary transition-colors shadow-sm"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 text-slate-900 hover:bg-black/20 transition-colors shadow-sm"
               title="Daily Notes"
             >
               <NotebookPen size={18} strokeWidth={2.5} />
             </motion.button>
-            <NotificationBell userRole="COACH" />
-            <ThemeToggle />
+            {/* The wrapper handles the icon styling for these components */}
+            <div className="flex items-center justify-center bg-black/10 rounded-full h-10 w-10 text-slate-900 hover:bg-black/20 transition-colors">
+              <NotificationBell userRole="COACH" />
+            </div>
+            <div className="flex items-center justify-center bg-black/10 rounded-full h-10 w-10 text-slate-900 hover:bg-black/20 transition-colors">
+              <ThemeToggle />
+            </div>
           </div>
         </header>
 
         {/* Route Outlet */}
-        <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
-          {/* Optional Ambient Background Glow */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden flex justify-center z-0">
-             <div className="w-full max-w-5xl h-full bg-[radial-gradient(ellipse_at_top,rgba(var(--color-accent-primary),0.03)_0%,transparent_70%)]"></div>
-          </div>
-          
+        <main className="flex-1 min-w-0 p-5 lg:p-8 relative">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
             className="w-full min-w-0 relative z-10"
           >
             <Outlet />
@@ -258,54 +259,51 @@ function CoachLayoutShell() {
         </main>
       </motion.div>
 
-      {/* Daily Notes Modal */}
+      {/* Daily Notes Modal - Clean White Minimalist Style */}
       <AnimatePresence>
         {showDailyNotes && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setShowDailyNotes(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-background rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-border/50"
+              className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
             >
-              <div className="p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-accent/10">
+              <div className="p-6 border-b border-gray-100 bg-gray-50/50">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <motion.div
                       animate={{ rotate: [0, -10, 10, 0] }}
                       transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                      className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-lg"
+                      className="w-12 h-12 rounded-xl bg-[#a3e635] flex items-center justify-center text-slate-900 shadow-sm"
                     >
                       <NotebookPen size={24} strokeWidth={2.5} />
                     </motion.div>
                     <div>
-                      <h2 className="text-2xl font-black text-foreground">Daily Student Notes</h2>
-                      <p className="text-sm text-muted-foreground mt-1">Notes are emailed to parents automatically</p>
+                      <h2 className="text-2xl font-black text-slate-900">Daily Student Notes</h2>
+                      <p className="text-sm font-semibold text-slate-500 mt-0.5">Notes are emailed to parents automatically</p>
                     </div>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.1, rotate: 90 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setShowDailyNotes(false)}
-                    className="p-2 rounded-lg hover:bg-surface-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 hover:text-slate-900"
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <X size={20} strokeWidth={2.5} />
                   </motion.button>
                 </div>
               </div>
 
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] bg-white text-slate-900">
                 <CoachDailyNotes students={allStudents || []} />
               </div>
             </motion.div>

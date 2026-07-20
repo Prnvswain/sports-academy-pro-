@@ -28,7 +28,36 @@ router.use(authorize('SUPER_ADMIN'));
 
 router.get('/stats', superAdminController.getStats);
 router.get('/academies', superAdminController.getAcademies);
+
+// Academy Details & Operations
+router.get('/academies/:academy_id', superAdminController.getAcademyDetails);
+router.post('/academies/:academy_id/extend', superAdminController.extendAcademySubscription);
+router.post('/academies/:academy_id/upgrade', superAdminController.upgradeAcademyPlan);
+router.get('/academies/:academy_id/export', superAdminController.exportAcademyData);
+router.post('/academies/:academy_id/impersonate', superAdminController.impersonateAcademy);
+
+// Plans Management (Dynamic CRUD)
 router.get('/plans', superAdminController.getPlans);
+router.post('/plans', superAdminController.createPlan);
+router.put('/plans/:plan_id', superAdminController.updatePlan);
+router.delete('/plans/:plan_id', superAdminController.deletePlan);
+router.patch('/plans/:plan_id/status', superAdminController.patchPlanStatus);
+
+// Trial Settings Config
+router.get('/trial-settings', superAdminController.getTrialSettings);
+router.put('/trial-settings', superAdminController.updateTrialSettings);
+
+// Payments Management
+router.get('/payments', superAdminController.getPaymentsData);
+router.put('/payments/settings', superAdminController.updatePaymentSettings);
+router.post('/payments/:tx_id/status', superAdminController.updatePaymentStatus);
+
+// System notifications for Super Admin
+router.get('/notifications', superAdminController.getSuperAdminNotifications);
+router.patch('/notifications/:id/read', superAdminController.markSuperAdminNotificationAsRead);
+router.patch('/notifications/read-all', superAdminController.markSuperAdminNotificationsAllAsRead);
+router.get('/notifications/unread-count', superAdminController.getSuperAdminUnreadCount);
+
 router.get('/sports', superAdminController.getSports);
 router.post('/sports', superAdminController.createSport);
 router.put('/sports/:id/attributes', validationErrorHandler, superAdminController.updateSportAttributes);
@@ -43,12 +72,6 @@ router.patch(
   validate('updateAcademyStatus'),
   validationErrorHandler,
   superAdminController.patchAcademyStatus
-);
-router.patch(
-  '/plans/:plan_id/status',
-  validate('updatePlanStatus'),
-  validationErrorHandler,
-  superAdminController.patchPlanStatus
 );
 router.post(
   '/academies/:academy_id/suspend',

@@ -20,6 +20,8 @@ export default function CoachDashboardPage() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   // Load persisted filters
   useEffect(() => {
@@ -65,6 +67,26 @@ export default function CoachDashboardPage() {
       }
     };
     loadStudents();
+  }, []);
+
+  // Load active batch sessions
+  useEffect(() => {
+    const loadActiveSessions = async () => {
+      try {
+        setSessionsLoading(true);
+        const result = await coachGet('/coach/batch-session/active');
+        setActiveSessions(result.data || []);
+      } catch (err) {
+        console.error('Failed to load active sessions:', err);
+      } finally {
+        setSessionsLoading(false);
+      }
+    };
+    loadActiveSessions();
+    
+    // Refresh every minute
+    const interval = setInterval(loadActiveSessions, 60000);
+    return () => clearInterval(interval);
   }, []);
 
 
@@ -408,48 +430,66 @@ export default function CoachDashboardPage() {
               animate="show"
               className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
             >
-              {filteredBatches.map((batch) => (
-                <motion.article 
-                  variants={itemVariants}
-                  whileHover={{ y: -5, scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setSelectedBatch(batch);
-                    setShowBatchDetails(true);
-                  }}
-                  key={batch.batch_id} 
-                  className="card p-0 overflow-hidden bg-surface/60 backdrop-blur-md border border-border/60 shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.05)] transition-all group cursor-pointer"
-                >
-                  <div className="p-5 border-b border-border/40 bg-gradient-to-r from-surface to-surface-secondary">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-black text-foreground group-hover:text-primary transition-colors">
-                        {batch.name}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs opacity-50">#{(batch.batch_id).toString().slice(-4)}</span>
-                        <span className="text-xs">→</span>
+              {filteredBatches.map((batch) => {
+                const activeSession = activeSessions.find(s => s.batch_id === batch.batch_id);
+                const batchStatus = activeSession ? 'LIVE' : 'SCHEDULED';
+                
+                return (
+                  <motion.article 
+                    variants={itemVariants}
+                    whileHover={{ y: -5, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setSelectedBatch(batch);
+                      setShowBatchDetails(true);
+                    }}
+                    key={batch.batch_id} 
+                    className="card p-0 overflow-hidden bg-surface/60 backdrop-blur-md border border-border/60 shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.05)] transition-all group cursor-pointer"
+                  >
+                    <div className="p-5 border-b border-border/40 bg-gradient-to-r from-surface to-surface-secondary">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-black text-foreground group-hover:text-primary transition-colors">
+                          {batch.name}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          {batchStatus === 'LIVE' && (
+                            <span className="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                              LIVE
+                            </span>
+                          )}
+                          <span className="text-xs opacity-50">#{(batch.batch_id).toString().slice(-4)}</span>
+                          <span className="text-xs">→</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-5 space-y-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="badge bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(16,185,129,0.1)] text-xs font-bold">
-                        {batch.sport?.globalSport?.icon || '⚽'} {batch.sport?.name || 'Unknown Sport'}
-                      </span>
-                      <span className="badge bg-blue/10 text-blue border border-blue/20 text-xs font-bold">
-                        🕒 {batch.timing || 'No Time Set'}
-                      </span>
+                    <div className="p-5 space-y-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="badge bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(16,185,129,0.1)] text-xs font-bold">
+                          {batch.sport?.globalSport?.icon || '⚽'} {batch.sport?.name || 'Unknown Sport'}
+                        </span>
+                        <span className="badge bg-blue/10 text-blue border border-blue/20 text-xs font-bold">
+                          🕒 {batch.timing || 'No Time Set'}
+                        </span>
+                        <span className={`badge text-xs font-bold ${
+                          batchStatus === 'LIVE' 
+                            ? 'bg-red-10 text-red border border-red/20' 
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
+                          {batchStatus}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                        <span className="text-sm font-semibold text-muted-foreground">Enrolled Students</span>
+                        <span className="flex items-center justify-center bg-surface-secondary border border-border rounded-full h-8 px-3 text-sm font-black text-foreground">
+                          {(batch.students_count || batch.students?.length) ?? 0}
+                        </span>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                      <span className="text-sm font-semibold text-muted-foreground">Enrolled Students</span>
-                      <span className="flex items-center justify-center bg-surface-secondary border border-border rounded-full h-8 px-3 text-sm font-black text-foreground">
-                        {(batch.students_count || batch.students?.length) ?? 0}
-                      </span>
-                    </div>
-                  </div>
-                </motion.article>
-              ))}
+                  </motion.article>
+                );
+              })}
             </motion.div>
           )}
         </motion.section>

@@ -218,3 +218,66 @@ export const markAttendance = async (req, res, next) => {
     next(err);
   }
 };
+
+export const startBatchSession = async (req, res, next) => {
+  try {
+    const { batch_id } = req.body;
+    
+    if (!batch_id) {
+      const error = new Error('Batch ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+    
+    const session = await coachService.startBatchSession(
+      req.user.coach_id,
+      req.user.academy_id,
+      batch_id
+    );
+    
+    res.status(201).json(
+      successResponse('Batch session started', session)
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const endBatchSession = async (req, res, next) => {
+  try {
+    const { batch_id } = req.body;
+    
+    if (!batch_id) {
+      const error = new Error('Batch ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+    
+    const session = await coachService.endBatchSession(
+      req.user.coach_id,
+      req.user.academy_id,
+      batch_id
+    );
+    
+    res.json(
+      successResponse('Batch session ended', session)
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getActiveSessions = async (req, res, next) => {
+  try {
+    const sessions = await coachService.getActiveBatchSessions(
+      req.user.coach_id,
+      req.user.academy_id
+    );
+    
+    res.json(
+      successResponse('Active batch sessions retrieved', sessions)
+    );
+  } catch (err) {
+    next(err);
+  }
+};

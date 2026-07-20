@@ -63,6 +63,25 @@ router.post(
   coachController.markCoachAbsent
 );
 
+// Batch session routes
+router.post(
+  '/batch-session/start',
+  [
+    body('batch_id').isInt().withMessage('Batch ID is required')
+  ],
+  validationErrorHandler,
+  coachController.startBatchSession
+);
+router.post(
+  '/batch-session/end',
+  [
+    body('batch_id').isInt().withMessage('Batch ID is required')
+  ],
+  validationErrorHandler,
+  coachController.endBatchSession
+);
+router.get('/batch-session/active', coachController.getActiveSessions);
+
 // Performance routes for coaches
 router.get('/performance/attributes', performanceController.getAttributes);
 router.post('/performance/attributes', validationErrorHandler, performanceController.createAttribute);

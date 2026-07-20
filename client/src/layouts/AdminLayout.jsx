@@ -25,7 +25,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  Home
+  Home,
+  CreditCard,
+  Bell
 } from 'lucide-react';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
@@ -61,10 +63,12 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'plans', label: 'Duration Plans', icon: CalendarDays },
   { path: 'students', label: 'Students', icon: GraduationCap },
   { path: 'accounts', label: 'Accounts', icon: Wallet },
+  { path: 'subscription', label: 'Subscription', icon: CreditCard },
   { path: 'performance', label: 'Performance Tracker', icon: TrendingUp },
   { path: 'enquiries', label: 'Enquiries Desk', icon: MessageSquare },
   { path: 'reports', label: 'Reports', icon: FileText },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },
+  { path: 'notifications', label: 'Notifications', icon: Bell },
   { path: 'settings', label: 'Settings', icon: Settings },
 ];
 
