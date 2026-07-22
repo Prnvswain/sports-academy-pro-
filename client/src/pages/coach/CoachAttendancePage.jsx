@@ -348,7 +348,7 @@ export default function CoachAttendancePage() {
   }
 
   return (
-    <div className="relative min-h-full w-full bg-transparent p-4 sm:p-6 lg:p-8">
+    <div className="relative min-h-full w-full bg-transparent p-3 sm:p-4 lg:p-5">
       
       {/* Floating Alert Notification */}
       <AnimatePresence>
@@ -380,10 +380,10 @@ export default function CoachAttendancePage() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="space-y-8 max-w-7xl mx-auto"
+            className="space-y-6 max-w-7xl mx-auto"
           >
             <div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
                 Attendance Register
               </h1>
               <p className="text-muted-foreground mt-2 text-sm font-medium">
@@ -391,16 +391,16 @@ export default function CoachAttendancePage() {
               </p>
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-6 items-start">
+            <div className="grid lg:grid-cols-3 gap-5 items-start">
               
               {/* Date & Filters Selection */}
-              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden group">
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
                 <h3 className="text-lg font-black tracking-tight mb-5 text-foreground flex items-center gap-2">
                   <span className="bg-primary/10 text-primary w-8 h-8 rounded-lg flex items-center justify-center text-sm">1</span> 
                   Select Date
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block" htmlFor="attendanceDate">
                     Attendance Date
                   </label>
@@ -416,7 +416,7 @@ export default function CoachAttendancePage() {
               </div>
 
               {/* Batch Grid Selection */}
-              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden group lg:col-span-2">
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden group lg:col-span-2">
                 <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
                 <h3 className="text-lg font-black tracking-tight mb-5 text-foreground flex items-center gap-2">
                   <span className="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 w-8 h-8 rounded-lg flex items-center justify-center text-sm">2</span> 
@@ -424,7 +424,7 @@ export default function CoachAttendancePage() {
                 </h3>
 
                 {batches.length > 0 ? (
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-3.5">
                     {batches.map((batch) => (
                       <motion.button
                         key={batch.batch_id}
@@ -438,12 +438,12 @@ export default function CoachAttendancePage() {
                           setAttendanceMap({});
                           setRemarksMap({});
                         }}
-                        className="bg-surface border border-border hover:border-blue-400 dark:hover:border-blue-600 rounded-xl p-5 text-left transition-all shadow-sm hover:shadow-md group"
+                        className="bg-surface border border-border hover:border-blue-400 dark:hover:border-blue-600 rounded-xl p-4 text-left transition-all shadow-sm hover:shadow-md group"
                       >
-                        <h4 className="font-black text-lg text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <h4 className="font-black text-base text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {batch.name}
                         </h4>
-                        <div className="flex flex-wrap gap-2 mt-3">
+                        <div className="flex flex-wrap gap-2 mt-2.5">
                           {batch.sport && (
                             <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
                               🏅 {batch.sport.name}
@@ -470,15 +470,15 @@ export default function CoachAttendancePage() {
             </div>
 
             {/* Quick How to Use Guide */}
-            <div className="bg-gradient-to-br from-surface to-surface-secondary border border-border rounded-2xl p-8 shadow-sm mt-8 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-surface to-surface-secondary border border-border rounded-2xl p-6 shadow-sm mt-6 relative overflow-hidden">
               {/* Decorative background element for the guide */}
               <div className="absolute -right-20 -bottom-20 opacity-5 text-9xl">💡</div>
               
-              <h3 className="text-xl font-black mb-6 flex items-center gap-2 text-foreground">
+              <h3 className="text-lg font-black mb-5 flex items-center gap-2 text-foreground">
                 <span className="text-2xl">💡</span> Quick How-to-Use Guide
               </h3>
               
-              <div className="grid md:grid-cols-4 gap-6 relative z-10">
+              <div className="grid md:grid-cols-4 gap-5 relative z-10">
                 <div className="space-y-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-lg border border-primary/20">1</div>
                   <h4 className="font-bold text-foreground">Select Details</h4>
@@ -521,10 +521,10 @@ export default function CoachAttendancePage() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="max-w-4xl mx-auto space-y-6"
+            className="max-w-4xl mx-auto space-y-5"
           >
             {/* Module Header & Back Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-4 rounded-2xl shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-3.5 rounded-2xl shadow-sm">
               <div className="flex items-center gap-4">
                 <motion.button
                   whileHover={{ scale: 1.05 }}

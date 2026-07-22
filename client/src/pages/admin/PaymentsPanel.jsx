@@ -459,12 +459,12 @@ export default function AccountsPanel() {
       initial={{ opacity: 0, y: 15 }} 
       animate={{ opacity: 1, y: 0 }} 
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="space-y-6 w-full max-w-7xl mx-auto overflow-x-hidden"
+      className="space-y-5 w-full max-w-7xl mx-auto overflow-x-hidden"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
-          <p className="text-base text-muted-foreground mt-1">Track payments, due dates, and collection statistics.</p>
+          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
+          <p className="text-sm text-muted-foreground mt-1">Track payments, due dates, and collection statistics.</p>
         </div>
         
         {/* Tab Navigation */}
@@ -495,7 +495,7 @@ export default function AccountsPanel() {
       {activeTab === 'payments' ? (
         <>
           {/* Modern KPI Statistics */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Total Amount', value: stats.total, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
           { label: 'Collected', value: stats.collected, color: 'text-[rgb(var(--color-accent-primary))]', bgLine: 'rgb(var(--color-accent-primary))' },
@@ -521,11 +521,11 @@ export default function AccountsPanel() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-2">
         {/* RECORD PAYMENT FORM */}
-        <form className="card space-y-5" onSubmit={handleSubmit}>
-          <div className="border-b border-border/50 pb-3">
-            <h3 className="text-xl font-bold text-foreground">Record Payment</h3>
+        <form className="card space-y-4" onSubmit={handleSubmit}>
+          <div className="border-b border-border/50 pb-2.5">
+            <h3 className="text-lg font-bold text-foreground">Record Payment</h3>
           </div>
 
           <div className="relative">
@@ -599,7 +599,7 @@ export default function AccountsPanel() {
 
           {/* Comprehensive Fee Breakdown */}
           {form.student_id && (
-            <div className="bg-secondary border border-border/60 rounded-xl p-5 space-y-3 shadow-sm">
+            <div className="bg-secondary border border-border/60 rounded-xl p-4 space-y-2.5 shadow-sm">
               {loadingFeeData ? (
                 <div className="text-muted-foreground text-center text-sm font-medium animate-pulse">Fetching ledger data...</div>
               ) : studentFeeData ? (
@@ -620,13 +620,13 @@ export default function AccountsPanel() {
                     <span className="text-muted-foreground text-sm font-semibold">Overdue Fees:</span>
                     <span className="text-[rgb(var(--color-danger))] font-bold text-sm">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</span>
                   </div>
-                  <div className="flex items-center justify-between bg-background border border-border rounded-lg p-3 mt-2 shadow-inner">
+                  <div className="flex items-center justify-between bg-background border border-border rounded-lg p-2.5 mt-2 shadow-inner">
                     <span className="text-foreground font-bold">Pending Dues Outstanding:</span>
-                    <span className="text-[rgb(var(--color-danger))] text-lg font-black">₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}</span>
+                    <span className="text-[rgb(var(--color-danger))] text-base font-black">₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex items-center justify-between bg-background border border-border rounded-lg p-3 shadow-inner">
+                <div className="flex items-center justify-between bg-background border border-border rounded-lg p-2.5 shadow-inner">
                   <span className="text-foreground font-bold">Pending Dues Outstanding:</span>
                   <span className="text-[rgb(var(--color-danger))] text-lg font-black">₹{parseFloat(form.pending_amount || 0).toFixed(2)}</span>
                 </div>
@@ -717,9 +717,9 @@ export default function AccountsPanel() {
         </form>
 
         {/* FILTERS CARD */}
-        <div className="card h-fit space-y-5">
-          <div className="flex items-center justify-between border-b border-border/50 pb-3">
-            <h3 className="text-xl font-bold text-foreground">Filters</h3>
+        <div className="card h-fit space-y-4">
+          <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
+            <h3 className="text-lg font-bold text-foreground">Filters</h3>
             <button type="button" className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer" onClick={clearFilters}>
               Clear Filters
             </button>
@@ -764,7 +764,7 @@ export default function AccountsPanel() {
       {/* FIX: FIXED PAYMENT RECORDS TABLE LAYOUT */}
       <div className="card mt-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
-          <h3 className="text-xl font-bold text-foreground">Payment Records</h3>
+          <h3 className="text-lg font-bold text-foreground">Payment Records</h3>
           <input
             type="text"
             className="input-field w-full sm:w-64 !py-2 !text-xs"
@@ -819,7 +819,7 @@ export default function AccountsPanel() {
                         </td>
                         <td className="px-5 py-4 font-bold text-foreground">₹{parseFloat(payment?.amount || 0).toFixed(2)}</td>
                         <td className="px-5 py-4 max-w-[200px] truncate">
-                          <div className="flex flex-col space-y-1">
+                          <div className="flex flex-col space-y-0.5">
                             {payment?.remarks && <span className="text-xs text-muted-foreground italic truncate">"{payment.remarks}"</span>}
                             {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) ? (
                               <button
@@ -888,7 +888,7 @@ export default function AccountsPanel() {
 
         {/* Pagination Section */}
         {filteredPayments.length > 0 && (
-          <div className="mt-5 flex flex-col items-center justify-between gap-4 sm:flex-row pt-4 border-t border-border/50">
+          <div className="mt-4 flex flex-col items-center justify-between gap-4 sm:flex-row pt-3.5 border-t border-border/50">
             <div className="text-sm text-muted-foreground font-medium">
               Showing <span className="text-foreground font-bold">{startIndex + 1}</span> to <span className="text-foreground font-bold">{Math.min(endIndex, filteredPayments.length)}</span> of <span className="text-foreground font-bold">{filteredPayments.length}</span> records
             </div>
@@ -932,7 +932,7 @@ export default function AccountsPanel() {
           {/* STUDENT ACCOUNTS SECTION */}
           {/* Dashboard Summary Cards */}
           {studentAccountsData?.summary && (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {[
                 { label: 'Total Students', value: studentAccountsData.summary.total_students, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
                 { label: 'Fully Paid', value: studentAccountsData.summary.fully_paid, color: 'text-[rgb(var(--color-accent-primary))]', bgLine: 'rgb(var(--color-accent-primary))' },

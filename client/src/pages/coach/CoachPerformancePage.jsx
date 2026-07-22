@@ -433,7 +433,7 @@ ${remarks || 'No notes provided'}
   }
 
   return (
-    <div className="relative min-h-screen w-full bg-background p-4 sm:p-6 lg:p-8">
+    <div className="relative min-h-screen w-full bg-background p-3 sm:p-4 lg:p-5">
       
       {/* BACKGROUND: Faded Colorful Shapes */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background">
@@ -441,7 +441,7 @@ ${remarks || 'No notes provided'}
         <div className="absolute bottom-[-10%] right-[-5%] w-[50vw] h-[50vw] rounded-full bg-amber-100/30 dark:bg-amber-900/10 blur-3xl"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto space-y-6">
+      <div className="relative z-10 w-full max-w-7xl mx-auto space-y-5">
         
         {/* Global Alert */}
         <AnimatePresence>
@@ -467,15 +467,15 @@ ${remarks || 'No notes provided'}
           
           {/* VIEW 1: BATCH SELECTION */}
           {!selectedBatch && (
-            <motion.div key="view-batches" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
-              <div className="mb-8">
-                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+            <motion.div key="view-batches" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-5">
+              <div className="mb-6">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
                   Performance Tracker
                 </h2>
                 <p className="text-muted-foreground mt-2 text-sm font-medium">Select a training batch to begin evaluating your athletes.</p>
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {batches.length > 0 ? (
                   batches.map((batch, idx) => {
                     const theme = BATCH_COLORS[idx % BATCH_COLORS.length];
@@ -486,15 +486,15 @@ ${remarks || 'No notes provided'}
                         whileHover={{ y: -4, scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleBatchSelect(batch)}
-                        className={`text-left rounded-2xl p-6 border shadow-sm transition-all duration-300 relative overflow-hidden group ${theme.bg} ${theme.border} ${theme.hover}`}
+                        className={`text-left rounded-2xl p-5 border shadow-sm transition-all duration-300 relative overflow-hidden group ${theme.bg} ${theme.border} ${theme.hover}`}
                       >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-4 ${theme.icon}`}>
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${theme.icon}`}>
                           <span className="text-lg font-black">{(batch.name).charAt(0).toUpperCase()}</span>
                         </div>
-                        <h3 className={`text-xl font-black tracking-tight mb-2 ${theme.text}`}>
+                        <h3 className={`text-lg font-black tracking-tight mb-2 ${theme.text}`}>
                           {batch.name}
                         </h3>
-                        <div className="flex items-center gap-2 mt-4 text-xs font-bold text-muted-foreground">
+                        <div className="flex items-center gap-2 mt-3 text-xs font-bold text-muted-foreground">
                           <span className="bg-background/80 px-2 py-1 rounded shadow-sm border border-border/50">
                             👥 {batch.students?.length || 0} Trainees
                           </span>
@@ -514,7 +514,7 @@ ${remarks || 'No notes provided'}
 
           {/* VIEW 2: STUDENT SELECTION IN BATCH */}
           {selectedBatch && !selectedStudent && (
-            <motion.div key="view-students" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
+            <motion.div key="view-students" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-5">
               <div className="flex items-center gap-4 border-b border-border/50 pb-6">
                 <motion.button
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -530,7 +530,7 @@ ${remarks || 'No notes provided'}
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {students.length > 0 ? (
                   students.map((student) => (
                     <motion.button
@@ -539,9 +539,9 @@ ${remarks || 'No notes provided'}
                       whileHover={{ y: -4, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleStudentSelect(student)}
-                      className="group relative rounded-2xl border border-border bg-surface hover:border-emerald-400 p-5 text-left transition-all duration-300 shadow-sm hover:shadow-[0_8px_20px_rgba(16,185,129,0.1)] flex items-center gap-4"
+                      className="group relative rounded-2xl border border-border bg-surface hover:border-emerald-400 p-4 text-left transition-all duration-300 shadow-sm hover:shadow-[0_8px_20px_rgba(16,185,129,0.1)] flex items-center gap-3.5"
                     >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black bg-surface-secondary border border-border text-muted-foreground group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-500 transition-colors shadow-inner">
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center text-base font-black bg-surface-secondary border border-border text-muted-foreground group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-500 transition-colors shadow-inner">
                         {student.name.charAt(0)}
                       </div>
                       <div>
@@ -566,7 +566,7 @@ ${remarks || 'No notes provided'}
 
           {/* VIEW 3: METRICS SCORING LEDGER (With Linear Node Sketch Integration) */}
           {selectedBatch && selectedStudent && (
-            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
+            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-5">
               
               <div className="flex items-center gap-4 border-b border-border/50 pb-6">
                 <motion.button
@@ -585,7 +585,7 @@ ${remarks || 'No notes provided'}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowHistory(!showHistory)}
-                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm flex items-center gap-2"
+                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground px-3.5 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm flex items-center gap-2"
                 >
                   📋 Assessment History
                 </motion.button>
@@ -598,17 +598,17 @@ ${remarks || 'No notes provided'}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mb-6 bg-card border border-border rounded-2xl overflow-hidden"
+                    className="mb-5 bg-card border border-border rounded-2xl overflow-hidden"
                   >
-                    <div className="p-6 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-lg font-black tracking-tight text-foreground">
+                    <div className="p-5 border-b border-border/50 bg-surface/30">
+                      <h3 className="text-base font-black tracking-tight text-foreground">
                         Assessment History
                       </h3>
                       <p className="text-sm text-muted-foreground mt-1">
                         Click on an assessment to load its ratings
                       </p>
                     </div>
-                    <div className="p-6">
+                    <div className="p-5">
                       {loadingHistory ? (
                         <div className="flex items-center justify-center py-8">
                           <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
@@ -618,7 +618,7 @@ ${remarks || 'No notes provided'}
                           <p className="text-sm font-bold">No assessment history found</p>
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                           {assessmentHistory.map((assessment) => {
                             const avgRating = calculateAverageRating(assessment.scores);
                             const grade = calculateGrade(parseFloat(avgRating));

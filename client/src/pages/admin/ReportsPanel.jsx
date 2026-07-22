@@ -51,25 +51,25 @@ export default function ReportsPanel() {
 
   return (
     <motion.div
-      className="space-y-8 w-full max-w-7xl mx-auto overflow-x-hidden"
+      className="space-y-6 w-full max-w-7xl mx-auto overflow-x-hidden"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
       {/* Header Section */}
       <div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Reports & Export</h2>
+        <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Reports & Export</h2>
         {/* Fixed: text-muted to text-muted-foreground for visibility */}
-        <p className="text-base text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Download CSV and PDF reports for attendance, students, and fees.
         </p>
       </div>
 
       {/* Date Pickers Section */}
       <div className="card">
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-foreground tracking-wide" htmlFor="reportFrom">
+            <label className="text-xs font-semibold text-foreground tracking-wide" htmlFor="reportFrom">
               From date (attendance)
             </label>
             <motion.input
@@ -83,7 +83,7 @@ export default function ReportsPanel() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-foreground tracking-wide" htmlFor="reportTo">
+            <label className="text-xs font-semibold text-foreground tracking-wide" htmlFor="reportTo">
               To date (attendance)
             </label>
             <motion.input
@@ -100,7 +100,7 @@ export default function ReportsPanel() {
       </div>
 
       {/* Reports Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {REPORTS.map((report, index) => {
           const themeColor = `rgb(${CARD_COLORS[index % CARD_COLORS.length]})`;
           
@@ -120,15 +120,15 @@ export default function ReportsPanel() {
                 style={{ backgroundColor: themeColor }}
               />
 
-              <div className="mb-6 relative z-10">
-                <h3 className="text-xl font-bold text-foreground">{report.label}</h3>
-                <p className="text-muted-foreground mt-2 text-sm">
+              <div className="mb-5 relative z-10">
+                <h3 className="text-lg font-bold text-foreground">{report.label}</h3>
+                <p className="text-muted-foreground mt-1.5 text-xs">
                   Excel-compatible CSV and HTML/PDF format
                 </p>
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-auto flex gap-3 pt-5 border-t border-border/50 relative z-10">
+              <div className="mt-auto flex gap-2.5 pt-4 border-t border-border/50 relative z-10">
                 <motion.button
                   type="button"
                   className="btn btn-secondary flex-1 text-xs"

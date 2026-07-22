@@ -100,14 +100,14 @@ export default function SuperAdminAnnouncementHistory() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-6xl mx-auto flex items-center justify-center">
+      <div className="p-6 max-w-6xl mx-auto flex items-center justify-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -133,8 +133,8 @@ export default function SuperAdminAnnouncementHistory() {
         )}
 
         {/* Filters */}
-        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="grid grid-cols-4 gap-4">
+        <div className="mb-5 bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+          <div className="grid grid-cols-4 gap-3.5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
               <select
@@ -203,16 +203,16 @@ export default function SuperAdminAnnouncementHistory() {
         {/* Announcements List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {announcements.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-6 text-center text-gray-500">
               No announcements found
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
               {announcements.map((announcement) => (
-                <div key={announcement.announcement_id} className="p-4 hover:bg-gray-50">
+                <div key={announcement.announcement_id} className="p-3.5 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-1.5">
                         <h3 className="font-semibold text-gray-900">{announcement.title}</h3>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${CATEGORY_COLORS[announcement.category]}`}>
                           {announcement.category}
@@ -224,8 +224,8 @@ export default function SuperAdminAnnouncementHistory() {
                           {announcement.status}
                         </span>
                       </div>
-                      <p className="text-gray-600 text-sm mb-2 line-clamp-2">{announcement.message}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <p className="text-gray-600 text-sm mb-1.5 line-clamp-2">{announcement.message}</p>
+                      <div className="flex items-center gap-3.5 text-xs text-gray-500">
                         <span>Target: {announcement.target_type}</span>
                         <span>Recipients: {announcement.total_recipients}</span>
                         <span>Read: {announcement.read_count}</span>
@@ -281,7 +281,7 @@ export default function SuperAdminAnnouncementHistory() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-6 flex justify-center gap-2">
+          <div className="mt-5 flex justify-center gap-2">
             <button
               disabled={page === 1}
               onClick={() => setPage(page - 1)}

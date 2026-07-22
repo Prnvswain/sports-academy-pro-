@@ -50,7 +50,7 @@ export default function SuperAdminAnnouncementDetails() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-4xl mx-auto flex items-center justify-center">
+      <div className="p-6 max-w-4xl mx-auto flex items-center justify-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
       </div>
     );
@@ -58,7 +58,7 @@ export default function SuperAdminAnnouncementDetails() {
 
   if (error || !announcement) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="p-6 max-w-4xl mx-auto">
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error || 'Announcement not found'}
         </div>
@@ -74,7 +74,7 @@ export default function SuperAdminAnnouncementDetails() {
         transition={{ duration: 0.3 }}
       >
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-5">
           <button
             onClick={() => navigate('/super-admin/announcements')}
             className="text-emerald-600 hover:text-emerald-700 mb-4 inline-flex items-center"
@@ -88,7 +88,7 @@ export default function SuperAdminAnnouncementDetails() {
         </div>
 
         {/* Badges */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-5">
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${CATEGORY_COLORS[announcement.category]}`}>
             {announcement.category}
           </span>
@@ -102,34 +102,34 @@ export default function SuperAdminAnnouncementDetails() {
 
         {/* Message */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="font-semibold text-gray-900 mb-2">Message</h2>
+          <h2 className="font-semibold text-gray-900 mb-1.5">Message</h2>
           <p className="text-gray-700 whitespace-pre-wrap">{announcement.message}</p>
         </div>
 
         {/* Details */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Target Audience</h3>
+        <div className="grid grid-cols-2 gap-3.5 mb-5">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+            <h3 className="font-semibold text-gray-900 mb-1.5">Target Audience</h3>
             <p className="text-gray-600">{announcement.target_type}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Total Recipients</h3>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+            <h3 className="font-semibold text-gray-900 mb-1.5">Total Recipients</h3>
             <p className="text-gray-600">{announcement.total_recipients}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Delivered</h3>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+            <h3 className="font-semibold text-gray-900 mb-1.5">Delivered</h3>
             <p className="text-gray-600">{announcement.delivered_count}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Read</h3>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+            <h3 className="font-semibold text-gray-900 mb-1.5">Read</h3>
             <p className="text-gray-600">{announcement.read_count}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Created At</h3>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+            <h3 className="font-semibold text-gray-900 mb-1.5">Created At</h3>
             <p className="text-gray-600">{new Date(announcement.created_at).toLocaleString()}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Published At</h3>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3.5">
+            <h3 className="font-semibold text-gray-900 mb-1.5">Published At</h3>
             <p className="text-gray-600">
               {announcement.published_at ? new Date(announcement.published_at).toLocaleString() : 'Not published'}
             </p>
@@ -138,16 +138,16 @@ export default function SuperAdminAnnouncementDetails() {
 
         {/* Attachments */}
         {announcement.attachments && announcement.attachments.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Attachments</h2>
-            <div className="space-y-2">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-5">
+            <h2 className="font-semibold text-gray-900 mb-3">Attachments</h2>
+            <div className="space-y-1.5">
               {announcement.attachments.map((attachment) => (
                 <a
                   key={attachment.attachment_id}
                   href={attachment.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                  className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg hover:bg-gray-100"
                 >
                   <span className="text-sm text-gray-700">{attachment.file_name}</span>
                   <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -160,7 +160,7 @@ export default function SuperAdminAnnouncementDetails() {
         )}
 
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex gap-3.5">
           <button
             onClick={() => navigate(`/super-admin/announcements/${id}/stats`)}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"

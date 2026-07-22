@@ -15,54 +15,54 @@ function formatCurrency(value) {
 // Custom Sports & SaaS Premium Icons with Framer Motion integrations
 const Icons = {
   Trophy: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.388c0-.597.237-1.17.659-1.591l2.965-2.965a2.25 2.25 0 0 0 0-3.182l-.659-.659c-.422-.421-1.036-.586-1.615-.44a6.974 6.974 0 0 0-3.328 1.956c-.456.455-1.134.618-1.748.423a6.976 6.976 0 0 0-4.041-3.125 1.5 1.5 0 0 0-1.892 1.893 6.976 6.976 0 0 0 3.125 4.04c.195.615.032 1.293-.423 1.749A6.974 6.974 0 0 0 4.14 14.1c-.146.58.02 1.193.44 1.615l.659.659a2.25 2.25 0 0 0 3.182 0l2.965 2.965c.421.42.659.994.659 1.591v3.388Z" />
     </svg>
   ),
   Whistle: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m12 0a6.002 6.002 0 0 0-5.183-5.949V3.75a.75.75 0 1 0-1.5 0v3.051A6.002 6.002 0 0 0 6 11.25v1.5m12 0h-3m-9 0H3m12 0c0 .966-.316 1.857-.847 2.573m-10.306 0A4.502 4.502 0 0 1 6 12.75v-1.5c0-.966.316-1.857.847-2.573M15.75 11.25c0-.966-.316-1.857-.847-2.573" />
     </svg>
   ),
   Players: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
     </svg>
   ),
   Stopwatch: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 3h3m-1.5 0v1.5m6.728 2.772-1.06-1.06" />
     </svg>
   ),
   CheckBadge: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296Z" />
     </svg>
   ),
   RedCard: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3Z" />
     </svg>
   ),
   CalendarCheck: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75" />
     </svg>
   ),
   Star: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
     </svg>
   ),
   TacticsBoard: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
     </svg>
   ),
   Chart: (props) => (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
     </svg>
   )
@@ -145,17 +145,17 @@ export default function AnalyticsPanel() {
 
   if (error) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-transparent p-4">
+      <div className="flex min-h-[60vh] items-center justify-center bg-transparent p-3">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-          className="bg-card border border-border max-w-md text-center p-6 rounded-2xl shadow-md"
+          className="bg-white border border-red-50 max-w-md text-center p-6 rounded-[16px] shadow-[0_8px_20px_rgba(220,38,38,0.08)]"
         >
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-950">
-            <Icons.RedCard className="h-6 w-6 text-red-500" />
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF5F5] ring-4 ring-red-50">
+            <Icons.RedCard className="h-5 w-5 text-[#DC2626]" />
           </div>
-          <h3 className="mb-1 text-lg font-black text-foreground">Foul Play! (Error)</h3>
-          <p className="mb-5 text-xs font-semibold text-muted-foreground">{error}</p>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" className="w-full bg-red-500 text-white font-bold py-2.5 rounded-xl text-sm" onClick={loadAnalytics}>
+          <h3 className="mb-1 text-lg font-black text-slate-900 tracking-tight">Foul Play! (Error)</h3>
+          <p className="mb-5 text-xs font-semibold text-slate-500">{error}</p>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" className="w-full bg-gradient-to-b from-[#EF4444] to-[#DC2626] text-white font-bold py-2.5 rounded-xl text-sm shadow-[0_4px_12px_rgba(220,38,38,0.2)]" onClick={loadAnalytics}>
             Retry Connection
           </motion.button>
         </motion.div>
@@ -170,25 +170,26 @@ export default function AnalyticsPanel() {
   const unpaidPercentage = totalStudents > 0 ? ((summary.unpaid_students / totalStudents) * 100).toFixed(1) : 0;
 
   const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } };
-  const itemVariants = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 400, damping: 28 } } };
+  const itemVariants = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 450, damping: 30 } } };
 
-  // Reusable Highly Compact StatCard Component
-  const StatCard = ({ title, value, icon: Icon, borderClass, bgClass, textClass, onClick, extraContent }) => {
+  // Refined Premium StatCard (Compact, Perfect Colors, Crisp Shadows)
+  const StatCard = ({ title, value, icon: Icon, cardBg, iconBgClass, iconTextClass, onClick, extraContent }) => {
     const isClickable = !!onClick;
     return (
       <motion.div
         variants={itemVariants}
         onClick={onClick}
-        whileHover={isClickable ? { y: -3, scale: 1.01 } : { y: -2 }}
-        className={`bg-card border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm ${borderClass} ${isClickable ? 'cursor-pointer' : ''}`}
+        whileHover={isClickable ? { y: -2, scale: 1.01 } : { y: -1 }}
+        style={{ backgroundColor: cardBg }}
+        className={`rounded-[16px] p-3.5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 ease-out border border-black/[0.03] shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] ${isClickable ? 'cursor-pointer' : ''}`}
       >
         <div className="flex items-start justify-between w-full">
           <div className="space-y-0.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 block">{title}</span>
-            <span className={`text-2xl font-black tracking-tight block ${textClass}`}>{value}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500/80 block">{title}</span>
+            <span className="text-xl font-black tracking-tighter text-slate-800 block">{value}</span>
           </div>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bgClass} border border-current/10 shadow-inner`}>
-            <Icon className={`h-5 w-5 ${textClass}`} />
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${iconBgClass} border border-white/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)]`}>
+            <Icon className={`h-5 w-5 ${iconTextClass}`} />
           </div>
         </div>
         {extraContent && <div className="w-full mt-3">{extraContent}</div>}
@@ -197,22 +198,41 @@ export default function AnalyticsPanel() {
   };
 
   return (
-    <div className="w-full bg-transparent font-sans p-2 space-y-6">
+    <div className="w-full min-h-screen font-sans p-2 sm:p-4 space-y-4" style={{ background: 'linear-gradient(150deg, #F9FBF9 0%, #F3F8F4 100%)' }}>
       
-      {/* Top Bar Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3">
+      {/* Top Bar Header (Perfectly Compact, Professional Gradient) */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="bg-white rounded-[16px] p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] relative overflow-hidden"
+      >
+        {/* Subtle right-aligned sports gradient texture */}
+        <div className="absolute right-0 top-0 bottom-0 w-72 bg-gradient-to-l from-[#84D400]/[0.08] to-transparent pointer-events-none" />
+        <div className="absolute -right-6 -top-6 opacity-[0.03] pointer-events-none rotate-12">
+            <Icons.Trophy className="w-40 h-40 text-black" />
+        </div>
+        
+        <div className="flex items-center gap-3 z-10">
           {academy?.logo_url && !logoError ? (
-            <img key={academy.logo_url} src={`${academy.logo_url}?t=${Date.now()}`} alt="Logo" className="h-11 w-11 rounded-xl border border-border object-cover" onError={() => setLogoError(true)} />
+            <img key={academy.logo_url} src={`${academy.logo_url}?t=${Date.now()}`} alt="Logo" className="h-10 w-10 rounded-xl border border-slate-100 object-cover shadow-sm" onError={() => setLogoError(true)} />
           ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md"><Icons.Trophy className="h-5 w-5" /></div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#84D400] to-[#58B000] text-white shadow-md shadow-[#84D400]/20"><Icons.Trophy className="h-5 w-5" /></div>
           )}
           <div>
-            <h2 className="text-xl font-black text-foreground tracking-tight">{academy?.name || 'Academy'} Analytics</h2>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Live Operational Engine</p>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">
+              Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#58B000] to-[#10B981]">{academy?.name || 'Academy'}</span> 👋
+            </h2>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Track your academy progress</p>
           </div>
         </div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={loadAnalytics} className="bg-surface border border-border text-foreground hover:bg-surface-secondary px-4 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 self-start sm:self-center">
+        
+        <motion.button 
+          whileHover={{ scale: 1.02 }} 
+          whileTap={{ scale: 0.98 }} 
+          type="button" 
+          onClick={loadAnalytics} 
+          className="z-10 bg-gradient-to-b from-[#84D400] to-[#6FB000] border border-[#58B000]/20 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-[0_4px_12px_rgba(132,212,0,0.25)] flex items-center gap-2 self-start sm:self-center"
+        >
           <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
           </svg>
@@ -220,118 +240,118 @@ export default function AnalyticsPanel() {
         </motion.button>
       </motion.div>
 
-      {/* Visual Distributions Panel */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+      {/* Visual Distributions Panel (Compact & Refined) */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+        <div className="bg-white rounded-[16px] p-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] flex flex-col justify-center">
           <div className="mb-2.5 flex items-center justify-between">
-            <h3 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Fee Allocation Mix</h3>
-            <span className="bg-surface border border-border px-2 py-0.5 text-[10px] font-bold rounded text-foreground">Total: {totalStudents}</span>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fee Allocation Mix</h3>
+            <span className="bg-slate-50 border border-slate-100/60 px-2 py-0.5 text-[10px] font-bold rounded-md text-slate-600">Total: {totalStudents}</span>
           </div>
-          <div className="relative flex h-3.5 w-full overflow-hidden rounded-full bg-surface shadow-inner border border-border/50">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${paidPercentage}%` }} transition={{ duration: 1 }} className="h-full bg-teal-500" />
-            <motion.div initial={{ width: 0 }} animate={{ width: `${unpaidPercentage}%` }} transition={{ duration: 1, delay: 0.1 }} className="h-full bg-rose-500" />
+          <div className="relative flex h-3.5 w-full overflow-hidden rounded-full bg-slate-100/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
+            <motion.div initial={{ width: 0 }} animate={{ width: `${paidPercentage}%` }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-[#10B981] to-[#34D399]" />
+            <motion.div initial={{ width: 0 }} animate={{ width: `${unpaidPercentage}%` }} transition={{ duration: 1, delay: 0.1 }} className="h-full bg-gradient-to-r from-[#EF4444] to-[#F87171]" />
           </div>
-          <div className="mt-2 flex justify-between text-[10px] font-bold">
-            <span className="text-teal-600 dark:text-teal-400 flex items-center gap-1">● Paid ({paidPercentage}%)</span>
-            <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1">● Unpaid ({unpaidPercentage}%)</span>
+          <div className="mt-1.5 flex justify-between text-[10px] font-bold tracking-tight">
+            <span className="text-[#059669] flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div>Paid ({paidPercentage}%)</span>
+            <span className="text-[#DC2626] flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></div>Unpaid ({unpaidPercentage}%)</span>
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col justify-center">
+        <div className="bg-white rounded-[16px] p-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] flex flex-col justify-center">
           <div className="mb-2.5 flex items-center justify-between">
-            <h3 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Academy Attendance Pulse</h3>
-            <span className="bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold rounded border border-primary/20">30-Day Cycle</span>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Academy Attendance Pulse</h3>
+            <span className="bg-[#84D400]/10 text-[#58B000] px-2 py-0.5 text-[10px] font-bold rounded-md">30-Day Cycle</span>
           </div>
-          <div className="relative h-3.5 w-full overflow-hidden rounded-full bg-surface shadow-inner border border-border/50">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${safeMetrics.attendance_percent ?? 0}%` }} transition={{ type: "spring", stiffness: 200 }} className="h-full bg-primary" />
+          <div className="relative h-3.5 w-full overflow-hidden rounded-full bg-slate-100/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
+            <motion.div initial={{ width: 0 }} animate={{ width: `${safeMetrics.attendance_percent ?? 0}%` }} transition={{ type: "spring", stiffness: 200 }} className="h-full bg-gradient-to-r from-[#84D400] to-[#58B000]" />
           </div>
-          <div className="mt-2 flex justify-between text-[10px] font-bold text-muted-foreground">
-            <span>0% Line</span>
-            <span className="text-primary font-black text-xs">{safeMetrics.attendance_percent ?? 0}% Live Attendance</span>
+          <div className="mt-1.5 flex justify-between text-[10px] font-bold text-slate-400 tracking-tight">
+            <span>0%</span>
+            <span className="text-[#58B000] font-black">{safeMetrics.attendance_percent ?? 0}% Live Attendance</span>
             <span>Optimal</span>
           </div>
         </div>
       </motion.div>
 
-      {/* Grid Layout Cards */}
-      <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      {/* Grid Layout Cards (Precise Tints, Compact Sizes Preserved exactly) */}
+      <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
         
         <StatCard 
           title="Total Revenue" value={formatCurrency(safeMetrics.total_revenue)} icon={Icons.Chart} 
-          borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-emerald-600 dark:text-emerald-400"
+          cardBg="#F4FDF4" iconBgClass="bg-[#DCFCE7]" iconTextClass="text-[#16A34A]"
           onClick={() => navigate('/admin/accounts')}
           extraContent={
-            <div className="h-1 w-full bg-surface rounded-full overflow-hidden"><div className="h-full bg-emerald-500 w-full" /></div>
+            <div className="h-1 w-full bg-white/60 rounded-full overflow-hidden"><div className="h-full bg-[#16A34A] w-full" /></div>
           }
         />
 
         <StatCard 
           title="Active Coaches" value={safeMetrics.active_coach_count ?? 0} icon={Icons.Whistle} 
-          borderClass="border-indigo-200 dark:border-indigo-900/40" bgClass="bg-indigo-50 dark:bg-indigo-500/10" textClass="text-indigo-600 dark:text-indigo-400"
+          cardBg="#F5FAFF" iconBgClass="bg-[#DBEAFE]" iconTextClass="text-[#2563EB]"
           onClick={() => navigate('/admin/coaches')}
         />
 
         <StatCard 
           title="Active Students" value={safeMetrics.active_student_count ?? 0} icon={Icons.Players} 
-          borderClass="border-blue-200 dark:border-blue-900/40" bgClass="bg-blue-50 dark:bg-blue-500/10" textClass="text-blue-600 dark:text-blue-400"
+          cardBg="#F9F5FF" iconBgClass="bg-[#F3E8FF]" iconTextClass="text-[#9333EA]"
           onClick={() => navigate('/admin/students')}
         />
 
         <StatCard 
           title="Paused Students" value={safeMetrics.paused_student_count ?? 0} icon={Icons.Stopwatch} 
-          borderClass="border-amber-200 dark:border-amber-900/40" bgClass="bg-amber-50 dark:bg-amber-500/10" textClass="text-amber-600 dark:text-amber-400"
+          cardBg="#F8FAFC" iconBgClass="bg-[#E2E8F0]" iconTextClass="text-[#475569]"
           onClick={() => navigate('/admin/students')}
         />
 
         <StatCard 
           title="Inactive Students" value={safeMetrics.inactive_student_count ?? 0} icon={Icons.RedCard} 
-          borderClass="border-rose-200 dark:border-rose-900/40" bgClass="bg-rose-50 dark:bg-rose-500/10" textClass="text-rose-600 dark:text-rose-400"
+          cardBg="#FFF5F5" iconBgClass="bg-[#FEE2E2]" iconTextClass="text-[#DC2626]"
           onClick={() => navigate('/admin/students')}
         />
 
         <StatCard 
           title="Total Batches" value={safeMetrics.total_batches ?? 0} icon={Icons.Stopwatch} 
-          borderClass="border-cyan-200 dark:border-cyan-900/40" bgClass="bg-cyan-50 dark:bg-cyan-500/10" textClass="text-cyan-600 dark:text-cyan-400"
+          cardBg="#F0FDFA" iconBgClass="bg-[#CCFBF1]" iconTextClass="text-[#0D9488]"
           onClick={() => navigate('/admin/batches')}
         />
 
         <StatCard 
           title="Paid Accounts" value={summary.paid_students ?? 0} icon={Icons.CheckBadge} 
-          borderClass="border-teal-200 dark:border-teal-900/40" bgClass="bg-teal-50 dark:bg-teal-500/10" textClass="text-teal-600 dark:text-teal-400"
+          cardBg="#F5F7FF" iconBgClass="bg-[#E0E7FF]" iconTextClass="text-[#4F46E5]"
           onClick={() => navigate('/admin/students?status=paid')}
         />
 
         <StatCard 
           title="Unpaid Accounts" value={summary.unpaid_students ?? 0} icon={Icons.RedCard} 
-          borderClass="border-red-200 dark:border-red-900/40" bgClass="bg-red-50 dark:bg-red-500/10" textClass="text-red-600 dark:text-red-400"
+          cardBg="#FFF5F5" iconBgClass="bg-[#FEE2E2]" iconTextClass="text-[#DC2626]"
           onClick={() => navigate('/admin/students?status=unpaid')}
-          extraContent={summary.unpaid_students > 0 && <span className="text-[9px] font-black text-red-500 uppercase tracking-wider animate-pulse block">Review Pipeline</span>}
+          extraContent={summary.unpaid_students > 0 && <span className="text-[9px] font-black text-[#DC2626] uppercase tracking-wider animate-pulse block">Review Pipeline</span>}
         />
 
         <StatCard 
           title="Pending Dues" value={formatCurrency(safeMetrics.pending_dues ?? 0)} icon={Icons.RedCard} 
-          borderClass="border-orange-200 dark:border-orange-900/40" bgClass="bg-orange-50 dark:bg-orange-500/10" textClass="text-orange-600 dark:text-orange-400"
+          cardBg="#FFF9F2" iconBgClass="bg-[#FFEDD5]" iconTextClass="text-[#EA580C]"
         />
 
         <StatCard 
           title="Evaluations Log" value={safeMetrics.performance_scores_count ?? 0} icon={Icons.Star} 
-          borderClass="border-fuchsia-200 dark:border-fuchsia-900/40" bgClass="bg-fuchsia-50 dark:bg-fuchsia-500/10" textClass="text-fuchsia-600 dark:text-fuchsia-400"
+          cardBg="#F5F7FF" iconBgClass="bg-[#E0E7FF]" iconTextClass="text-[#4F46E5]"
         />
 
         <StatCard 
           title="Daily Notes" value={safeMetrics.daily_notes_count ?? 0} icon={Icons.TacticsBoard} 
-          borderClass="border-sky-200 dark:border-sky-900/40" bgClass="bg-sky-50 dark:bg-sky-500/10" textClass="text-sky-600 dark:text-sky-400"
+          cardBg="#F8FAFC" iconBgClass="bg-[#E2E8F0]" iconTextClass="text-[#475569]"
         />
 
         <StatCard 
           title="Monthly Revenue" value={formatCurrency(safeMetrics.monthly_revenue ?? 0)} icon={Icons.Chart} 
-          borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-emerald-600 dark:text-emerald-400"
+          cardBg="#F4FDF4" iconBgClass="bg-[#DCFCE7]" iconTextClass="text-[#16A34A]"
           onClick={() => navigate('/admin/accounts')}
         />
 
         <StatCard 
           title="Monthly Attendance" value={safeMetrics.monthly_attendance ?? 0} icon={Icons.CalendarCheck} 
-          borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-foreground font-black"
+          cardBg="#F2FCF5" iconBgClass="bg-[#D1FAE5]" iconTextClass="text-[#059669]"
         />
       </motion.div>
     </div>

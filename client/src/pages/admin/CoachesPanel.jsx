@@ -278,21 +278,21 @@ export default function CoachesPanel() {
 
   return (
     <motion.div
-      className="min-h-screen bg-[#f4f7f6] dark:bg-[#0a0f0d] p-6 lg:p-10 space-y-8 font-sans overflow-x-hidden"
+      className="min-h-screen bg-[#f4f7f6] dark:bg-[#0a0f0d] p-4 lg:p-6 space-y-6 font-sans overflow-x-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="mx-auto max-w-[1600px] space-y-8">
+      <div className="mx-auto max-w-[1600px] space-y-6">
         
         {/* Header with Quick Stats */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-white dark:bg-[#111814] p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-gray-100 dark:ring-gray-800/60 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 bg-white dark:bg-[#111814] p-6 rounded-[1.8rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-gray-100 dark:ring-gray-800/60 relative overflow-hidden">
           {/* Decorative background shape */}
           <div className="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
           
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">Coaches Panel</h2>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">Coaches Panel</h2>
               <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 py-1 px-3 rounded-full text-xs font-bold ring-1 ring-emerald-200 dark:ring-emerald-800">
                 {activeCount} Active
               </span>
@@ -300,10 +300,10 @@ export default function CoachesPanel() {
             <p className="text-gray-500 mt-2 font-medium text-sm">Provision coaches and auto-generate access credentials.</p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 relative z-10">
+          <div className="flex flex-wrap items-center gap-2.5 relative z-10">
             <motion.button
               type="button"
-              className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 dark:bg-[#111814] dark:border-gray-700 rounded-xl font-bold text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm hover:shadow-md"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 dark:bg-[#111814] dark:border-gray-700 rounded-xl font-bold text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm hover:shadow-md"
               onClick={() => setShowBulkImportModal(true)}
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             >
@@ -311,7 +311,7 @@ export default function CoachesPanel() {
             </motion.button>
             <motion.button
               type="button"
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-sm shadow-[0_4px_14px_0_rgb(16,185,129,0.39)] hover:shadow-[0_6px_20px_rgb(16,185,129,0.23)] transition-all"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-sm shadow-[0_4px_14px_0_rgb(16,185,129,0.39)] hover:shadow-[0_6px_20px_rgb(16,185,129,0.23)] transition-all"
               onClick={openModal}
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             >
@@ -343,12 +343,12 @@ export default function CoachesPanel() {
         </AnimatePresence>
 
         {/* Filter Section */}
-        <div className="bg-white dark:bg-[#111814] p-3 rounded-[1.5rem] border border-gray-100 dark:border-gray-800/60 shadow-[0_4px_20px_rgb(0,0,0,0.02)] flex flex-col sm:flex-row gap-3">
+        <div className="bg-white dark:bg-[#111814] p-2.5 rounded-[1.5rem] border border-gray-100 dark:border-gray-800/60 shadow-[0_4px_20px_rgb(0,0,0,0.02)] flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              className="w-full pl-11 pr-4 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-transparent focus:border-emerald-500 focus:bg-white dark:border-gray-800 dark:focus:border-emerald-500 rounded-xl outline-none text-sm transition-all dark:text-white"
+              className="w-full pl-11 pr-4 py-3 bg-gray-50/50 dark:bg-gray-900/50 border border-transparent focus:border-emerald-500 focus:bg-white dark:border-gray-800 dark:focus:border-emerald-500 rounded-xl outline-none text-sm transition-all dark:text-white"
               placeholder="Search by name, email, or specialization..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -370,9 +370,9 @@ export default function CoachesPanel() {
 
         {/* Floating Cards Table */}
         {loading ? (
-          <div className="p-20 flex justify-center bg-white rounded-3xl shadow-sm"><Loader /></div>
+          <div className="p-16 flex justify-center bg-white rounded-3xl shadow-sm"><Loader /></div>
         ) : filteredCoaches.length === 0 ? (
-          <div className="bg-white dark:bg-[#111814] rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 py-24 flex flex-col items-center justify-center shadow-sm">
+          <div className="bg-white dark:bg-[#111814] rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 py-20 flex flex-col items-center justify-center shadow-sm">
             <div className="h-16 w-16 bg-gray-50 dark:bg-gray-900 rounded-full flex items-center justify-center mb-4 ring-8 ring-gray-50/50 dark:ring-gray-900/50">
               <Search className="h-8 w-8 text-gray-300 dark:text-gray-600" />
             </div>
@@ -405,8 +405,8 @@ export default function CoachesPanel() {
                       className={`group bg-white dark:bg-[#111814] shadow-[0_2px_10px_rgba(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800 hover:shadow-lg hover:ring-emerald-500/30 dark:hover:ring-emerald-500/30 transition-all duration-300 ${isInactive ? 'opacity-70 grayscale-[0.2]' : ''}`}
                     >
                       {/* Name & Avatar */}
-                      <td className="px-6 py-5 rounded-l-2xl">
-                        <div className="flex items-center gap-4">
+                      <td className="px-5 py-4 rounded-l-2xl">
+                        <div className="flex items-center gap-3.5">
                           <div className="shadow-sm rounded-full bg-white dark:bg-gray-800 p-0.5 ring-2 ring-gray-50 dark:ring-gray-700 group-hover:ring-emerald-100 transition-all">
                             <Avatar name={coach.name} size="sm" />
                           </div>
@@ -416,7 +416,7 @@ export default function CoachesPanel() {
 
                       {/* Email (mailto) & Phone with Copy */}
                       <td className="px-6 py-5">
-                        <div className="flex flex-col gap-2.5">
+                        <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-2 group/action">
                             <a 
                               href={`mailto:${coach.email}`} 

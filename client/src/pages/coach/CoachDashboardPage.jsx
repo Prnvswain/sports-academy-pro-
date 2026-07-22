@@ -94,11 +94,11 @@ export default function CoachDashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-8">
+      <div className="p-4 space-y-6">
         {/* Dashboard Cards Skeleton */}
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="card p-5 space-y-3">
+            <div key={i} className="card p-4 space-y-2.5">
               <div className="h-4 bg-surface-secondary rounded w-20 animate-pulse"></div>
               <div className="h-8 bg-surface-secondary rounded w-16 animate-pulse"></div>
             </div>
@@ -109,9 +109,9 @@ export default function CoachDashboardPage() {
         <div className="space-y-6">
           <div className="h-8 bg-surface-secondary rounded w-48 animate-pulse"></div>
           <div className="h-10 bg-surface-secondary rounded w-64 animate-pulse"></div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="card p-5 space-y-4">
+              <div key={i} className="card p-4 space-y-3">
                 <div className="h-6 bg-surface-secondary rounded w-3/4 animate-pulse"></div>
                 <div className="flex gap-2">
                   <div className="h-6 bg-surface-secondary rounded w-20 animate-pulse"></div>
@@ -128,7 +128,7 @@ export default function CoachDashboardPage() {
           <div className="h-8 bg-surface-secondary rounded w-48 animate-pulse"></div>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="card p-4 space-y-2">
+              <div key={i} className="card p-3.5 space-y-2">
                 <div className="h-4 bg-surface-secondary rounded w-3/4 animate-pulse"></div>
                 <div className="h-3 bg-surface-secondary rounded w-full animate-pulse"></div>
               </div>
@@ -141,7 +141,7 @@ export default function CoachDashboardPage() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-4">
         <div className="alert-error border-danger/30 bg-danger/10 text-danger rounded-xl p-4 shadow-sm">
           {error}
         </div>
@@ -185,16 +185,16 @@ export default function CoachDashboardPage() {
       </div>
 
       <motion.div
-        className="relative z-10 space-y-8 p-6 w-full overflow-x-hidden bg-transparent"
+        className="relative z-10 space-y-6 p-4 w-full overflow-x-hidden bg-transparent"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
       >
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/50 pb-6 relative">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/50 pb-4 relative">
           <div className="absolute top-0 left-0 w-48 h-48 bg-primary/10 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
               Overview
               <span className="flex h-3 w-3 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>

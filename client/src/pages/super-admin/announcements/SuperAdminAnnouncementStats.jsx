@@ -30,7 +30,7 @@ export default function SuperAdminAnnouncementStats() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-4xl mx-auto flex items-center justify-center">
+      <div className="p-6 max-w-4xl mx-auto flex items-center justify-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
       </div>
     );
@@ -38,7 +38,7 @@ export default function SuperAdminAnnouncementStats() {
 
   if (error || !stats) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="p-6 max-w-4xl mx-auto">
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error || 'Statistics not found'}
         </div>
@@ -54,7 +54,7 @@ export default function SuperAdminAnnouncementStats() {
         transition={{ duration: 0.3 }}
       >
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-5">
           <button
             onClick={() => navigate(`/super-admin/announcements/${id}`)}
             className="text-emerald-600 hover:text-emerald-700 mb-4 inline-flex items-center"
@@ -68,8 +68,8 @@ export default function SuperAdminAnnouncementStats() {
         </div>
 
         {/* Overview Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-2 gap-3.5 mb-5">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Total Recipients</p>
@@ -82,7 +82,7 @@ export default function SuperAdminAnnouncementStats() {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Delivered</p>
@@ -95,7 +95,7 @@ export default function SuperAdminAnnouncementStats() {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Read</p>
@@ -109,7 +109,7 @@ export default function SuperAdminAnnouncementStats() {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 mb-1">Unread</p>
@@ -125,8 +125,8 @@ export default function SuperAdminAnnouncementStats() {
         </div>
 
         {/* Read Percentage */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Read Percentage</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-5">
+          <h2 className="font-semibold text-gray-900 mb-3">Read Percentage</h2>
           <div className="relative pt-1">
             <div className="flex mb-2 items-center justify-between">
               <div>
@@ -145,7 +145,7 @@ export default function SuperAdminAnnouncementStats() {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex gap-3.5">
           <button
             onClick={() => navigate(`/super-admin/announcements/${id}`)}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"

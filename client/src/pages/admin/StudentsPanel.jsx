@@ -121,9 +121,9 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mb-6 overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-5 shadow-sm"
+      className="mb-5 overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4 shadow-sm"
     >
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-3 flex items-center gap-3">
         <div className="rounded-full bg-emerald-600/10 p-2 text-emerald-600">
           <Wallet className="h-5 w-5" />
         </div>
@@ -133,7 +133,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-2.5 md:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white/70 p-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Sports Base Fee</span>
@@ -170,7 +170,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
           </div>
         </div>
 
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Total Computed Fee</span>
             <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.totalComputedFee)}</span>
@@ -181,7 +181,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
           </div>
         </div>
 
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-2.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-600">Balance Due</span>
             <span className="font-semibold text-slate-800">₹{formatCurrency(balanceInfo.balanceDue)}</span>
@@ -195,7 +195,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
         </div>
       </div>
 
-      <div className={`mt-4 rounded-xl border p-4 ${balanceInfo.balanceDue > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-600 text-white'}`}>
+      <div className={`mt-3 rounded-xl border p-3.5 ${balanceInfo.balanceDue > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-600 text-white'}`}>
         <div className="flex items-center justify-between">
           <span className={`text-sm font-semibold ${balanceInfo.balanceDue > 0 ? 'text-rose-700' : 'text-white'}`}>
             Total Balance Due
@@ -1253,7 +1253,7 @@ export default function StudentsPanel() {
 
   return (
     <motion.div
-      className="w-full space-y-6 overflow-x-hidden p-6"
+      className="w-full space-y-5 overflow-x-hidden p-4"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -1289,8 +1289,8 @@ export default function StudentsPanel() {
       </div>
 
       {/* Filter Section */}
-      <div className="card mb-6">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="card mb-5">
+        <div className="flex flex-wrap items-center gap-3.5">
           <div className="w-full min-w-0 flex-1 sm:w-auto">
             <input
               type="text"
@@ -1626,7 +1626,7 @@ export default function StudentsPanel() {
                           'No plan';
 
                         return (
-                          <div key={enrollmentId} className="bg-muted rounded p-3">
+                          <div key={enrollmentId} className="bg-muted rounded p-2.5">
                             <div className="flex items-center justify-between">
                               <span className="font-semibold">{sportName}</span>
                               <span className="text-muted text-sm">{batchName}</span>
@@ -1645,14 +1645,14 @@ export default function StudentsPanel() {
                     <p className="text-muted">No enrollment data available</p>
                   </div>
                 )}
-                <div className="bg-accent/10 border-accent/20 mt-4 rounded-lg border p-4">
-                  <h4 className="text-accent mb-3 font-bold">Financial Accounts Matrix</h4>
+                <div className="bg-accent/10 border-accent/20 mt-3.5 rounded-lg border p-3.5">
+                  <h4 className="text-accent mb-2.5 font-bold">Financial Accounts Matrix</h4>
                   {studentDetails?.enrollments &&
                   Array.isArray(studentDetails.enrollments) &&
                   studentDetails.enrollments.length > 0 ? (
                     <>
                       {/* Combined Financial Summary */}
-                      <div className="bg-accent/20 border-accent/30 mb-4 rounded-lg border p-3">
+                      <div className="bg-accent/20 border-accent/30 mb-3 rounded-lg border p-2.5">
                         <h5 className="text-accent mb-2 font-semibold">
                           Combined Financial Summary
                         </h5>
@@ -1757,7 +1757,7 @@ export default function StudentsPanel() {
                   )}
                 </div>
                 <div className="bg-muted/10 border-muted/20 mt-4 rounded-lg border p-4">
-                  <h4 className="mb-3 font-bold">Attendance Summary</h4>
+                  <h4 className="mb-2.5 font-bold">Attendance Summary</h4>
                   <p className="text-muted">Attendance data not available in current view</p>
                 </div>
                 <div className="bg-muted/10 border-muted/20 mt-4 rounded-lg border p-4">

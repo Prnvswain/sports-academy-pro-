@@ -1,20 +1,47 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, X, CheckCircle, AlertCircle, Plus, MapPin, Grid, Lock, Unlock, Trash2, Edit2, Check, LayoutDashboard } from 'lucide-react';
+import { Search, X, CheckCircle, AlertCircle, Plus, MapPin, Grid, Lock, Unlock, Trash2, Edit2, Check, LayoutDashboard, Loader2, Navigation, Target } from 'lucide-react';
 import Loader from '../../components/Loader';
 import GPSCapture from '../../components/GPSCapture';
 import { adminGet, adminPost, adminPatch, adminDelete } from '../../api/client';
 
+// Fix for default Leaflet marker icon issue in React
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
+
 const formatCurrency = (value) =>
   Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '0.00';
 
-// Fallback icons if super admin API doesn't return icon field
 const FALLBACK_ICON = '🏅';
-
-// Array for empty state animations
 const ANIMATION_ICONS = ['⚽', '🏀', '🎾', '🏐', '🏸', '🥊', '🏏'];
+
+// Row Animation Variants
+const rowVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 }
+};
+
+// Component to recenter map when location changes
+function MapUpdater({ lat, lng }) {
+  const map = useMap();
+  useEffect(() => {
+    if (lat && lng) {
+      map.flyTo([lat, lng], 16, { animate: true, duration: 1.5 });
+    }
+  }, [lat, lng, map]);
+  return null;
+}
 
 export default function SportsPanel() {
   const [sports, setSports] = useState([]);
@@ -25,16 +52,14 @@ export default function SportsPanel() {
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [editingFeeValue, setEditingFeeValue] = useState('');
 
-  // ─── Add Sport: new multi-select search state ───────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedSports, setSelectedSports] = useState([]); // [{name, icon}]
-  const [superAdminSports, setSuperAdminSports] = useState([]); // from API
+  const [selectedSports, setSelectedSports] = useState([]); 
+  const [superAdminSports, setSuperAdminSports] = useState([]); 
   const [superAdminLoading, setSuperAdminLoading] = useState(false);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [browseSearch, setBrowseSearch] = useState('');
 
-  // ─── Shared form fields (apply to all selected sports on submit) ────────────
   const [sharedForm, setSharedForm] = useState({
     base_fee: '',
     status: 'ACTIVE',
@@ -47,14 +72,12 @@ export default function SportsPanel() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ─── Academy Location (from registration) ─────────────────────────────────
   const [academyLocation, setAcademyLocation] = useState(null);
   const [academyLocationAddress, setAcademyLocationAddress] = useState('');
   const [academyLocationMessage, setAcademyLocationMessage] = useState('');
   const [academyLocationLoading, setAcademyLocationLoading] = useState(true);
   const [academyAttendanceRadius, setAcademyAttendanceRadius] = useState(200);
 
-  // ─── Fetch global sports for Browse modal ──────────────────────────────
   const loadSuperAdminSports = useCallback(async () => {
     setSuperAdminLoading(true);
     try {
@@ -74,7 +97,6 @@ export default function SportsPanel() {
   }, []);
 
   useEffect(() => {
-    // Load sports when component mounts so search dropdown has data
     if (superAdminSports.length === 0) {
       loadSuperAdminSports();
     }
@@ -90,15 +112,10 @@ export default function SportsPanel() {
 
   const reverseGeocodeAcademyLocation = useCallback(async (latitude, longitude) => {
     if (latitude == null || longitude == null) return;
-
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'SportsAcademyMapPicker/1.0',
-          },
-        }
+        { headers: { 'User-Agent': 'SportsAcademyMapPicker/1.0' } }
       );
       const data = await response.json();
       if (data?.display_name) {
@@ -109,21 +126,17 @@ export default function SportsPanel() {
     }
   }, []);
 
-  // ─── Fetch academy location (for default sport location) ─────────────────────
   const loadAcademyLocation = useCallback(async () => {
     setAcademyLocationLoading(true);
     setAcademyLocationMessage('');
     setAcademyLocationAddress('');
-
     try {
       const [academyResult, gpsResult] = await Promise.all([
         adminGet('/admin/academy'),
         adminGet('/admin/gps/settings')
       ]);
-
       const academyData = academyResult.data || academyResult;
       const gpsData = gpsResult.data || gpsResult;
-
       const latitude = academyData?.latitude != null ? parseFloat(academyData.latitude) : null;
       const longitude = academyData?.longitude != null ? parseFloat(academyData.longitude) : null;
       const attendanceRadius = gpsData?.attendance_radius_meters || academyData?.attendance_radius_meters || 200;
@@ -132,7 +145,6 @@ export default function SportsPanel() {
 
       if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
         setAcademyLocation({ latitude, longitude });
-
         const formattedAddress = buildAcademyAddress(academyData);
         if (formattedAddress) {
           setAcademyLocationAddress(formattedAddress);
@@ -159,7 +171,6 @@ export default function SportsPanel() {
     }
   }, [buildAcademyAddress, reverseGeocodeAcademyLocation]);
 
-  // ─── Fetch academy sports (table) ──────────────────────────────────────────
   const loadSports = useCallback(async () => {
     setLoading(true);
     try {
@@ -181,20 +192,14 @@ export default function SportsPanel() {
   useEffect(() => {
     loadSports();
     loadAcademyLocation();
-
-    // Listen for academy settings updates to refresh location and radius
-    const handleSettingsUpdate = () => {
-      loadAcademyLocation();
-    };
-
+    const handleSettingsUpdate = () => loadAcademyLocation();
     window.addEventListener('academySettingsUpdated', handleSettingsUpdate);
     return () => window.removeEventListener('academySettingsUpdated', handleSettingsUpdate);
   }, [loadSports, loadAcademyLocation]);
 
-  // ─── Close dropdown on outside click ───────────────────────────────────────
   useEffect(() => {
     const handleClick = (e) => {
-      const searchInput = document.querySelector('input[placeholder="Search or type a sport name…"]');
+      const searchInput = document.querySelector('input[placeholder="Search sport name…"]');
       if (searchInput && !searchInput.contains(e.target) && !e.target.closest('.absolute.left-0.right-0.top-full')) {
         setShowDropdown(false);
       }
@@ -203,7 +208,6 @@ export default function SportsPanel() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ─── Filtered dropdown list ─────────────────────────────────────────────────
   const q = searchQuery.trim().toLowerCase();
   const filteredDropdown = q
     ? superAdminSports.filter((s) => s.name.toLowerCase().includes(q))
@@ -232,7 +236,6 @@ export default function SportsPanel() {
     setSelectedSports((prev) => prev.filter((s) => s.name !== name));
   };
 
-  // ─── Browse modal: filtered ─────────────────────────────────────────────────
   const bq = browseSearch.trim().toLowerCase();
   const filteredBrowse = bq
     ? superAdminSports.filter((s) => s.name.toLowerCase().includes(bq))
@@ -242,7 +245,6 @@ export default function SportsPanel() {
     toggleDraftSport(sport);
   };
 
-  // ─── Submit: create one sport per selected entry ────────────────────────────
   const handleCreateSports = async (e) => {
     e.preventDefault();
     setMessage({ text: '', type: '' });
@@ -265,13 +267,10 @@ export default function SportsPanel() {
           base_fee: parseFloat(sharedForm.base_fee || 0),
           status: sharedForm.status,
           sport_center: sharedForm.sport_center.trim() || undefined,
-          attendance_radius: sharedForm.attendance_radius
-            ? parseFloat(sharedForm.attendance_radius)
-            : undefined,
+          attendance_radius: sharedForm.attendance_radius ? parseFloat(sharedForm.attendance_radius) : undefined,
           use_custom_location: sharedForm.use_custom_location,
         };
 
-        // Only send GPS coordinates if using custom location
         if (sharedForm.use_custom_location && sharedForm.latitude && sharedForm.longitude) {
           payload.latitude = parseFloat(sharedForm.latitude);
           payload.longitude = parseFloat(sharedForm.longitude);
@@ -309,16 +308,10 @@ export default function SportsPanel() {
     }
   };
 
-  // ─── Status / Fee / Bulk handlers (unchanged) ──────────────────────────────
   const handleMarkActive = async (sportId) => {
     try {
-      setSports((prev) =>
-        prev.map((s) => ((s.sport_id || s.id) === sportId ? { ...s, status: 'ACTIVE' } : s)),
-      );
-      const result = await adminPatch(`/admin/sports/${sportId}/status`, {
-        status: 'ACTIVE',
-        cascade: true,
-      });
+      setSports((prev) => prev.map((s) => ((s.sport_id || s.id) === sportId ? { ...s, status: 'ACTIVE' } : s)));
+      const result = await adminPatch(`/admin/sports/${sportId}/status`, { status: 'ACTIVE', cascade: true });
       setMessage({ text: result?.message || 'Sport marked as active successfully', type: 'success' });
       loadSports();
     } catch (error) {
@@ -329,15 +322,8 @@ export default function SportsPanel() {
 
   const handleDeactivate = async (sportId) => {
     try {
-      setSports((prev) =>
-        prev.map((s) =>
-          (s.sport_id || s.id) === sportId ? { ...s, status: 'INACTIVE' } : s,
-        ),
-      );
-      const result = await adminPatch(`/admin/sports/${sportId}/status`, {
-        status: 'INACTIVE',
-        cascade: true,
-      });
+      setSports((prev) => prev.map((s) => ((s.sport_id || s.id) === sportId ? { ...s, status: 'INACTIVE' } : s)));
+      const result = await adminPatch(`/admin/sports/${sportId}/status`, { status: 'INACTIVE', cascade: true });
       setMessage({ text: result?.message || 'Sport deactivated successfully', type: 'success' });
       loadSports();
     } catch (error) {
@@ -348,7 +334,6 @@ export default function SportsPanel() {
 
   const handleRemoveSport = async (sportId) => {
     if (!window.confirm('Warning: Permanently removing this sport will delete it from the catalog. Proceed?')) return;
-    setMessage({ text: '', type: '' });
     try {
       setSports((prev) => prev.filter((s) => (s.sport_id || s.id) !== sportId));
       const result = await adminDelete(`/admin/sports/${sportId}`);
@@ -377,15 +362,12 @@ export default function SportsPanel() {
 
   const handleRowClick = (sportId) => {
     if (!isBulkEditMode) return;
-    setSelectedIds((prev) =>
-      prev.includes(sportId) ? prev.filter((id) => id !== sportId) : [...prev, sportId],
-    );
+    setSelectedIds((prev) => prev.includes(sportId) ? prev.filter((id) => id !== sportId) : [...prev, sportId]);
   };
 
   const handleBulkAction = async (action, label) => {
     if (selectedIds.length === 0) return;
     if (action === 'delete' && !window.confirm(`Permanently remove ${selectedIds.length} sports?`)) return;
-    setMessage({ text: '', type: '' });
     try {
       await adminPost('/admin/sports/bulk-action', { action, sport_ids: selectedIds });
       setMessage({ text: `Sports ${label} successfully`, type: 'success' });
@@ -408,7 +390,6 @@ export default function SportsPanel() {
   };
 
   const handleSaveFee = async (sportId) => {
-    setMessage({ text: '', type: '' });
     try {
       const newFee = parseFloat(editingFeeValue);
       if (isNaN(newFee) || newFee < 0) {
@@ -425,7 +406,6 @@ export default function SportsPanel() {
     }
   };
 
-  // ─── Handle GPS location capture from GPSCapture component ─────────────────────
   const handleLocationCapture = (locationData) => {
     if (locationData) {
       setSharedForm((prev) => ({
@@ -434,47 +414,53 @@ export default function SportsPanel() {
         longitude: locationData.longitude.toFixed(7),
       }));
     } else {
-      setSharedForm((prev) => ({
-        ...prev,
-        latitude: '',
-        longitude: '',
-      }));
+      setSharedForm((prev) => ({ ...prev, latitude: '', longitude: '' }));
     }
   };
 
-  // ─── Toggle between default academy location and custom location ───────────────
   const handleLocationToggle = (useCustom) => {
     setSharedForm((prev) => ({
       ...prev,
       use_custom_location: useCustom,
-      // If switching to default, clear custom coordinates and use academy radius
       latitude: useCustom ? prev.latitude : '',
       longitude: useCustom ? prev.longitude : '',
       attendance_radius: useCustom ? prev.attendance_radius : academyAttendanceRadius.toString(),
     }));
-
     if (!useCustom) {
       loadAcademyLocation();
     }
   };
 
-  // ──────────────────────────────────────────────────────────────────────────
+  // Convert custom coordinates properly
+  const customLat = parseFloat(sharedForm.latitude);
+  const customLng = parseFloat(sharedForm.longitude);
+  const mapCenterLat = sharedForm.use_custom_location ? (!isNaN(customLat) ? customLat : null) : (academyLocation?.latitude || null);
+  const mapCenterLng = sharedForm.use_custom_location ? (!isNaN(customLng) ? customLng : null) : (academyLocation?.longitude || null);
+  
+  const isValidMapCenter = mapCenterLat !== null && mapCenterLng !== null;
+
   return (
     <motion.div
-      className="w-full space-y-6 font-sans"
-      initial={{ opacity: 0, y: 20 }}
+      className="w-full space-y-4 font-sans pb-12 max-w-[1400px] mx-auto"
+      initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
     >
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-[#111814] p-6 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">
-            Sports <span className="text-emerald-600 dark:text-emerald-400">Catalog</span>
+      {/* ── Compact Header with Vibrant Gradients ── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 dark:from-purple-950/50 dark:via-pink-950/50 dark:to-orange-950/50 p-4 sm:p-5 rounded-2xl shadow-sm border border-purple-200/60 dark:border-purple-900/40 relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-40 h-40 bg-gradient-to-br from-pink-400/30 to-purple-500/30 blur-[40px] rounded-full pointer-events-none"></div>
+        <div className="relative z-10">
+          <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white mb-0.5">
+            Sports <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500">Catalog</span>
           </h2>
-          <p className="mt-1 text-sm font-semibold text-gray-400 dark:text-gray-500">
-            Create and manage sports available in your academy workspace.
+          <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
+            Create, manage, and scale the sports available in your academy.
           </p>
+        </div>
+        <div className="hidden sm:block relative z-10">
+          <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-md">
+             <TrophyIcon className="h-5 w-5 text-white" />
+          </div>
         </div>
       </div>
 
@@ -482,52 +468,51 @@ export default function SportsPanel() {
       <AnimatePresence>
         {message.text && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`flex items-center gap-3 rounded-2xl p-4 shadow-sm ring-1 ${
+            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+            className={`flex items-center gap-3 rounded-xl p-3 shadow-sm border ${
               message.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-900/50'
-                : 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:ring-rose-900/50'
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-300'
+                : 'bg-rose-50/80 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-900/50 dark:text-rose-300'
             }`}
           >
-            {message.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
-            <p className="text-sm font-medium">{message.text}</p>
-            <button type="button" onClick={() => setMessage({text: '', type: ''})} className="ml-auto opacity-70 hover:opacity-100">
-              <X className="h-4 w-4" />
+            <div className={`p-1.5 rounded-lg ${message.type === 'success' ? 'bg-emerald-200/50' : 'bg-rose-200/50'}`}>
+              {message.type === 'success' ? <CheckCircle className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-rose-600" />}
+            </div>
+            <p className="text-sm font-semibold flex-1">{message.text}</p>
+            <button type="button" onClick={() => setMessage({text: '', type: ''})} className="p-1 hover:bg-black/5 rounded-md transition-colors">
+              <X className="h-4 w-4 opacity-70" />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* ── Add Sport Form Section ── */}
-      <div className="rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 overflow-visible p-6 lg:p-8">
-        {/* <div className="mb-6 flex items-center gap-3 border-b border-gray-100 dark:border-gray-800/60 pb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
-            <Plus className="h-5 w-5 stroke-[3]" />
-          </div>
-          <h3 className="font-bold text-xl text-gray-900 dark:text-white">Add New Sports</h3>
-        </div> */}
-
+      <div className="rounded-2xl bg-white dark:bg-[#121418] shadow-md border border-gray-100 dark:border-gray-800 p-4 lg:p-5 overflow-hidden">
         <form onSubmit={handleCreateSports}>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6">
             
-            {/* Left Column: Search & Select */}
-            <div className="space-y-6">
+            {/* Left Column: Search & Selected */}
+            <div className="space-y-4">
+              
               <div className="relative">
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Search Sport</label>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  {/* Search Input with Dropdown */}
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3 w-1.5 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Find & Add Sports</h3>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="relative flex-1 group">
+                    <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
                     <input
                       type="text"
-                      className={`w-full rounded-xl border pl-10 pr-10 py-3 text-sm outline-none transition-all focus:ring-4 dark:bg-gray-900/50 ${
+                      className={`w-full rounded-xl border-2 pl-10 pr-10 py-2 text-sm outline-none transition-all focus:ring-4 dark:bg-[#1a1c22] ${
                         fieldErrors.search 
-                          ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/10' 
-                          : 'border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/10 dark:border-gray-800'
+                          ? 'border-rose-300 bg-rose-50 focus:border-rose-500 focus:bg-white text-gray-900' 
+                          : 'border-purple-200 bg-purple-50/30 focus:bg-white focus:border-purple-500 focus:ring-purple-500/20 text-gray-900 dark:text-gray-100 dark:border-purple-900/50 dark:bg-purple-950/20'
                       }`}
-                      placeholder="Search or type a sport name…"
+                      placeholder="Search sport name…"
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
@@ -543,7 +528,7 @@ export default function SportsPanel() {
                     {searchQuery && (
                       <button
                         type="button"
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-rose-500 p-1"
                         onClick={() => { setSearchQuery(''); setShowDropdown(false); }}
                       >
                         <X className="h-4 w-4" />
@@ -554,48 +539,39 @@ export default function SportsPanel() {
                     <AnimatePresence>
                       {showDropdown && (
                         <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-[#161f19]"
+                          initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}
+                          className="absolute left-0 right-0 top-full z-40 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-2xl dark:border-gray-700 dark:bg-[#1e2128]"
                         >
                           {superAdminLoading ? (
-                            <p className="px-4 py-3 text-sm text-gray-500">Loading sports catalog…</p>
+                            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-purple-500" /></div>
                           ) : !q ? (
-                            <p className="px-4 py-3 text-sm text-gray-500">Start typing to search for sports…</p>
+                            <p className="px-3 py-3 text-xs text-gray-500 text-center">Type to explore catalog…</p>
                           ) : filteredDropdown.length === 0 ? (
-                            <p className="px-4 py-3 text-sm text-gray-500">No sports found. Press Enter to add as custom sport.</p>
+                            <p className="px-3 py-3 text-xs text-gray-500 text-center">Not found. Click below to add.</p>
                           ) : (
                             <>
                               {filteredDropdown.map((sport) => {
                                 const sel = isSelectedInDraft(sport.name);
                                 return (
                                   <button
-                                    key={sport.name}
-                                    type="button"
-                                    className={`flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm transition-colors ${
-                                      sel 
-                                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 font-bold' 
-                                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                                    key={sport.name} type="button" onClick={() => toggleDraftSport(sport)}
+                                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-all ${
+                                      sel ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-sm' : 'text-gray-700 hover:bg-purple-50 dark:text-gray-300 dark:hover:bg-gray-700'
                                     }`}
-                                    onClick={() => toggleDraftSport(sport)}
                                   >
-                                    <span className="text-xl">{sport.icon || FALLBACK_ICON}</span>
+                                    <span className="text-lg bg-white/20 p-1 rounded-md">{sport.icon || FALLBACK_ICON}</span>
                                     <span className="flex-1">{sport.name}</span>
-                                    {sel && <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />}
+                                    {sel && <CheckCircle className="h-4 w-4 text-white" />}
                                   </button>
                                 );
                               })}
-
                               {q && !superAdminSports.some((s) => s.name.toLowerCase() === q) && (
                                 <button
-                                  type="button"
-                                  className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 border-t border-gray-100 dark:border-gray-800 mt-1"
-                                  onClick={addCustomSport}
+                                  type="button" onClick={addCustomSport}
+                                  className="mt-1 flex w-full items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-left text-xs font-bold text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300"
                                 >
-                                  <Plus className="h-4 w-4" />
-                                  <span>Add "<strong className="text-indigo-700 dark:text-indigo-300">{searchQuery.trim()}</strong>" as new custom sport</span>
+                                  <Plus className="h-3.5 w-3.5" />
+                                  <span>Add "<strong className="text-purple-900 dark:text-purple-200">{searchQuery.trim()}</strong>"</span>
                                 </button>
                               )}
                             </>
@@ -608,317 +584,213 @@ export default function SportsPanel() {
                   {/* Browse Button */}
                   <button
                     type="button"
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-[#111814] dark:text-gray-300 dark:hover:bg-gray-800"
+                    className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-[#1a1c22] dark:text-gray-300 hover:text-purple-600"
                     onClick={() => { setShowBrowseModal(true); setBrowseSearch(''); }}
                   >
-                    <Grid className="h-4 w-4" /> Browse Catalog
+                    <Grid className="h-4 w-4 text-pink-500" /> Browse
                   </button>
                 </div>
-                {fieldErrors.search && <p className="mt-1.5 text-xs font-medium text-rose-500">{fieldErrors.search}</p>}
+                {fieldErrors.search && <p className="mt-1 text-xs font-medium text-rose-500">{fieldErrors.search}</p>}
               </div>
 
-  {/* Selected Sports / Empty State */}
-  <div
-    className={`relative overflow-hidden rounded-2xl transition-all ${
-      selectedSports.length > 0
-        ? "border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/40"
-        : "border border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-[#161f19]/30"
-    }`}
-  >
-
-    {selectedSports.length > 0 ? (
-      <>
-        <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
-          Selected Sports ({selectedSports.length})
-        </p>
-
-        <div className="flex flex-wrap gap-2">
-          <AnimatePresence>
-            {selectedSports.map((sport) => (
-              <motion.span
-                key={sport.name}
-                initial={{ opacity: 0, scale: .9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: .9 }}
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+              {/* Selected Sports Container */}
+              <div
+                className={`relative overflow-hidden rounded-2xl transition-all duration-300 min-h-[120px] p-4 flex flex-col ${
+                  selectedSports.length > 0
+                    ? "bg-gradient-to-br from-fuchsia-50/80 via-pink-50/50 to-orange-50/40 border-2 border-pink-300/50 dark:from-fuchsia-900/20 dark:to-orange-900/20 dark:border-pink-800/40"
+                    : "border-2 border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-[#1a1c22]/30"
+                }`}
               >
-                <span>{sport.icon}</span>
-
-                <span>{sport.name}</span>
-
-                <button
-                  type="button"
-                  onClick={() => removeDraftSport(sport.name)}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </motion.span>
-            ))}
-          </AnimatePresence>
-        </div>
-      </>
-    ) : (
-      <div className="relative flex min-h-[170px] flex-col items-center justify-center overflow-hidden">
-
-        {/* Animation */}
-        <div className="absolute inset-0 flex items-center justify-around opacity-20 pointer-events-none">
-
-          {ANIMATION_ICONS.map((icon, i) => (
-            <motion.div
-              key={i}
-              className="text-3xl"
-              animate={{
-                y:[0,-15,0],
-                rotate:[0,10,-10,0]
-              }}
-              transition={{
-                repeat:Infinity,
-                duration:3+i*.3
-              }}
-            >
-              {icon}
-            </motion.div>
-          ))}
-
-        </div>
-
-        {/* Content */}
-        <div className="relative z-10 text-center">
-
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow">
-            <Grid className="h-5 w-5 text-gray-400"/>
-          </div>
-
-          <p className="font-bold">
-            No sports selected yet
-          </p>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Search or browse sports to start.
-          </p>
-
-        </div>
-
-      </div>
-    )}
-
-  </div>
-
-  {/* Quick Guide */}
-  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-[#111814]">
-
-    <div className="flex justify-between gap-6">
-
-      <div className="flex-1">
-
-        <div className="mb-4 flex items-center gap-2">
-          💡
-          <h4 className="font-bold">
-            Quick Guide
-          </h4>
-        </div>
-
-        <div className="space-y-3">
-
-          {[
-            "Search or Browse sports.",
-            "Fetch Sport Center Location.",
-            "Enter Attendance radius & fee.",
-            "Click Deploy Sport."
-          ].map((step,index)=>(
-            <div
-              key={index}
-              className="flex items-center gap-3"
-            >
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
-                {index+1}
-              </div>
-
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                {step}
-              </span>
-
-            </div>
-          ))}
-
-        </div>
-
-      </div>
-
-      <div className="hidden md:flex items-center">
-
-        <div className="relative">
-
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/20">
-            <MapPin className="h-10 w-10 text-emerald-600"/>
-          </div>
-
-          <div className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-300 opacity-30"/>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-</div>
-            {/* Right Column: Settings */}
-            <div className="space-y-6 relative z-0">
-              
-              {/* Location Selection Card */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#111814] relative overflow-hidden group">
-                <div className="absolute right-0 top-0 opacity-5 pointer-events-none transition-transform group-hover:scale-110">
-                   <MapPin className="h-32 w-32 -mr-8 -mt-8 text-emerald-600" />
-                </div>
-                <h4 className="mb-3 text-sm font-bold text-gray-900 dark:text-white relative z-10">Sport Center Location</h4>
-                
-                {/* Location Type Toggle */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => handleLocationToggle(false)}
-                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                      !sharedForm.use_custom_location
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
-                  >
-                    Default Academy Location
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationToggle(true)}
-                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                      sharedForm.use_custom_location
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
-                  >
-                    Custom Location
-                  </button>
-                </div>
-
-                {/* Default Academy Location Display */}
-                {!sharedForm.use_custom_location && (
-                  <div className="relative z-10 rounded-xl bg-blue-50 border border-blue-100 p-3.5 dark:bg-blue-900/20 dark:border-blue-800/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <p className="text-blue-800 dark:text-blue-300 font-bold text-xs uppercase tracking-wider">Using Academy Location</p>
+                {selectedSports.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-black text-pink-600 dark:text-pink-400 uppercase tracking-wider flex items-center gap-1">
+                        <span className="bg-pink-100 dark:bg-pink-900/50 text-pink-700 dark:text-pink-300 px-1.5 rounded-md">{selectedSports.length}</span> Drafted
+                      </p>
+                      <button type="button" onClick={() => setSelectedSports([])} className="text-[10px] text-rose-500 font-bold hover:underline bg-white/50 px-2 py-0.5 rounded-full dark:bg-black/20">Clear All</button>
                     </div>
 
-                    {academyLocationLoading ? (
-                      <p className="text-blue-700 dark:text-blue-400 text-xs">Loading academy location…</p>
-                    ) : academyLocation ? (
-                      <div className="space-y-3">
-                        <div className="relative h-36 overflow-hidden rounded-lg border border-blue-200 bg-white/60 dark:bg-black/20">
-                          <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-full text-3xl drop-shadow-lg">
-                            📍
-                          </div>
-                          <MapContainer
-                            center={[academyLocation.latitude, academyLocation.longitude]}
-                            zoom={14}
-                            scrollWheelZoom={false}
-                            className="h-full w-full"
+                    <div className="flex flex-wrap gap-2">
+                      <AnimatePresence>
+                        {selectedSports.map((sport) => (
+                          <motion.span
+                            key={sport.name} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-white bg-white/90 px-3 py-1.5 text-xs font-bold text-gray-800 shadow-sm backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-100"
                           >
-                            <TileLayer
-                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            />
-                          </MapContainer>
-                        </div>
+                            <span className="text-base">{sport.icon}</span>
+                            <span>{sport.name}</span>
+                            <button type="button" onClick={() => removeDraftSport(sport.name)} className="ml-1 rounded-full text-gray-400 hover:text-rose-500">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-around opacity-30 pointer-events-none">
+                      {ANIMATION_ICONS.map((icon, i) => (
+                        <motion.div key={i} className="text-2xl filter saturate-200" animate={{ y: [0, -10, 0], rotate: [0, 8, -8, 0] }} transition={{ repeat: Infinity, duration: 2.5 + i * 0.3, ease: "easeInOut" }}>{icon}</motion.div>
+                      ))}
+                    </div>
+                    <div className="relative z-10 text-center bg-white/80 dark:bg-black/60 px-4 py-2 rounded-xl backdrop-blur-sm shadow-sm">
+                      <p className="font-bold text-gray-500 dark:text-gray-300 text-xs">No sports drafted yet</p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                        <div className="rounded-lg bg-white/70 p-2.5 text-xs text-blue-700 dark:bg-black/20 dark:text-blue-300">
-                          <p className="font-semibold">Coordinates</p>
-                          <p className="font-mono">Lat: {academyLocation.latitude.toFixed(7)}</p>
-                          <p className="font-mono">Lon: {academyLocation.longitude.toFixed(7)}</p>
-                        </div>
+              {/* Colorful Compact Quick Guide */}
+              <div className="rounded-2xl bg-gradient-to-r from-teal-50 via-cyan-50 to-blue-50 p-3 shadow-sm border border-teal-100/50 dark:from-teal-950/20 dark:via-cyan-950/10 dark:to-blue-950/20 dark:border-teal-900/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">💡</span>
+                  <h4 className="font-bold text-xs text-teal-900 dark:text-teal-400 uppercase tracking-wide">Quick Guide</h4>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {[
+                    { text: "Select", icon: <Search className="h-3 w-3"/>, c: "text-purple-600 bg-purple-100" },
+                    { text: "Location", icon: <MapPin className="h-3 w-3"/>, c: "text-pink-600 bg-pink-100" },
+                    { text: "Set Fee", icon: <Edit2 className="h-3 w-3"/>, c: "text-amber-600 bg-amber-100" },
+                    { text: "Deploy", icon: <CheckCircle className="h-3 w-3"/>, c: "text-emerald-600 bg-emerald-100" }
+                  ].map((step, index) => (
+                    <div key={index} className="flex items-center justify-center sm:justify-start gap-1.5 bg-white/60 dark:bg-black/20 p-1.5 rounded-lg">
+                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-md font-bold ${step.c}`}>{step.icon}</div>
+                      <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{step.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                        {academyLocationAddress ? (
-                          <p className="text-xs text-blue-700 dark:text-blue-300">{academyLocationAddress}</p>
-                        ) : (
-                          <p className="text-xs text-blue-700 dark:text-blue-300">Address details are not available for this academy location.</p>
-                        )}
-                      </div>
+            </div>
+
+            {/* Right Column: Settings & Map View */}
+            <div className="space-y-3 relative z-0 flex flex-col">
+              
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-3 w-1.5 bg-gradient-to-b from-cyan-400 to-blue-500 rounded-full"></div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Configuration & Map</h3>
+              </div>
+
+              {/* Map & Config Container */}
+              <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-[#1a1c22]">
+                
+                {/* Map Header / Toggle */}
+                <div className="p-3 border-b border-gray-50 dark:border-gray-800 bg-gray-50/40 dark:bg-gray-900/40 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-cyan-500" /> 
+                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200">Ground Location</span>
+                  </div>
+                  <div className="flex bg-gray-200/50 p-1 rounded-lg dark:bg-gray-800 w-full sm:w-auto">
+                    <button
+                      type="button" onClick={() => handleLocationToggle(false)}
+                      className={`flex-1 px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${
+                        !sharedForm.use_custom_location ? 'bg-white shadow-sm text-cyan-600 dark:bg-gray-700 dark:text-cyan-400' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Default
+                    </button>
+                    <button
+                      type="button" onClick={() => handleLocationToggle(true)}
+                      className={`flex-1 px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${
+                        sharedForm.use_custom_location ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-md text-white' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Custom GPS
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── SEPARATED GPS CAPTURE BLOCK (Only shown when Custom is toggled) ── */}
+                {sharedForm.use_custom_location && (
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10 border-b border-purple-100 dark:border-purple-800/30 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <span className="text-[11px] font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider">
+                        Set Custom Coordinates
+                      </span>
+                    </div>
+                    {/* Compact CSS overrides for GPSCapture */}
+                    <div className="w-full [&_button]:!bg-gradient-to-r [&_button]:!from-purple-600 [&_button]:!to-indigo-600 [&_button]:!text-white [&_button]:!px-4 [&_button]:!py-2 [&_button]:!rounded-xl hover:[&_button]:!opacity-90 [&_button]:!font-bold [&_button]:!shadow-md [&_button]:!transition-all [&_button]:!ml-2">
+                      <GPSCapture onCapture={handleLocationCapture} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Map View Container - CONDITIONAL RENDERING */}
+                {/* Hide map container entirely if we are in Custom mode but don't have valid coordinates */}
+                {(!sharedForm.use_custom_location || isValidMapCenter) && (
+                  <div className={`relative bg-gray-50 dark:bg-[#1a1c22] w-full border-b border-gray-100 dark:border-gray-800 z-10 transition-all duration-300 ${!isValidMapCenter ? 'h-[140px]' : 'h-[200px]'}`}>
+                    {isValidMapCenter ? (
+                      <MapContainer center={[mapCenterLat, mapCenterLng]} zoom={16} style={{ height: '100%', width: '100%', zIndex: 1 }} scrollWheelZoom={false}>
+                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                        <MapUpdater lat={mapCenterLat} lng={mapCenterLng} />
+                        <Marker position={[mapCenterLat, mapCenterLng]} />
+                      </MapContainer>
                     ) : (
-                      <p className="text-blue-700 dark:text-blue-400 text-xs">
-                        {academyLocationMessage || 'Academy location has not been configured yet.'}
-                      </p>
+                      /* Default state when NO location is present (Only visible for Default mode now) */
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                        <Navigation className="h-6 w-6 mb-2 opacity-30 text-cyan-500" />
+                        <p className="text-xs font-semibold">Academy Location Not Set</p>
+                      </div>
+                    )}
+
+                    {!sharedForm.use_custom_location && academyLocationAddress && (
+                      <div className="absolute bottom-2 left-2 right-2 z-[400] bg-white/95 dark:bg-black/90 backdrop-blur-md p-2 rounded-xl shadow-sm border border-gray-100/50 dark:border-gray-800 flex items-start gap-2">
+                        <div className="bg-cyan-100 dark:bg-cyan-900/30 p-1.5 rounded-lg shrink-0 mt-0.5"><MapPin className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400"/></div>
+                        <p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 leading-tight">{academyLocationAddress}</p>
+                      </div>
                     )}
                   </div>
                 )}
 
-                {/* Custom Location Capture */}
-                {sharedForm.use_custom_location && (
-                  <div className="relative z-10">
-                    <GPSCapture
-                      onLocationCapture={handleLocationCapture}
-                      initialLocation={sharedForm.latitude && sharedForm.longitude ? {
-                        latitude: parseFloat(sharedForm.latitude),
-                        longitude: parseFloat(sharedForm.longitude)
-                      } : null}
-                      required={false}
-                      label="Custom Sport Center Location"
-                      placeholder="Capture custom GPS coordinates"
+                {/* Input Grid (Vibrant Backgrounds) */}
+                <div className="grid grid-cols-2 gap-3 p-4 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-[#161f28]/50 dark:to-[#1a1628]/50">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-gray-500">Center Name</label>
+                    <input
+                      type="text" 
+                      className="w-full rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-sm transition-all text-gray-900 focus:bg-white focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:text-gray-100 dark:bg-gray-900/50 dark:border-gray-700"
+                      placeholder="e.g. Main Court" value={sharedForm.sport_center} onChange={(e) => setSharedForm({...sharedForm, sport_center: e.target.value})}
                     />
                   </div>
-                )}
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" htmlFor="attendanceRadius">Radius (Meters)</label>
-                  <input
-                    id="attendanceRadius"
-                    type="number"
-                    min={0}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:focus:border-emerald-500"
-                    value={sharedForm.attendance_radius}
-                    onChange={(e) => setSharedForm({ ...sharedForm, attendance_radius: e.target.value })}
-                    placeholder="e.g. 50"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" htmlFor="baseFee">Base Fee</label>
-                  <input
-                    id="baseFee"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:focus:border-emerald-500"
-                    value={sharedForm.base_fee}
-                    onChange={(e) => setSharedForm({ ...sharedForm, base_fee: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" htmlFor="status">Initial Status</label>
-                  <select
-                    id="status"
-                    className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold outline-none transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:focus:border-emerald-500"
-                    value={sharedForm.status}
-                    onChange={(e) => setSharedForm({ ...sharedForm, status: e.target.value })}
-                  >
-                    <option value="ACTIVE">Active (Live Immediately)</option>
-                    <option value="INACTIVE">Inactive (Draft/Hidden)</option>
-                  </select>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-gray-500">Radius (Meters)</label>
+                    <input
+                      type="number" 
+                      className="w-full rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-sm transition-all text-gray-900 focus:bg-white focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 dark:text-gray-100 dark:bg-gray-900/50 dark:border-gray-700"
+                      placeholder={!sharedForm.use_custom_location ? academyAttendanceRadius.toString() : "200"} value={sharedForm.attendance_radius} onChange={(e) => setSharedForm({...sharedForm, attendance_radius: e.target.value})}
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-gray-500">Base Fee ($)</label>
+                    <input
+                      type="number" step="0.01" 
+                      className="w-full rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-sm font-mono transition-all text-gray-900 focus:bg-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 dark:text-gray-100 dark:bg-gray-900/50 dark:border-gray-700"
+                      placeholder="0.00" value={sharedForm.base_fee} onChange={(e) => setSharedForm({...sharedForm, base_fee: e.target.value})}
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-gray-500">Status</label>
+                    <select
+                      className="w-full rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-sm font-bold transition-all text-gray-900 focus:bg-white focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 dark:text-gray-100 dark:bg-gray-900/50 dark:border-gray-700"
+                      value={sharedForm.status} onChange={(e) => setSharedForm({...sharedForm, status: e.target.value})}
+                    >
+                      <option value="ACTIVE">🟢 Active</option>
+                      <option value="INACTIVE">⚪ Inactive</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+              {/* Deploy Button */}
+              <div className="pt-2 pb-1">
                 <button
-                  type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-[0_4px_14px_0_rgb(16,185,129,0.39)] transition-all hover:bg-emerald-700 hover:shadow-[0_6px_20px_rgb(16,185,129,0.23)] disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isSubmitting}
+                  type="submit" disabled={isSubmitting || selectedSports.length === 0}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 py-3.5 text-sm font-black tracking-widest text-white shadow-lg transition-all hover:opacity-95 hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  {isSubmitting
-                    ? <Loader message="" />
-                    : selectedSports.length > 1
-                    ? `Deploy ${selectedSports.length} Sports`
-                    : 'Deploy Sport'}
+                  {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5" />}
+                  DEPLOY {selectedSports.length > 0 ? selectedSports.length : ''} SPORTS
                 </button>
               </div>
             </div>
@@ -926,310 +798,219 @@ export default function SportsPanel() {
         </form>
       </div>
 
-      {/* ── Browse Sports Full Modal ── */}
+      {/* ── Compact Catalog Table Section ── */}
+      <div className="rounded-2xl bg-white dark:bg-[#121418] shadow-md border border-gray-100 dark:border-gray-800 overflow-hidden">
+        
+        {/* Table Header Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between p-3.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-gradient-to-br from-orange-100 to-pink-100 p-2 rounded-lg dark:from-orange-900/40 dark:to-pink-900/40">
+               <LayoutDashboard className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wide text-gray-900 dark:text-white flex items-center gap-2">
+                Active Catalog
+                <span className="rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-0.5 text-[10px] font-black text-white">{sports.length}</span>
+              </h3>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 mt-3 sm:mt-0">
+            <button
+              onClick={toggleBulkEditMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                isBulkEditMode ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200'
+              }`}
+            >
+              {isBulkEditMode ? <X className="h-3.5 w-3.5" /> : <Edit2 className="h-3.5 w-3.5" />}
+              {isBulkEditMode ? 'Cancel' : 'Bulk Edit'}
+            </button>
+            
+            {isBulkEditMode && selectedIds.length > 0 && (
+              <div className="flex bg-white border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-1 gap-1">
+                <button onClick={() => handleBulkAction('activate', 'activated')} className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md text-[10px] uppercase font-black hover:bg-emerald-100"><Check className="h-3 w-3"/> Activate</button>
+                <button onClick={() => handleBulkAction('deactivate', 'deactivated')} className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-1 rounded-md text-[10px] uppercase font-black hover:bg-amber-100"><Lock className="h-3 w-3"/> Pause</button>
+                <button onClick={() => handleBulkAction('delete', 'deleted')} className="flex items-center gap-1 bg-rose-50 text-rose-700 px-2 py-1 rounded-md text-[10px] uppercase font-black hover:bg-rose-100"><Trash2 className="h-3 w-3"/> Delete</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="p-12 flex flex-col items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-2" />
+              <p className="text-xs font-medium text-gray-500">Loading catalog...</p>
+            </div>
+          ) : sports.length === 0 ? (
+            <div className="p-10 text-center flex flex-col items-center">
+              <LayoutDashboard className="h-8 w-8 text-gray-300 mb-2" />
+              <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Catalog is empty</p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="bg-gray-50/80 text-[10px] uppercase tracking-wider text-gray-500 font-bold dark:bg-gray-900/80 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                <tr>
+                  {isBulkEditMode && (
+                    <th className="px-4 py-3 w-10 text-center">
+                      <input type="checkbox" checked={selectedIds.length === sports.length && sports.length > 0} onChange={(e) => handleSelectAll(e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    </th>
+                  )}
+                  <th className="px-4 py-2.5">Sport</th>
+                  <th className="px-4 py-2.5">Center</th>
+                  <th className="px-4 py-2.5">Fee</th>
+                  <th className="px-4 py-2.5 text-center">Status</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <motion.tbody initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.05 } } }} className="divide-y divide-gray-50 dark:divide-gray-800/60">
+                {sports.map((sport) => {
+                  const id = sport.sport_id || sport.id;
+                  const isSelected = selectedIds.includes(id);
+                  return (
+                    <motion.tr
+                      key={id} variants={rowVariants} onClick={() => handleRowClick(id)}
+                      className={`group transition-all hover:bg-purple-50/30 dark:hover:bg-purple-900/10 ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : ''} ${isBulkEditMode ? 'cursor-pointer' : ''}`}
+                    >
+                      {isBulkEditMode && (
+                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" checked={isSelected} onChange={(e) => handleSelectOne(id, e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                        </td>
+                      )}
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-lg group-hover:scale-110 transition-transform">{sport.icon || FALLBACK_ICON}</span>
+                          <span className="font-bold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{sport.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{sport.sport_center || <span className="italic opacity-50">Academy Default</span>}</span>
+                          {sport.use_custom_location && <span className="text-[9px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-wider"><MapPin className="inline h-2.5 w-2.5 -mt-0.5"/> GPS</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2">
+                        {editingFeeId === id ? (
+                          <div className="flex items-center gap-1 bg-white dark:bg-gray-900 p-1 rounded-md border border-indigo-400 shadow-sm" onClick={e => e.stopPropagation()}>
+                            <span className="pl-1 text-xs font-bold text-gray-400">$</span>
+                            <input type="number" value={editingFeeValue} onChange={(e) => setEditingFeeValue(e.target.value)} className="w-14 bg-transparent text-xs font-bold outline-none" autoFocus />
+                            <div className="flex bg-gray-100 dark:bg-gray-800 rounded p-0.5">
+                              <button onClick={() => handleSaveFee(id)} className="p-0.5 rounded text-emerald-600 hover:bg-white"><Check className="h-3 w-3" /></button>
+                              <button onClick={handleCancelEditFee} className="p-0.5 rounded text-gray-400 hover:bg-white hover:text-rose-500"><X className="h-3 w-3" /></button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-sm font-black text-gray-700 dark:text-gray-300">${formatCurrency(sport.base_fee)}</span>
+                            {!isBulkEditMode && (
+                              <button onClick={(e) => { e.stopPropagation(); handleStartEditFee(id, sport.base_fee); }} className="opacity-0 group-hover:opacity-100 p-1 bg-gray-100 rounded text-gray-500 hover:text-purple-600 hover:bg-purple-100 transition-all dark:bg-gray-800"><Edit2 className="h-3 w-3" /></button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                          sport.status === 'ACTIVE' ? 'bg-emerald-100/60 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${sport.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`}></span> {sport.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {!isBulkEditMode && (
+                          <div className="flex items-center justify-end gap-1">
+                            {sport.status === 'ACTIVE' ? (
+                              <button onClick={() => handleDeactivate(id)} title="Pause" className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><Lock className="h-3.5 w-3.5" /></button>
+                            ) : (
+                              <button onClick={() => handleMarkActive(id)} title="Activate" className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Unlock className="h-3.5 w-3.5" /></button>
+                            )}
+                            <button onClick={() => handleRemoveSport(id)} title="Delete" className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div>
+                        )}
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </motion.tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* ── Compact Browse Modal ── */}
       <AnimatePresence>
         {showBrowseModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowBrowseModal(false)} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", bounce: 0.3 }}
-              className="relative w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-[#111814] dark:ring-gray-800"
+              initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1a1c22] flex flex-col max-h-[80vh] border border-gray-100 dark:border-gray-800"
             >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800/60 dark:bg-gray-900/50 shrink-0">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Global Sports Catalog</h3>
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">Select multiple sports to import to your academy</p>
+              <div className="flex items-center justify-between border-b border-gray-100 p-4 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                <div className="flex items-center gap-2">
+                  <div className="bg-pink-100 p-1.5 rounded-lg"><Grid className="h-4 w-4 text-pink-600"/></div>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-gray-900 dark:text-white">Global Database</h3>
                 </div>
-                <button type="button" className="rounded-xl p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowBrowseModal(false)}>
-                  <X className="h-5 w-5" />
-                </button>
+                <button onClick={() => setShowBrowseModal(false)} className="rounded-full p-1.5 bg-white shadow-sm border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700"><X className="h-4 w-4" /></button>
               </div>
-
-              {/* Modal Search */}
-              <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-800/60 shrink-0">
+              <div className="p-3 border-b border-gray-50 dark:border-gray-800">
                 <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
-                    type="text"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-10 pr-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:text-white dark:focus:border-emerald-500"
-                    placeholder="Search the global catalog…"
-                    value={browseSearch}
-                    onChange={(e) => setBrowseSearch(e.target.value)}
-                    autoFocus
+                    type="text" placeholder="Search sports..." value={browseSearch} onChange={e => setBrowseSearch(e.target.value)}
+                    className="w-full rounded-xl border border-pink-200 bg-pink-50/50 pl-9 pr-4 py-2 text-sm focus:bg-white focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 dark:bg-pink-900/10 dark:border-pink-800 transition-all outline-none"
                   />
                 </div>
               </div>
-
-              {/* Modal Grid Content */}
-              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+              <div className="flex-1 overflow-y-auto p-4 bg-gray-50/30 dark:bg-black/20">
                 {superAdminLoading ? (
-                  <div className="flex justify-center py-20"><Loader message="Loading catalog…" /></div>
-                ) : filteredBrowse.length === 0 ? (
-                  <p className="py-20 text-center text-gray-500 font-medium">No sports found matching your search.</p>
+                  <div className="flex h-40 flex-col items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-pink-500 mb-2" />
+                    <span className="text-xs font-bold text-gray-500">Loading...</span>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                    {filteredBrowse.map((sport) => {
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                    {filteredBrowse.map(sport => {
                       const sel = isSelectedInDraft(sport.name);
                       return (
                         <button
-                          key={sport.name}
-                          type="button"
-                          className={`group relative flex flex-col items-center justify-center gap-3 rounded-2xl border p-4 transition-all ${
-                            sel
-                              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-900/20'
-                              : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-800 dark:bg-[#111814] dark:hover:border-emerald-700/50 dark:hover:bg-emerald-900/10'
+                          key={sport.name} onClick={() => toggleDraftSport(sport)}
+                          className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-center transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                            sel ? 'border-pink-500 bg-pink-50/50 dark:bg-pink-900/30' : 'border-white bg-white hover:border-pink-300 dark:bg-gray-800 dark:border-gray-800'
                           }`}
-                          onClick={() => toggleBrowseSport(sport)}
                         >
-                          {sel && (
-                            <div className="absolute right-2 top-2 rounded-full bg-emerald-500 text-white p-0.5">
-                              <Check className="h-3 w-3" />
-                            </div>
-                          )}
-                          <span className="text-4xl transition-transform group-hover:scale-110">{sport.icon || FALLBACK_ICON}</span>
-                          <span className={`text-xs font-bold leading-tight text-center ${sel ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                            {sport.name}
-                          </span>
+                          <span className="text-3xl">{sport.icon || FALLBACK_ICON}</span>
+                          <span className={`text-[11px] font-black uppercase tracking-wider ${sel ? 'text-pink-700 dark:text-pink-400' : 'text-gray-700 dark:text-gray-300'}`}>{sport.name}</span>
+                          {sel && <div className="absolute -top-1.5 -right-1.5 bg-pink-500 text-white rounded-full p-0.5 shadow-sm"><Check className="h-3 w-3" /></div>}
                         </button>
                       );
                     })}
                   </div>
                 )}
               </div>
-
-              {/* Modal Footer */}
-              <div className="border-t border-gray-100 bg-gray-50/80 px-6 py-4 backdrop-blur-md dark:border-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between shrink-0">
-                <p className="text-sm font-bold text-gray-500">
-                  {selectedSports.length > 0 ? <span className="text-emerald-600 dark:text-emerald-400">{selectedSports.length} selected</span> : 'No sports selected'}
-                </p>
-                <div className="flex gap-3">
-                  <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowBrowseModal(false)}>
-                    Close
-                  </button>
-                  <button type="button" className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors" onClick={() => setShowBrowseModal(false)}>
-                    Confirm Selection
-                  </button>
-                </div>
+              <div className="border-t border-gray-100 p-3.5 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#1a1c22]">
+                <p className="text-[11px] font-black uppercase text-gray-500"><span className="text-pink-600">{selectedSports.length}</span> selected</p>
+                <button onClick={() => setShowBrowseModal(false)} className="rounded-lg bg-gray-900 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-gray-800 transition-all dark:bg-white dark:text-gray-900">
+                  DONE
+                </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
-      {/* ── Active Sports Table Section ── */}
-      <div className="rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 overflow-hidden">
-        
-        <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800/60 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-              <LayoutDashboard className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-gray-900 dark:text-white">Active Academy Sports</h3>
-          </div>
-          
-          <div className="mt-4 sm:mt-0">
-             <button
-              type="button"
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all shadow-sm ${
-                isBulkEditMode 
-                  ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900' 
-                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-[#111814] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/50'
-              }`}
-              onClick={toggleBulkEditMode}
-            >
-              {isBulkEditMode ? <><X className="h-4 w-4" /> Cancel Bulk</> : <><CheckCircle className="h-4 w-4" /> Bulk Actions</>}
-            </button>
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {isBulkEditMode && selectedIds.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-800/30 px-6 py-3 flex flex-wrap items-center gap-3"
-            >
-              <span className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mr-2">{selectedIds.length} selected</span>
-              <button type="button" className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-700" onClick={() => handleBulkAction('activate', 'activated')}>
-                <Unlock className="mr-1.5 h-3.5 w-3.5" /> Activate
-              </button>
-              <button type="button" className="inline-flex items-center justify-center rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-700" onClick={() => handleBulkAction('deactivate', 'deactivated')}>
-                <Lock className="mr-1.5 h-3.5 w-3.5" /> Deactivate
-              </button>
-              <button type="button" className="inline-flex items-center justify-center rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:ring-rose-800/50" onClick={() => handleBulkAction('delete', 'removed')}>
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="py-20 flex justify-center"><Loader /></div>
-          ) : (
-            <table className="min-w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800/60">
-                <tr className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {isBulkEditMode && (
-                    <th className="px-6 py-4 w-10">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.length === sports.filter(s=>s.isAcademySport).length && sports.filter(s=>s.isAcademySport).length > 0}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
-                      />
-                    </th>
-                  )}
-                  <th className="px-6 py-4">Sport Details</th>
-                  <th className="px-6 py-4">Location Center</th>
-                  <th className="px-6 py-4">Base Fee</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800/40">
-                {sports.filter((sport) => sport.isAcademySport).length > 0 ? (
-                  sports
-                    .filter((sport) => sport.isAcademySport)
-                    .map((sport, index) => {
-                      const isSelected = selectedIds.includes(sport.sport_id || sport.id);
-                      const isInactive = sport.status !== 'ACTIVE';
-                      return (
-                        <motion.tr
-                          key={sport.sport_id || sport.id || sport.name}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.2) }}
-                          className={`group transition-colors duration-200 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 ${
-                            isSelected ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
-                          } ${isInactive ? 'opacity-60 grayscale-[0.2]' : ''}`}
-                          onClick={() => handleRowClick(sport.sport_id || sport.id)}
-                        >
-                          {isBulkEditMode && (
-                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => handleSelectOne(sport.sport_id || sport.id, e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
-                              />
-                            </td>
-                          )}
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                                {sport.icon || FALLBACK_ICON}
-                              </div>
-                              <span className="font-bold text-gray-900 dark:text-white">{sport.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="font-medium text-gray-600 dark:text-gray-400">{sport.sport_center || '—'}</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            {editingFeeId === (sport.sport_id || sport.id) ? (
-                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="number"
-                                  min={0} step={0.01}
-                                  className="w-24 rounded-lg border border-emerald-300 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
-                                  value={editingFeeValue}
-                                  onChange={(e) => setEditingFeeValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveFee(sport.sport_id || sport.id);
-                                    if (e.key === 'Escape') handleCancelEditFee();
-                                  }}
-                                  autoFocus
-                                />
-                                <button type="button" className="rounded-lg bg-emerald-100 p-1.5 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50 transition-colors" onClick={() => handleSaveFee(sport.sport_id || sport.id)}>
-                                  <Check className="h-4 w-4" />
-                                </button>
-                                <button type="button" className="rounded-lg bg-gray-100 p-1.5 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors" onClick={handleCancelEditFee}>
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-3 font-bold text-gray-900 dark:text-white">
-                                ₹{formatCurrency(sport.base_fee || sport.baseFee)}
-                                <button
-                                  type="button"
-                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all p-1"
-                                  onClick={(e) => { e.stopPropagation(); handleStartEditFee(sport.sport_id || sport.id, sport.base_fee || sport.baseFee); }}
-                                  title="Edit Base Fee"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wide ${
-                                !isInactive 
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                              }`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${!isInactive ? 'bg-emerald-500' : 'bg-gray-500'}`}></span>
-                                {!isInactive ? 'ACTIVE' : 'INACTIVE'}
-                              </span>
-                          </td>
-                          <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                {!isInactive ? (
-                                  <button
-                                    type="button"
-                                    className="rounded-lg p-2 text-gray-400 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/30 dark:hover:text-orange-400 transition-colors"
-                                    onClick={() => handleDeactivate(sport.sport_id || sport.id)}
-                                    title="Deactivate Sport"
-                                  >
-                                    <Unlock className="h-4 w-4" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="rounded-lg p-2 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 transition-colors"
-                                    onClick={() => handleMarkActive(sport.sport_id || sport.id)}
-                                    title="Activate Sport"
-                                  >
-                                    <Lock className="h-4 w-4" />
-                                  </button>
-                                )}
-
-                                <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
-
-                                <button
-                                  type="button"
-                                  className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors"
-                                  onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
-                                  title="Delete Sport"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                             </div>
-                          </td>
-                        </motion.tr>
-                      );
-                    })
-                ) : (
-                  <tr>
-                    <td colSpan={isBulkEditMode ? 6 : 5} className="py-16 text-center text-gray-500 dark:text-gray-400">
-                      <div className="flex flex-col items-center justify-center">
-                        <Grid className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
-                        <p className="font-bold text-lg text-gray-900 dark:text-white">No active sports.</p>
-                        <p className="mt-1 text-sm">Add a sport from the catalog above to get started.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
     </motion.div>
   );
+}
+
+// Compact Trophy Icon
+function TrophyIcon(props) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7c0 6 6 10 6 10s6-4 6-10V2z" />
+    </svg>
+  )
 }

@@ -433,12 +433,12 @@ export function CoachFeeCollection({ students = [] }) {
   };
 
   return (
-    <div className="space-y-8 w-full max-w-7xl mx-auto">
+    <div className="space-y-6 w-full max-w-7xl mx-auto">
       {/* Page Header with Tab Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Fee Collection</h2>
-          <p className="text-base text-muted-foreground mt-1">Record payments and track student fee status</p>
+          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Fee Collection</h2>
+          <p className="text-sm text-muted-foreground mt-1">Record payments and track student fee status</p>
         </div>
         
         {/* Tab Navigation */}
@@ -487,7 +487,7 @@ export function CoachFeeCollection({ students = [] }) {
 
       {activeTab === 'collection' ? (
         <>
-          <div className="grid xl:grid-cols-12 gap-8 items-start">
+          <div className="grid xl:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: FEE COLLECTION INPUT FORM CARD */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
@@ -496,14 +496,14 @@ export function CoachFeeCollection({ students = [] }) {
             className="xl:col-span-5 bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative group hover:shadow-md transition-shadow"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-            <div className="p-6 border-b border-border/50 bg-surface/30">
+            <div className="p-5 border-b border-border/50 bg-surface/30">
               <h3 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
                 <span className="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center text-sm">₹</span>
                 Record Payment
               </h3>
             </div>
 
-            <form onSubmit={handleSubmitPayment} className="p-6 space-y-6 bg-background/30">
+            <form onSubmit={handleSubmitPayment} className="p-5 space-y-5 bg-background/30">
             
             {/* 1. Student Search Input */}
             <div>
@@ -511,7 +511,7 @@ export function CoachFeeCollection({ students = [] }) {
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full bg-surface border border-border rounded-xl p-3.5 text-sm font-semibold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                  className="w-full bg-surface border border-border rounded-xl p-3 text-sm font-semibold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
                   placeholder="Search by name, mobile, ID, or batch..."
                   value={studentSearchTerm}
                   onChange={(e) => {
@@ -592,34 +592,34 @@ export function CoachFeeCollection({ students = [] }) {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="space-y-3 pt-2">
+                  <div className="space-y-2.5 pt-2">
                     {loadingFeeData ? (
-                      <div className="flex items-center justify-center py-6">
+                      <div className="flex items-center justify-center py-5">
                         <div className="w-6 h-6 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
                       </div>
                     ) : studentFeeData ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-surface rounded-xl p-3.5 border border-border shadow-sm border-t-2 border-t-blue-500">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="bg-surface rounded-xl p-3 border border-border shadow-sm border-t-2 border-t-blue-500">
                           <p className="text-[10px] font-extrabold uppercase text-muted-foreground mb-1">Total Fee</p>
-                          <p className="text-lg font-black text-foreground">₹{studentFeeData.total_fees_assigned?.toFixed(2) || '0.00'}</p>
+                          <p className="text-base font-black text-foreground">₹{studentFeeData.total_fees_assigned?.toFixed(2) || '0.00'}</p>
                         </div>
                         <div className="bg-surface rounded-xl p-3.5 border border-border shadow-sm border-t-2 border-t-emerald-500">
                           <p className="text-[10px] font-extrabold uppercase text-muted-foreground mb-1">Paid</p>
-                          <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{studentFeeData.total_fees_paid?.toFixed(2) || '0.00'}</p>
+                          <p className="text-base font-black text-emerald-600 dark:text-emerald-400">₹{studentFeeData.total_fees_paid?.toFixed(2) || '0.00'}</p>
                         </div>
                         <div className="bg-surface rounded-xl p-3.5 border border-border shadow-sm border-t-2 border-t-amber-500">
                           <p className="text-[10px] font-extrabold uppercase text-muted-foreground mb-1">Pending</p>
-                          <p className="text-lg font-black text-amber-600 dark:text-amber-500">₹{studentFeeData.pending_fees?.toFixed(2) || '0.00'}</p>
+                          <p className="text-base font-black text-amber-600 dark:text-amber-500">₹{studentFeeData.pending_fees?.toFixed(2) || '0.00'}</p>
                         </div>
                         <div className="bg-surface rounded-xl p-3.5 border border-border shadow-sm border-t-2 border-t-red-500">
                           <p className="text-[10px] font-extrabold uppercase text-muted-foreground mb-1">Overdue</p>
-                          <p className="text-lg font-black text-red-600 dark:text-red-500">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</p>
+                          <p className="text-base font-black text-red-600 dark:text-red-500">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</p>
                         </div>
                         
                         {(studentFeeData.balance_outstanding > 0) && (
-                          <div className="col-span-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-3 flex justify-between items-center mt-1">
+                          <div className="col-span-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-2.5 flex justify-between items-center mt-1">
                             <span className="text-red-800 dark:text-red-400 text-xs font-bold uppercase tracking-wider">Total Due</span>
-                            <span className="text-red-600 dark:text-red-400 text-xl font-black">₹{studentFeeData.balance_outstanding?.toFixed(2)}</span>
+                            <span className="text-red-600 dark:text-red-400 text-lg font-black">₹{studentFeeData.balance_outstanding?.toFixed(2)}</span>
                           </div>
                         )}
                       </div>

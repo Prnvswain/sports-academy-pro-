@@ -183,11 +183,11 @@ export default function CreateAnnouncement() {
     switch (formData.target_type) {
       case 'SELECTED_COACHES':
         return (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Select Coaches</label>
-            <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <div className="border border-gray-300 rounded-lg p-2.5 max-h-48 overflow-y-auto">
               {coaches.map(coach => (
-                <label key={coach.coach_id} className="flex items-center space-x-2 py-1">
+                <label key={coach.coach_id} className="flex items-center space-x-2 py-0.5">
                   <input
                     type="checkbox"
                     checked={selectedCoaches.includes(coach.coach_id)}
@@ -208,9 +208,9 @@ export default function CreateAnnouncement() {
         );
       case 'SELECTED_PARENTS':
         return (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Select Parents</label>
-            <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <div className="border border-gray-300 rounded-lg p-2.5 max-h-48 overflow-y-auto">
               {parents.map(parent => (
                 <label key={parent.parent_id} className="flex items-center space-x-2 py-1">
                   <input
@@ -233,9 +233,9 @@ export default function CreateAnnouncement() {
         );
       case 'SELECTED_STUDENTS':
         return (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Select Students</label>
-            <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <div className="border border-gray-300 rounded-lg p-2.5 max-h-48 overflow-y-auto">
               {students.map(student => (
                 <label key={student.student_id} className="flex items-center space-x-2 py-1">
                   <input
@@ -258,7 +258,7 @@ export default function CreateAnnouncement() {
         );
       case 'BY_SPORT':
         return (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Select Sport</label>
             <select
               value={formData.sport_id || ''}
@@ -274,7 +274,7 @@ export default function CreateAnnouncement() {
         );
       case 'BY_BATCH':
         return (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Select Batch</label>
             <select
               value={formData.batch_id || ''}
@@ -290,12 +290,12 @@ export default function CreateAnnouncement() {
         );
       case 'INDIVIDUAL':
         return (
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="space-y-3.5">
+            <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">Select Coaches</label>
-              <div className="border border-gray-300 rounded-lg p-3 max-h-32 overflow-y-auto">
+              <div className="border border-gray-300 rounded-lg p-2.5 max-h-32 overflow-y-auto">
                 {coaches.map(coach => (
-                  <label key={coach.coach_id} className="flex items-center space-x-2 py-1">
+                  <label key={coach.coach_id} className="flex items-center space-x-2 py-0.5">
                     <input
                       type="checkbox"
                       checked={selectedCoaches.includes(coach.coach_id)}
@@ -313,9 +313,9 @@ export default function CreateAnnouncement() {
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">Select Parents</label>
-              <div className="border border-gray-300 rounded-lg p-3 max-h-32 overflow-y-auto">
+              <div className="border border-gray-300 rounded-lg p-2.5 max-h-32 overflow-y-auto">
                 {parents.map(parent => (
                   <label key={parent.parent_id} className="flex items-center space-x-2 py-1">
                     <input
@@ -335,9 +335,9 @@ export default function CreateAnnouncement() {
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">Select Students</label>
-              <div className="border border-gray-300 rounded-lg p-3 max-h-32 overflow-y-auto">
+              <div className="border border-gray-300 rounded-lg p-2.5 max-h-32 overflow-y-auto">
                 {students.map(student => (
                   <label key={student.student_id} className="flex items-center space-x-2 py-1">
                     <input
@@ -365,7 +365,7 @@ export default function CreateAnnouncement() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -388,7 +388,7 @@ export default function CreateAnnouncement() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -420,7 +420,7 @@ export default function CreateAnnouncement() {
           </div>
 
           {/* Category & Priority */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category
@@ -475,7 +475,7 @@ export default function CreateAnnouncement() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Attachments (Max 10MB each)
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-5 text-center">
               <input
                 type="file"
                 onChange={handleFileUpload}
@@ -495,10 +495,10 @@ export default function CreateAnnouncement() {
             </div>
 
             {formData.attachments.length > 0 && (
-              <div className="mt-4 space-y-2">
+              <div className="mt-3.5 space-y-1.5">
                 {formData.attachments.map((att, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center space-x-3">
+                  <div key={index} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg">
+                    <div className="flex items-center space-x-2.5">
                       <span className="text-sm font-medium">{att.fileName}</span>
                       <span className="text-xs text-gray-500">
                         {(att.size / 1024 / 1024).toFixed(2)} MB
@@ -518,7 +518,7 @@ export default function CreateAnnouncement() {
           </div>
 
           {/* Schedule */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Schedule For (Optional)

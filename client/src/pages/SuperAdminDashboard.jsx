@@ -81,7 +81,7 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen space-y-6 p-6 w-full overflow-x-hidden">
+    <div className="bg-slate-50 min-h-screen space-y-5 p-4 w-full overflow-x-hidden">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -89,7 +89,7 @@ export default function SuperAdminDashboard() {
         className="flex flex-wrap items-center justify-between gap-4 w-full"
       >
         <div>
-          <h2 className="text-slate-800 text-2xl font-bold">Platform Overview</h2>
+          <h2 className="text-slate-800 text-xl font-bold">Platform Overview</h2>
           <p className="text-slate-400 text-sm">
             Super Admin dashboard for managing all academies across the platform.
           </p>
@@ -109,7 +109,7 @@ export default function SuperAdminDashboard() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-700"
+          className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-blue-700"
         >
           {message}
         </motion.div>
@@ -119,10 +119,10 @@ export default function SuperAdminDashboard() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full"
+        className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full"
       >
         <motion.div
-          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
@@ -135,7 +135,7 @@ export default function SuperAdminDashboard() {
         </motion.div>
 
         <motion.div
-          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.15 }}
@@ -148,7 +148,7 @@ export default function SuperAdminDashboard() {
         </motion.div>
 
         <motion.div
-          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
@@ -161,7 +161,7 @@ export default function SuperAdminDashboard() {
         </motion.div>
 
         <motion.div
-          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+          className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-emerald-200/80 hover:scale-[1.01] transition-all duration-300 cursor-pointer"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.25 }}
@@ -175,7 +175,7 @@ export default function SuperAdminDashboard() {
       </motion.div>
 
       <motion.div
-        className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-6 overflow-x-auto"
+        className="bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-xl shadow-sm p-5 overflow-x-auto"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
@@ -198,15 +198,15 @@ export default function SuperAdminDashboard() {
               <tr key={a.academy_id} className="border-b border-slate-200/40 hover:bg-slate-50/50 transition-colors">
                 <td className="px-4 py-3 text-sm text-slate-600">{a.academy_id}</td>
                 <td className="px-4 py-3 text-sm font-medium text-slate-800">{a.name}</td>
-                <td className="px-4 py-3 text-sm text-slate-600">{a.subscription_plan || '—'}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-2.5 text-sm text-slate-600">{a.subscription_plan || '—'}</td>
+                <td className="px-4 py-2.5">
                   {a.status === 'active' ? (
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-2 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                       ACTIVE
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">
+                    <span className="inline-flex items-center gap-2 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">
                       <span className="w-2 h-2 rounded-full bg-red-500"></span>
                       {a.status?.toUpperCase() || 'SUSPENDED'}
                     </span>
@@ -214,11 +214,11 @@ export default function SuperAdminDashboard() {
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{a._count?.students ?? 0}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{a._count?.coaches ?? 0}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
+                <td className="px-4 py-2.5">
+                  <div className="flex flex-wrap gap-1.5">
                     <motion.button
                       type="button"
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-500 rounded-lg hover:bg-emerald-600 transition-all"
+                      className="px-2.5 py-1 text-xs font-medium text-white bg-emerald-500 rounded-lg hover:bg-emerald-600 transition-all"
                       onClick={() => updateStatus(a.academy_id, 'active')}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}

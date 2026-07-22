@@ -45,11 +45,11 @@ export function CoachDailyNotes({ students = [] }) {
   };
 
   return (
-    <div className="card space-y-4 text-left">
-      <h3 className="font-bold text-lg text-zinc-900">Daily Student Notes</h3>
-      <p className="text-sm text-zinc-400">Notes are emailed to parents automatically.</p>
+    <div className="card space-y-3 text-left">
+      <h3 className="font-bold text-base text-zinc-900">Daily Student Notes</h3>
+      <p className="text-xs text-zinc-400">Notes are emailed to parents automatically.</p>
       
-      <select className="input-field w-full p-2.5 border rounded-lg" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+      <select className="input-field w-full p-2 border rounded-lg" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
         <option value="">Select student…</option>
         {Array.isArray(students) && students.map((s, idx) => {
           // Pure fallback verification keys
@@ -63,20 +63,20 @@ export function CoachDailyNotes({ students = [] }) {
 
       {['performance_notes', 'behaviour_notes', 'achievements', 'improvement_areas'].map((field) => (
         <div key={field} className="space-y-1">
-          <label className="text-sm font-semibold capitalize text-zinc-700">{field.replace(/_/g, ' ')}</label>
+          <label className="text-xs font-semibold capitalize text-zinc-700">{field.replace(/_/g, ' ')}</label>
           <textarea
             name={field}
-            className="input-field w-full border rounded-lg p-2.5 min-h-[72px]"
+            className="input-field w-full border rounded-lg p-2 min-h-[64px]"
             value={form[field]}
             onChange={handleChange}
           />
         </div>
       ))}
-      <button type="button" className="btn-primary w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors" disabled={submitting} onClick={handleSubmit}>
+      <button type="button" className="btn-primary w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg transition-colors" disabled={submitting} onClick={handleSubmit}>
         {submitting ? 'Sending…' : 'Save & Email Parent'}
       </button>
       {message.text && (
-        <p className={`p-3 rounded-md text-sm font-medium ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{message.text}</p>
+        <p className={`p-2.5 rounded-md text-xs font-medium ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{message.text}</p>
       )}
     </div>
   );

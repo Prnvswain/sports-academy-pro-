@@ -140,7 +140,7 @@ export default function SuperAdminCreateAnnouncement() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -172,7 +172,7 @@ export default function SuperAdminCreateAnnouncement() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
             <input
@@ -197,7 +197,7 @@ export default function SuperAdminCreateAnnouncement() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
               <select
@@ -241,9 +241,9 @@ export default function SuperAdminCreateAnnouncement() {
           {(formData.target_type === 'SELECTED_ACADEMIES' || formData.target_type === 'SINGLE_ACADEMY') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Academies</label>
-              <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
+              <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
                 {academies.map(academy => (
-                  <label key={academy.academy_id} className="flex items-center mb-2">
+                  <label key={academy.academy_id} className="flex items-center mb-1.5">
                     <input
                       type="checkbox"
                       checked={selectedAcademies.includes(academy.academy_id)}
@@ -263,7 +263,7 @@ export default function SuperAdminCreateAnnouncement() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Schedule For (Optional)</label>
               <input
@@ -299,9 +299,9 @@ export default function SuperAdminCreateAnnouncement() {
           {formData.attachments.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Uploaded Files</label>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {formData.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 px-4 py-2 rounded-lg">
+                  <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
                     <span className="text-sm">{attachment.file_name || attachment.url}</span>
                     <button
                       type="button"
@@ -316,7 +316,7 @@ export default function SuperAdminCreateAnnouncement() {
             </div>
           )}
 
-          <div className="flex justify-end gap-4">
+          <div className="flex justify-end gap-3.5">
             <button
               type="button"
               onClick={() => navigate('/super-admin/announcements')}
