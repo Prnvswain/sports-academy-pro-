@@ -11,7 +11,7 @@ export const validate = (method) => {
       return [
         param('academy_id').isInt().withMessage('Invalid academy ID'),
         body('status')
-          .isIn(['pending', 'active', 'suspended', 'rejected'])
+          .isIn(['PENDING', 'ACTIVE', 'SUSPENDED', 'EXPIRED'])
           .withMessage('Invalid status')
       ];
     case 'updatePlanStatus':

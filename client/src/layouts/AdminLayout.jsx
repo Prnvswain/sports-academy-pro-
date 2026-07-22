@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BroadcastModal from '../components/BroadcastModal';
+import BrandingLogo from '../components/BrandingLogo';
 import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet, getAdminToken } from '../api/client';
 
 // Sleek and Premium Sports SaaS Icons

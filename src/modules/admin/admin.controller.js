@@ -1,4 +1,5 @@
 import * as adminService from './admin.service.js';
+import * as coachService from '../coach/coach.service.js';
 import { successResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
 
@@ -481,24 +482,6 @@ export const getAcademyReport = async (req, res, next) => {
   }
 };
 
-export const getEnquiries = async (req, res, next) => {
-  try {
-    const enquiries = await adminService.getEnquiries(req.user.academy_id);
-    res.json(successResponse('Enquiries retrieved successfully', enquiries));
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const updateEnquiry = async (req, res, next) => {
-  try {
-    const enquiry = await adminService.updateEnquiry(req.user.academy_id, req.params.id, req.body);
-    res.json(successResponse('Enquiry updated successfully', enquiry));
-  } catch (err) {
-    next(err);
-  }
-};
-
 // Performance-related controllers removed - use /performance module routes instead
 
 export const getAttendance = async (req, res, next) => {
@@ -541,6 +524,77 @@ export const markNotificationAsRead = async (req, res, next) => {
   try {
     const notification = await adminService.markNotificationAsRead(req.params.notificationId);
     res.json(successResponse('Notification marked as read successfully', notification));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSubscriptionDetails = async (req, res, next) => {
+  try {
+    const details = await adminService.getSubscriptionDetails(req.user.academy_id);
+    res.json(successResponse('Subscription details retrieved', details));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSuperAdminPlans = async (req, res, next) => {
+  try {
+    const plans = await adminService.getSuperAdminPlans();
+    res.json(successResponse('Dynamic plans retrieved', plans));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getPaymentSettings = async (req, res, next) => {
+  try {
+    const settings = await adminService.getPaymentSettings();
+    res.json(successResponse('Payment settings retrieved', settings));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const purchaseSubscription = async (req, res, next) => {
+  try {
+    const result = await adminService.purchaseSubscription(req.user.academy_id, req.body, req.user.user_id, req.ip);
+    res.status(201).json(successResponse('Subscription purchase submitted', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAcademyNotifications = async (req, res, next) => {
+  try {
+    const notifications = await adminService.getAcademyNotifications(req.user.academy_id, req.user.user_id);
+    res.json(successResponse('Academy notifications retrieved', notifications));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markAcademyNotificationAsRead = async (req, res, next) => {
+  try {
+    const result = await adminService.markAcademyNotificationAsRead(req.params.id);
+    res.json(successResponse('Notification marked as read', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getBatchSessionHistory = async (req, res, next) => {
+  try {
+    const filters = {
+      batch_id: req.query.batch_id,
+      coach_id: req.query.coach_id,
+      date_from: req.query.date_from,
+      date_to: req.query.date_to,
+      status: req.query.status
+    };
+    
+    const sessions = await coachService.getBatchSessionHistory(req.user.academy_id, filters);
+    res.json(successResponse('Batch session history retrieved', sessions));
   } catch (err) {
     next(err);
   }

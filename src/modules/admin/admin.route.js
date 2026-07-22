@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminController from './admin.controller.js';
 import * as gpsController from './admin.gps.controller.js';
 import * as performanceController from '../performance/performance.controller.js';
+import * as feesController from '../fees/fees.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.middleware.js';
 import { enforceActiveSubscription } from '../../middlewares/subscription.middleware.js';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
@@ -143,6 +144,9 @@ router.post(
 
 router.delete('/batches/:batch_id', adminController.deleteBatch);
 
+/* ─── BATCH SESSIONS ─────────────────────────────────────────────────── */
+router.get('/batch-sessions', adminController.getBatchSessionHistory);
+
 /* ─── ATTENDANCE TRACKER ────────────────────────────────────────────────── */
 router.post(
   '/coach-attendance',
@@ -193,13 +197,12 @@ router.post(
 router.get('/accounts/pending-dues', adminController.getPendingDues);
 router.get('/accounts/revenue-summary', adminController.getRevenueSummary);
 
+/* ─── FEES REMINDERS ────────────────────────────────────────────────────── */
+router.post('/fees/send-reminders', feesController.sendOverdueFeeReminders);
+
 /* ─── INTEL REPORTS & ANALYTICS ─────────────────────────────────────────── */
 router.get('/analytics', adminController.getAcademyReport);
 router.get('/dashboard', adminController.getAcademyReport);
-
-/* ─── PUBLIC ENQUIRIES INTERFACE ────────────────────────────────────────── */
-router.get('/enquiries', adminController.getEnquiries);
-router.patch('/enquiries/:id', adminController.updateEnquiry);
 
 /* ─── PERFORMANCE TRACKER ──────────────────────────────────────────────────── */
 // Backward compatibility layer: Admin routes delegate to Performance module
@@ -227,5 +230,14 @@ router.get('/gps/location-logs', gpsController.getAttendanceLocationLogs);
 router.get('/gps/coach-location-logs', gpsController.getCoachAttendanceLocationLogs);
 router.patch('/gps/academy-location', gpsController.updateAcademyLocation);
 router.patch('/gps/sports/:sport_id/location', gpsController.updateSportLocation);
+
+/* ─── PLATFORM SUBSCRIPTIONS ────────────────────────────────────────── */
+router.get('/subscription', adminController.getSubscriptionDetails);
+router.get('/subscription/plans', adminController.getSuperAdminPlans);
+router.get('/subscription/payment-settings', adminController.getPaymentSettings);
+router.post('/subscription/purchase', adminController.purchaseSubscription);
+
+router.get('/notifications', adminController.getAcademyNotifications);
+router.patch('/notifications/:id/read', adminController.markAcademyNotificationAsRead);
 
 export default router;

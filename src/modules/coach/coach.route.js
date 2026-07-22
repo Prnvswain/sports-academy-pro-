@@ -18,6 +18,7 @@ router.use(enforceActiveSubscription);
 router.get('/dashboard', coachController.getDashboard);
 router.get('/batches', coachController.getMyBatches);
 router.get('/batches/:id', coachController.getBatchById);
+router.get('/sports', coachController.getSports);
 router.get('/payments', coachController.getPayments);
 router.get('/students-fee-summary', coachController.getStudentsFeeSummary);
 router.get('/student-ledger/:student_id', coachController.getStudentLedger);
@@ -61,6 +62,25 @@ router.post(
   validationErrorHandler,
   coachController.markCoachAbsent
 );
+
+// Batch session routes
+router.post(
+  '/batch-session/start',
+  [
+    body('batch_id').isInt().withMessage('Batch ID is required')
+  ],
+  validationErrorHandler,
+  coachController.startBatchSession
+);
+router.post(
+  '/batch-session/end',
+  [
+    body('batch_id').isInt().withMessage('Batch ID is required')
+  ],
+  validationErrorHandler,
+  coachController.endBatchSession
+);
+router.get('/batch-session/active', coachController.getActiveSessions);
 
 // Performance routes for coaches
 router.get('/performance/attributes', performanceController.getAttributes);

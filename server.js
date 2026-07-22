@@ -6,11 +6,29 @@ import { startFeeCronJobs } from './src/jobs/feeCron.js';
 import { startAnnouncementCronJobs } from './src/jobs/announcementCron.js';
 import logger from './src/utils/logger.js';
 
+import prisma from './src/config/prisma.js';
+import { setCachedPlans } from './src/config/subscription.config.js';
+
 const startServer = async () => {
   logger.info('Server boot starting', {
     env: NODE_ENV,
     port: PORT
   });
+
+  // Load dynamic plans into cache on startup
+  try {
+    const setting = await prisma.globalSetting.findUnique({
+      where: { setting_key: 'platform_subscription_plans' }
+    });
+    if (setting) {
+      setCachedPlans(JSON.parse(setting.setting_value));
+      logger.info('Dynamic subscription plans loaded into cache on startup');
+    }
+  } catch (error) {
+    logger.error('Failed to load dynamic subscription plans into cache on startup', {
+      message: error.message
+    });
+  }
 
   const server = app.listen(PORT, () => {
     logger.info('Server started successfully', {

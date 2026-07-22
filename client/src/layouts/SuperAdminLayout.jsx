@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
-import { clearSuperAdminToken, SIDEBAR_COLLAPSED_KEY } from '../api/client';
+import BrandingLogo from '../components/BrandingLogo';
+import { clearSuperAdminToken, SIDEBAR_COLLAPSED_KEY, superAdminGet } from '../api/client';
 
 import { 
   LayoutDashboard, 
@@ -25,7 +26,7 @@ const PRODUCT_LOGO = 'SP';
 
 export const SUPER_ADMIN_NAV_ITEMS = [
   { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: 'notifications', label: 'Notification', icon: Bell },
+  { path: 'notifications', label: 'Notifications', icon: Bell },
   { path: 'academies', label: 'Academies', icon: Building2 },
   { path: 'plans', label: 'Plans', icon: Calendar },
   { path: 'payments', label: 'Payments', icon: CreditCard },
@@ -43,10 +44,27 @@ export default function SuperAdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await superAdminGet('/super-admin/notifications/unread-count');
+        if (response?.success) {
+          setUnreadCount(response.data.count);
+        }
+      } catch (err) {
+        console.error('Failed to fetch unread count:', err);
+      }
+    };
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     clearSuperAdminToken();
@@ -70,24 +88,12 @@ export default function SuperAdminLayout() {
       >
         {/* Sidebar Header / Logo */}
         <div className="flex h-16 items-center justify-between border-b border-emerald-900/40 px-4 shrink-0">
-          <Link
+          <BrandingLogo
             to="/super-admin/dashboard"
-            className="flex items-center gap-3 no-underline outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
-            onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-          >
-            {/* Glowing Logo Badge */}
-            <span className="bg-lime-400 text-slate-950 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-[0_0_12px_rgba(132,204,22,0.4)] transition-transform hover:scale-105">
-              {PRODUCT_LOGO}
-            </span>
-            <motion.span
-              initial={{ opacity: 1 }}
-              animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
-              transition={{ duration: 0.2 }}
-              className="font-black tracking-wide text-white whitespace-nowrap text-sm cursor-pointer uppercase"
-            >
-              Super <span className="text-lime-400">Admin</span>
-            </motion.span>
-          </Link>
+            collapsed={sidebarCollapsed}
+            onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
+          />
           <motion.button
             type="button"
             className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-colors"
@@ -126,20 +132,30 @@ export default function SuperAdminLayout() {
                 {({ isActive }) => (
                   <>
                     <motion.span
-                      className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
+                      className={`flex items-center justify-center relative ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
                       whileHover={{ scale: 1.15, rotate: isActive ? 0 : 5 }}
                       transition={{ duration: 0.3 }}
                       aria-hidden="true"
                     >
                       <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                      {sidebarCollapsed && item.path === 'notifications' && unreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full text-[10px] w-4 h-4 flex items-center justify-center font-bold">
+                          {unreadCount}
+                        </span>
+                      )}
                     </motion.span>
                     <motion.span
                       initial={{ opacity: 1 }}
                       animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
                       transition={{ duration: 0.2 }}
-                      className="relative z-10 whitespace-nowrap tracking-wide"
+                      className="relative z-10 whitespace-nowrap tracking-wide flex items-center justify-between w-full"
                     >
-                      {item.label}
+                      <span>{item.label}</span>
+                      {!sidebarCollapsed && item.path === 'notifications' && unreadCount > 0 && (
+                        <span className="bg-red-500 text-white rounded-full text-[10px] px-2 py-0.5 font-bold">
+                          {unreadCount}
+                        </span>
+                      )}
                     </motion.span>
                   </>
                 )}

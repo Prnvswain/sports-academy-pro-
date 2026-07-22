@@ -3,15 +3,18 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
+import BrandingLogo from '../components/BrandingLogo';
 import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken } from '../api/client';
-import { CoachBatchesProvider } from '../context/CoachBatchesContext';
+import { CoachBatchesProvider, useCoachBatches } from '../context/CoachBatchesContext';
+import { CoachDailyNotes } from '../pages/coach/CoachExtras';
+import { NotebookPen } from 'lucide-react';
 
 // Sleek and Premium Sports SaaS Icons
 import {
   LayoutDashboard,
   ClipboardList,
+  GraduationCap,
   TrendingUp,
-  NotebookPen,
   Wallet,
   Megaphone,
   LogOut,
@@ -61,6 +64,7 @@ const COACH_NAV_ITEMS = [
 function CoachLayoutShell() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { allStudents } = useCoachBatches();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',

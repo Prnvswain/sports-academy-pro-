@@ -454,6 +454,17 @@ export default function AccountsPanel() {
     setGlobalSearch('');
   };
 
+  const handleSendOverdueReminders = async () => {
+    if (!window.confirm('Are you sure you want to send overdue fee reminders to all parents?')) return;
+    setMessage({ text: 'Sending overdue reminders...', type: '' });
+    try {
+      const result = await adminPost('/admin/fees/send-reminders');
+      setMessage({ text: result.message || 'Overdue reminders sent successfully', type: 'success' });
+    } catch (error) {
+      setMessage({ text: error.message || 'Failed to send reminders', type: 'error' });
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 15 }} 
@@ -519,6 +530,19 @@ export default function AccountsPanel() {
             </div>
           </motion.div>
         ))}
+
+        <motion.button
+          type="button"
+          onClick={handleSendOverdueReminders}
+          className="card flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Send Overdue Reminders
+        </motion.button>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, ShieldAlert } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { adminGet } from '../../api/client';
 
@@ -75,6 +76,33 @@ export default function AnalyticsPanel() {
   const [error, setError] = useState('');
   const [academy, setAcademy] = useState(null);
   const [logoError, setLogoError] = useState(false);
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedAcademyName, setImpersonatedAcademyName] = useState('');
+
+  useEffect(() => {
+    // Check if user is impersonating
+    const impersonationToken = localStorage.getItem('impersonation_token');
+    const academyName = localStorage.getItem('impersonated_academy_name');
+    setIsImpersonating(!!impersonationToken);
+    setImpersonatedAcademyName(academyName || '');
+  }, []);
+
+  const handleExitImpersonation = () => {
+    const originalToken = localStorage.getItem('original_super_admin_token');
+    localStorage.removeItem('impersonation_token');
+    localStorage.removeItem('original_super_admin_token');
+    localStorage.removeItem('impersonated_academy_id');
+    localStorage.removeItem('impersonated_academy_name');
+    
+    if (originalToken) {
+      localStorage.setItem('super_admin_token', originalToken);
+      window.location.href = '/super-admin/dashboard';
+    } else {
+      window.location.href = '/super-admin/login';
+    }
+  };
 
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
@@ -116,6 +144,26 @@ export default function AnalyticsPanel() {
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
+
+  // Load active batch sessions
+  useEffect(() => {
+    const loadActiveSessions = async () => {
+      try {
+        setSessionsLoading(true);
+        const result = await adminGet('/admin/batch-sessions');
+        setActiveSessions(result.data || []);
+      } catch (err) {
+        console.error('Failed to load active sessions:', err);
+      } finally {
+        setSessionsLoading(false);
+      }
+    };
+    loadActiveSessions();
+    
+    // Refresh every minute
+    const interval = setInterval(loadActiveSessions, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const fetchAcademy = async () => {
@@ -198,7 +246,31 @@ export default function AnalyticsPanel() {
   };
 
   return (
-    <div className="w-full min-h-screen font-sans p-2 sm:p-4 space-y-4" style={{ background: 'linear-gradient(150deg, #F9FBF9 0%, #F3F8F4 100%)' }}>
+    <div className="w-full bg-transparent font-sans p-2 space-y-6">
+      
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="h-5 w-5 text-amber-400" />
+            <div>
+              <p className="text-amber-400 font-bold text-sm">Viewing Academy as Super Admin</p>
+              <p className="text-amber-400/70 text-xs">Academy: {impersonatedAcademyName}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleExitImpersonation}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Exit Academy
+          </button>
+        </motion.div>
+      )}
       
       {/* Top Bar Header (Perfectly Compact, Professional Gradient) */}
       <motion.div 
@@ -313,6 +385,13 @@ export default function AnalyticsPanel() {
           title="Total Batches" value={safeMetrics.total_batches ?? 0} icon={Icons.Stopwatch} 
           cardBg="#F0FDFA" iconBgClass="bg-[#CCFBF1]" iconTextClass="text-[#0D9488]"
           onClick={() => navigate('/admin/batches')}
+        />
+
+        <StatCard 
+          title="Live Sessions" value={activeSessions.filter(s => s.status === 'LIVE').length ?? 0} icon={Icons.Whistle} 
+          borderClass="border-red-200 dark:border-red-900/40" bgClass="bg-red-50 dark:bg-red-500/10" textClass="text-red-600 dark:text-red-400"
+          onClick={() => navigate('/admin/batches')}
+          extraContent={activeSessions.filter(s => s.status === 'LIVE').length > 0 && <span className="text-[9px] font-black text-red-500 uppercase tracking-wider animate-pulse block">Active Now</span>}
         />
 
         <StatCard 

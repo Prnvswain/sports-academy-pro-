@@ -88,7 +88,8 @@ export default function CoachPerformancePage() {
       return;
     }
     try {
-      const result = await coachGet(`/coach/performance/students/${studentId}`);
+      const today = new Date().toISOString().split('T')[0];
+      const result = await coachGet(`/coach/performance/students/${studentId}?date=${today}`);
       const responseData = result.data;
       const scoresMap = {};
       
@@ -566,26 +567,26 @@ ${remarks || 'No notes provided'}
 
           {/* VIEW 3: METRICS SCORING LEDGER (With Linear Node Sketch Integration) */}
           {selectedBatch && selectedStudent && (
-            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-5">
+            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-4">
               
-              <div className="flex items-center gap-4 border-b border-border/50 pb-6">
+              <div className="flex items-center gap-3 border-b border-border/50 pb-3">
                 <motion.button
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onClick={() => setSelectedStudent(null)}
-                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-sm"
+                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground w-9 h-9 rounded-lg flex items-center justify-center transition-colors shadow-sm"
                 >
                   ←
                 </motion.button>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-                    {selectedStudent.name} <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded text-sm font-bold border border-emerald-200 dark:border-emerald-500/30">Evaluation</span>
+                  <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+                    {selectedStudent.name} <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded text-xs font-bold border border-emerald-200 dark:border-emerald-500/30">Evaluation</span>
                   </h2>
                 </div>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowHistory(!showHistory)}
-                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground px-3.5 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm flex items-center gap-2"
+                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center gap-2"
                 >
                   📋 Assessment History
                 </motion.button>
@@ -598,27 +599,27 @@ ${remarks || 'No notes provided'}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mb-5 bg-card border border-border rounded-2xl overflow-hidden"
+                    className="mb-4 bg-card border border-border rounded-xl overflow-hidden"
                   >
-                    <div className="p-5 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-base font-black tracking-tight text-foreground">
+                    <div className="p-4 border-b border-border/50 bg-surface/30">
+                      <h3 className="text-sm font-black tracking-tight text-foreground">
                         Assessment History
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         Click on an assessment to load its ratings
                       </p>
                     </div>
-                    <div className="p-5">
+                    <div className="p-4">
                       {loadingHistory ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                        <div className="flex items-center justify-center py-6">
+                          <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                         </div>
                       ) : assessmentHistory.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p className="text-sm font-bold">No assessment history found</p>
+                        <div className="text-center py-6 text-muted-foreground">
+                          <p className="text-xs font-bold">No assessment history found</p>
                         </div>
                       ) : (
-                        <div className="space-y-2.5">
+                        <div className="space-y-2">
                           {assessmentHistory.map((assessment) => {
                             const avgRating = calculateAverageRating(assessment.scores);
                             const grade = calculateGrade(parseFloat(avgRating));
@@ -630,29 +631,29 @@ ${remarks || 'No notes provided'}
                                 whileHover={{ scale: 1.01 }}
                                 whileTap={{ scale: 0.99 }}
                                 onClick={() => handleAssessmentClick(assessment)}
-                                className="w-full text-left p-4 rounded-xl border border-border hover:border-emerald-400 bg-surface hover:bg-surface-secondary transition-all"
+                                className="w-full text-left p-3 rounded-lg border border-border hover:border-emerald-400 bg-surface hover:bg-surface-secondary transition-all"
                               >
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-lg font-black text-emerald-600 dark:text-emerald-400">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-sm font-black text-emerald-600 dark:text-emerald-400">
                                       {grade}
                                     </div>
                                     <div>
-                                      <div className="font-bold text-foreground">{date}</div>
-                                      <div className="text-sm text-muted-foreground">
+                                      <div className="text-sm font-bold text-foreground">{date}</div>
+                                      <div className="text-xs text-muted-foreground">
                                         {assessment.coach?.name || 'Unknown Coach'}
                                       </div>
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="text-lg font-black text-foreground">{avgRating}</div>
+                                    <div className="text-sm font-black text-foreground">{avgRating}</div>
                                     <div className="text-xs text-muted-foreground">
                                       {assessment.scores?.length || 0} metrics
                                     </div>
                                   </div>
                                 </div>
                                 {assessment.notes && (
-                                  <div className="mt-2 text-sm text-muted-foreground truncate">
+                                  <div className="mt-1.5 text-xs text-muted-foreground truncate">
                                     {assessment.notes}
                                   </div>
                                 )}
@@ -673,66 +674,66 @@ ${remarks || 'No notes provided'}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="mb-6 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-border rounded-2xl p-6"
+                    className="mb-4 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-border rounded-xl p-4"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-black text-foreground">Live Assessment Summary</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-black text-foreground">Live Assessment Summary</h3>
                       <button
                         onClick={() => setShowLiveSummary(false)}
-                        className="text-muted-foreground hover:text-foreground text-sm"
+                        className="text-muted-foreground hover:text-foreground text-xs"
                       >
                         Hide
                       </button>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                      <div className="bg-surface rounded-xl p-4 text-center">
-                        <div className="text-2xl font-black text-emerald-600">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                      <div className="bg-surface rounded-lg p-3 text-center">
+                        <div className="text-lg font-black text-emerald-600">
                           {getLiveSummary().completed}/{getLiveSummary().total}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">Metrics Completed</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Metrics Completed</div>
                       </div>
-                      <div className="bg-surface rounded-xl p-4 text-center">
-                        <div className="text-2xl font-black text-blue-600">
+                      <div className="bg-surface rounded-lg p-3 text-center">
+                        <div className="text-lg font-black text-blue-600">
                           {getLiveSummary().average}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">Average Rating</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Average Rating</div>
                       </div>
-                      <div className="bg-surface rounded-xl p-4 text-center">
-                        <div className="text-xl font-black text-purple-600 truncate">
+                      <div className="bg-surface rounded-lg p-3 text-center">
+                        <div className="text-sm font-black text-purple-600 truncate">
                           {getLiveSummary().highest || '-'}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">Highest Rated</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Highest Rated</div>
                       </div>
-                      <div className="bg-surface rounded-xl p-4 text-center">
-                        <div className="text-xl font-black text-amber-600 truncate">
+                      <div className="bg-surface rounded-lg p-3 text-center">
+                        <div className="text-sm font-black text-amber-600 truncate">
                           {getLiveSummary().lowest || '-'}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">Lowest Rated</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Lowest Rated</div>
                       </div>
-                      <div className="bg-surface rounded-xl p-4 text-center">
-                        <div className="text-3xl font-black text-emerald-600">
+                      <div className="bg-surface rounded-lg p-3 text-center">
+                        <div className="text-2xl font-black text-emerald-600">
                           {getLiveSummary().grade}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">Estimated Grade</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Estimated Grade</div>
                       </div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="grid gap-6 lg:grid-cols-3 items-start">
+              <div className="grid gap-4 lg:grid-cols-3 items-start">
                 
                 {/* Core Scoring Ledger */}
-                <div className="bg-card shadow-sm rounded-2xl border border-border lg:col-span-2 overflow-hidden flex flex-col relative">
+                <div className="bg-card shadow-sm rounded-xl border border-border lg:col-span-2 overflow-hidden flex flex-col relative">
                   <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
                   
-                  <div className="p-6 border-b border-border/50 bg-surface/30">
+                  <div className="p-4 border-b border-border/50 bg-surface/30">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-black tracking-tight text-foreground">
+                      <h3 className="text-base font-black tracking-tight text-foreground">
                         Metrics Scoring Ledger
                       </h3>
                       {dailyLock && dailyLock.locked && (
-                        <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-300 dark:border-amber-500/30">
+                        <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full border border-amber-300 dark:border-amber-500/30">
                           <span className="text-amber-700 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
                             🔒 Assessment already submitted today
                           </span>
@@ -740,13 +741,13 @@ ${remarks || 'No notes provided'}
                       )}
                     </div>
                     {dailyLock && dailyLock.locked && (
-                      <p className="text-xs text-muted-foreground mt-2">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Submitted at: {new Date(dailyLock.scored_at).toLocaleString()}
                       </p>
                     )}
                   </div>
 
-                  <div className="p-6 space-y-6 bg-background/30 flex-1">
+                  <div className="p-4 space-y-4 bg-background/30 flex-1">
                     {attributes.length > 0 ? attributes.map((attr) => {
                       const currentScore = scores[attr.attribute_id] || 0;
                       // Calculate width for the connecting line (0 to 10 mapped to 0% to 100%)
@@ -756,22 +757,22 @@ ${remarks || 'No notes provided'}
                         <motion.div
                           variants={itemVariants}
                           key={attr.attribute_id}
-                          className="bg-card border border-border hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors duration-300 rounded-2xl p-6 shadow-sm"
+                          className="bg-card border border-border hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors duration-300 rounded-xl p-4 shadow-sm"
                         >
-                          <div className="flex justify-between items-end mb-6">
+                          <div className="flex justify-between items-end mb-4">
                             <div>
-                              <label className="text-lg font-black tracking-tight text-foreground">{attr.name}</label>
-                              <div className="text-muted-foreground mt-1 text-xs font-bold uppercase tracking-wider">
+                              <label className="text-sm font-black tracking-tight text-foreground">{attr.name}</label>
+                              <div className="text-muted-foreground mt-0.5 text-xs font-bold uppercase tracking-wider">
                                 {attr.sport?.name || 'Core Parameter'}
                               </div>
                             </div>
-                            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                              {currentScore ? `${currentScore}` : '-'} <span className="text-sm text-muted-foreground">/ 10</span>
+                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                              {currentScore ? `${currentScore}` : '-'} <span className="text-xs text-muted-foreground">/ 10</span>
                             </span>
                           </div>
 
                           {/* Linear Node Scorer (Inspired by sketch image_db2d1f.jpg) */}
-                          <div className="relative w-full pt-4 pb-2 px-3">
+                          <div className="relative w-full pt-3 pb-1.5 px-2.5">
                             {/* Background Line */}
                             <div className="absolute top-1/2 left-[3%] right-[3%] h-1 bg-surface-secondary rounded-full -translate-y-1/2 z-0"></div>
                             
@@ -796,7 +797,7 @@ ${remarks || 'No notes provided'}
                                     whileHover={{ scale: 1.3 }}
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => handleScoreChange(attr.attribute_id, val)}
-                                    className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-black transition-all duration-300 outline-none ${
+                                    className={`relative w-6 h-6 rounded-full border-2 flex items-center justify-center text-[9px] font-black transition-all duration-300 outline-none ${
                                       isSelected
                                         ? 'bg-amber-400 border-amber-400 text-amber-950 shadow-[0_0_12px_rgba(251,191,36,0.6)]'
                                         : 'bg-surface border-border text-muted-foreground hover:border-amber-300'
@@ -818,14 +819,14 @@ ${remarks || 'No notes provided'}
                   </div>
                   
                   {/* Save Button at Bottom */}
-                  <div className="p-6 border-t border-border/50 bg-surface/30">
+                  <div className="p-4 border-t border-border/50 bg-surface/30">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       type="button"
                       onClick={handleSubmitScores}
                       disabled={submitting || (dailyLock && dailyLock.locked)}
-                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 rounded-xl py-4 text-sm font-black tracking-wide transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 rounded-lg py-3 text-xs font-black tracking-wide transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-2"
                     >
                       {dailyLock && dailyLock.locked ? '🔒 Assessment Locked' : submitting ? 'Saving...' : '💾 Save Evaluation'}
                     </motion.button>
@@ -833,22 +834,22 @@ ${remarks || 'No notes provided'}
                 </div>
 
                 {/* Right Column: Action Panels */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   
                   {/* Feedback Panel */}
-                  <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
+                  <div className="bg-card shadow-sm rounded-xl border border-border overflow-hidden relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-                    <div className="p-5 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-sm font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                    <div className="p-3 border-b border-border/50 bg-surface/30">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
                         📝 Session Feedback
                       </h3>
                     </div>
-                    <div className="p-5 space-y-5">
+                    <div className="p-3 space-y-3">
                       <div className="space-y-2">
                         <textarea
                           id="coachRemarks"
-                          rows={4}
-                          className="w-full text-sm p-4 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 outline-none resize-none transition-all placeholder:text-muted-foreground/50"
+                          rows={3}
+                          className="w-full text-xs p-3 rounded-lg bg-surface border border-border focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 outline-none resize-none transition-all placeholder:text-muted-foreground/50"
                           placeholder="Add observations, tactical notes, or feedback..."
                           value={remarks}
                           disabled={submitting || (dailyLock && dailyLock.locked)}
@@ -856,14 +857,14 @@ ${remarks || 'No notes provided'}
                         />
                       </div>
 
-                      <div className="space-y-3 pt-2">
+                      <div className="space-y-2 pt-1">
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           type="button"
                           onClick={handleDownloadReport}
                           disabled={submitting}
-                          className="w-full border border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl py-3.5 text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+                          className="w-full border border-border bg-surface hover:bg-surface-secondary text-foreground rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
                         >
                           📄 Download PDF Report
                         </motion.button>
@@ -872,33 +873,33 @@ ${remarks || 'No notes provided'}
                   </div>
 
                   {/* Tools Panel */}
-                  <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
+                  <div className="bg-card shadow-sm rounded-xl border border-border overflow-hidden relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
-                    <div className="p-5 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-sm font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                    <div className="p-3 border-b border-border/50 bg-surface/30">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
                         Coach Tools
                       </h3>
                     </div>
                     
                     <div className="divide-y divide-border/50">
                       {/* Propose Metric */}
-                      <div className="p-5">
+                      <div className="p-3">
                         <button
                           type="button"
                           onClick={() => setShowNewProposal(!showNewProposal)}
                           className="flex items-center justify-between w-full text-left"
                         >
-                          <span className="text-sm font-bold text-foreground">Propose New Metric</span>
+                          <span className="text-xs font-bold text-foreground">Propose New Metric</span>
                           <span className={`text-muted-foreground transition-transform ${showNewProposal ? 'rotate-180' : ''}`}>▼</span>
                         </button>
                         <AnimatePresence>
                           {showNewProposal && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <form className="pt-4 space-y-4" onSubmit={handleProposeAttribute}>
+                              <form className="pt-3 space-y-3" onSubmit={handleProposeAttribute}>
                                 <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Sport Scope</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Sport Scope</label>
                                   <select
-                                    className="input-field bg-background/50 border-purple-200 focus:border-purple-500 focus:ring-purple-500/20 px-3"
+                                    className="input-field bg-background/50 border-purple-200 focus:border-purple-500 focus:ring-purple-500/20 px-2 py-1.5 text-xs"
                                     value={newAttributeForm.sport_id}
                                     onChange={(e) => setNewAttributeForm({ ...newAttributeForm, sport_id: e.target.value })}
                                     required
@@ -908,17 +909,17 @@ ${remarks || 'No notes provided'}
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Parameter Name</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Parameter Name</label>
                                   <input
                                     type="text"
-                                    className="input-field bg-background/50 border-purple-200 focus:border-purple-500 focus:ring-purple-500/20 px-3"
+                                    className="input-field bg-background/50 border-purple-200 focus:border-purple-500 focus:ring-purple-500/20 px-2 py-1.5 text-xs"
                                     placeholder="e.g. Speed, Agility"
                                     value={newAttributeForm.name}
                                     onChange={(e) => setNewAttributeForm({ ...newAttributeForm, name: e.target.value })}
                                     required
                                   />
                                 </div>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs py-2.5 rounded-lg transition-all shadow-sm">
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs py-2 rounded-lg transition-all shadow-sm">
                                   Submit Request
                                 </motion.button>
                               </form>
@@ -928,35 +929,35 @@ ${remarks || 'No notes provided'}
                       </div>
 
                       {/* Weekly Report */}
-                      <div className="p-5">
+                      <div className="p-3">
                         <button
                           type="button"
                           onClick={() => setShowWeeklyReport(!showWeeklyReport)}
                           className="flex items-center justify-between w-full text-left"
                         >
-                          <span className="text-sm font-bold text-foreground">Weekly Performance Report</span>
+                          <span className="text-xs font-bold text-foreground">Weekly Performance Report</span>
                           <span className={`text-muted-foreground transition-transform ${showWeeklyReport ? 'rotate-180' : ''}`}>▼</span>
                         </button>
                         <AnimatePresence>
                           {showWeeklyReport && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <form className="pt-4 space-y-4" onSubmit={handleSubmitWeeklyReport}>
-                                <div className="grid grid-cols-2 gap-3">
+                              <form className="pt-3 space-y-3" onSubmit={handleSubmitWeeklyReport}>
+                                <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Start Date</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Start Date</label>
                                     <input
                                       type="date"
-                                      className="input-field bg-background/50 px-2"
+                                      className="input-field bg-background/50 px-2 py-1.5 text-xs"
                                       value={weeklyReportData.week_start}
                                       onChange={(e) => setWeeklyReportData({ ...weeklyReportData, week_start: e.target.value })}
                                       required
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">End Date</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">End Date</label>
                                     <input
                                       type="date"
-                                      className="input-field bg-background/50 px-2"
+                                      className="input-field bg-background/50 px-2 py-1.5 text-xs"
                                       value={weeklyReportData.week_end}
                                       onChange={(e) => setWeeklyReportData({ ...weeklyReportData, week_end: e.target.value })}
                                       required
@@ -964,17 +965,17 @@ ${remarks || 'No notes provided'}
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Summary</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Summary</label>
                                   <textarea
-                                    rows={3}
-                                    className="input-field bg-background/50 resize-none text-sm placeholder:text-muted-foreground/50 px-3 py-2"
+                                    rows={2}
+                                    className="input-field bg-background/50 resize-none text-xs placeholder:text-muted-foreground/50 px-2 py-1.5"
                                     placeholder="Weekly progress notes..."
                                     value={weeklyReportData.summary}
                                     onChange={(e) => setWeeklyReportData({ ...weeklyReportData, summary: e.target.value })}
                                     required
                                   />
                                 </div>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={submitting} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs py-2.5 rounded-lg transition-all shadow-sm disabled:opacity-50">
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={submitting} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs py-2 rounded-lg transition-all shadow-sm disabled:opacity-50">
                                   {submitting ? 'Submitting...' : 'Send Report'}
                                 </motion.button>
                               </form>

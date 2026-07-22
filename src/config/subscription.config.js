@@ -36,15 +36,59 @@ const PLAN_ALIASES = {
   unlimited: 'plus'
 };
 
+let cachedPlans = null;
+
+export function setCachedPlans(plans) {
+  cachedPlans = plans;
+}
+
+export function getCachedPlans() {
+  return cachedPlans;
+}
+
 export function normalizePlanId(plan) {
-  if (!plan || typeof plan !== 'string') {
+  if (!plan) {
     return PLAN_DEFINITIONS.free.id;
   }
-  const key = plan.trim().toLowerCase();
-  return PLAN_ALIASES[key] || PLAN_DEFINITIONS.free.id;
+  const key = typeof plan === 'string' ? plan.trim().toLowerCase() : String(plan).toLowerCase();
+  
+  if (cachedPlans && Array.isArray(cachedPlans)) {
+    const found = cachedPlans.find(
+      (p) =>
+        (p.id && String(p.id).toLowerCase() === key) ||
+        (p.name && String(p.name).toLowerCase() === key)
+    );
+    if (found) {
+      return found.id || key;
+    }
+  }
+
+  return PLAN_ALIASES[key] || key;
 }
 
 export function getPlanLimits(plan) {
+  if (!plan) return PLAN_DEFINITIONS.free;
+  
+  const searchKey = typeof plan === 'string' ? plan.trim().toLowerCase() : String(plan).toLowerCase();
+  if (cachedPlans && Array.isArray(cachedPlans)) {
+    const found = cachedPlans.find(
+      (p) => 
+        (p.id && String(p.id).toLowerCase() === searchKey) ||
+        (p.name && String(p.name).toLowerCase() === searchKey)
+    );
+    if (found) {
+      return {
+        id: found.id,
+        label: found.name,
+        trialDays: found.duration === 'Yearly' ? 365 : found.duration === 'Half-Yearly' ? 180 : found.duration === 'Quarterly' ? 90 : 30,
+        maxCoaches: found.teacher_limit === null || found.teacher_limit === undefined ? null : parseInt(found.teacher_limit, 10),
+        maxStudents: found.student_limit === null || found.student_limit === undefined ? null : parseInt(found.student_limit, 10),
+        features: found.features || [],
+        highlights: found.highlights || []
+      };
+    }
+  }
+
   const id = normalizePlanId(plan);
   return PLAN_DEFINITIONS[id] || PLAN_DEFINITIONS.free;
 }

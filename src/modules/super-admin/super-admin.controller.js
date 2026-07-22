@@ -100,6 +100,19 @@ export const patchAcademyStatus = async (req, res, next) => {
   }
 };
 
+export const impersonateAcademy = async (req, res, next) => {
+  try {
+    const result = await superAdminService.impersonateAcademyAdmin(
+      req.params.academy_id,
+      req.user.super_admin_id,
+      req.ip
+    );
+    res.json(successResponse('Academy impersonation successful', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const patchPlanStatus = async (req, res, next) => {
   try {
     const plan = await superAdminService.updatePlanStatus(
@@ -169,6 +182,160 @@ export const putSetting = async (req, res, next) => {
       req.ip
     );
     res.json(successResponse('Setting saved', setting));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createPlan = async (req, res, next) => {
+  try {
+    const plan = await superAdminService.createPlan(req.body, req.user.super_admin_id, req.ip);
+    res.status(201).json(successResponse('Plan created successfully', plan));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePlan = async (req, res, next) => {
+  try {
+    const plan = await superAdminService.updatePlan(req.params.plan_id, req.body, req.user.super_admin_id, req.ip);
+    res.json(successResponse('Plan updated successfully', plan));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deletePlan = async (req, res, next) => {
+  try {
+    const result = await superAdminService.deletePlan(req.params.plan_id, req.user.super_admin_id, req.ip);
+    res.json(successResponse('Plan deleted successfully', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getTrialSettings = async (req, res, next) => {
+  try {
+    const settings = await superAdminService.getTrialSettings();
+    res.json(successResponse('Trial settings retrieved', settings));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateTrialSettings = async (req, res, next) => {
+  try {
+    const settings = await superAdminService.updateTrialSettings(req.body, req.user.super_admin_id, req.ip);
+    res.json(successResponse('Trial settings updated', settings));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getPaymentsData = async (req, res, next) => {
+  try {
+    const data = await superAdminService.getPaymentsData();
+    res.json(successResponse('Payments data retrieved', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePaymentSettings = async (req, res, next) => {
+  try {
+    const settings = await superAdminService.updatePaymentSettings(req.body, req.user.super_admin_id, req.ip);
+    res.json(successResponse('Payment settings updated', settings));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePaymentStatus = async (req, res, next) => {
+  try {
+    const result = await superAdminService.updatePaymentStatus(req.params.tx_id, req.body.status, req.user.super_admin_id, req.ip);
+    res.json(successResponse('Payment transaction updated', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAcademyDetails = async (req, res, next) => {
+  try {
+    const details = await superAdminService.getAcademyDetailsForSuperAdmin(req.params.academy_id);
+    res.json(successResponse('Academy details retrieved', details));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const extendAcademySubscription = async (req, res, next) => {
+  try {
+    const result = await superAdminService.extendAcademySubscription(
+      req.params.academy_id,
+      req.body.days,
+      req.user.super_admin_id,
+      req.ip
+    );
+    res.json(successResponse('Academy subscription extended', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const upgradeAcademyPlan = async (req, res, next) => {
+  try {
+    const result = await superAdminService.upgradeAcademyPlan(
+      req.params.academy_id,
+      req.body.plan_id,
+      req.user.super_admin_id,
+      req.ip
+    );
+    res.json(successResponse('Academy plan upgraded', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const exportAcademyData = async (req, res, next) => {
+  try {
+    const data = await superAdminService.exportAcademyData(req.params.academy_id);
+    res.json(successResponse('Academy data exported', data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSuperAdminNotifications = async (req, res, next) => {
+  try {
+    const notifications = await superAdminService.getSuperAdminNotifications();
+    res.json(successResponse('Super Admin notifications retrieved', notifications));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markSuperAdminNotificationAsRead = async (req, res, next) => {
+  try {
+    const result = await superAdminService.markSuperAdminNotificationAsRead(req.params.id);
+    res.json(successResponse('Notification marked as read', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markSuperAdminNotificationsAllAsRead = async (req, res, next) => {
+  try {
+    const result = await superAdminService.markSuperAdminNotificationsAllAsRead();
+    res.json(successResponse('All notifications marked as read', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSuperAdminUnreadCount = async (req, res, next) => {
+  try {
+    const result = await superAdminService.getSuperAdminUnreadCount();
+    res.json(successResponse('Super Admin unread count retrieved', result));
   } catch (err) {
     next(err);
   }

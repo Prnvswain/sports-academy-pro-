@@ -3,6 +3,7 @@ import { Outlet, useNavigate, Link, useLocation, NavLink } from 'react-router-do
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
+import BrandingLogo from '../components/BrandingLogo';
 import { SIDEBAR_COLLAPSED_KEY } from '../api/client';
 
 // FIXED: Removed Dribbble. Using safely existing icons.

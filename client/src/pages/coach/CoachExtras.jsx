@@ -3,6 +3,9 @@ import { coachPost } from '../../api/client';
 
 export function CoachDailyNotes({ students = [] }) {
   const [studentId, setStudentId] = useState('');
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [form, setForm] = useState({
     performance_notes: '',
     behaviour_notes: '',
@@ -15,6 +18,50 @@ export function CoachDailyNotes({ students = [] }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleStudentChange = (selectedId) => {
+    if (!selectedId) {
+      setStudentId('');
+      setStudentSearchTerm('');
+      return;
+    }
+    setStudentId(selectedId);
+    const student = students.find(s => String(s?.id || s?.student_id) === String(selectedId));
+    if (student) {
+      setStudentSearchTerm(student?.name || student?.student_name || '');
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    const filteredStudents = getFilteredStudents();
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < filteredStudents.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+      e.preventDefault();
+      const student = filteredStudents[highlightedIndex];
+      const studentId = student?.id || student?.student_id;
+      setStudentSearchTerm(student?.name || student?.student_name || '');
+      setDropdownOpen(false);
+      setHighlightedIndex(-1);
+      handleStudentChange(studentId);
+    } else if (e.key === 'Escape') {
+      setDropdownOpen(false);
+      setHighlightedIndex(-1);
+    }
+  };
+
+  const getFilteredStudents = () => {
+    if (!studentSearchTerm) return students;
+    const searchTerm = studentSearchTerm.toLowerCase();
+    return students.filter((s) => {
+      const name = s?.name || s?.student_name || '';
+      return name.toLowerCase().includes(searchTerm);
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -37,6 +84,7 @@ export function CoachDailyNotes({ students = [] }) {
         improvement_areas: ''
       });
       setStudentId('');
+      setStudentSearchTerm('');
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -49,17 +97,80 @@ export function CoachDailyNotes({ students = [] }) {
       <h3 className="font-bold text-base text-zinc-900">Daily Student Notes</h3>
       <p className="text-xs text-zinc-400">Notes are emailed to parents automatically.</p>
       
-      <select className="input-field w-full p-2 border rounded-lg" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-        <option value="">Select student…</option>
-        {Array.isArray(students) && students.map((s, idx) => {
-          // Pure fallback verification keys
-          const currentId = s?.id || s?.student_id || s?._id || idx;
-          const currentName = s?.name || s?.student_name || 'Unknown Student';
-          return (
-            <option key={currentId} value={currentId}>{currentName}</option>
-          );
-        })}
-      </select>
+      <div className="relative">
+        <label className="text-sm font-semibold text-zinc-700">Select Student</label>
+        <input
+          type="text"
+          className="input-field w-full p-2.5 border rounded-lg"
+          placeholder="Search student by name..."
+          value={studentSearchTerm}
+          onChange={(e) => {
+            setStudentSearchTerm(e.target.value);
+            setHighlightedIndex(-1);
+          }}
+          onFocus={() => setDropdownOpen(true)}
+          onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
+          onKeyDown={handleKeyDown}
+          required
+          autoComplete="off"
+        />
+        {dropdownOpen && studentSearchTerm && (
+          <div className="absolute z-50 w-full rounded-xl border border-zinc-200 bg-white max-h-60 overflow-y-auto mt-2 shadow-xl">
+            {(() => {
+              const filteredStudents = getFilteredStudents();
+              if (filteredStudents.length === 0) {
+                return <div className="px-4 py-3 text-sm text-zinc-400">No students found</div>;
+              }
+              return filteredStudents.map((s, index) => {
+                const name = s?.name || s?.student_name || 'Unknown Student';
+                const parentName = s?.parent_name || s?.parentName || '—';
+                const phone = s?.phone || s?.parent_phone || '—';
+                const isHighlighted = index === highlightedIndex;
+                const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                return (
+                  <div
+                    key={s?.id || s?.student_id || index}
+                    className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b border-zinc-100 last:border-b-0 flex items-center gap-3 ${
+                      isHighlighted ? 'bg-zinc-100' : 'hover:bg-zinc-50'
+                    }`}
+                    onMouseDown={() => {
+                      const studentId = s?.id || s?.student_id;
+                      setStudentSearchTerm(name);
+                      setDropdownOpen(false);
+                      setHighlightedIndex(-1);
+                      handleStudentChange(studentId);
+                    }}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-600 flex-shrink-0">
+                      {s?.profile_photo ? (
+                        <img src={s.profile_photo} alt={name} className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        initials
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold truncate text-zinc-900">{name}</div>
+                      <div className="text-xs mt-1 text-zinc-400 flex flex-wrap gap-x-3 gap-y-1">
+                        <span className="inline-block">Batch: {s?.batch?.name || '—'}</span>
+                        {s?.sport && (
+                          <span className="inline-block">
+                            {s.sport.icon || '🏅'} {s.sport.name}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs mt-1 text-zinc-400">
+                        <span className="inline-block mr-3">Parent: {parentName}</span>
+                        <span className="inline-block">Phone: {phone}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+      </div>
 
       {['performance_notes', 'behaviour_notes', 'achievements', 'improvement_areas'].map((field) => (
         <div key={field} className="space-y-1">

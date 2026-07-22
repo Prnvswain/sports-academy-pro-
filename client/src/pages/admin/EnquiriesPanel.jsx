@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 
 // Status options for dropdown
 const STATUS_OPTIONS = [
@@ -67,6 +67,9 @@ export default function EnquiriesPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Academy info for QR code
+  const [academyId, setAcademyId] = useState(null);
+
   // Filters
   const [filters, setFilters] = useState({
     status: '',
@@ -86,6 +89,7 @@ export default function EnquiriesPanel() {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   // QR code ref for download
   const qrCodeRef = useRef(null);
@@ -100,7 +104,7 @@ export default function EnquiriesPanel() {
     phone: '',
     email: '',
     sport_interested: '',
-    interested_sports: [],
+    interested_sports: '',
     age: '',
     gender: '',
     enquiry_source: '',
@@ -149,13 +153,13 @@ export default function EnquiriesPanel() {
         }
         break;
       case 'email':
-        if (value && value.trim() !== '' && !/^[\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        if (value && value.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
           error = 'Enter a valid email address';
         }
         break;
       case 'interested_sports':
-        if (!value || value.length === 0) {
-          error = 'At least one sport must be selected';
+        if (!value || value.trim() === '') {
+          error = 'Please select a sport';
         }
         break;
       default:
@@ -173,7 +177,20 @@ export default function EnquiriesPanel() {
   useEffect(() => {
     fetchDashboardStats();
     fetchEnquiries();
+    fetchAcademyInfo();
   }, [filters]);
+
+  // Fetch academy info for QR code
+  const fetchAcademyInfo = async () => {
+    try {
+      const res = await adminGet('/admin/academy');
+      if (res.data?.academy_id) {
+        setAcademyId(res.data.academy_id);
+      }
+    } catch (err) {
+      console.error('Failed to fetch academy info:', err);
+    }
+  };
 
   // ==================== API CALLS ====================
 
@@ -220,7 +237,12 @@ export default function EnquiriesPanel() {
 
     setSubmitting(true);
     try {
-      await adminPost('/admin/enquiries', formData);
+      // Format interested_sports as JSON array for backend
+      const submissionData = {
+        ...formData,
+        interested_sports: formData.interested_sports ? JSON.stringify([formData.interested_sports]) : null
+      };
+      await adminPost('/admin/enquiries', submissionData);
       setShowAddModal(false);
       resetForm();
       setFieldErrors({});
@@ -253,7 +275,12 @@ export default function EnquiriesPanel() {
 
     setSubmitting(true);
     try {
-      await adminPut(`/admin/enquiries/${selectedEnquiry.id}`, formData);
+      // Format interested_sports as JSON array for backend
+      const submissionData = {
+        ...formData,
+        interested_sports: formData.interested_sports ? JSON.stringify([formData.interested_sports]) : null
+      };
+      await adminPut(`/admin/enquiries/${selectedEnquiry.id}`, submissionData);
       setShowEditModal(false);
       resetForm();
       setFieldErrors({});
@@ -309,6 +336,16 @@ export default function EnquiriesPanel() {
     }
   };
 
+  const handleCompleteFollowUp = async (enquiryId) => {
+    try {
+      await adminPost(`/admin/enquiries/${enquiryId}/follow-up/complete`);
+      fetchEnquiries();
+      showToast('Follow-up marked as completed', 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to complete follow-up', 'error');
+    }
+  };
+
   const handleConvertToStudent = async () => {
     if (selectedEnquiry?.status === 'CONVERTED') {
       showToast('Enquiry is already converted', 'error');
@@ -338,7 +375,7 @@ export default function EnquiriesPanel() {
       phone: '',
       email: '',
       sport_interested: '',
-      interested_sports: [],
+      interested_sports: '',
       age: '',
       gender: '',
       enquiry_source: '',
@@ -349,21 +386,24 @@ export default function EnquiriesPanel() {
 
   const openEditModal = (enquiry) => {
     setSelectedEnquiry(enquiry);
-    let interestedSports = [];
+    let interestedSport = '';
     if (enquiry.interested_sports) {
       try {
-        interestedSports = JSON.parse(enquiry.interested_sports);
+        const sports = JSON.parse(enquiry.interested_sports);
+        interestedSport = Array.isArray(sports) && sports.length > 0 ? sports[0] : '';
       } catch (e) {
-        interestedSports = [];
+        interestedSport = enquiry.sport_interested || '';
       }
+    } else {
+      interestedSport = enquiry.sport_interested || '';
     }
     setFormData({
       student_name: enquiry.student_name || '',
       parent_name: enquiry.parent_name || '',
       phone: enquiry.phone || '',
       email: enquiry.email || '',
-      sport_interested: enquiry.sport_interested || '',
-      interested_sports: interestedSports,
+      sport_interested: interestedSport,
+      interested_sports: interestedSport,
       age: enquiry.age || '',
       gender: enquiry.gender || '',
       enquiry_source: enquiry.enquiry_source || '',
@@ -379,7 +419,7 @@ export default function EnquiriesPanel() {
   };
 
   const handleCopyFormLink = () => {
-    const formUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/enquiry-form`;
+    const formUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/enquiry-form${academyId ? `?academy_id=${academyId}` : ''}`;
     navigator.clipboard
       .writeText(formUrl)
       .then(() => {
@@ -649,17 +689,17 @@ export default function EnquiriesPanel() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="data-table">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="bg-surface-secondary/40 backdrop-blur-md">
-                  <th>ID</th>
-                  <th>Student Name</th>
-                  <th>Parent Name</th>
-                  <th>Phone</th>
-                  <th>Interested Sports</th>
-                  <th>Status</th>
-                  <th>Follow-up</th>
-                  <th>Actions</th>
+                <tr className="bg-surface-secondary/40 backdrop-blur-md border-b-2 border-border/60">
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">ID</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">Student Name</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">Parent Name</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">Phone</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">Interested Sports</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">Status</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/30">Follow-up</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <motion.tbody 
@@ -678,13 +718,17 @@ export default function EnquiriesPanel() {
                   <motion.tr
                     variants={itemVariants}
                     key={enq.id}
-                    className="group transition-colors duration-200"
+                    className="group border-b border-border/30 hover:bg-surface-secondary/30 transition-colors duration-200 cursor-pointer"
+                    onClick={() => {
+                      setSelectedEnquiry(enq);
+                      setShowViewModal(true);
+                    }}
                   >
-                    <td className="font-mono text-xs text-muted-foreground/70">{enq.id}</td>
-                    <td className="font-semibold text-foreground group-hover:text-primary transition-colors">{enq.student_name}</td>
-                    <td className="text-muted-foreground text-sm">{enq.parent_name || '—'}</td>
-                    <td className="font-mono text-sm tracking-tight">{enq.phone}</td>
-                    <td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground/70 border-r border-border/20">{enq.id}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground group-hover:text-primary transition-colors border-r border-border/20 whitespace-nowrap">{enq.student_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-sm border-r border-border/20 whitespace-nowrap">{enq.parent_name || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-sm tracking-tight border-r border-border/20 whitespace-nowrap">{enq.phone}</td>
+                    <td className="px-4 py-3 border-r border-border/20 whitespace-nowrap">
                       {enq.interested_sports ? (
                         (() => {
                           try {
@@ -706,25 +750,54 @@ export default function EnquiriesPanel() {
                         <span className="text-muted-foreground">{enq.sport_interested || '—'}</span>
                       )}
                     </td>
-                    <td>
+                    <td className="px-4 py-3 border-r border-border/20 whitespace-nowrap">
                       <span className={STATUS_COLORS[enq.status] || 'badge'}>
                         {getStatusDot(enq.status)}
                         {enq.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="font-medium text-foreground/80 text-sm">
+                    <td className="px-4 py-3 font-medium text-foreground/80 text-sm border-r border-border/20 whitespace-nowrap">
                       {enq.follow_up_date ? (
-                         <span className="flex items-center gap-1.5">
-                           <span className="text-muted-foreground/60 text-xs">📅</span>
-                           {formatDate(enq.follow_up_date)}
-                         </span>
+                         <div className="flex items-center gap-2">
+                           <span className="flex items-center gap-1.5">
+                             <span className="text-muted-foreground/60 text-xs">📅</span>
+                             {formatDate(enq.follow_up_date)}
+                           </span>
+                           {enq.status !== 'CONVERTED' && (
+                             <motion.button
+                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleCompleteFollowUp(enq.id);
+                               }}
+                               className="btn-sm text-[10px] font-bold bg-success/10 text-success hover:bg-success hover:text-white border border-transparent hover:border-success transition-colors px-2 py-0.5"
+                               title="Mark follow-up as completed"
+                             >
+                               Complete
+                             </motion.button>
+                           )}
+                         </div>
                       ) : '—'}
                     </td>
-                    <td>
-                      <div className="flex items-center gap-2 justify-start opacity-80 group-hover:opacity-100 transition-opacity">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <motion.button
                           whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                          onClick={() => openEditModal(enq)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEnquiry(enq);
+                            setShowViewModal(true);
+                          }}
+                          className="btn-sm text-[11px] font-bold bg-purple/10 text-purple hover:bg-purple hover:text-white border border-transparent hover:border-purple transition-colors px-2.5 py-1"
+                        >
+                          View
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(enq);
+                          }}
                           className="btn-ghost btn-sm text-[11px] font-bold px-2.5 py-1"
                         >
                           Edit
@@ -733,7 +806,8 @@ export default function EnquiriesPanel() {
                           <>
                             <motion.button
                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedEnquiry(enq);
                                 setShowFollowUpModal(true);
                               }}
@@ -743,7 +817,8 @@ export default function EnquiriesPanel() {
                             </motion.button>
                             <motion.button
                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedEnquiry(enq);
                                 setShowConvertModal(true);
                               }}
@@ -755,7 +830,8 @@ export default function EnquiriesPanel() {
                         )}
                         <motion.button
                           whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedEnquiry(enq);
                             setShowDeleteModal(true);
                           }}
@@ -861,26 +937,22 @@ export default function EnquiriesPanel() {
                     <div>
                       <label className="label">Interested Sports *</label>
                       <select
-                        multiple
-                        className={`input-field min-h-[120px] custom-scrollbar ${fieldErrors.interested_sports ? 'border-danger focus:ring-danger/20' : ''}`}
+                        className={`input-field ${fieldErrors.interested_sports ? 'border-danger focus:ring-danger/20' : ''}`}
                         value={formData.interested_sports}
                         onChange={(e) => {
-                          const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-                          setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                          setFormData({ ...formData, interested_sports: e.target.value, sport_interested: e.target.value });
                           clearFieldError('interested_sports');
                         }}
                         onBlur={() => validateField('interested_sports', formData.interested_sports)}
                         required
                       >
+                        <option value="">Select a sport</option>
                         {SPORTS_OPTIONS.map((sport) => (
-                          <option key={sport} value={sport} className="py-1">
+                          <option key={sport} value={sport}>
                             {sport}
                           </option>
                         ))}
                       </select>
-                      <p className="text-muted-foreground mt-1.5 text-[10px] uppercase font-bold tracking-wider">
-                        Hold Ctrl/Cmd to select multiple
-                      </p>
                       {fieldErrors.interested_sports && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.interested_sports}</p>}
                     </div>
                     
@@ -1043,26 +1115,22 @@ export default function EnquiriesPanel() {
                     <div>
                       <label className="label">Interested Sports *</label>
                       <select
-                        multiple
-                        className={`input-field min-h-[120px] custom-scrollbar ${fieldErrors.interested_sports ? 'border-danger focus:ring-danger/20' : ''}`}
+                        className={`input-field ${fieldErrors.interested_sports ? 'border-danger focus:ring-danger/20' : ''}`}
                         value={formData.interested_sports}
                         onChange={(e) => {
-                          const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-                          setFormData({ ...formData, interested_sports: selectedOptions, sport_interested: selectedOptions[0] || '' });
+                          setFormData({ ...formData, interested_sports: e.target.value, sport_interested: e.target.value });
                           clearFieldError('interested_sports');
                         }}
                         onBlur={() => validateField('interested_sports', formData.interested_sports)}
                         required
                       >
+                        <option value="">Select a sport</option>
                         {SPORTS_OPTIONS.map((sport) => (
-                          <option key={sport} value={sport} className="py-1">
+                          <option key={sport} value={sport}>
                             {sport}
                           </option>
                         ))}
                       </select>
-                      <p className="text-muted-foreground mt-1.5 text-[10px] uppercase font-bold tracking-wider">
-                        Hold Ctrl/Cmd to select multiple
-                      </p>
                       {fieldErrors.interested_sports && <p className="mt-1.5 text-[11px] font-semibold text-danger">{fieldErrors.interested_sports}</p>}
                     </div>
                     
@@ -1147,6 +1215,193 @@ export default function EnquiriesPanel() {
                   <button type="submit" form="edit-form" disabled={submitting} className="btn-primary">
                     {submitting ? 'Updating...' : 'Save Changes'}
                   </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* View Details Modal */}
+      <AnimatePresence>
+        {showViewModal && selectedEnquiry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="card max-h-[90vh] w-full max-w-3xl flex flex-col p-0 overflow-hidden shadow-2xl border border-purple/20"
+            >
+              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-purple/5">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple/20 p-2.5 rounded-xl text-purple shadow-inner">👁</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Enquiry Details</h3>
+                    <p className="text-sm text-muted-foreground">ID: {selectedEnquiry.id}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Student Information */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Student Information</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Name</span>
+                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.student_name}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Age</span>
+                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.age || '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Gender</span>
+                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.gender || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Parent Information */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Parent Information</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Name</span>
+                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.parent_name || '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Phone</span>
+                        <span className="text-sm font-semibold text-foreground font-mono">{selectedEnquiry.phone}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Email</span>
+                        <span className="text-sm font-semibold text-foreground max-w-[200px] overflow-hidden text-ellipsis" title={selectedEnquiry.email}>{selectedEnquiry.email || '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Address</span>
+                        <span className="text-sm font-semibold text-foreground max-w-[200px] overflow-hidden text-ellipsis" title={selectedEnquiry.address}>{selectedEnquiry.address || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enquiry Details */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Enquiry Details</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>
+                          {getStatusDot(selectedEnquiry.status)}
+                          {selectedEnquiry.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Source</span>
+                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.enquiry_source || '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Created</span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {selectedEnquiry.created_at ? new Date(selectedEnquiry.created_at).toLocaleString() : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Updated</span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {selectedEnquiry.updated_at ? new Date(selectedEnquiry.updated_at).toLocaleString() : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sports & Assignment */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Sports & Assignment</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Interested Sports</span>
+                        <div className="flex flex-wrap gap-1.5 justify-end">
+                          {selectedEnquiry.interested_sports ? (
+                            (() => {
+                              try {
+                                const sports = JSON.parse(selectedEnquiry.interested_sports);
+                                return sports.length > 0 ? (
+                                  sports.map((sport, idx) => (
+                                    <span key={idx} className="badge bg-surface-secondary text-foreground/80 border border-border shadow-sm text-[10px]">
+                                      {sport}
+                                    </span>
+                                  ))
+                                ) : <span className="text-sm font-semibold text-foreground">—</span>;
+                              } catch (e) {
+                                return <span className="text-sm font-semibold text-foreground">{selectedEnquiry.sport_interested || '—'}</span>;
+                              }
+                            })()
+                          ) : (
+                            <span className="text-sm font-semibold text-foreground">{selectedEnquiry.sport_interested || '—'}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-foreground">Assigned Coach</span>
+                        <span className="text-sm font-semibold text-foreground max-w-[150px] overflow-hidden text-ellipsis" title={selectedEnquiry.assigned_coach_name}>{selectedEnquiry.assigned_coach_name || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Follow-up Information */}
+                  <div className="space-y-4 md:col-span-2">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Follow-up Information</h4>
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-muted-foreground">Follow-up Date</span>
+                      <span className="text-sm font-semibold text-foreground">
+                        {selectedEnquiry.follow_up_date ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground/60 text-xs">📅</span>
+                            {formatDate(selectedEnquiry.follow_up_date)}
+                          </div>
+                        ) : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-4 md:col-span-2">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Notes / Remarks</h4>
+                    <div className="bg-surface-secondary/50 rounded-xl p-4 border border-border/40">
+                      <p className="text-sm text-foreground whitespace-pre-wrap">
+                        {selectedEnquiry.notes || 'No notes available'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-border/50 bg-surface-secondary p-6">
+                <button onClick={() => setShowViewModal(false)} className="btn-secondary">
+                  Close
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowViewModal(false);
+                    openEditModal(selectedEnquiry);
+                  }}
+                  className="btn-primary"
+                >
+                  Edit Enquiry
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1353,8 +1608,8 @@ export default function EnquiriesPanel() {
 
               <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-surface ring-1 ring-border/50">
                 {typeof window !== 'undefined' && (
-                  <QRCodeSVG
-                    value={`${window.location.origin}/enquiry-form`}
+                  <QRCodeCanvas
+                    value={`${window.location.origin}/enquiry-form${academyId ? `?academy_id=${academyId}` : ''}`}
                     size={200}
                     level="H"
                     includeMargin={false}

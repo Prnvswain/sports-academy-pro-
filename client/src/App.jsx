@@ -16,6 +16,8 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AcademiesPanel from './pages/super-admin/AcademiesPanel';
 import SuperAdminPlansPanel from './pages/super-admin/PlansPanel';
 import ControllerPanel from './pages/super-admin/ControllerPanel';
+import SuperAdminPaymentsPanel from './pages/super-admin/PaymentsPanel';
+import SuperAdminNotificationsPanel from './pages/super-admin/NotificationsPanel';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage.jsx';
 import SportsPanel from './pages/admin/SportsPanel';
 import CoachesPanel from './pages/admin/CoachesPanel';
@@ -27,10 +29,13 @@ import PerformancePanel from './pages/admin/PerformancePanel';
 import EnquiriesPanel from './pages/admin/EnquiriesPanel';
 import GpsSettingsPanel from './pages/admin/GpsSettingsPanel';
 import AdminPlansPanel from './pages/admin/PlansPanel';
+import AdminSubscriptionPanel from './pages/admin/SubscriptionPanel';
+import AdminNotificationsPanel from './pages/admin/NotificationsPanel';
 import SettingsPanel from './pages/admin/SettingsPanel';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
+import CoachStudentsPage from './pages/coach/CoachStudentsPage';
 import CoachNotesPage from './pages/coach/CoachNotesPage';
 import CoachFeesPage from './pages/coach/CoachFeesPage';
 import CoachPerformancePage from './pages/coach/CoachPerformancePage';
@@ -111,7 +116,9 @@ export default function App() {
             />
             <Route path="batches" element={<BatchesPanel />} />
             <Route path="plans" element={<AdminPlansPanel />} />
+            <Route path="subscription" element={<AdminSubscriptionPanel />} />
             <Route path="accounts" element={<PaymentsPanel />} />
+            <Route path="notifications" element={<AdminNotificationsPanel />} />
             <Route path="payments" element={<Navigate to="/admin/accounts" replace />} />
             <Route path="reports" element={<ReportsPanel />} />
             <Route path="performance" element={<PerformancePanel />} />
@@ -139,6 +146,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<CoachDashboardPage />} />
             <Route path="attendance" element={<CoachAttendancePage />} />
+            <Route path="students" element={<CoachStudentsPage />} />
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="performance" element={<CoachPerformancePage />} />
@@ -181,8 +189,10 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<SuperAdminDashboard />} />
-            <Route path="academies" element={<AcademiesPanel />} />
+             <Route path="academies" element={<AcademiesPanel />} />
             <Route path="plans" element={<SuperAdminPlansPanel />} />
+            <Route path="payments" element={<SuperAdminPaymentsPanel />} />
+            <Route path="notifications" element={<SuperAdminNotificationsPanel />} />
             <Route path="controller" element={<ControllerPanel />} />
             <Route path="announcements" element={<SuperAdminAnnouncementHistory />} />
             <Route path="announcements/create" element={<SuperAdminCreateAnnouncement />} />
