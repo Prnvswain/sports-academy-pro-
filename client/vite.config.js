@@ -45,7 +45,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        
+        maximumFileSizeToCacheInBytes: 5242880,
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,woff,ttf,eot}'],
         navigateFallback: '/index.html',
         navigateFallbackAllowlist: [/^\//], // FIX: Allows SPA routing (like /admin/dashboard) to correctly fallback to index.html

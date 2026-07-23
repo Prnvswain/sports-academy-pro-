@@ -83,6 +83,7 @@ export default function AnalyticsPanel() {
   const [error, setError] = useState('');
   const [academy, setAcademy] = useState(null);
   const [logoError, setLogoError] = useState(false);
+  const [invDashboard, setInvDashboard] = useState(null);
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
@@ -115,8 +116,14 @@ export default function AnalyticsPanel() {
     setLoading(true);
     setError('');
     try {
-      const result = await adminGet('/admin/analytics');
+      const [result, invRes] = await Promise.all([
+        adminGet('/admin/analytics'),
+        adminGet('/admin/inventory/dashboard').catch(() => null)
+      ]);
       const data = result?.data || {};
+      if (invRes) {
+        setInvDashboard(invRes.data || invRes);
+      }
       setMetrics({
         total_revenue: data.total_revenue ?? 0,
         active_coach_count: data.active_coach_count ?? 0,
@@ -442,6 +449,22 @@ LiveSessionsCard.displayName = 'LiveSessionsCard';
           borderClass="border-cyan-200 dark:border-cyan-900/40" bgClass="bg-cyan-50 dark:bg-cyan-500/10" textClass="text-cyan-600 dark:text-cyan-400"
           onClick={() => navigate('/admin/batches')}
           variants={itemVariants}
+        />
+
+        <StatCard 
+          title="Inventory Assets" 
+          value={invDashboard ? `${invDashboard.availableStock} / ${invDashboard.totalStock}` : '0 / 0'} 
+          icon={Icons.Trophy} 
+          borderClass="border-violet-200 dark:border-violet-900/40" bgClass="bg-violet-50 dark:bg-violet-500/10" textClass="text-violet-650 dark:text-violet-400"
+          onClick={() => navigate('/admin/inventory')}
+          variants={itemVariants}
+          extraContent={
+            invDashboard?.lowStockAlerts > 0 ? (
+              <div className="text-[10px] text-amber-500 font-bold flex items-center gap-1">
+                <ShieldAlert className="w-3.5 h-3.5" /> {invDashboard.lowStockAlerts} Low Stock Alerts
+              </div>
+            ) : null
+          }
         />
 
         <LiveSessionsCard 

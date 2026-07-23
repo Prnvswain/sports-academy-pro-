@@ -20,7 +20,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  Package
 } from 'lucide-react';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
@@ -55,6 +56,7 @@ const COACH_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: TrendingUp },
   { path: 'fees', label: 'Fees', icon: Wallet },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },
+  { path: 'inventory', label: 'Inventory', icon: Package },
 ];
 
 function CoachLayoutShell() {

@@ -8,6 +8,7 @@ import { enforceActiveSubscription } from '../../middlewares/subscription.middle
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
 import { validate } from './admin.validator.js';
 import { upload } from '../../config/multer.config.js';
+import inventoryAdminRoutes from '../inventory/inventory.admin.route.js';
 
 const router = Router();
 
@@ -33,6 +34,8 @@ router.use((req, res, next) => {
   console.log('Applying normal subscription check');
   return enforceActiveSubscription(req, res, next);
 });
+
+router.use('/inventory', inventoryAdminRoutes);
 
 /* ─── ACADEMY DETAILS ────────────────────────────────────────────────────── */
 router.get('/academy', adminController.getAcademyDetails);
@@ -96,6 +99,7 @@ router.post(
   validationErrorHandler,
   adminController.createStudent,
 );
+router.post('/students/reset-parent-password', adminController.resetParentPassword);
 router.put(
   '/students/:student_id',
   validate('updateStudent'),
@@ -118,7 +122,6 @@ router.post(
 );
 router.put('/students/:student_id/pause', adminController.pauseStudentPlan);
 router.put('/students/:student_id/resume', adminController.resumeStudentPlan);
-router.post('/students/reset-parent-password', adminController.resetParentPassword);
 router.delete('/students/:student_id', adminController.deleteStudent);
 
 /* ─── BATCHES TIMING & CAPACITY ─────────────────────────────────────────── */

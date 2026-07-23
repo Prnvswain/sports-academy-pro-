@@ -444,6 +444,14 @@ model Academy {
 
   new_announcements      Announcement[]
 
+  inventory_items        InventoryItem[]
+
+  inventory_assignments  InventoryAssignment[]
+
+  inventory_requests     InventoryRequest[]
+
+  inventory_history      InventoryHistory[]
+
 
 
   @@map("academies")
@@ -648,6 +656,10 @@ model Coach {
 
   batch_sessions        BatchSession[]
 
+  inventory_assignments InventoryAssignment[]
+
+  inventory_requests    InventoryRequest[]
+
 
 
   @@unique([academy_id, email])
@@ -731,6 +743,8 @@ model Sport {
   perf_attrs          PerformanceAttribute[]
 
   attendanceAuditLogs AttendanceAuditLog[]
+
+  inventory_items     InventoryItem[]
 
 
 
@@ -2128,6 +2142,200 @@ model Fee {
   @@index([status])
 
   @@map("fees")
+
+}
+
+
+
+model InventoryItem {
+
+  item_id         Int                   @id @default(autoincrement())
+
+  academy_id      Int
+
+  name            String
+
+  category        String
+
+  sport_id        Int?
+
+  image_url       String?
+
+  brand           String?
+
+  model_name      String?
+
+  purchase_date   DateTime?
+
+  purchase_price  Decimal?              @db.Decimal(10, 2)
+
+  supplier        String?
+
+  total_qty       Int
+
+  available_qty   Int
+
+  min_stock_alert Int                   @default(0)
+
+  condition       String                @default("New")
+
+  notes           String?               @db.Text
+
+  created_at      DateTime              @default(now())
+
+  updated_at      DateTime              @updatedAt
+
+
+
+  academy         Academy               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "inventory_items_academy_id_fk")
+
+  sport           Sport?                @relation(fields: [sport_id], references: [sport_id], onDelete: SetNull, map: "inventory_items_sport_id_fk")
+
+  assignments     InventoryAssignment[]
+
+  requests        InventoryRequest[]
+
+  history         InventoryHistory[]
+
+
+
+  @@index([academy_id])
+
+  @@index([sport_id])
+
+  @@map("inventory_items")
+
+}
+
+
+
+model InventoryAssignment {
+
+  assignment_id Int           @id @default(autoincrement())
+
+  academy_id    Int
+
+  item_id       Int
+
+  coach_id      Int
+
+  assigned_qty  Int
+
+  returned_qty  Int           @default(0)
+
+  assigned_date DateTime      @default(now())
+
+  notes         String?       @db.Text
+
+
+
+  academy       Academy       @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "inv_assign_academy_fk")
+
+  item          InventoryItem @relation(fields: [item_id], references: [item_id], onDelete: Cascade, map: "inv_assign_item_fk")
+
+  coach         Coach         @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "inv_assign_coach_fk")
+
+
+
+  @@index([academy_id])
+
+  @@index([item_id])
+
+  @@index([coach_id])
+
+  @@map("inventory_assignments")
+
+}
+
+
+
+model InventoryRequest {
+
+  request_id    Int            @id @default(autoincrement())
+
+  academy_id    Int
+
+  item_id       Int?
+
+  coach_id      Int
+
+  type          String
+
+  item_name_new String?
+
+  quantity      Int
+
+  priority      String         @default("Medium")
+
+  reason        String         @db.Text
+
+  proof_url     String?
+
+  status        String         @default("Pending")
+
+  remarks       String?        @db.Text
+
+  created_at    DateTime       @default(now())
+
+  updated_at    DateTime       @updatedAt
+
+
+
+  academy       Academy        @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "inv_req_academy_fk")
+
+  item          InventoryItem? @relation(fields: [item_id], references: [item_id], onDelete: Cascade, map: "inv_req_item_fk")
+
+  coach         Coach          @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "inv_req_coach_fk")
+
+
+
+  @@index([academy_id])
+
+  @@index([item_id])
+
+  @@index([coach_id])
+
+  @@map("inventory_requests")
+
+}
+
+
+
+model InventoryHistory {
+
+  history_id   Int           @id @default(autoincrement())
+
+  academy_id   Int
+
+  item_id      Int
+
+  action_type  String
+
+  qty_change   Int
+
+  previous_qty Int
+
+  new_qty      Int
+
+  performed_by String
+
+  notes        String?       @db.Text
+
+  created_at   DateTime      @default(now())
+
+
+
+  academy       Academy       @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "inv_hist_academy_fk")
+
+  item          InventoryItem @relation(fields: [item_id], references: [item_id], onDelete: Cascade, map: "inv_hist_item_fk")
+
+
+
+  @@index([academy_id])
+
+  @@index([item_id])
+
+  @@map("inventory_history")
 
 }
 

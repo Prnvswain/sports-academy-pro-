@@ -8,12 +8,15 @@ import { validationErrorHandler } from '../../middlewares/validation.middleware.
 import { verifyAttendanceLocation, optionalGpsVerification } from '../../middlewares/gpsVerification.middleware.js';
 import { validate } from './coach.validator.js';
 import { upload } from '../../config/multer.config.js';
+import inventoryCoachRoutes from '../inventory/inventory.coach.route.js';
 
 const router = express.Router();
 
 router.use(authenticate);
 router.use(authorize('COACH'));
 router.use(enforceActiveSubscription);
+
+router.use('/inventory', inventoryCoachRoutes);
 
 router.get('/dashboard', coachController.getDashboard);
 router.get('/batches', coachController.getMyBatches);

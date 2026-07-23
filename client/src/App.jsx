@@ -32,6 +32,8 @@ import AdminPlansPanel from './pages/admin/PlansPanel';
 import AdminSubscriptionPanel from './pages/admin/SubscriptionPanel';
 import AdminNotificationsPanel from './pages/admin/NotificationsPanel';
 import SettingsPanel from './pages/admin/SettingsPanel';
+import InventoryPage from './pages/admin/InventoryPage';
+import CoachInventoryPage from './pages/coach/CoachInventoryPage';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -125,6 +127,7 @@ export default function App() {
             <Route path="enquiries" element={<EnquiriesPanel />} />
             <Route path="gps-settings" element={<GpsSettingsPanel />} />
             <Route path="settings" element={<SettingsPanel />} />
+            <Route path="inventory" element={<InventoryPage />} />
             <Route path="import" element={<Navigate to="/admin/students" replace />} />
             <Route path="analytics" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="announcements" element={<AnnouncementHistory />} />
@@ -150,6 +153,7 @@ export default function App() {
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="performance" element={<CoachPerformancePage />} />
+            <Route path="inventory" element={<CoachInventoryPage />} />
             <Route path="announcements" element={<CoachAnnouncementHistory />} />
             <Route path="announcements/create" element={<CoachCreateAnnouncement />} />
             <Route path="announcements/:id" element={<CoachAnnouncementDetails />} />

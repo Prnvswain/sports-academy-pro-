@@ -27,7 +27,8 @@ import {
   Menu,
   Home,
   CreditCard,
-  Bell
+  Bell,
+  Package
 } from 'lucide-react';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
@@ -69,6 +70,7 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'reports', label: 'Reports', icon: FileText },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },
   { path: 'notifications', label: 'Notifications', icon: Bell },
+  { path: 'inventory', label: 'Inventory', icon: Package },
   { path: 'settings', label: 'Settings', icon: Settings },
 ];
 
