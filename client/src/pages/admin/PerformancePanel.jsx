@@ -254,8 +254,11 @@ export default function PerformancePanel() {
     if (!batchId) return;
     try {
       setLoadingAnalytics(true);
+      console.log('DEBUG: Loading batch analytics for batchId:', batchId);
       const result = await adminGet(`/admin/performance/analytics/batch/${batchId}`);
+      console.log('DEBUG: Batch analytics API response:', result);
       setBatchAnalytics(result.data || result);
+      console.log('DEBUG: Set batchAnalytics to:', result.data || result);
     } catch (error) {
       console.error('Error loading batch analytics:', error);
       setMessage({ text: 'Failed to load batch analytics', type: 'error' });
@@ -1103,7 +1106,7 @@ export default function PerformancePanel() {
                         </div>
                       </motion.div>
                     </div>
-                    {batchAnalytics?.attributeBreakdown && (
+                    {batchAnalytics?.attributeBreakdown && Array.isArray(batchAnalytics.attributeBreakdown) && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1114,23 +1117,23 @@ export default function PerformancePanel() {
                           <span className="text-lg">📊</span> Attribute Performance Breakdown
                         </h5>
                         <div className="space-y-4">
-                          {Object.entries(batchAnalytics.attributeBreakdown).map(([attr, score], idx) => (
+                          {batchAnalytics.attributeBreakdown.map((item, idx) => (
                             <motion.div
-                              key={attr}
+                              key={item.attribute || idx}
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: 0.4 + idx * 0.1 }}
                             >
                               <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-bold text-foreground">{attr}</span>
+                                <span className="text-sm font-bold text-foreground">{item.attribute}</span>
                                 <span className="text-sm font-black text-blue-600 bg-blue-500/20 px-3 py-1 rounded-full">
-                                  {score?.toFixed(1) || 0}
+                                  {item.average || 0}
                                 </span>
                               </div>
                               <div className="w-full bg-surface-secondary rounded-full h-3 overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
-                                  animate={{ width: `${Math.min((score / 10) * 100, 100)}%` }}
+                                  animate={{ width: `${Math.min((item.average / 10) * 100, 100)}%` }}
                                   transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
                                   className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full"
                                 />
@@ -1209,7 +1212,7 @@ export default function PerformancePanel() {
                         </div>
                       </motion.div>
                     </div>
-                    {studentAnalytics?.attributeProgress && (
+                    {studentAnalytics?.attributeProgress && Array.isArray(studentAnalytics.attributeProgress) && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1220,9 +1223,9 @@ export default function PerformancePanel() {
                           <span className="text-lg">📈</span> Attribute Progress Over Time
                         </h5>
                         <div className="space-y-3">
-                          {Object.entries(studentAnalytics.attributeProgress).map(([attr, progress], idx) => (
+                          {studentAnalytics.attributeProgress.map((item, idx) => (
                             <motion.div
-                              key={attr}
+                              key={item.attribute || idx}
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: 0.4 + idx * 0.1 }}
@@ -1230,16 +1233,14 @@ export default function PerformancePanel() {
                               className="p-4 bg-white/50 dark:bg-surface/50 rounded-xl hover:bg-white/80 dark:hover:bg-surface/80 transition-all"
                             >
                               <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-bold text-foreground">{attr}</span>
+                                <span className="text-sm font-bold text-foreground">{item.attribute}</span>
                                 <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1 rounded-full">
-                                  {progress.current?.toFixed(1)} / 10
+                                  {item.average} / 10
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                <span>Previous: <span className="font-bold text-foreground">{progress.previous?.toFixed(1) || 'N/A'}</span></span>
-                                <span>•</span>
-                                <span className={`font-bold ${progress.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                  {progress.change >= 0 ? '+' : ''}{progress.change?.toFixed(1) || 0}
+                                <span className={`font-bold ${item.trend === 'up' ? 'text-emerald-600' : item.trend === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                  {item.trend === 'up' ? '↑ Improving' : item.trend === 'down' ? '↓ Declining' : '→ Stable'}
                                 </span>
                               </div>
                             </motion.div>
@@ -2107,9 +2108,17 @@ export default function PerformancePanel() {
                     className="relative shrink-0"
                   >
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-500 p-1 shadow-xl shadow-emerald-500/30">
-                      <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 to-cyan-600 dark:from-emerald-400 dark:to-cyan-400">
-                        {selectedStudentForDashboard?.name?.charAt(0) || '?'}
-                      </div>
+                      {selectedStudentForDashboard?.profile_photo ? (
+                        <img 
+                          src={selectedStudentForDashboard.profile_photo} 
+                          alt={selectedStudentForDashboard?.name || 'Student'}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-600 to-cyan-600 dark:from-emerald-400 dark:to-cyan-400">
+                          {selectedStudentForDashboard?.name?.charAt(0) || '?'}
+                        </div>
+                      )}
                     </div>
                     <motion.div
                       animate={{ rotate: [0, 5, -5, 0] }}
@@ -2136,10 +2145,37 @@ export default function PerformancePanel() {
                       className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4"
                     >
                       {[
-                        { label: 'Sport', value: selectedStudentForDashboard?.sport?.name || 'N/A', icon: '🏆' },
-                        { label: 'Batch', value: selectedStudentForDashboard?.batch?.name || 'N/A', icon: '👥' },
-                        { label: 'Coach', value: selectedStudentForDashboard?.coach?.name || 'N/A', icon: '👨‍🏫' },
-                        { label: 'Last Assessment', value: studentDashboardData?.history?.[0]?.scored_at ? new Date(studentDashboardData.history[0]?.scored_at).toLocaleDateString() : 'N/A', icon: '📅' }
+                        { 
+                          label: 'Sport', 
+                          value: selectedStudentForDashboard?.enrollments?.[0]?.sport?.name || 
+                                  selectedStudentForDashboard?.sport?.name || 
+                                  selectedStudentForDashboard?.batch?.sport?.name || 
+                                  'N/A', 
+                          icon: '🏆' 
+                        },
+                        { 
+                          label: 'Batch', 
+                          value: selectedStudentForDashboard?.batch?.name || 
+                                  selectedStudentForDashboard?.enrollments?.[0]?.batch?.name || 
+                                  'N/A', 
+                          icon: '👥' 
+                        },
+                        { 
+                          label: 'Coach', 
+                          value: selectedStudentForDashboard?.enrollments?.[0]?.batch?.coaches?.[0]?.coach?.name ||
+                                  selectedStudentForDashboard?.enrollments?.[0]?.coach?.name ||
+                                  selectedStudentForDashboard?.batch?.coaches?.[0]?.coach?.name ||
+                                  selectedStudentForDashboard?.coach?.name || 
+                                  'N/A', 
+                          icon: '👨‍🏫' 
+                        },
+                        { 
+                          label: 'Last Assessment', 
+                          value: studentDashboardData?.history?.[0]?.scored_at ? 
+                                  new Date(studentDashboardData.history[0]?.scored_at).toLocaleDateString() : 
+                                  'N/A', 
+                          icon: '📅' 
+                        }
                       ].map((item, idx) => (
                         <motion.div
                           key={item.label}

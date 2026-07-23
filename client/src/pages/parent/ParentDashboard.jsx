@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { parentGet } from '../../api/client';
 
 export default function ParentDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
@@ -6,6 +7,8 @@ export default function ParentDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -16,6 +19,26 @@ export default function ParentDashboard() {
       fetchDashboardData(selectedStudentId);
     }
   }, [selectedStudentId]);
+
+  // Load active batch sessions for the parent's students
+  useEffect(() => {
+    const loadActiveSessions = async () => {
+      try {
+        setSessionsLoading(true);
+        const result = await parentGet('/parent/batch-sessions/active');
+        setActiveSessions(result.data || []);
+      } catch (err) {
+        console.error('Failed to load active sessions:', err);
+      } finally {
+        setSessionsLoading(false);
+      }
+    };
+    loadActiveSessions();
+    
+    // Refresh every minute
+    const interval = setInterval(loadActiveSessions, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchInitialData = async () => {
     try {
@@ -101,6 +124,9 @@ export default function ParentDashboard() {
   const metrics = dashboardData?.metrics || { attendanceRate: 0, avgPerformanceScore: 0, pendingFees: 0, totalStudents: 0, recentNotes: [] };
   const currentStudent = studentsList.find(s => s.student_id === selectedStudentId) || {};
 
+  // Check if current student has an active session
+  const studentActiveSession = activeSessions.find(s => s.batch_id === currentStudent.batch_id);
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       {/* Welcome Header */}
@@ -108,6 +134,26 @@ export default function ParentDashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Welcome back, {parent?.name || 'Parent'}!</h1>
         <p className="text-gray-600 mt-1">Track your child's progress and achievements</p>
       </div>
+
+      {/* LIVE Session Banner */}
+      {studentActiveSession && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 bg-green-500 rounded-full animate-ping"></span>
+              <div>
+                <h3 className="font-bold text-green-800">🟢 LIVE Session Active</h3>
+                <p className="text-sm text-green-700">
+                  {studentActiveSession.batch?.name} • {studentActiveSession.batch?.sport?.name} • Coach: {studentActiveSession.coach?.name}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-green-600">Started at {new Date(studentActiveSession.start_time).toLocaleTimeString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
           {/* Multi-Child Selector Grid */}
           <div className="mb-8">

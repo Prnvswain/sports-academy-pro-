@@ -54,6 +54,15 @@ export function CoachBatchesProvider({ children }) {
     load();
   }, [load]);
 
+  // Reload batches when sport settings are updated
+  useEffect(() => {
+    const handleSportSettingsUpdate = () => {
+      load();
+    };
+    window.addEventListener('sportSettingsUpdated', handleSportSettingsUpdate);
+    return () => window.removeEventListener('sportSettingsUpdated', handleSportSettingsUpdate);
+  }, [load]);
+
   const allStudents = useMemo(
     () => batches.flatMap((b) => b.students || []),
     [batches]

@@ -154,6 +154,10 @@ enum NotificationType {
 
   COACH_ABSENT
 
+  COACH_LATE
+
+  COACH_PRESENT
+
   SUBSCRIPTION_EXPIRY
 
   NEW_STUDENT
@@ -167,6 +171,10 @@ enum NotificationType {
   ATTRIBUTE_REQUEST
 
   GENERAL
+
+  BATCH_STARTED
+
+  BATCH_COMPLETED
 
 }
 
@@ -380,6 +388,8 @@ model Academy {
 
   attendance_radius_meters Int              @default(100)
 
+  late_grace_period_minutes Int              @default(15)
+
   receipt_template         String?          @db.Text
 
   notification_prefs       String?          @db.Text
@@ -521,6 +531,10 @@ model User {
   approved_receipts  Receipt[]         @relation("ReceiptApprovedBy")
 
   created_receipts   Receipt[]         @relation("ReceiptCreatedBy")
+
+  locked_attendances StudentAttendance[] @relation("AttendanceLockedBy")
+
+  attendance_edit_logs AttendanceEditLog[]
 
 
 
@@ -693,6 +707,8 @@ model Sport {
   longitude           Decimal?     @db.Decimal(10, 7)
 
   use_custom_location Boolean      @default(false)
+
+  attendance_radius_meters Int?       @default(100)
 
   global_sport_id     Int?
 
@@ -872,6 +888,8 @@ enum BatchSessionStatus {
 
   COMPLETED
 
+  LATE_START
+
   MISSED
 
 }
@@ -913,6 +931,8 @@ model BatchSession {
   coach              Coach              @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "batch_sessions_coach_id_fk")
 
   academy            Academy            @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "batch_sessions_academy_id_fk")
+
+  attendanceRecords  StudentAttendance[]
 
 
 
@@ -1277,6 +1297,8 @@ model StudentAttendance {
 
   batch_id                      Int
 
+  batch_session_id              Int?
+
   date                          DateTime         @db.Date
 
   status                        AttendanceStatus
@@ -1293,6 +1315,12 @@ model StudentAttendance {
 
   location_verified             Boolean          @default(false)
 
+  locked                        Boolean          @default(false)
+
+  locked_by_admin_id            Int?
+
+  locked_at                     DateTime?
+
   created_at                    DateTime         @default(now())
 
   updated_at                    DateTime         @updatedAt
@@ -1307,13 +1335,71 @@ model StudentAttendance {
 
   coach   Coach?  @relation(fields: [marked_by_coach_id], references: [coach_id], map: "student_att_coach_id_fk")
 
+  batchSession BatchSession? @relation(fields: [batch_session_id], references: [session_id], onDelete: SetNull)
+
+  lockedBy User? @relation("AttendanceLockedBy", fields: [locked_by_admin_id], references: [user_id])
+
+  editLogs AttendanceEditLog[]
+
 
 
   @@unique([student_id, batch_id, date])
 
   @@index([academy_id, date])
 
+  @@index([batch_session_id])
+
   @@map("student_attendance")
+
+}
+
+
+
+// ─── Attendance Edit Log ─────────────────────────────────────────────────────
+
+
+
+model AttendanceEditLog {
+
+  log_id             Int       @id @default(autoincrement())
+
+  attendance_id      Int
+
+  student_id         Int
+
+  batch_id           Int
+
+  batch_session_id   Int?
+
+  previous_status    String?
+
+  new_status         String
+
+  changed_by_user_id Int
+
+  changed_by_role    String    // 'COACH' or 'ADMIN'
+
+  change_reason      String?   @db.Text
+
+  created_at         DateTime  @default(now())
+
+
+
+  attendance         StudentAttendance @relation(fields: [attendance_id], references: [attendance_id], onDelete: Cascade)
+
+  changedByUser      User      @relation(fields: [changed_by_user_id], references: [user_id])
+
+
+
+  @@index([attendance_id])
+
+  @@index([student_id])
+
+  @@index([batch_session_id])
+
+  @@index([created_at])
+
+  @@map("attendance_edit_logs")
 
 }
 

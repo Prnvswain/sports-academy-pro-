@@ -303,6 +303,34 @@ export const resumeStudentPlan = async (req, res, next) => {
   }
 };
 
+export const resetParentPassword = async (req, res, next) => {
+  try {
+    const { student_id, new_password, send_email } = req.body;
+    
+    if (!student_id || !new_password) {
+      const error = new Error('Student ID and new password are required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const result = await adminService.resetParentPassword(
+      req.user.academy_id,
+      student_id,
+      new_password,
+      send_email,
+      req.user.user_id,
+    );
+    
+    res.json(successResponse(
+      send_email ? 'Password reset and email sent successfully' : 'Password reset successfully',
+      result
+    ));
+  } catch (err) {
+    logger.error('Failed to reset parent password', err);
+    next(err);
+  }
+};
+
 export const getAllBatches = async (req, res, next) => {
   try {
     const batches = await adminService.getAllBatches(req.user.academy_id);
@@ -596,6 +624,26 @@ export const getBatchSessionHistory = async (req, res, next) => {
     const sessions = await coachService.getBatchSessionHistory(req.user.academy_id, filters);
     res.json(successResponse('Batch session history retrieved', sessions));
   } catch (err) {
+    next(err);
+  }
+};
+
+export const endBatchSession = async (req, res, next) => {
+  try {
+    logger.info('Admin endBatchSession called', {
+      session_id: req.params.session_id,
+      academy_id: req.user.academy_id
+    });
+    const session = await coachService.endBatchSessionById(
+      req.params.session_id,
+      req.user.academy_id
+    );
+    res.json(successResponse('Batch session ended successfully', session));
+  } catch (err) {
+    logger.error('Admin endBatchSession error', {
+      session_id: req.params.session_id,
+      error: err.message
+    });
     next(err);
   }
 };

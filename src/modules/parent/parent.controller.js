@@ -1,6 +1,7 @@
 import * as parentService from './parent.service.js';
 import * as performanceService from '../performance/performance.service.js';
 import * as performanceAnalytics from '../performance/performance.analytics.js';
+import * as coachService from '../coach/coach.service.js';
 import { successResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
 import prisma from '../../config/prisma.js';
@@ -441,6 +442,74 @@ export const getChildPerformanceDashboard = async (req, res, next) => {
     );
   } catch (error) {
     console.error('Error in getChildPerformanceDashboard:', error);
+    next(error);
+  }
+};
+
+export const getActiveBatchSessions = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const academy_id = req.user.academy_id;
+
+    // Get all children of this parent
+    const children = await prisma.student.findMany({
+      where: {
+        parent_id,
+        academy_id,
+        is_deleted: false,
+        status: 'ACTIVE'
+      },
+      select: {
+        student_id: true,
+        batch_id: true,
+        name: true
+      }
+    });
+
+    if (children.length === 0) {
+      return res.status(200).json(
+        successResponse('No active sessions found', [])
+      );
+    }
+
+    // Get batch IDs of all children
+    const batchIds = children.map(c => c.batch_id).filter(Boolean);
+
+    // Get active sessions for these batches
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeSessions = await prisma.batchSession.findMany({
+      where: {
+        batch_id: { in: batchIds },
+        academy_id,
+        session_date: today,
+        status: 'LIVE'
+      },
+      include: {
+        batch: {
+          include: {
+            sport: true
+          }
+        },
+        coach: {
+          select: {
+            name: true
+          }
+        }
+      }
+    });
+
+    // Filter sessions to only include those for the parent's children
+    const filteredSessions = activeSessions.filter(session => 
+      batchIds.includes(session.batch_id)
+    );
+
+    return res.status(200).json(
+      successResponse('Active batch sessions retrieved', filteredSessions)
+    );
+  } catch (error) {
+    console.error('Error in getActiveBatchSessions:', error);
     next(error);
   }
 };

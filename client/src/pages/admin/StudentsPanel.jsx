@@ -709,6 +709,11 @@ export default function StudentsPanel() {
     pause_reason: ''
   });
 
+  // Resume modal state
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumeStudent, setResumeStudent] = useState(null);
+  const [resumeEnrollmentInfo, setResumeEnrollmentInfo] = useState(null);
+
   const [editPhotoPreview, setEditPhotoPreview] = useState(null);
 
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -716,6 +721,12 @@ export default function StudentsPanel() {
   const [showRemovePhotoConfirm, setShowRemovePhotoConfirm] = useState(false);
 
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+  // Password reset modal state
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [passwordResetStudent, setPasswordResetStudent] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
 
 
 
@@ -1795,11 +1806,60 @@ export default function StudentsPanel() {
 
 
   const handleResetCredentials = async (studentId) => {
+    const student = students.find(s => s.student_id === studentId);
+    if (!student) return;
 
-    // Placeholder for reset credentials functionality
+    setPasswordResetStudent(student);
+    setNewPassword('');
+    setShowPasswordResetModal(true);
+  };
 
-    alert('Reset credentials functionality to be implemented');
+  const handleGeneratePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewPassword(password);
+  };
 
+  const handleResetPassword = async (sendEmail = false) => {
+    if (!passwordResetStudent || !newPassword) {
+      setMessage({ text: 'Please generate a password first', type: 'error' });
+      return;
+    }
+
+    if (sendEmail && !passwordResetStudent.parent_email) {
+      setMessage({ text: 'Parent email not available. Cannot send email.', type: 'error' });
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const payload = {
+        student_id: passwordResetStudent.student_id,
+        new_password: newPassword,
+        send_email: sendEmail
+      };
+
+      const result = await adminPost('/admin/students/reset-parent-password', payload);
+      setMessage({ 
+        text: sendEmail 
+          ? 'Password reset and email sent successfully' 
+          : 'Password reset successfully', 
+        type: 'success' 
+      });
+      setShowPasswordResetModal(false);
+      setPasswordResetStudent(null);
+      setNewPassword('');
+    } catch (error) {
+      setMessage({ 
+        text: error.message || 'Failed to reset password', 
+        type: 'error' 
+      });
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
 
@@ -1885,22 +1945,36 @@ export default function StudentsPanel() {
 
 
 
-  const handleResumeStudent = async (studentId) => {
-
+  const handleResumeStudent = async (student) => {
+    setResumeStudent(student);
+    setShowResumeModal(true);
+    
+    // Fetch enrollment details to show pause info
     try {
-
-      await adminPost(`/admin/students/${studentId}/resume`);
-
-      setMessage({ text: 'Student plan resumed successfully.', type: 'success' });
-
-      loadData();
-
+      const studentId = student.student_id || student.id;
+      const detailsRes = await adminGet(`/admin/students/${studentId}/details`);
+      const pausedEnrollment = detailsRes.data?.enrollments?.find(e => e.is_paused);
+      setResumeEnrollmentInfo(pausedEnrollment || null);
     } catch (error) {
-
-      setMessage({ text: error.message, type: 'error' });
-
+      console.error('Failed to fetch enrollment details:', error);
+      setResumeEnrollmentInfo(null);
     }
+  };
 
+  const confirmResumeStudent = async () => {
+    if (!resumeStudent) return;
+    
+    try {
+      const studentId = resumeStudent.student_id || resumeStudent.id;
+      await adminPut(`/admin/students/${studentId}/resume`);
+      setMessage({ text: 'Student plan resumed successfully.', type: 'success' });
+      setShowResumeModal(false);
+      setResumeStudent(null);
+      setResumeEnrollmentInfo(null);
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
   };
 
 
@@ -2980,7 +3054,7 @@ export default function StudentsPanel() {
 
       <div className="card overflow-x-auto">
 
-        {selectedStudent ? (
+        {selectedStudent && !showStudentModal ? (
 
           <div className="card">
 
@@ -2999,6 +3073,10 @@ export default function StudentsPanel() {
                   setSelectedStudent(null);
 
                   setStudentDetails(null);
+
+                  setIsEditingStudent(false);
+
+                  setPhotoPreview(null);
 
                 }}
 
@@ -3856,11 +3934,7 @@ export default function StudentsPanel() {
 
                                 <p className="font-semibold">{student.name}</p>
 
-                                {student.parent_email && (
-
-                                  <p className="text-muted text-xs">{student.parent_email}</p>
-
-                                )}
+                                <p className="text-muted text-xs">ID: {student.student_id}</p>
 
                               </div>
 
@@ -3877,27 +3951,11 @@ export default function StudentsPanel() {
                             Array.isArray(student.enrollments) &&
 
                             student.enrollments.length > 0 ? (
-
-                              <div className="flex flex-wrap gap-1">
-
-                                {(student.enrollments || []).map((enrollment) => (
-
-                                  <span
-
-                                    key={enrollment?.enrollment_id || enrollment?.id}
-
-                                    className="bg-success/10 text-success border-success/20 rounded border px-2 py-0.5 text-xs"
-
-                                  >
-
-                                    {enrollment?.sport?.name || enrollment?.sport || '—'}
-
-                                  </span>
-
-                                ))}
-
-                              </div>
-
+                              <span
+                                className="bg-success/10 text-success border-success/20 rounded border px-2 py-0.5 text-xs"
+                              >
+                                {student.enrollments[0]?.sport?.name || student.enrollments[0]?.sport || '—'}
+                              </span>
                             ) : (
 
                               <span>{student?.sport?.name || student?.sport || '—'}</span>
@@ -4022,7 +4080,7 @@ export default function StudentsPanel() {
 
                                   className="p-2 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
 
-                                  onClick={() => handleResumeStudent(student.student_id)}
+                                  onClick={() => handleResumeStudent(student)}
 
                                   title="Resume Student Plan"
 
@@ -5614,13 +5672,47 @@ export default function StudentsPanel() {
 
                 )}
 
+                {!isEditingStudent && (
+
+                  <button
+
+                    type="button"
+
+                    className="btn-secondary btn-sm"
+
+                    onClick={() => {
+
+                      setShowStudentModal(false);
+
+                    }}
+
+                  >
+
+                    View Full Profile
+
+                  </button>
+
+                )}
+
                 <button
 
                   type="button"
 
                   className="text-muted hover:text-foreground"
 
-                  onClick={() => setShowStudentModal(false)}
+                  onClick={() => {
+
+                    setShowStudentModal(false);
+
+                    setSelectedStudent(null);
+
+                    setStudentDetails(null);
+
+                    setIsEditingStudent(false);
+
+                    setPhotoPreview(null);
+
+                  }}
 
                 >
 
@@ -5719,6 +5811,10 @@ export default function StudentsPanel() {
                       </div>
 
                       <div>
+
+                        <h4 className="font-bold text-lg">{studentDetails?.student?.name || selectedStudent?.name || '—'}</h4>
+
+                        <p className="text-muted text-xs">ID: {studentDetails?.student?.student_id || selectedStudent?.student_id || '—'}</p>
 
                         {isEditingStudent ? (
 
@@ -6777,6 +6873,45 @@ export default function StudentsPanel() {
                           <label className="text-muted text-sm font-semibold">Parent Name</label>
 
                           <p>{studentDetails.student.parent_name || '—'}</p>
+
+                        </div>
+
+                        <div>
+
+                          <label className="text-muted text-sm font-semibold">Batch</label>
+
+                          <p>
+                            {studentDetails?.enrollments?.[0]?.batch?.name ||
+                             studentDetails?.student?.batch?.name ||
+                             '—'}
+                          </p>
+
+                        </div>
+
+                        <div>
+
+                          <label className="text-muted text-sm font-semibold">Sport</label>
+
+                          <p>
+                            {studentDetails?.enrollments?.[0]?.sport?.name ||
+                             studentDetails?.student?.sport?.name ||
+                             studentDetails?.student?.batch?.sport?.name ||
+                             '—'}
+                          </p>
+
+                        </div>
+
+                        <div>
+
+                          <label className="text-muted text-sm font-semibold">Assigned Coach</label>
+
+                          <p>
+                            {studentDetails?.enrollments?.[0]?.batch?.coaches?.[0]?.coach?.name ||
+                             studentDetails?.enrollments?.[0]?.coach?.name ||
+                             studentDetails?.student?.batch?.coaches?.[0]?.coach?.name ||
+                             studentDetails?.student?.coach?.name ||
+                             '—'}
+                          </p>
 
                         </div>
 
@@ -8759,6 +8894,248 @@ export default function StudentsPanel() {
             </motion.button>
           </div>
         </form>
+      </motion.div>
+    </motion.div>
+  )}
+
+  {/* Resume Student Modal */}
+  {showResumeModal && resumeStudent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="card animate-premiumModal max-w-md w-full"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Resume Student Plan</h3>
+          <button
+            type="button"
+            onClick={() => {
+              setShowResumeModal(false);
+              setResumeStudent(null);
+              setResumeEnrollmentInfo(null);
+            }}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Student
+            </label>
+            <div className="text-sm font-semibold text-slate-900">
+              {resumeStudent.name || `${resumeStudent.first_name || ''} ${resumeStudent.last_name || ''}`}
+            </div>
+          </div>
+
+          {resumeEnrollmentInfo ? (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                <h4 className="text-sm font-bold text-amber-800">Pause Information</h4>
+                
+                {resumeEnrollmentInfo.pause_start_date && (
+                  <div>
+                    <span className="text-xs text-amber-700 block">Pause Start Date</span>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {new Date(resumeEnrollmentInfo.pause_start_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+
+                {resumeEnrollmentInfo.pause_end_date && (
+                  <div>
+                    <span className="text-xs text-amber-700 block">Planned Resume Date</span>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {new Date(resumeEnrollmentInfo.pause_end_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+
+                {resumeEnrollmentInfo.pause_duration_days && (
+                  <div>
+                    <span className="text-xs text-amber-700 block">Pause Duration</span>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {resumeEnrollmentInfo.pause_duration_days} days
+                    </span>
+                  </div>
+                )}
+
+                {resumeEnrollmentInfo.pause_reason && (
+                  <div>
+                    <span className="text-xs text-amber-700 block">Pause Reason</span>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {resumeEnrollmentInfo.pause_reason}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-blue-800">
+                  ⚠️ This will resume the student's plan immediately. All pause-related data will be cleared.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <p className="text-sm text-slate-600">
+                No pause information found. The student's plan will be resumed immediately.
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end pt-2">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowResumeModal(false);
+                setResumeStudent(null);
+                setResumeEnrollmentInfo(null);
+              }}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={confirmResumeStudent}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors"
+            >
+              Resume Plan
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+
+  {/* Password Reset Modal */}
+  {showPasswordResetModal && passwordResetStudent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="card animate-premiumModal max-w-md w-full"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Reset Parent Portal Password</h3>
+          <button
+            type="button"
+            onClick={() => setShowPasswordResetModal(false)}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs text-slate-600 block">Parent Name</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {passwordResetStudent.parent_name || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-600 block">Parent Email</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {passwordResetStudent.parent_email || 'Not available'}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-600 block">Current Password</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  (Hashed - Not retrievable)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              New Password
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="input-field flex-1 font-mono text-sm"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Click 'Generate' to create password"
+                readOnly
+              />
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleGeneratePassword}
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors"
+              >
+                Generate
+              </motion.button>
+            </div>
+          </div>
+
+          {!passwordResetStudent.parent_email && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-amber-800">
+                ⚠️ Parent email is not available. Email cannot be sent.
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end pt-2">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowPasswordResetModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleResetPassword(false)}
+              disabled={resettingPassword || !newPassword}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resettingPassword ? 'Resetting...' : 'Reset Password'}
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleResetPassword(true)}
+              disabled={resettingPassword || !newPassword || !passwordResetStudent.parent_email}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resettingPassword ? 'Sending...' : 'Reset & Send Email'}
+            </motion.button>
+          </div>
+        </div>
       </motion.div>
     </motion.div>
   )}

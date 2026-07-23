@@ -15,6 +15,26 @@ const startServer = async () => {
     port: PORT
   });
 
+  // Add global uncaught exception handler
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception', {
+      message: error.message,
+      stack: error.stack
+    });
+    // Don't exit immediately, give time for logs to flush
+    setTimeout(() => {
+      process.exit(1);
+    }, 1000);
+  });
+
+  // Add global unhandled rejection handler
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection', {
+      reason: reason,
+      promise: promise
+    });
+  });
+
   // Load dynamic plans into cache on startup
   try {
     const setting = await prisma.globalSetting.findUnique({

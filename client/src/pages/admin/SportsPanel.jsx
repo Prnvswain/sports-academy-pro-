@@ -25,6 +25,18 @@ export default function SportsPanel() {
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [editingFeeValue, setEditingFeeValue] = useState('');
 
+  // ─── Edit Sport Modal ───────────────────────────────────────────────────────
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSport, setEditingSport] = useState(null);
+  const [editForm, setEditForm] = useState({
+    sport_center: '',
+    attendance_radius_meters: '',
+    base_fee: '',
+    latitude: '',
+    longitude: '',
+    use_custom_location: false,
+  });
+
   // ─── Add Sport: new multi-select search state ───────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -422,6 +434,71 @@ export default function SportsPanel() {
       loadSports();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleEditSport = (sport) => {
+    setEditingSport(sport);
+    setEditForm({
+      sport_center: sport.sport_center || '',
+      attendance_radius_meters: sport.attendance_radius_meters || '',
+      base_fee: sport.base_fee || sport.baseFee || '',
+      latitude: sport.latitude || '',
+      longitude: sport.longitude || '',
+      use_custom_location: !!(sport.latitude && sport.longitude),
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditSport = async () => {
+    setMessage({ text: '', type: '' });
+    try {
+      const sportId = editingSport.sport_id || editingSport.id;
+      const updateData = {};
+      
+      if (editForm.sport_center !== undefined && editForm.sport_center !== '') {
+        updateData.sport_center = editForm.sport_center;
+      }
+      if (editForm.attendance_radius_meters !== undefined && editForm.attendance_radius_meters !== '') {
+        updateData.attendance_radius_meters = parseInt(editForm.attendance_radius_meters);
+      }
+      if (editForm.base_fee !== undefined && editForm.base_fee !== '') {
+        updateData.base_fee = parseFloat(editForm.base_fee);
+      }
+      if (editForm.use_custom_location && editForm.latitude && editForm.longitude) {
+        updateData.latitude = parseFloat(editForm.latitude);
+        updateData.longitude = parseFloat(editForm.longitude);
+      } else if (!editForm.use_custom_location) {
+        updateData.latitude = null;
+        updateData.longitude = null;
+      }
+
+      await adminPatch(`/admin/sports/${sportId}`, updateData);
+      setMessage({ text: 'Sport details updated successfully', type: 'success' });
+      setShowEditModal(false);
+      setEditingSport(null);
+      setEditForm({ sport_center: '', attendance_radius_meters: '', base_fee: '', latitude: '', longitude: '', use_custom_location: false });
+      loadSports();
+      // Notify coach side to reload batches with updated sport config
+      window.dispatchEvent(new CustomEvent('sportSettingsUpdated'));
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleEditLocationCapture = (locationData) => {
+    if (locationData) {
+      setEditForm((prev) => ({
+        ...prev,
+        latitude: locationData.latitude.toFixed(7),
+        longitude: locationData.longitude.toFixed(7),
+      }));
+    } else {
+      setEditForm((prev) => ({
+        ...prev,
+        latitude: '',
+        longitude: '',
+      }));
     }
   };
 
@@ -1020,6 +1097,140 @@ export default function SportsPanel() {
         )}
       </AnimatePresence>
 
+      {/* ── Edit Sport Modal ── */}
+      <AnimatePresence>
+        {showEditModal && editingSport && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-[#111814] shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800 overflow-hidden"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800/60 px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Sport Details</h3>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">{editingSport.name}</p>
+                </div>
+                <button type="button" className="rounded-xl p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowEditModal(false)}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Sport Center Location</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111814] px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Enter sport center location"
+                    value={editForm.sport_center}
+                    onChange={(e) => setEditForm({ ...editForm, sport_center: e.target.value })}
+                  />
+                </div>
+
+                {/* Location Toggle and Map */}
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editForm.use_custom_location}
+                        onChange={(e) => setEditForm({ ...editForm, use_custom_location: e.target.checked })}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700"
+                      />
+                      <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Use Custom GPS Location</span>
+                    </label>
+                  </div>
+
+                  {!editForm.use_custom_location && academyLocation ? (
+                    <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                      <div className="h-48 w-full">
+                        <MapContainer
+                          center={[academyLocation.latitude, academyLocation.longitude]}
+                          zoom={15}
+                          style={{ height: '100%', width: '100%' }}
+                        >
+                          <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          />
+                        </MapContainer>
+                      </div>
+
+                      <div className="rounded-lg bg-white/70 p-2.5 text-xs text-blue-700 dark:bg-black/20 dark:text-blue-300">
+                        <p className="font-semibold">Academy Location (Default)</p>
+                        <p className="font-mono">Lat: {academyLocation.latitude.toFixed(7)}</p>
+                        <p className="font-mono">Lon: {academyLocation.longitude.toFixed(7)}</p>
+                      </div>
+
+                      {academyLocationAddress ? (
+                        <p className="text-xs text-blue-700 dark:text-blue-300 px-3 pb-2">{academyLocationAddress}</p>
+                      ) : (
+                        <p className="text-xs text-blue-700 dark:text-blue-300 px-3 pb-2">Address details are not available for this academy location.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-blue-700 dark:text-blue-400 text-xs">
+                      {academyLocationMessage || 'Academy location has not been configured yet.'}
+                    </p>
+                  )}
+
+                  {/* Custom Location Capture */}
+                  {editForm.use_custom_location && (
+                    <div className="relative z-10">
+                      <GPSCapture
+                        onLocationCapture={handleEditLocationCapture}
+                        initialLocation={editForm.latitude && editForm.longitude ? {
+                          latitude: parseFloat(editForm.latitude),
+                          longitude: parseFloat(editForm.longitude)
+                        } : null}
+                        required={false}
+                        label="Custom Sport Center Location"
+                        placeholder="Capture custom GPS coordinates"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Attendance Radius (meters)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111814] px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Enter attendance radius in meters"
+                    value={editForm.attendance_radius_meters}
+                    onChange={(e) => setEditForm({ ...editForm, attendance_radius_meters: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Base Fee (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111814] px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Enter base fee"
+                    value={editForm.base_fee}
+                    onChange={(e) => setEditForm({ ...editForm, base_fee: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-gray-800/60 px-6 py-4 bg-gray-50/50 dark:bg-gray-900/30">
+                <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </button>
+                <button type="button" className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors" onClick={handleSaveEditSport}>
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ── Active Sports Table Section ── */}
       <div className="rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 overflow-hidden">
         
@@ -1179,6 +1390,14 @@ export default function SportsPanel() {
                           </td>
                           <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <button
+                                  type="button"
+                                  className="rounded-lg p-2 text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors"
+                                  onClick={() => handleEditSport(sport)}
+                                  title="Edit Sport Details"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
                                 {!isInactive ? (
                                   <button
                                     type="button"

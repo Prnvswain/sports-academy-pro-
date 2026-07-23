@@ -790,7 +790,16 @@ export const getStudentDetails = async (academy_id, student_id) => {
 
         duration_plan: true,
 
-        batch: true,
+        batch: {
+          include: {
+            coaches: {
+              include: {
+                coach: true
+              }
+            }
+          }
+        },
+        coach: true,
 
       },
 
@@ -1496,6 +1505,30 @@ export const updateSport = async (academy_id, sport_id, data) => {
 
   }
 
+  if (data.sport_center !== undefined) {
+
+    updateData.sport_center = data.sport_center;
+
+  }
+
+  if (data.attendance_radius_meters !== undefined) {
+
+    updateData.attendance_radius_meters = data.attendance_radius_meters === null ? null : parseInt(data.attendance_radius_meters);
+
+  }
+
+  if (data.latitude !== undefined) {
+
+    updateData.latitude = data.latitude === null ? null : parseFloat(data.latitude);
+
+  }
+
+  if (data.longitude !== undefined) {
+
+    updateData.longitude = data.longitude === null ? null : parseFloat(data.longitude);
+
+  }
+
 
 
   const updatedSport = await prisma.sport.update({
@@ -2127,19 +2160,40 @@ export const getAllStudents = async (academy_id) => {
 
       include: {
 
-        batch: true,
+        batch: {
+          include: {
+            coaches: {
+              include: {
+                coach: true
+              }
+            }
+          }
+        },
         sport: true,
         enrollments: {
-
+          where: {
+            is_active: true
+          },
           include: {
 
             sport: true,
 
             duration_plan: true,
 
-            batch: true,
+            batch: {
+              include: {
+                coaches: {
+                  include: {
+                    coach: true
+                  }
+                }
+              }
+            },
 
           },
+
+          orderBy: { created_at: 'desc' },
+          take: 1, // Only get the most recent active enrollment
 
         },
 
@@ -6652,4 +6706,105 @@ export const resumeStudentPlan = async (academy_id, student_id, admin_user_id) =
   logger.info('Student plan resumed', { student_id: studentId, academy_id: academyId, admin_user_id });
 
   return updatedEnrollment;
+};
+
+export const resetParentPassword = async (academy_id, student_id, new_password, send_email, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  
+  logger.info('resetParentPassword called', { academy_id: academyId, student_id: studentId, send_email });
+
+  // Get student with parent information
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      ...NOT_DELETED
+    },
+    include: {
+      parent: true
+    }
+  });
+
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!student.parent) {
+    const error = new Error('No parent account found for this student');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Hash the new password
+  const bcrypt = await import('bcryptjs');
+  const saltRounds = 10;
+  const password_hash = await bcrypt.hash(new_password, saltRounds);
+
+  // Update parent password
+  const updatedParent = await prisma.parent.update({
+    where: { parent_id: student.parent.parent_id },
+    data: {
+      password_hash,
+      must_change_password: true
+    }
+  });
+
+  // Log audit
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'ADMIN',
+    actor_id: admin_user_id,
+    action: 'PARENT_PASSWORD_RESET',
+    metadata: {
+      student_id: studentId,
+      parent_id: student.parent.parent_id,
+      parent_email: student.parent.email,
+      send_email
+    }
+  });
+
+  logger.info('Parent password reset successfully', { 
+    parent_id: student.parent.parent_id, 
+    student_id: studentId,
+    academy_id: academyId,
+    send_email 
+  });
+
+  // Send email if requested
+  if (send_email && student.parent.email) {
+    try {
+      const { sendParentPasswordResetEmail } = await import('../../services/email.service.js');
+      const portalUrl = `${process.env.PARENT_PORTAL_URL || 'http://localhost:3001'}/login`;
+      
+      await sendParentPasswordResetEmail(
+        student.parent.email,
+        student.parent.name,
+        {
+          portalUrl,
+          username: student.parent.email,
+          password: new_password
+        }
+      );
+      
+      logger.info('Parent password reset email sent', { 
+        parent_id: student.parent.parent_id,
+        email: student.parent.email 
+      });
+    } catch (emailError) {
+      logger.error('Failed to send password reset email', { 
+        error: emailError.message,
+        parent_id: student.parent.parent_id 
+      });
+      // Don't throw error - password was reset successfully, just email failed
+    }
+  }
+
+  return {
+    parent_id: updatedParent.parent_id,
+    email: updatedParent.email,
+    must_change_password: updatedParent.must_change_password
+  };
 };

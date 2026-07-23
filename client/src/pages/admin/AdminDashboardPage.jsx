@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, ShieldAlert } from 'lucide-react';
@@ -11,6 +11,13 @@ function formatCurrency(value) {
     return '₹0.00';
   }
   return `₹${num.toFixed(2)}`;
+}
+
+function formatTime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Custom Sports & SaaS Premium Icons with Framer Motion integrations
@@ -165,6 +172,7 @@ export default function AnalyticsPanel() {
     return () => clearInterval(interval);
   }, []);
 
+
   useEffect(() => {
     const fetchAcademy = async () => {
       try {
@@ -220,29 +228,92 @@ export default function AnalyticsPanel() {
   const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } };
   const itemVariants = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 400, damping: 28 } } };
 
-  // Reusable Highly Compact StatCard Component
-  const StatCard = ({ title, value, icon: Icon, borderClass, bgClass, textClass, onClick, extraContent }) => {
-    const isClickable = !!onClick;
-    return (
-      <motion.div
-        variants={itemVariants}
-        onClick={onClick}
-        whileHover={isClickable ? { y: -3, scale: 1.01 } : { y: -2 }}
-        className={`bg-card border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm ${borderClass} ${isClickable ? 'cursor-pointer' : ''}`}
-      >
-        <div className="flex items-start justify-between w-full">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 block">{title}</span>
-            <span className={`text-2xl font-black tracking-tight block ${textClass}`}>{value}</span>
-          </div>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bgClass} border border-current/10 shadow-inner`}>
-            <Icon className={`h-5 w-5 ${textClass}`} />
-          </div>
+  // Memoized StatCard Component to prevent unnecessary re-renders
+const StatCard = memo(({ title, value, icon: Icon, borderClass, bgClass, textClass, onClick, extraContent, variants }) => {
+  const isClickable = !!onClick;
+  return (
+    <motion.div
+      variants={variants}
+      onClick={onClick}
+      whileHover={isClickable ? { y: -3, scale: 1.01 } : { y: -2 }}
+      className={`bg-card border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm ${borderClass} ${isClickable ? 'cursor-pointer' : ''}`}
+    >
+      <div className="flex items-start justify-between w-full">
+        <div className="space-y-0.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 block">{title}</span>
+          <span className={`text-2xl font-black tracking-tight block ${textClass}`}>{value}</span>
         </div>
-        {extraContent && <div className="w-full mt-3">{extraContent}</div>}
-      </motion.div>
-    );
-  };
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bgClass} border border-current/10 shadow-inner`}>
+          <Icon className={`h-5 w-5 ${textClass}`} />
+        </div>
+      </div>
+      {extraContent && <div className="w-full mt-3">{extraContent}</div>}
+    </motion.div>
+  );
+});
+
+StatCard.displayName = 'StatCard';
+
+// Live Sessions Card with isolated timer updates
+const LiveSessionsCard = memo(({ activeSessions, onClick, variants }) => {
+  const [sessionTimers, setSessionTimers] = useState({});
+  
+  // Update timers only for this component
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSessionTimers(prev => {
+        const newTimers = {};
+        activeSessions.forEach(session => {
+          if (session.status === 'LIVE' || session.status === 'LATE_START') {
+            if (session.start_time) {
+              const startTime = new Date(session.start_time);
+              const now = new Date();
+              const elapsed = Math.floor((now - startTime) / 1000);
+              newTimers[session.session_id] = elapsed;
+            }
+          }
+        });
+        return newTimers;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeSessions]);
+  
+  const liveSessions = activeSessions.filter(s => s.status === 'LIVE' || s.status === 'LATE_START');
+  const liveCount = liveSessions.length;
+  
+  return (
+    <motion.div
+      variants={variants}
+      onClick={onClick}
+      whileHover={{ y: -3, scale: 1.01 }}
+      className="bg-card border border-red-200 dark:border-red-900/40 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm cursor-pointer"
+    >
+      <div className="flex items-start justify-between w-full">
+        <div className="space-y-0.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 block">Live Sessions</span>
+          <span className="text-2xl font-black tracking-tight block text-red-600 dark:text-red-400">{liveCount}</span>
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 dark:bg-red-500/10 border border-current/10 shadow-inner">
+          <Icons.Whistle className="h-5 w-5 text-red-600 dark:text-red-400" />
+        </div>
+      </div>
+      {liveCount > 0 && (
+        <div className="mt-2 space-y-1">
+          <span className="text-[9px] font-black text-red-500 uppercase tracking-wider animate-pulse block">Active Now</span>
+          {liveSessions.map(session => (
+            <div key={session.session_id} className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+              <span className="w-1.5 h-1 bg-green-500 rounded-full animate-pulse"></span>
+              {session.batch?.name}: {formatTime(sessionTimers[session.session_id] || 0)}
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+});
+
+LiveSessionsCard.displayName = 'LiveSessionsCard';
 
   return (
     <div className="w-full bg-transparent font-sans p-2 space-y-6">
@@ -332,6 +403,7 @@ export default function AnalyticsPanel() {
           title="Total Revenue" value={formatCurrency(safeMetrics.total_revenue)} icon={Icons.Chart} 
           borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-emerald-600 dark:text-emerald-400"
           onClick={() => navigate('/admin/accounts')}
+          variants={itemVariants}
           extraContent={
             <div className="h-1 w-full bg-surface rounded-full overflow-hidden"><div className="h-full bg-emerald-500 w-full" /></div>
           }
@@ -341,76 +413,87 @@ export default function AnalyticsPanel() {
           title="Active Coaches" value={safeMetrics.active_coach_count ?? 0} icon={Icons.Whistle} 
           borderClass="border-indigo-200 dark:border-indigo-900/40" bgClass="bg-indigo-50 dark:bg-indigo-500/10" textClass="text-indigo-600 dark:text-indigo-400"
           onClick={() => navigate('/admin/coaches')}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Active Students" value={safeMetrics.active_student_count ?? 0} icon={Icons.Players} 
           borderClass="border-blue-200 dark:border-blue-900/40" bgClass="bg-blue-50 dark:bg-blue-500/10" textClass="text-blue-600 dark:text-blue-400"
           onClick={() => navigate('/admin/students')}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Paused Students" value={safeMetrics.paused_student_count ?? 0} icon={Icons.Stopwatch} 
           borderClass="border-amber-200 dark:border-amber-900/40" bgClass="bg-amber-50 dark:bg-amber-500/10" textClass="text-amber-600 dark:text-amber-400"
           onClick={() => navigate('/admin/students')}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Inactive Students" value={safeMetrics.inactive_student_count ?? 0} icon={Icons.RedCard} 
           borderClass="border-rose-200 dark:border-rose-900/40" bgClass="bg-rose-50 dark:bg-rose-500/10" textClass="text-rose-600 dark:text-rose-400"
           onClick={() => navigate('/admin/students')}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Total Batches" value={safeMetrics.total_batches ?? 0} icon={Icons.Stopwatch} 
           borderClass="border-cyan-200 dark:border-cyan-900/40" bgClass="bg-cyan-50 dark:bg-cyan-500/10" textClass="text-cyan-600 dark:text-cyan-400"
           onClick={() => navigate('/admin/batches')}
+          variants={itemVariants}
         />
 
-        <StatCard 
-          title="Live Sessions" value={activeSessions.filter(s => s.status === 'LIVE').length ?? 0} icon={Icons.Whistle} 
-          borderClass="border-red-200 dark:border-red-900/40" bgClass="bg-red-50 dark:bg-red-500/10" textClass="text-red-600 dark:text-red-400"
+        <LiveSessionsCard 
+          activeSessions={activeSessions}
           onClick={() => navigate('/admin/batches')}
-          extraContent={activeSessions.filter(s => s.status === 'LIVE').length > 0 && <span className="text-[9px] font-black text-red-500 uppercase tracking-wider animate-pulse block">Active Now</span>}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Paid Accounts" value={summary.paid_students ?? 0} icon={Icons.CheckBadge} 
           borderClass="border-teal-200 dark:border-teal-900/40" bgClass="bg-teal-50 dark:bg-teal-500/10" textClass="text-teal-600 dark:text-teal-400"
           onClick={() => navigate('/admin/students?status=paid')}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Unpaid Accounts" value={summary.unpaid_students ?? 0} icon={Icons.RedCard} 
           borderClass="border-red-200 dark:border-red-900/40" bgClass="bg-red-50 dark:bg-red-500/10" textClass="text-red-600 dark:text-red-400"
           onClick={() => navigate('/admin/students?status=unpaid')}
+          variants={itemVariants}
           extraContent={summary.unpaid_students > 0 && <span className="text-[9px] font-black text-red-500 uppercase tracking-wider animate-pulse block">Review Pipeline</span>}
         />
 
         <StatCard 
           title="Pending Dues" value={formatCurrency(safeMetrics.pending_dues ?? 0)} icon={Icons.RedCard} 
           borderClass="border-orange-200 dark:border-orange-900/40" bgClass="bg-orange-50 dark:bg-orange-500/10" textClass="text-orange-600 dark:text-orange-400"
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Evaluations Log" value={safeMetrics.performance_scores_count ?? 0} icon={Icons.Star} 
           borderClass="border-fuchsia-200 dark:border-fuchsia-900/40" bgClass="bg-fuchsia-50 dark:bg-fuchsia-500/10" textClass="text-fuchsia-600 dark:text-fuchsia-400"
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Daily Notes" value={safeMetrics.daily_notes_count ?? 0} icon={Icons.TacticsBoard} 
           borderClass="border-sky-200 dark:border-sky-900/40" bgClass="bg-sky-50 dark:bg-sky-500/10" textClass="text-sky-600 dark:text-sky-400"
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Monthly Revenue" value={formatCurrency(safeMetrics.monthly_revenue ?? 0)} icon={Icons.Chart} 
           borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-emerald-600 dark:text-emerald-400"
           onClick={() => navigate('/admin/accounts')}
+          variants={itemVariants}
         />
 
         <StatCard 
           title="Monthly Attendance" value={safeMetrics.monthly_attendance ?? 0} icon={Icons.CalendarCheck} 
           borderClass="border-emerald-200 dark:border-emerald-900/40" bgClass="bg-emerald-50 dark:bg-emerald-500/10" textClass="text-foreground font-black"
+          variants={itemVariants}
         />
       </motion.div>
     </div>

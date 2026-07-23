@@ -7,6 +7,7 @@ export default function StudentAttendanceCard({
   remarksMap,
   onAttendanceChange,
   onRemarksChange,
+  onRemarksBlur,
   disabled = false,
   readOnly = false
 }) {
@@ -104,6 +105,7 @@ export default function StudentAttendanceCard({
               placeholder="Optional remarks"
               value={remarksMap[student.student_id] || ''}
               onChange={(e) => !disabled && !readOnly && onRemarksChange(student.student_id, e.target.value)}
+              onBlur={() => !disabled && !readOnly && onRemarksBlur && onRemarksBlur(student.student_id)}
               disabled={disabled || readOnly}
             />
           </div>

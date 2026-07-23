@@ -221,7 +221,7 @@ export const markAttendance = async (req, res, next) => {
 
 export const startBatchSession = async (req, res, next) => {
   try {
-    const { batch_id } = req.body;
+    const { batch_id, latitude, longitude, accuracy } = req.body;
     
     if (!batch_id) {
       const error = new Error('Batch ID is required');
@@ -232,7 +232,10 @@ export const startBatchSession = async (req, res, next) => {
     const session = await coachService.startBatchSession(
       req.user.coach_id,
       req.user.academy_id,
-      batch_id
+      batch_id,
+      latitude,
+      longitude,
+      accuracy
     );
     
     res.status(201).json(
@@ -281,3 +284,27 @@ export const getActiveSessions = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getStudentAttendance = async (req, res, next) => {
+  try {
+    const { batch_id, date } = req.query;
+
+    if (!batch_id) {
+      const error = new Error('Batch ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const records = await coachService.getStudentAttendance(
+      req.user.coach_id,
+      req.user.academy_id,
+      batch_id,
+      date
+    );
+
+    res.json(successResponse('Student attendance retrieved successfully', records));
+  } catch (err) {
+    next(err);
+  }
+};
+

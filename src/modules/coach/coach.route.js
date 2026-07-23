@@ -22,7 +22,8 @@ router.get('/sports', coachController.getSports);
 router.get('/payments', coachController.getPayments);
 router.get('/students-fee-summary', coachController.getStudentsFeeSummary);
 router.get('/student-ledger/:student_id', coachController.getStudentLedger);
-router.post('/attendance', verifyAttendanceLocation, validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
+router.get('/attendance', coachController.getStudentAttendance);
+router.post('/attendance', validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
 router.post(
   '/payments',
   upload.single('proof_file'),

@@ -29,6 +29,8 @@ export default function BatchesPanel() {
   const [sessionHistory, setSessionHistory] = useState([]);
   const [sessionHistoryLoading, setSessionHistoryLoading] = useState(false);
   const [sessionFilters, setSessionFilters] = useState({ batch_id: '', coach_id: '', date_from: '', date_to: '', status: '' });
+  const [sessionToEnd, setSessionToEnd] = useState(null);
+  const [endingSession, setEndingSession] = useState(false);
 
   // States for Searchable Coach Dropdown
   const [coachSearch, setCoachSearch] = useState('');
@@ -305,6 +307,23 @@ export default function BatchesPanel() {
     setSessionFilters({ batch_id: '', coach_id: '', date_from: '', date_to: '', status: '' });
   };
 
+  const handleEndSession = async () => {
+    if (!sessionToEnd) return;
+    
+    setEndingSession(true);
+    try {
+      await adminPost(`/admin/batch-sessions/${sessionToEnd.session_id}/end`);
+      setMessage({ text: 'Batch session ended successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      setSessionToEnd(null);
+      loadSessionHistory(); // Refresh the session list
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setEndingSession(false);
+    }
+  };
+
   const filteredBatches = (batches || []).filter(
     (batch) =>
       batch?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -537,14 +556,28 @@ export default function BatchesPanel() {
                                 <h5 className="font-bold text-foreground">{session.batch_name}</h5>
                                 <p className="text-sm text-muted-foreground">{session.sport_name} • {session.timing}</p>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                session.status === 'LIVE' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                                session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                session.status === 'MISSED' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                              }`}>
-                                {session.status}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                  session.status === 'LIVE' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                  session.status === 'LATE_START' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                  session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                  session.status === 'MISSED' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' :
+                                  session.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                }`}>
+                                  {session.status}
+                                </span>
+                                {(session.status === 'LIVE' || session.status === 'LATE_START') && (
+                                  <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setSessionToEnd(session)}
+                                    className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors"
+                                  >
+                                    Batch Over
+                                  </motion.button>
+                                )}
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               <div>
@@ -575,6 +608,53 @@ export default function BatchesPanel() {
                         ))}
                       </div>
                     )}
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+        {/* Batch Over Confirmation Modal using Portal */}
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {sessionToEnd && (
+              <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+                <motion.div
+                  className="bg-card p-8 rounded-[2rem] shadow-2xl max-w-md w-full border border-red-200 dark:border-red-900/50"
+                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                  transition={{ type: "spring", bounce: 0.4 }}
+                >
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="h-14 w-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0 border border-red-100 dark:border-red-800">
+                      <AlertCircle className="h-7 w-7 text-red-500" />
+                    </div>
+                    <h4 className="text-xl font-black text-foreground">End Batch Session</h4>
+                  </div>
+                  <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8 bg-surface border border-border p-4 rounded-xl">
+                    Are you sure you want to end the batch session for <span className="text-foreground">{sessionToEnd.batch_name}</span>? 
+                    This will mark the session as completed and lock all attendance records.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      className="flex-1 px-4 py-3.5 text-sm font-bold rounded-xl bg-surface border border-border text-foreground hover:bg-surface-secondary transition-colors"
+                      onClick={() => setSessionToEnd(null)}
+                      disabled={endingSession}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 px-4 py-3.5 text-sm font-black rounded-xl bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleEndSession}
+                      disabled={endingSession}
+                    >
+                      {endingSession ? 'Ending...' : 'End Session'}
+                    </button>
                   </div>
                 </motion.div>
               </div>

@@ -10,6 +10,7 @@ export default function GPSVerificationCard({
   distanceFromCenter,
   sportCenter,
   attendanceRadius,
+  sportName,
   required = true,
   disabled = false
 }) {
@@ -31,6 +32,25 @@ export default function GPSVerificationCard({
           <p className="text-sm">
             Sport center location not configured. Please contact admin to set up GPS verification.
           </p>
+        </div>
+      )}
+
+      {attendanceRadius === null && sportCenter && (
+        <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400 mb-4">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">
+            Attendance radius not configured for {sportName || 'this sport'}. Please contact admin to configure sport settings.
+          </p>
+        </div>
+      )}
+
+      {attendanceRadius !== null && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 mb-4">
+          <MapPin className="w-5 h-5 flex-shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium">Configured Sport: {sportName || 'Unknown'}</p>
+            <p>Allowed Radius: {attendanceRadius}m</p>
+          </div>
         </div>
       )}
 

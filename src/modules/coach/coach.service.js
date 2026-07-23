@@ -16,8 +16,50 @@ import logger from '../../utils/logger.js';
 
 import { calculateStudentFee } from '../../utils/fee.util.js';
 import * as receiptService from '../../services/receipt.service.js';
+import * as emailService from '../../services/email.service.js';
+import { verifyLocation, getAttendanceLocation, validateCoordinates } from '../../utils/gpsUtils.js';
+
+export const getUtcMidnight = (val) => {
+  if (!val) {
+    const d = new Date();
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+  if (typeof val === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      const [year, month, day] = val.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+    const dateMatch = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (dateMatch) {
+      const year = parseInt(dateMatch[1], 10);
+      const month = parseInt(dateMatch[2], 10);
+      const day = parseInt(dateMatch[3], 10);
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+  }
+  const d = new Date(val);
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+};
 
 const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
+
+
+
+// Helper function to calculate distance between two GPS coordinates
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
 
 
 
@@ -25,7 +67,7 @@ const VALID_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE'];
 
 
 
-export const startBatchSession = async (coach_id, academy_id, batch_id) => {
+export const startBatchSession = async (coach_id, academy_id, batch_id, latitude, longitude, accuracy) => {
 
   const coachId = parseInt(coach_id, 10);
 
@@ -33,9 +75,7 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
   const batchId = parseInt(batch_id, 10);
 
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
+  const today = getUtcMidnight();
 
 
 
@@ -56,6 +96,8 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
     include: {
 
       sport: true,
+
+      academy: true,
 
       coaches: {
 
@@ -121,6 +163,10 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
 
+  // GPS Verification (removed - no longer required for session start)
+  // Session can be started after coach marks attendance (Present/Late/Absent)
+  // GPS is only required for coach attendance marking, not session start
+
   // Check if session already exists for today
 
   const existingSession = await prisma.batchSession.findFirst({
@@ -153,6 +199,41 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
 
+  // Determine session status based on start time vs batch timing
+  let sessionStatus = 'LIVE';
+  const currentTime = new Date();
+  
+  // Parse batch timing (format: "09:00 AM - 11:00 AM")
+  if (batch.timing) {
+    const timeMatch = batch.timing.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = parseInt(timeMatch[2]);
+      const meridiem = timeMatch[3].toUpperCase();
+      
+      if (meridiem === 'PM' && hours !== 12) hours += 12;
+      if (meridiem === 'AM' && hours === 12) hours = 0;
+      
+      const batchStartTime = new Date(today);
+      batchStartTime.setHours(hours, minutes, 0, 0);
+      
+      const gracePeriodMinutes = batch.academy?.late_grace_period_minutes || 15;
+      const graceEndTime = new Date(batchStartTime.getTime() + gracePeriodMinutes * 60000);
+      
+      logger.info('Session status determination', {
+        currentTime,
+        batchStartTime,
+        graceEndTime,
+        gracePeriodMinutes,
+        isLate: currentTime > graceEndTime
+      });
+      
+      if (currentTime > graceEndTime) {
+        sessionStatus = 'LATE_START';
+      }
+    }
+  }
+
   // Create batch session
 
   const session = await prisma.batchSession.create({
@@ -169,7 +250,7 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
       start_time: new Date(),
 
-      status: 'LIVE'
+      status: sessionStatus
 
     },
 
@@ -209,7 +290,9 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
     coach_id: coachId,
 
-    academy_id: academyId
+    academy_id: academyId,
+
+    status: sessionStatus
 
   });
 
@@ -238,43 +321,39 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
     if (adminUser) {
-
       await prisma.notification.create({
-
         data: {
-
           academy_id: academyId,
-
           user_id: adminUser.user_id,
-
           type: 'BATCH_STARTED',
-
           title: 'Batch Started',
-
           body: `Coach ${session.coach.name} has started the ${batch.timing} ${batch.sport.name} batch.`,
-
           metadata: JSON.stringify({
-
             subtype: 'batch_started',
-
             session_id: session.session_id,
-
             batch_id: batchId,
-
             batch_name: batch.name,
-
             coach_name: session.coach.name,
-
             sport_name: batch.sport.name,
-
             timing: batch.timing
-
           })
-
         }
-
       });
 
+      // Send email to admin if email exists
+      if (adminUser.email) {
+        emailService.sendBatchSessionStartEmail(
+          adminUser.email,
+          adminUser.name || 'Admin',
+          {
+            batch_name: batch.name,
+            sport_name: batch.sport.name,
+            coach_name: session.coach.name,
+            timing: batch.timing,
+            start_time: session.start_time
+          }
+        );
+      }
     }
 
 
@@ -306,47 +385,41 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
     for (const student of students) {
-
       if (student.parent) {
-
         await prisma.notification.create({
-
           data: {
-
             academy_id: academyId,
-
             user_id: student.parent.user_id,
-
             type: 'BATCH_STARTED',
-
             title: 'Batch Started',
-
             body: `Coach ${session.coach.name} has started the ${batch.timing} ${batch.sport.name} batch for ${student.name}.`,
-
             metadata: JSON.stringify({
-
               subtype: 'batch_started',
-
               session_id: session.session_id,
-
               batch_id: batchId,
-
               batch_name: batch.name,
-
               coach_name: session.coach.name,
-
               sport_name: batch.sport.name,
-
               student_name: student.name
-
             })
-
           }
-
         });
 
+        // Send email to parent if email exists
+        if (student.parent.email) {
+          emailService.sendBatchSessionStartEmail(
+            student.parent.email,
+            student.parent.name || 'Parent',
+            {
+              batch_name: batch.name,
+              sport_name: batch.sport.name,
+              coach_name: session.coach.name,
+              timing: batch.timing,
+              start_time: session.start_time
+            }
+          );
+        }
       }
-
     }
 
 
@@ -379,6 +452,258 @@ export const startBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
 
+export const endBatchSessionById = async (session_id, academy_id) => {
+
+  const sessionId = parseInt(session_id, 10);
+
+  const academyId = parseInt(academy_id, 10);
+
+  const today = getUtcMidnight();
+
+  logger.info('endBatchSessionById called', {
+    sessionId,
+    academyId,
+    today: today.toISOString(),
+    todayDateOnly: today.toDateString()
+  });
+
+
+
+  // Find the session by ID (no date filter for admin - can end any LIVE session)
+
+  const session = await prisma.batchSession.findFirst({
+
+    where: {
+
+      session_id: sessionId,
+
+      academy_id: academyId,
+
+      status: {
+
+        in: ['LIVE', 'LATE_START']
+
+      }
+
+    },
+
+    include: {
+
+      batch: {
+
+        include: {
+
+          sport: true
+
+        }
+
+      },
+
+      coach: {
+
+        select: {
+
+          name: true
+
+        }
+
+      }
+
+    }
+
+  });
+
+
+
+  if (!session) {
+
+    logger.error('Session not found with strict date match, trying without date filter', {
+      sessionId,
+      academyId
+    });
+
+    // Try to find session without date filter for debugging
+    const sessionWithoutDate = await prisma.batchSession.findFirst({
+      where: {
+        session_id: sessionId,
+        academy_id: academyId
+      },
+      include: {
+        batch: true
+      }
+    });
+
+    if (sessionWithoutDate) {
+      logger.error('Session found but date mismatch', {
+        sessionId,
+        academyId,
+        sessionDate: sessionWithoutDate.session_date,
+        sessionStatus: sessionWithoutDate.status,
+        expectedDate: today
+      });
+    } else {
+      logger.error('Session not found at all', {
+        sessionId,
+        academyId
+      });
+    }
+
+    const error = new Error('Active batch session not found');
+
+    error.statusCode = 404;
+
+    throw error;
+
+  }
+
+
+
+  const endTime = new Date();
+
+  const durationMinutes = Math.floor((endTime - new Date(session.start_time)) / 60000);
+
+
+
+  // Get attendance summary for this session (use session's actual date)
+
+  const attendanceRecords = await prisma.studentAttendance.findMany({
+
+    where: {
+
+      academy_id: academyId,
+
+      batch_id: session.batch_id,
+
+      date: session.session_date
+
+    }
+
+  });
+
+
+
+  const presentCount = attendanceRecords.filter(a => a.status === 'PRESENT').length;
+
+  const absentCount = attendanceRecords.filter(a => a.status === 'ABSENT').length;
+
+  const lateCount = attendanceRecords.filter(a => a.status === 'LATE').length;
+
+
+
+  const attendanceSummary = {
+
+    present: presentCount,
+
+    absent: absentCount,
+
+    late: lateCount
+
+  };
+
+
+
+  // Update session
+
+  const updatedSession = await prisma.batchSession.update({
+
+    where: { session_id: sessionId },
+
+    data: {
+
+      end_time: endTime,
+
+      duration_minutes: durationMinutes,
+
+      status: 'COMPLETED',
+
+      attendance_summary: JSON.stringify(attendanceSummary)
+
+    },
+
+    include: {
+
+      batch: {
+
+        include: {
+
+          sport: true
+
+        }
+
+      },
+
+      coach: {
+
+        select: {
+
+          name: true
+
+        }
+
+      }
+
+    }
+
+  });
+
+
+
+  logger.info('Batch session ended by admin', {
+
+    session_id: sessionId,
+
+    batch_id: session.batch_id,
+
+    coach_id: session.coach_id,
+
+    duration_minutes: durationMinutes,
+
+    attendance_summary
+
+  });
+
+
+
+  // Lock all student attendance records for this session (use session's actual date)
+
+  await prisma.studentAttendance.updateMany({
+
+    where: {
+
+      batch_session_id: sessionId,
+
+      date: session.session_date
+
+    },
+
+    data: {
+
+      locked: true,
+
+      locked_at: new Date()
+
+    }
+
+  });
+
+
+
+  logger.info('Student attendance locked for session', {
+
+    session_id: sessionId,
+
+    batch_id: session.batch_id
+
+  });
+
+
+
+  return updatedSession;
+
+};
+
+
+
 export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
   const coachId = parseInt(coach_id, 10);
@@ -387,9 +712,7 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
   const batchId = parseInt(batch_id, 10);
 
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
+  const today = getUtcMidnight();
 
 
 
@@ -429,8 +752,7 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
 
-  // Find active session
-
+  // Find active session (also accept LATE_START status)
   const session = await prisma.batchSession.findFirst({
 
     where: {
@@ -443,7 +765,9 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
       session_date: today,
 
-      status: 'LIVE'
+      status: {
+        in: ['LIVE', 'LATE_START']
+      }
 
     },
 
@@ -583,6 +907,25 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
 
+  // Lock all student attendance records for this session
+  await prisma.studentAttendance.updateMany({
+    where: {
+      batch_session_id: session.session_id,
+      date: today
+    },
+    data: {
+      locked: true,
+      locked_at: new Date()
+    }
+  });
+
+  logger.info('Student attendance locked for session', {
+    session_id: session.session_id,
+    batch_id: batchId
+  });
+
+
+
   // Create notifications (non-blocking)
 
   try {
@@ -606,47 +949,43 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
     if (adminUser) {
-
       await prisma.notification.create({
-
         data: {
-
           academy_id: academyId,
-
           user_id: adminUser.user_id,
-
           type: 'BATCH_COMPLETED',
-
           title: 'Batch Completed',
-
           body: `Coach ${updatedSession.coach.name} has completed the ${batch.timing} ${batch.sport.name} batch. Duration: ${durationMinutes} minutes. Present: ${presentCount}, Absent: ${absentCount}, Late: ${lateCount}.`,
-
           metadata: JSON.stringify({
-
             subtype: 'batch_completed',
-
             session_id: session.session_id,
-
             batch_id: batchId,
-
             batch_name: batch.name,
-
             coach_name: updatedSession.coach.name,
-
             sport_name: batch.sport.name,
-
             timing: batch.timing,
-
             duration_minutes: durationMinutes,
-
             attendance_summary
-
           })
-
         }
-
       });
 
+      // Send email to admin if email exists
+      if (adminUser.email) {
+        emailService.sendBatchSessionEndEmail(
+          adminUser.email,
+          adminUser.name || 'Admin',
+          {
+            batch_name: batch.name,
+            sport_name: batch.sport.name,
+            coach_name: updatedSession.coach.name,
+            duration_minutes: durationMinutes,
+            present_count: presentCount,
+            absent_count: absentCount,
+            late_count: lateCount
+          }
+        );
+      }
     }
 
 
@@ -678,55 +1017,47 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
     for (const student of students) {
-
       if (student.parent) {
-
         const studentAttendance = attendanceRecords.find(a => a.student_id === student.student_id);
-
         const status = studentAttendance ? studentAttendance.status : 'NOT_MARKED';
 
-
-
         await prisma.notification.create({
-
           data: {
-
             academy_id: academyId,
-
             user_id: student.parent.user_id,
-
             type: 'BATCH_COMPLETED',
-
             title: 'Batch Completed',
-
             body: `Coach ${updatedSession.coach.name} has completed the ${batch.timing} ${batch.sport.name} batch. ${student.name} was marked as ${status}.`,
-
             metadata: JSON.stringify({
-
               subtype: 'batch_completed',
-
               session_id: session.session_id,
-
               batch_id: batchId,
-
               batch_name: batch.name,
-
               coach_name: updatedSession.coach.name,
-
               sport_name: batch.sport.name,
-
               student_name: student.name,
-
               student_status: status
-
             })
-
           }
-
         });
 
+        // Send email to parent if email exists
+        if (student.parent.email) {
+          emailService.sendBatchSessionEndEmail(
+            student.parent.email,
+            student.parent.name || 'Parent',
+            {
+              batch_name: batch.name,
+              sport_name: batch.sport.name,
+              coach_name: updatedSession.coach.name,
+              duration_minutes: durationMinutes,
+              present_count: presentCount,
+              absent_count: absentCount,
+              late_count: lateCount
+            }
+          );
+        }
       }
-
     }
 
 
@@ -765,9 +1096,7 @@ export const getActiveBatchSessions = async (coach_id, academy_id) => {
 
   const academyId = parseInt(academy_id, 10);
 
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
+  const today = getUtcMidnight();
 
 
 
@@ -779,9 +1108,7 @@ export const getActiveBatchSessions = async (coach_id, academy_id) => {
 
       academy_id: academyId,
 
-      session_date: today,
-
-      status: 'LIVE'
+      session_date: today
 
     },
 
@@ -823,7 +1150,13 @@ export const getActiveBatchSessions = async (coach_id, academy_id) => {
 
     start_time: session.start_time,
 
-    duration_minutes: Math.floor((new Date() - new Date(session.start_time)) / 60000)
+    status: session.status,
+
+    duration_minutes: session.end_time 
+
+      ? session.duration_minutes 
+
+      : Math.floor((new Date() - new Date(session.start_time)) / 60000)
 
   }));
 
@@ -1655,6 +1988,11 @@ export const clockIn = async (coach_id, academy_id, batch_id, location_data = {}
 
       status: 'ACTIVE'
 
+    },
+
+    include: {
+      sport: true,
+      academy: true
     }
 
   });
@@ -1751,6 +2089,33 @@ export const clockIn = async (coach_id, academy_id, batch_id, location_data = {}
 
 
 
+  // Determine if coach is late based on batch timing and grace period
+  const gracePeriodMinutes = batch.academy?.late_grace_period_minutes || 15;
+  const currentTime = new Date();
+  let attendanceStatus = 'PRESENT';
+  
+  // Parse batch timing (format: "09:00 AM - 11:00 AM")
+  if (batch.timing) {
+    const timeMatch = batch.timing.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = parseInt(timeMatch[2]);
+      const meridiem = timeMatch[3].toUpperCase();
+      
+      if (meridiem === 'PM' && hours !== 12) hours += 12;
+      if (meridiem === 'AM' && hours === 12) hours = 0;
+      
+      const batchStartTime = new Date(today);
+      batchStartTime.setHours(hours, minutes, 0, 0);
+      
+      const graceEndTime = new Date(batchStartTime.getTime() + gracePeriodMinutes * 60000);
+      
+      if (currentTime > graceEndTime) {
+        attendanceStatus = 'LATE';
+      }
+    }
+  }
+
   const attendance = await prisma.coachAttendance.create({
 
     data: {
@@ -1763,7 +2128,7 @@ export const clockIn = async (coach_id, academy_id, batch_id, location_data = {}
 
       date: startOfDay,
 
-      status: 'PRESENT',
+      status: attendanceStatus,
 
       clock_in_time: new Date(),
 
@@ -1798,6 +2163,45 @@ export const clockIn = async (coach_id, academy_id, batch_id, location_data = {}
 
 
   logger.info('Coach clocked in', { coach_id: coachId, academy_id: academyId });
+
+  // Notify admin about coach attendance
+  try {
+    const adminUser = await prisma.user.findFirst({
+      where: {
+        academy_id: academyId,
+        role: 'ACADEMY_ADMIN',
+        is_deleted: false
+      }
+    });
+
+    if (adminUser) {
+      const notificationType = attendanceStatus === 'LATE' ? 'COACH_LATE' : 'COACH_PRESENT';
+      await prisma.notification.create({
+        data: {
+          academy_id: academyId,
+          user_id: adminUser.user_id,
+          type: notificationType,
+          title: `Coach ${attendanceStatus}`,
+          body: `Coach ${attendance.coach.name} has marked ${attendanceStatus} for ${batch.name} batch.`,
+          metadata: JSON.stringify({
+            subtype: 'coach_attendance',
+            coach_id: coachId,
+            batch_id: batchId,
+            batch_name: batch.name,
+            status: attendanceStatus,
+            timing: batch.timing
+          })
+        }
+      });
+
+      // Send email notification for late arrival
+      if (attendanceStatus === 'LATE' && adminUser.email) {
+        // TODO: Add email notification for coach late
+      }
+    }
+  } catch (notificationError) {
+    logger.error('Failed to create coach attendance notification', { error: notificationError });
+  }
 
   return attendance;
 
@@ -2026,6 +2430,10 @@ export const getCoachBatches = async (coach_id, academy_id) => {
           sport_id: true,
 
           name: true,
+
+          sport_center: true,
+
+          attendance_radius_meters: true,
 
           latitude: true,
 
@@ -2433,17 +2841,20 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
   const batchId = parseInt(payload.batch_id, 10);
 
-  const attendanceDate = payload.date ? new Date(payload.date) : new Date();
-
-  attendanceDate.setHours(0, 0, 0, 0);
+  const attendanceDate = getUtcMidnight(payload.date);
 
   const records = payload.records || [];
 
-  
 
-  // Get GPS verification data from middleware
 
-  const gpsVerification = payload.gpsVerification || null;
+  logger.info('markStudentAttendance called', { 
+    coach_id: coachId, 
+    academy_id: academyId, 
+    batch_id: batchId, 
+    date: attendanceDate.toISOString(),
+    records_count: records.length,
+    payload: JSON.stringify(payload)
+  });
 
 
 
@@ -2453,37 +2864,48 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
     error.statusCode = 400;
 
+    logger.error('No attendance records provided', { coach_id: coachId, batch_id: batchId });
+
     throw error;
 
   }
 
 
 
-  const batch = await prisma.batch.findFirst({
+  let batch;
+  try {
+    batch = await prisma.batch.findFirst({
 
-    where: {
+      where: {
 
-      batch_id: batchId,
+        batch_id: batchId,
 
-      academy_id: academyId,
+        academy_id: academyId,
 
-      coaches: {
+        coaches: {
 
-        some: {
+          some: {
 
-          coach_id: coachId
+            coach_id: coachId
 
-        }
+          }
+
+        },
+
+        status: 'ACTIVE'
 
       },
 
-      status: 'ACTIVE'
+      include: { sport: true }
 
-    },
-
-    include: { sport: true }
-
-  });
+    });
+  } catch (error) {
+    logger.error('Prisma error finding batch', { error: error.message, code: error.code, batch_id: batchId, coach_id: coachId });
+    const err = new Error('Database error while finding batch');
+    err.statusCode = 500;
+    err.code = 'DATABASE_ERROR';
+    throw err;
+  }
 
 
 
@@ -2493,8 +2915,46 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
     error.statusCode = 404;
 
+    error.code = 'BATCH_NOT_FOUND';
+
+    logger.error('Batch not found or not assigned', { batch_id: batchId, coach_id: coachId });
+
     throw error;
 
+  }
+
+
+
+  // Verify that there is an active batch session for today
+  const today = getUtcMidnight();
+
+  let activeSession;
+  try {
+    activeSession = await prisma.batchSession.findFirst({
+      where: {
+        batch_id: batchId,
+        coach_id: coachId,
+        academy_id: academyId,
+        session_date: today,
+        status: {
+          in: ['LIVE', 'LATE_START']
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Prisma error finding active session', { error: error.message, code: error.code, batch_id: batchId, coach_id: coachId });
+    const err = new Error('Database error while finding active session');
+    err.statusCode = 500;
+    err.code = 'DATABASE_ERROR';
+    throw err;
+  }
+
+  if (!activeSession) {
+    const error = new Error('No active batch session found. Please start the batch session before marking student attendance.');
+    error.statusCode = 403;
+    error.code = 'NO_ACTIVE_SESSION';
+    logger.error('No active session found', { batch_id: batchId, coach_id: coachId });
+    throw error;
   }
 
 
@@ -2517,29 +2977,40 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
       error.statusCode = 400;
 
+      logger.error('Invalid attendance status', { student_id: record.student_id, status });
+
       throw error;
 
     }
 
 
 
-    const student = await prisma.student.findFirst({
+    let student;
+    try {
+      student = await prisma.student.findFirst({
 
-      where: {
+        where: {
 
-        student_id: parseInt(record.student_id, 10),
+          student_id: parseInt(record.student_id, 10),
 
-        academy_id: academyId,
+          academy_id: academyId,
 
-        batch_id: batchId,
+          batch_id: batchId,
 
-        ...NOT_DELETED,
+          ...NOT_DELETED,
 
-        status: 'ACTIVE'
+          status: 'ACTIVE'
 
-      }
+        }
 
-    });
+      });
+    } catch (error) {
+      logger.error('Prisma error finding student', { error: error.message, code: error.code, student_id: record.student_id });
+      const err = new Error('Database error while finding student');
+      err.statusCode = 500;
+      err.code = 'DATABASE_ERROR';
+      throw err;
+    }
 
 
 
@@ -2549,13 +3020,19 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
       error.statusCode = 404;
 
+      error.code = 'STUDENT_NOT_FOUND';
+
+      logger.error('Student not found', { student_id: record.student_id, batch_id: batchId });
+
       throw error;
 
     }
 
 
 
-    const attendance = await prisma.studentAttendance.upsert({
+    let attendance;
+    try {
+      attendance = await prisma.studentAttendance.upsert({
 
       where: {
 
@@ -2579,43 +3056,63 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
         batch_id: batchId,
 
+        batch_session_id: activeSession.session_id,
+
         date: attendanceDate,
 
         status,
 
         marked_by_coach_id: coachId,
 
-        remarks: record.remarks || null,
-
-        latitude: payload.latitude ? parseFloat(payload.latitude) : null,
-
-        longitude: payload.longitude ? parseFloat(payload.longitude) : null,
-
-        distance_from_location_meters: gpsVerification?.distance || null,
-
-        location_verified: gpsVerification?.verified || false
+        remarks: record.remarks || null
 
       },
 
       update: {
+        
+        // Check if attendance is locked before updating
+        data: {
+          status,
 
-        status,
+          marked_by_coach_id: coachId,
 
-        marked_by_coach_id: coachId,
+          remarks: record.remarks || null
 
-        remarks: record.remarks || null,
-
-        latitude: payload.latitude ? parseFloat(payload.latitude) : null,
-
-        longitude: payload.longitude ? parseFloat(payload.longitude) : null,
-
-        distance_from_location_meters: gpsVerification?.distance || null,
-
-        location_verified: gpsVerification?.verified || false
-
+        }
       }
 
     });
+    } catch (error) {
+      logger.error('Prisma error upserting attendance', { error: error.message, code: error.code, student_id: student.student_id });
+      const err = new Error('Database error while upserting attendance');
+      err.statusCode = 500;
+      err.code = 'DATABASE_ERROR';
+      throw err;
+    }
+
+    // Check if attendance is locked - prevent coach edits
+    if (attendance.locked) {
+      const error = new Error('Attendance is locked and cannot be modified. Only Academy Admin can unlock or modify locked attendance.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Log attendance edit if status changed
+    if (attendance.status !== status) {
+      await prisma.attendanceEditLog.create({
+        data: {
+          attendance_id: attendance.attendance_id,
+          student_id: student.student_id,
+          batch_id: batchId,
+          batch_session_id: activeSession.session_id,
+          previous_status: attendance.status,
+          new_status: status,
+          changed_by_user_id: coachId,
+          changed_by_role: 'COACH',
+          change_reason: 'Attendance marked by coach'
+        }
+      });
+    }
 
 
 
@@ -2981,23 +3478,7 @@ export const getCoachSelfAttendanceByDate = async (coach_id, academy_id, batch_i
 
   const batchId = parseInt(batch_id, 10);
 
-  const attendanceDate = date ? new Date(date) : new Date();
-
-  
-
-  // Normalize date to start of day for consistent comparison
-
-  const startOfDay = new Date(attendanceDate);
-
-  startOfDay.setHours(0, 0, 0, 0);
-
-  
-
-  const endOfDay = new Date(attendanceDate);
-
-  endOfDay.setHours(23, 59, 59, 999);
-
-
+  const normalizedDate = getUtcMidnight(date);
 
   const attendance = await prisma.coachAttendance.findFirst({
 
@@ -3007,13 +3488,7 @@ export const getCoachSelfAttendanceByDate = async (coach_id, academy_id, batch_i
 
       batch_id: batchId,
 
-      date: {
-
-        gte: startOfDay,
-
-        lte: endOfDay
-
-      }
+      date: normalizedDate
 
     }
 
@@ -3033,7 +3508,7 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
   const academyId = parseInt(academy_id, 10);
 
-  const batchId = parseInt(payload.batch_id, 10);
+  const batchId = payload.batch_id ? parseInt(payload.batch_id, 10) : null;
 
   const attendanceDate = payload.date ? new Date(payload.date) : new Date();
 
@@ -3041,17 +3516,56 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
 
 
+  logger.info('markCoachSelfAttendance called', { 
+    coach_id: coachId, 
+    academy_id: academyId, 
+    batch_id: batchId, 
+    payload: JSON.stringify(payload),
+    attendanceDate: attendanceDate.toISOString(),
+    attendanceStatus 
+  });
+
+
+
+  // Validate required fields
+  if (!batchId || isNaN(batchId)) {
+    const error = new Error('batch_id is required and must be a valid number');
+    error.statusCode = 400;
+    error.code = 'INVALID_BATCH_ID';
+    logger.error('Invalid batch_id', { batch_id: payload.batch_id, parsed: batchId });
+    throw error;
+  }
+
+  if (!coachId || isNaN(coachId)) {
+    const error = new Error('Invalid coach_id');
+    error.statusCode = 400;
+    error.code = 'INVALID_COACH_ID';
+    logger.error('Invalid coach_id', { coach_id: coachId, parsed: coachId });
+    throw error;
+  }
+
+  if (!academyId || isNaN(academyId)) {
+    const error = new Error('Invalid academy_id');
+    error.statusCode = 400;
+    error.code = 'INVALID_ACADEMY_ID';
+    logger.error('Invalid academy_id', { academy_id: academyId, parsed: academyId });
+    throw error;
+  }
+
+
+
   // Check if coach has active batch sessions before marking checkout (ABSENT)
   if (attendanceStatus === 'ABSENT') {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getUtcMidnight();
 
     const activeSessions = await prisma.batchSession.findMany({
       where: {
         coach_id: coachId,
         academy_id: academyId,
         session_date: today,
-        status: 'LIVE'
+        status: {
+          in: ['LIVE', 'LATE_START']
+        }
       }
     });
 
@@ -3081,25 +3595,34 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
   // Validate batch exists and belongs to academy
 
-  const batch = await prisma.batch.findFirst({
+  let batch;
+  try {
+    batch = await prisma.batch.findFirst({
 
-    where: {
+      where: {
 
-      batch_id: batchId,
+        batch_id: batchId,
 
-      academy_id: academyId,
+        academy_id: academyId,
 
-      status: 'ACTIVE'
+        status: 'ACTIVE'
 
-    },
+      },
 
-    include: {
+      include: {
 
-      sport: true
+        sport: true
 
-    }
+      }
 
-  });
+    });
+  } catch (error) {
+    logger.error('Prisma error finding batch', { error: error.message, code: error.code, batch_id: batchId, academy_id: academyId });
+    const err = new Error('Database error while finding batch');
+    err.statusCode = 500;
+    err.code = 'DATABASE_ERROR';
+    throw err;
+  }
 
 
 
@@ -3109,6 +3632,10 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
     error.statusCode = 404;
 
+    error.code = 'BATCH_NOT_FOUND';
+
+    logger.error('Batch not found', { batch_id: batchId, academy_id: academyId });
+
     throw error;
 
   }
@@ -3117,17 +3644,26 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
   // Validate coach is assigned to this batch
 
-  const coachAssignment = await prisma.batchCoach.findFirst({
+  let coachAssignment;
+  try {
+    coachAssignment = await prisma.batchCoach.findFirst({
 
-    where: {
+      where: {
 
-      batch_id: batchId,
+        batch_id: batchId,
 
-      coach_id: coachId
+        coach_id: coachId
 
-    }
+      }
 
-  });
+    });
+  } catch (error) {
+    logger.error('Prisma error finding coach assignment', { error: error.message, code: error.code, batch_id: batchId, coach_id: coachId });
+    const err = new Error('Database error while finding coach assignment');
+    err.statusCode = 500;
+    err.code = 'DATABASE_ERROR';
+    throw err;
+  }
 
 
 
@@ -3137,6 +3673,10 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
     error.statusCode = 403;
 
+    error.code = 'COACH_NOT_ASSIGNED';
+
+    logger.error('Coach not assigned to batch', { batch_id: batchId, coach_id: coachId });
+
     throw error;
 
   }
@@ -3144,114 +3684,145 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
   
 
   // Normalize date to start of day for consistent comparison
-
-  const startOfDay = new Date(attendanceDate);
-
-  startOfDay.setHours(0, 0, 0, 0);
-
-  
-
-  const endOfDay = new Date(attendanceDate);
-
-  endOfDay.setHours(23, 59, 59, 999);
-
-
+  const startOfDay = getUtcMidnight(attendanceDate);
 
   const status = String(attendanceStatus || 'PRESENT').toUpperCase();
 
-
-
   try {
-
     // Check if attendance already exists for this coach, batch, and date
-
-    const existingAttendance = await prisma.coachAttendance.findFirst({
-
-      where: {
-
-        coach_id: coachId,
-
-        batch_id: batchId,
-
-        date: {
-
-          gte: startOfDay,
-
-          lte: endOfDay
-
+    let existingAttendance;
+    try {
+      existingAttendance = await prisma.coachAttendance.findFirst({
+        where: {
+          coach_id: coachId,
+          batch_id: batchId,
+          date: startOfDay
         }
-
-      }
-
-    });
-
-
-
-    // If attendance already exists, return it without creating a new one
-
-    if (existingAttendance) {
-
-      logger.info('Coach attendance already exists for this batch and date', { coachId, batchId, date: attendanceDate });
-
-      return existingAttendance;
-
+      });
+    } catch (error) {
+      logger.error('Prisma error finding existing attendance', { error: error.message, code: error.code, coach_id: coachId, batch_id: batchId });
+      const err = new Error('Database error while finding existing attendance');
+      err.statusCode = 500;
+      err.code = 'DATABASE_ERROR';
+      throw err;
     }
 
+    // If attendance already exists, return it without creating a new one
+    if (existingAttendance) {
+      logger.info('Coach attendance already exists for this batch and date', { coachId, batchId, date: attendanceDate });
+      return existingAttendance;
+    }
 
+    // Enforce location verification only once per batch per day
+    const existingVerification = await prisma.coachAttendance.findFirst({
+      where: {
+        coach_id: coachId,
+        batch_id: batchId,
+        date: startOfDay,
+        location_verified: true
+      }
+    });
+
+    let isVerified = false;
+    let distance = null;
+
+    if (existingVerification) {
+      isVerified = true;
+      distance = existingVerification.distance_from_location_meters ? Number(existingVerification.distance_from_location_meters) : null;
+      logger.info('Skipping GPS verification as verification already exists today', { coachId, batchId, date: startOfDay });
+    } else if (status === 'PRESENT' || status === 'LATE') {
+      if (payload.latitude && payload.longitude) {
+        const batchDetails = await prisma.batch.findUnique({
+          where: { batch_id: batchId },
+          include: { sport: true, academy: true }
+        });
+        if (batchDetails) {
+          const attendanceLocation = getAttendanceLocation(batchDetails.sport, batchDetails.academy);
+          if (attendanceLocation) {
+            const effectiveRadius = attendanceLocation.radius * 1.05;
+            const verification = verifyLocation(
+              payload.latitude,
+              payload.longitude,
+              attendanceLocation.latitude,
+              attendanceLocation.longitude,
+              effectiveRadius
+            );
+            if (verification.valid) {
+              isVerified = true;
+              distance = verification.distance;
+            } else {
+              const error = new Error(`GPS verification failed: You are ${verification.distance}m away from the sport center. Maximum allowed distance is ${Math.round(effectiveRadius)}m.`);
+              error.statusCode = 403;
+              error.code = 'GPS_OUT_OF_RANGE';
+              throw error;
+            }
+          }
+        }
+      } else {
+        const error = new Error('GPS coordinates are required for attendance verification');
+        error.statusCode = 400;
+        error.code = 'GPS_REQUIRED';
+        throw error;
+      }
+    }
 
     // Create new attendance record
-
-    const attendance = await prisma.coachAttendance.create({
-
-      data: {
-
-        coach_id: coachId,
-
-        academy_id: academyId,
-
-        batch_id: batchId,
-
-        date: startOfDay,
-
-        status,
-
-        remarks: payload.remarks || null,
-
-        latitude: payload.latitude || null,
-
-        longitude: payload.longitude || null,
-
-        distance_from_location_meters: payload.distance_from_location_meters || null,
-
-        location_verified: payload.location_verified || false
-
+    let attendance;
+    try {
+      attendance = await prisma.coachAttendance.create({
+        data: {
+          coach_id: coachId,
+          academy_id: academyId,
+          batch_id: batchId,
+          date: startOfDay,
+          status,
+          remarks: payload.remarks || null,
+          latitude: payload.latitude || null,
+          longitude: payload.longitude || null,
+          distance_from_location_meters: distance,
+          location_verified: isVerified
+        }
+      });
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw error;
       }
-
-    });
+      logger.error('Prisma error creating attendance', { error: error.message, code: error.code, coach_id: coachId, batch_id: batchId });
+      const err = new Error('Database error while creating attendance');
+      err.statusCode = 500;
+      err.code = 'DATABASE_ERROR';
+      throw err;
+    }
 
 
 
     if (status === 'ABSENT') {
 
-      const coach = await prisma.coach.findUnique({
+      let coach;
+      try {
+        coach = await prisma.coach.findUnique({
 
-        where: { coach_id: coachId },
+          where: { coach_id: coachId },
 
-        include: {
+          include: {
 
-          academy: {
+            academy: {
 
-            include: {
+              include: {
 
-              users: { where: { ...NOT_DELETED, role: 'ACADEMY_ADMIN' }, take: 1 }
+                users: { where: { ...NOT_DELETED, role: 'ACADEMY_ADMIN' }, take: 1 }
+
+              }
 
             }
 
           }
 
-        }
-
-      });
+        });
+      } catch (error) {
+        logger.error('Prisma error finding coach', { error: error.message, code: error.code, coach_id: coachId });
+        // Continue without sending email if coach lookup fails
+      }
 
 
 
@@ -3299,10 +3870,16 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
 
         batch_id: batchId,
 
-        sport_id: batch.sport_id
+        sport_id: batch.sport_id || null
 
       }
 
+    }).catch((err) => {
+      logger.error('Failed to log audit for coach self-attendance', { 
+        error: err.message, 
+        coach_id: coachId, 
+        batch_id: batchId 
+      });
     });
 
 
@@ -3346,7 +3923,41 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
     }
 
     throw error;
+  }
+};
 
+export const getStudentAttendance = async (coach_id, academy_id, batch_id, date) => {
+  const coachId = parseInt(coach_id, 10);
+  const academyId = parseInt(academy_id, 10);
+  const batchId = parseInt(batch_id, 10);
+  const dateMidnight = getUtcMidnight(date);
+
+  const batch = await prisma.batch.findFirst({
+    where: {
+      batch_id: batchId,
+      academy_id: academyId,
+      coaches: {
+        some: {
+          coach_id: coachId
+        }
+      },
+      status: 'ACTIVE'
+    }
+  });
+
+  if (!batch) {
+    const error = new Error('Batch not found or not assigned to this coach');
+    error.statusCode = 404;
+    throw error;
   }
 
+  const attendanceRecords = await prisma.studentAttendance.findMany({
+    where: {
+      academy_id: academyId,
+      batch_id: batchId,
+      date: dateMidnight
+    }
+  });
+
+  return attendanceRecords;
 };

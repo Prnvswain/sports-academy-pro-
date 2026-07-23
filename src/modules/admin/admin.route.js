@@ -118,6 +118,7 @@ router.post(
 );
 router.put('/students/:student_id/pause', adminController.pauseStudentPlan);
 router.put('/students/:student_id/resume', adminController.resumeStudentPlan);
+router.post('/students/reset-parent-password', adminController.resetParentPassword);
 router.delete('/students/:student_id', adminController.deleteStudent);
 
 /* ─── BATCHES TIMING & CAPACITY ─────────────────────────────────────────── */
@@ -146,6 +147,7 @@ router.delete('/batches/:batch_id', adminController.deleteBatch);
 
 /* ─── BATCH SESSIONS ─────────────────────────────────────────────────── */
 router.get('/batch-sessions', adminController.getBatchSessionHistory);
+router.post('/batch-sessions/:session_id/end', adminController.endBatchSession);
 
 /* ─── ATTENDANCE TRACKER ────────────────────────────────────────────────── */
 router.post(

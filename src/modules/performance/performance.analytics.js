@@ -191,7 +191,7 @@ export const getBatchPerformanceAnalytics = async (academy_id, batch_id) => {
   const academyId = parseInt(academy_id, 10);
   const batchId = parseInt(batch_id, 10);
 
-  logger.info('ANALYTICS: Fetching batch performance analytics', { academy_id, batch_id });
+  logger.info('ANALYTICS: Fetching batch performance analytics', { academy_id, batch_id, academyId, batchId });
 
   // Read from PerformanceScore (single source of truth)
   const scores = await prisma.performanceScore.findMany({
@@ -234,7 +234,22 @@ export const getBatchPerformanceAnalytics = async (academy_id, batch_id) => {
     }
   });
 
+  logger.info('ANALYTICS: Batch scores query result', {
+    academyId,
+    batchId,
+    scores_count: scores.length,
+    sample_scores: scores.slice(0, 2).map(s => ({
+      score_id: s.score_id,
+      student_id: s.student_id,
+      batch_id: s.batch_id,
+      attribute_id: s.attribute_id,
+      score: s.score,
+      assessment_id: s.assessment_id
+    }))
+  });
+
   if (scores.length === 0) {
+    logger.warn('ANALYTICS: No scores found for batch', { academyId, batchId });
     return {
       averageScore: 0,
       studentsEvaluated: 0,

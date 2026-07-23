@@ -16,6 +16,8 @@ import AttendanceSummaryCard from '../../components/attendance/AttendanceSummary
 
 import AttendanceLockedCard from '../../components/attendance/AttendanceLockedCard';
 
+import LiveBatchSession from '../../components/attendance/LiveBatchSession';
+
 import { coachGet, coachPost } from '../../api/client';
 
 import { useCoachBatches } from '../../context/CoachBatchesContext';
@@ -24,13 +26,21 @@ import { AlertCircle } from 'lucide-react';
 
 
 
+const formatTime = (seconds) => {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 export default function CoachAttendancePage() {
 
   const { batches, loading } = useCoachBatches();
 
   const [selectedBatchId, setSelectedBatchId] = useState('');
 
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  // Always use today's date
+  const attendanceDate = new Date().toISOString().split('T')[0];
 
   const [attendanceMap, setAttendanceMap] = useState({});
 
@@ -82,6 +92,9 @@ export default function CoachAttendancePage() {
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionTimer, setSessionTimer] = useState({});
+  const [showLiveSession, setShowLiveSession] = useState(false);
+  const [isAttendanceLocked, setIsAttendanceLocked] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
 
 
@@ -123,6 +136,18 @@ export default function CoachAttendancePage() {
 
         setSelectedCoachStatus(attendance.status);
 
+        // If location was previously verified, restore GPS verification state
+        if (attendance.location_verified && attendance.latitude && attendance.longitude) {
+          setGpsVerified(true);
+          setGpsCoords({
+            latitude: parseFloat(attendance.latitude),
+            longitude: parseFloat(attendance.longitude),
+            accuracy: null
+          });
+          setDistanceFromCenter(attendance.distance_from_location_meters);
+          setGpsError('');
+        }
+
       } else {
 
         setCoachAttendanceMarked(false);
@@ -130,6 +155,12 @@ export default function CoachAttendancePage() {
         setCoachAttendanceStatus(null);
 
         setSelectedCoachStatus('PRESENT');
+
+        // Reset GPS verification state when no attendance exists
+        setGpsVerified(false);
+        setGpsCoords({ latitude: null, longitude: null, accuracy: null });
+        setDistanceFromCenter(null);
+        setGpsError('');
 
       }
 
@@ -142,6 +173,12 @@ export default function CoachAttendancePage() {
         setCoachAttendanceStatus(null);
 
         setSelectedCoachStatus('PRESENT');
+
+        // Reset GPS verification state when no attendance exists
+        setGpsVerified(false);
+        setGpsCoords({ latitude: null, longitude: null, accuracy: null });
+        setDistanceFromCenter(null);
+        setGpsError('');
 
       } else {
 
@@ -161,9 +198,16 @@ export default function CoachAttendancePage() {
 
   useEffect(() => {
 
+    // Reset GPS verification state when switching batches
+    setGpsVerified(false);
+    setGpsCoords({ latitude: null, longitude: null, accuracy: null });
+    setDistanceFromCenter(null);
+    setGpsError('');
+    setIsAttendanceLocked(false);
+    
     fetchTodayCoachAttendance();
 
-  }, [attendanceDate, selectedBatchId]);
+  }, [selectedBatchId]);
 
 
 
@@ -197,7 +241,16 @@ export default function CoachAttendancePage() {
 
       }
 
-      setAttendanceRadius(selectedBatch.sport.attendance_radius_meters || selectedBatch.academy.attendance_radius_meters || 100);
+      if (selectedBatch.sport?.attendance_radius_meters !== null && selectedBatch.sport?.attendance_radius_meters !== undefined) {
+        setAttendanceRadius(selectedBatch.sport.attendance_radius_meters);
+        console.log('Attendance radius set for sport:', selectedBatch.sport.name, selectedBatch.sport.attendance_radius_meters);
+      } else {
+        setAttendanceRadius(null);
+        setMessage({ 
+          text: `Attendance radius not configured for sport: ${selectedBatch.sport?.name || 'Unknown'}. Please contact admin to configure sport settings.`, 
+          type: 'error' 
+        });
+      }
 
     }
 
@@ -208,6 +261,12 @@ export default function CoachAttendancePage() {
   useEffect(() => {
 
     if (gpsCoords.latitude && gpsCoords.longitude && sportCenter) {
+
+      if (attendanceRadius === null) {
+        setGpsVerified(false);
+        setGpsError('Attendance radius not configured for this sport. Please contact admin.');
+        return;
+      }
 
       const distance = calculateDistance(
 
@@ -251,21 +310,21 @@ export default function CoachAttendancePage() {
 
     const R = 6371e3; 
 
-    const φ1 = lat1 * Math.PI / 180;
+    const phi1 = lat1 * Math.PI / 180;
 
-    const φ2 = lat2 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
 
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
 
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
 
 
 
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
 
-              Math.cos(φ1) * Math.cos(φ2) *
+              Math.cos(phi1) * Math.cos(phi2) *
 
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -675,9 +734,68 @@ export default function CoachAttendancePage() {
 
     checkAttendanceWindow();
 
-  }, [selectedBatch, attendanceDate]);
+  }, [selectedBatch]);
 
 
+
+  const fetchTodayStudentAttendance = async () => {
+    if (!selectedBatchId || !attendanceDate) return;
+    try {
+      const result = await coachGet(`/coach/attendance?batch_id=${selectedBatchId}&date=${attendanceDate}`);
+      const existingRecords = result.data || [];
+      
+      const initialAttendance = {};
+      const initialRemarks = {};
+      
+      // Initialize all students as PRESENT by default
+      selectedBatch?.students?.forEach(student => {
+        initialAttendance[student.student_id] = 'PRESENT';
+        initialRemarks[student.student_id] = '';
+      });
+      
+      // Override with existing records
+      existingRecords.forEach(record => {
+        if (record.student_id) {
+          initialAttendance[record.student_id] = record.status || 'PRESENT';
+          initialRemarks[record.student_id] = record.remarks || '';
+        }
+      });
+      
+      // Check if attendance is locked
+      const locked = existingRecords.some(r => r.locked);
+      setIsAttendanceLocked(locked);
+      
+      setAttendanceMap(initialAttendance);
+      setRemarksMap(initialRemarks);
+    } catch (error) {
+      console.error('Error fetching student attendance:', error);
+    }
+  };
+
+  const saveSingleStudentAttendance = async (studentId, status, remarks) => {
+    if (!selectedBatch) return;
+    try {
+      await coachPost('/coach/attendance', {
+        batch_id: selectedBatch.batch_id,
+        date: attendanceDate,
+        records: [{
+          student_id: parseInt(studentId, 10),
+          status: status || 'PRESENT',
+          remarks: remarks || ''
+        }]
+      });
+    } catch (error) {
+      console.error('Failed to save student attendance:', error);
+      setMessage({ text: `Failed to save attendance: ${error.message}`, type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
+    }
+  };
+
+  const handleStudentRemarksBlur = async (studentId) => {
+    const status = attendanceMap[studentId] || 'PRESENT';
+    const remarks = remarksMap[studentId] || '';
+    await saveSingleStudentAttendance(studentId, status, remarks);
+  };
 
   // Fetch active batch sessions
   const fetchActiveSessions = async () => {
@@ -685,21 +803,12 @@ export default function CoachAttendancePage() {
     try {
       const response = await coachGet('/coach/batch-session/active');
       setActiveSessions(response.data || []);
-      
-      // Initialize timer for each active session
-      const timers = {};
-      response.data?.forEach(session => {
-        timers[session.session_id] = session.duration_minutes;
-      });
-      setSessionTimer(timers);
     } catch (error) {
       console.error('Error fetching active sessions:', error);
     } finally {
       setSessionLoading(false);
     }
   };
-
-
 
   // Start batch session
   const handleStartBatch = async () => {
@@ -709,18 +818,19 @@ export default function CoachAttendancePage() {
     setMessage({ text: '', type: '' });
     
     try {
-      await coachPost('/coach/batch-session/start', { batch_id: selectedBatch.batch_id });
+      await coachPost('/coach/batch-session/start', { 
+        batch_id: selectedBatch.batch_id
+      });
       setMessage({ text: 'Batch session started successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
-      fetchActiveSessions();
+      await fetchActiveSessions(); // Wait for active sessions to update
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
     } finally {
       setSessionLoading(false);
     }
   };
-
-
 
   // End batch session
   const handleEndBatch = async () => {
@@ -730,41 +840,72 @@ export default function CoachAttendancePage() {
     setMessage({ text: '', type: '' });
     
     try {
+      // 1. Bulk save all student attendance records to ensure final state is persisted
+      const records = selectedBatch.students.map((student) => ({
+        student_id: student.student_id,
+        status: attendanceMap[student.student_id] || 'PRESENT',
+        remarks: remarksMap[student.student_id] || ''
+      }));
+
+      if (records.length > 0) {
+        await coachPost('/coach/attendance', {
+          batch_id: selectedBatch.batch_id,
+          date: attendanceDate,
+          records
+        });
+      }
+
+      // 2. Call backend to end session and lock attendance
       await coachPost('/coach/batch-session/end', { batch_id: selectedBatch.batch_id });
-      setMessage({ text: 'Batch session ended successfully', type: 'success' });
-      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
-      fetchActiveSessions();
+      setMessage({ text: 'Batch session ended and attendance locked successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
+      
+      // 3. Clear selected batch to reset view and hide the student list
+      setSelectedBatchId('');
+      
+      // 4. Reload active sessions
+      await fetchActiveSessions();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
     } finally {
       setSessionLoading(false);
     }
   };
 
+  // Check batch session states
+  const hasActiveSession = activeSessions.some(s => s.batch_id === selectedBatch?.batch_id && (s.status === 'LIVE' || s.status === 'LATE_START'));
+  const currentActiveSession = activeSessions.find(s => s.batch_id === selectedBatch?.batch_id && (s.status === 'LIVE' || s.status === 'LATE_START'));
+  const hasCompletedSession = activeSessions.some(s => s.batch_id === selectedBatch?.batch_id && s.status === 'COMPLETED');
 
-
-  // Check if current batch has an active session
-  const hasActiveSession = activeSessions.some(s => s.batch_id === selectedBatch?.batch_id);
-  const currentActiveSession = activeSessions.find(s => s.batch_id === selectedBatch?.batch_id);
-
-
-
-  // Update session timer every minute
+  // Update session timer every second when session is active
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (activeSessions.length > 0) {
-        fetchActiveSessions();
-      }
-    }, 60000); // Update every minute
-    
-    return () => clearInterval(interval);
-  }, [activeSessions]);
-
-
+    if (currentActiveSession?.start_time) {
+      const startTime = new Date(currentActiveSession.start_time);
+      const updateTimer = () => {
+        const now = new Date();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        setElapsedTime(elapsed);
+      };
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentActiveSession]);
 
   useEffect(() => {
     fetchActiveSessions();
   }, []);
+
+  // Fetch student attendance when selected batch or active session status changes
+  useEffect(() => {
+    if (selectedBatchId && selectedBatch) {
+      const activeSession = activeSessions.find(s => String(s.batch_id) === String(selectedBatchId) && (s.status === 'LIVE' || s.status === 'LATE_START'));
+      if (activeSession) {
+        fetchTodayStudentAttendance();
+      }
+    }
+  }, [activeSessions, selectedBatchId, selectedBatch]);
 
 
 
@@ -784,7 +925,7 @@ export default function CoachAttendancePage() {
 
   if (loading) {
 
-    return <Loader message="Loading batches…" />;
+    return <Loader message="Loading batchesâ€¦" />;
 
   }
 
@@ -882,53 +1023,9 @@ export default function CoachAttendancePage() {
 
               
 
-              {/* Date & Filters Selection */}
-
-              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden group">
-
-                <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
-
-                <h3 className="text-lg font-black tracking-tight mb-5 text-foreground flex items-center gap-2">
-
-                  <span className="bg-primary/10 text-primary w-8 h-8 rounded-lg flex items-center justify-center text-sm">1</span> 
-
-                  Select Date
-
-                </h3>
-
-                <div className="space-y-2">
-
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block" htmlFor="attendanceDate">
-
-                    Attendance Date
-
-                  </label>
-
-                  <input
-
-                    id="attendanceDate"
-
-                    type="date"
-
-                    className="w-full bg-surface border border-border rounded-xl p-3.5 text-sm font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-
-                    value={attendanceDate}
-
-                    onChange={(e) => setAttendanceDate(e.target.value)}
-
-                    required
-
-                  />
-
-                </div>
-
-              </div>
-
-
-
               {/* Batch Grid Selection */}
 
-              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden group lg:col-span-2">
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden group col-span-1 lg:col-span-3">
 
                 <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
 
@@ -988,7 +1085,7 @@ export default function CoachAttendancePage() {
 
                             <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
 
-                              🏅 {batch.sport.name}
+                              ðŸ… {batch.sport.name}
 
                             </span>
 
@@ -998,7 +1095,7 @@ export default function CoachAttendancePage() {
 
                             <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
 
-                              🕒 {batch.timing || `${batch.start_time}${batch.end_time ? ' - ' + batch.end_time : ''}`}
+                              ðŸ•’ {batch.timing || `${batch.start_time}${batch.end_time ? ' - ' + batch.end_time : ''}`}
 
                             </span>
 
@@ -1006,7 +1103,7 @@ export default function CoachAttendancePage() {
 
                           <span className="text-[10px] font-bold uppercase tracking-wider bg-background border border-border px-2 py-1 rounded text-muted-foreground">
 
-                            👥 {batch.students_count || batch.students?.length || 0} Students
+                            ðŸ‘¥ {batch.students_count || batch.students?.length || 0} Students
 
                           </span>
 
@@ -1040,13 +1137,13 @@ export default function CoachAttendancePage() {
 
               {/* Decorative background element for the guide */}
 
-              <div className="absolute -right-20 -bottom-20 opacity-5 text-9xl">💡</div>
+              <div className="absolute -right-20 -bottom-20 opacity-5 text-9xl">ðŸ’¡</div>
 
               
 
               <h3 className="text-xl font-black mb-6 flex items-center gap-2 text-foreground">
 
-                <span className="text-2xl">💡</span> Quick How-to-Use Guide
+                <span className="text-2xl">ðŸ’¡</span> Quick How-to-Use Guide
 
               </h3>
 
@@ -1162,7 +1259,7 @@ export default function CoachAttendancePage() {
 
                 >
 
-                  ←
+                  â†
 
                 </motion.button>
 
@@ -1170,41 +1267,25 @@ export default function CoachAttendancePage() {
 
                   <h2 className="text-xl font-black tracking-tight text-foreground">
 
-                    Module: {selectedBatch.name}
+                    {selectedBatch.name}
 
                   </h2>
 
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-0.5">
-
-                    {attendanceDate}
-
-                  </p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {selectedBatch.sport?.name || 'Sport'}
+                    </p>
+                    <span className="text-muted-foreground">â€¢</span>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {selectedBatch.timing || 'Timing not set'}
+                    </p>
+                    <span className="text-muted-foreground">â€¢</span>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {selectedBatch.students?.length || 0} Students
+                    </p>
+                  </div>
 
                 </div>
-
-              </div>
-
-
-
-              {/* Allow date change inside the module too */}
-
-              <div className="flex items-center gap-2">
-
-                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Date:</label>
-
-                 <input
-
-                  type="date"
-
-                  className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs font-bold focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-
-                  value={attendanceDate}
-
-                  onChange={(e) => setAttendanceDate(e.target.value)}
-
-                  required
-
-                />
 
               </div>
 
@@ -1212,11 +1293,98 @@ export default function CoachAttendancePage() {
 
 
 
+            {/* Batch Session Controls - Visible after coach self-attendance is marked */}
+            {coachAttendanceMarked && !isAttendanceLocked && !hasCompletedSession && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative"
+              >
+                <div className={`absolute top-0 left-0 w-full h-1 ${hasActiveSession ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {hasActiveSession && currentActiveSession && (
+                        <div className="relative">
+                          <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </div>
+                      )}
+                      <div>
+                        {hasActiveSession && currentActiveSession ? (
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                              ðŸŸ¢ LIVE Session Active
+                              <span className="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                                LIVE
+                              </span>
+                            </h3>
+                          </div>
+                        ) : (
+                          <h3 className="font-bold text-lg text-foreground">Start Batch Session</h3>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {hasActiveSession && currentActiveSession 
+                            ? `Session in progress â€¢ Elapsed Time: ${formatTime(elapsedTime)}`
+                            : 'GPS verified - Ready to start batch session'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      {hasActiveSession ? (
+                        <div className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 font-black px-6 py-3 rounded-xl border border-emerald-200 dark:border-emerald-800 text-sm flex items-center gap-2">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                          Batch Started
+                        </div>
+                      ) : (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleStartBatch}
+                          disabled={sessionLoading || !coachAttendanceMarked || coachAttendanceStatus?.status === 'ABSENT'}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          <span className="text-xl">â–¶</span>
+                          Start Batch Session
+                        </motion.button>
+                      )}
+                    </div>
+                  </div>
+                  {!gpsVerified && !hasActiveSession && (
+                    <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                        âš ï¸ GPS verification required before starting session. Please verify your location below.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Batch Session Completed Card */}
+            {coachAttendanceMarked && hasCompletedSession && (
+              <div className="bg-card shadow-sm rounded-2xl border border-border p-8 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
+                <span className="text-4xl block mb-3">ðŸ”’</span>
+                <h3 className="font-black text-lg text-foreground">Batch Session Completed</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Today's session for this batch has been completed. Student attendance is locked and cannot be modified.
+                </p>
+              </div>
+            )}
+
+
+
             {/* Session Details Card */}
 
             <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden">
 
-              <SessionCard batch={selectedBatch} academy={selectedBatch.academy} />
+              <SessionCard 
+                batch={selectedBatch} 
+                academy={selectedBatch.academy} 
+                activeSession={currentActiveSession}
+              />
 
             </div>
 
@@ -1298,109 +1466,64 @@ export default function CoachAttendancePage() {
 
 
 
-                {/* Batch Session Controls */}
-                {coachAttendanceMarked && !hasActiveSession && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative"
-                  >
-                    <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-bold text-lg text-foreground">Start Batch Session</h3>
-                          <p className="text-sm text-muted-foreground mt-1">Begin tracking your training session time</p>
-                        </div>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={handleStartBatch}
-                          disabled={sessionLoading}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          <span className="text-xl">▶</span>
-                          Start Batch
-                        </motion.button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {hasActiveSession && currentActiveSession && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative"
-                  >
-                    <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-lg text-foreground">LIVE Session</h3>
-                              <span className="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold px-2 py-1 rounded-full">
-                                LIVE
-                              </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Duration: {currentActiveSession.duration_minutes} min
-                            </p>
-                          </div>
-                        </div>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={handleEndBatch}
-                          disabled={sessionLoading}
-                          className="bg-red-500 hover:bg-red-600 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          <span className="text-xl">⏹</span>
-                          End Batch
-                        </motion.button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-
-
                 {/* GPS Verification Wrapper */}
 
                 <AnimatePresence>
 
-                  {selectedCoachStatus === 'PRESENT' && attendanceWindow.active && (
+                  {selectedCoachStatus === 'PRESENT' && attendanceWindow.active && !hasActiveSession && (
 
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
 
                       <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
 
-                      <GPSVerificationCard
+                      {gpsVerified ? (
+                        // Show verified state instead of verification form
+                        <div className="p-6">
+                          <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                            <div className="flex-shrink-0 w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                              <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-emerald-900 dark:text-emerald-100">Location Verified âœ“</p>
+                              <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                                Your location has been verified for {selectedBatch.sport?.name || 'this batch'} today.
+                              </p>
+                              {distanceFromCenter !== null && (
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                  Distance from center: {distanceFromCenter.toFixed(1)}m
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Show verification form
+                        <GPSVerificationCard
 
-                        onLocationCapture={handleLocationCapture}
+                          onLocationCapture={handleLocationCapture}
 
-                        gpsCoords={gpsCoords}
+                          gpsCoords={gpsCoords}
 
-                        gpsVerified={gpsVerified}
+                          gpsVerified={gpsVerified}
 
-                        gpsError={gpsError}
+                          gpsError={gpsError}
 
-                        distanceFromCenter={distanceFromCenter}
+                          distanceFromCenter={distanceFromCenter}
 
-                        sportCenter={sportCenter}
+                          sportCenter={sportCenter}
 
-                        attendanceRadius={attendanceRadius}
+                          attendanceRadius={attendanceRadius}
 
-                        required={true}
+                          sportName={selectedBatch.sport?.name}
 
-                        disabled={false}
+                          required={true}
 
-                      />
+                          disabled={false}
+
+                        />
+                      )}
 
                     </motion.div>
 
@@ -1447,228 +1570,86 @@ export default function CoachAttendancePage() {
                 <div className="p-1">
 
                   <CoachAttendanceCard
-
                     onMarkAttendance={handleCoachAttendance}
-
                     disabled={false}
-
                     alreadyMarked={true}
-
                     existingAttendance={coachAttendanceStatus}
-
                   />
-
                 </div>
-
               </div>
-
             )}
-
-
 
             {/* Student Attendance Section */}
-
-            {coachAttendanceMarked && attendanceWindow.active && selectedBatch.students?.length > 0 && (
-
+            {coachAttendanceMarked && hasActiveSession && !isAttendanceLocked && (
               <div className="space-y-6">
-
                 
+                {selectedBatch.students?.length > 0 ? (
+                  <>
+                    <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden">
+                      <AttendanceSummaryCard 
+                        attendanceMap={attendanceMap} 
+                        students={selectedBatch.students} 
+                      />
+                    </div>
 
-                <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden">
-
-                  <AttendanceSummaryCard 
-
-                    attendanceMap={attendanceMap} 
-
-                    students={selectedBatch.students} 
-
-                  />
-
-                </div>
-
-
-
-                <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
-
-                  <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
-
-                  <StudentAttendanceCard
-
-                    students={selectedBatch.students}
-
-                    attendanceMap={attendanceMap}
-
-                    remarksMap={remarksMap}
-
-                    onAttendanceChange={handleStudentAttendanceChange}
-
-                    onRemarksChange={handleStudentRemarksChange}
-
-                    disabled={submitting}
-
-                    readOnly={!attendanceWindow.active}
-
-                  />
-
-                </div>
-
-
+                    <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
+                      <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
+                      <StudentAttendanceCard
+                        students={selectedBatch.students}
+                        attendanceMap={attendanceMap}
+                        remarksMap={remarksMap}
+                        onAttendanceChange={handleStudentAttendanceChange}
+                        onRemarksChange={handleStudentRemarksChange}
+                        onRemarksBlur={handleStudentRemarksBlur}
+                        disabled={sessionLoading}
+                        readOnly={false}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-card border border-dashed border-border shadow-sm rounded-2xl p-12 text-center">
+                    <span className="text-4xl opacity-50 block mb-4">👥</span>
+                    <h4 className="text-lg font-bold text-foreground mb-1">No Active Trainees</h4>
+                    <p className="text-muted-foreground text-sm font-medium">This batch currently has no active student enrollments.</p>
+                  </div>
+                )}
 
                 {/* Submit Controls Block */}
-
                 <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden p-6 relative">
-
-                  <h3 className="text-lg font-black tracking-tight mb-5 text-foreground flex items-center gap-2">
-
+                  <h3 className="text-lg font-black tracking-tight mb-3 text-foreground flex items-center gap-2">
                     <span className="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center text-sm">✓</span> 
-
-                    Finalize & Submit
-
+                    Finalize Attendance
                   </h3>
-
+                  <p className="text-xs text-muted-foreground mb-4">
+                    End the batch training session and submit final roll call. This will lock student records.
+                  </p>
                   
-
-                  <div className="flex flex-col sm:flex-row gap-4">
-
+                  <div className="flex gap-4">
                     <motion.button
-
                       whileHover={{ scale: 1.02 }}
-
                       whileTap={{ scale: 0.98 }}
-
-                      onClick={() => handleStudentAttendanceSubmit(false)}
-
-                      disabled={submitting}
-
-                      className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_4px_15px_rgba(16,185,129,0.3)] py-4 rounded-xl font-black text-sm transition-colors"
-
+                      onClick={handleEndBatch}
+                      disabled={sessionLoading}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white shadow-[0_4px_15px_rgba(239,68,68,0.3)] py-4 rounded-xl font-black text-sm transition-colors flex items-center justify-center gap-2"
                     >
-
-                      {submitting ? 'Submitting…' : 'Submit Selected Attendance'}
-
+                      <span className="text-xl">⏹</span>
+                      {sessionLoading ? 'Finalizing...' : 'End Batch & Submit Attendance'}
                     </motion.button>
-
-                    
-
-                    <motion.button
-
-                      whileHover={{ scale: 1.02 }}
-
-                      whileTap={{ scale: 0.98 }}
-
-                      onClick={() => setShowAutoMarkConfirm(true)}
-
-                      disabled={submitting}
-
-                      className="px-6 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors font-black text-sm shadow-[0_4px_15px_rgba(245,158,11,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
-
-                    >
-
-                      Auto-mark Unselected as Absent
-
-                    </motion.button>
-
                   </div>
-
-
-
-                  {/* Auto-mark Confirmation Modal */}
-
-                  <AnimatePresence>
-
-                    {showAutoMarkConfirm && (
-
-                      <motion.div 
-
-                        initial={{ opacity: 0, height: 0, marginTop: 0 }} 
-
-                        animate={{ opacity: 1, height: 'auto', marginTop: '1.5rem' }} 
-
-                        exit={{ opacity: 0, height: 0, marginTop: 0 }}
-
-                        className="overflow-hidden"
-
-                      >
-
-                        <div className="p-5 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-l-amber-500 border-y border-r border-amber-200 dark:border-amber-500/20 rounded-xl">
-
-                          <p className="text-sm font-bold text-amber-800 dark:text-amber-400 mb-4">
-
-                            ⚠️ This will mark all remaining unmarked students as Absent. Are you absolutely sure?
-
-                          </p>
-
-                          <div className="flex flex-wrap gap-3">
-
-                            <motion.button
-
-                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-
-                              onClick={() => handleStudentAttendanceSubmit(true)}
-
-                              disabled={submitting}
-
-                              className="px-5 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-bold shadow-md"
-
-                            >
-
-                              Yes, Auto-mark & Submit
-
-                            </motion.button>
-
-                            <motion.button
-
-                              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-
-                              onClick={() => setShowAutoMarkConfirm(false)}
-
-                              className="px-5 py-2.5 bg-surface border border-border text-foreground rounded-lg hover:bg-surface-secondary transition-colors text-sm font-bold shadow-sm"
-
-                            >
-
-                              Cancel
-
-                            </motion.button>
-
-                          </div>
-
-                        </div>
-
-                      </motion.div>
-
-                    )}
-
-                  </AnimatePresence>
-
                 </div>
-
               </div>
-
             )}
 
-
-
-            {/* Empty Students Fallback */}
-
+            {/* Empty Students Fallback (Only when session is not active) */}
             <AnimatePresence>
-
-              {coachAttendanceMarked && (!selectedBatch.students || selectedBatch.students.length === 0) && (
-
+              {coachAttendanceMarked && !hasActiveSession && (!selectedBatch.students || selectedBatch.students.length === 0) && (
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border border-dashed border-border shadow-sm rounded-2xl p-12 text-center">
-
                   <span className="text-4xl opacity-50 block mb-4">👥</span>
-
                   <h4 className="text-lg font-bold text-foreground mb-1">No Active Trainees</h4>
-
                   <p className="text-muted-foreground text-sm font-medium">This batch currently has no active student enrollments.</p>
-
                 </motion.div>
-
               )}
-
             </AnimatePresence>
-
-
 
           </motion.div>
 
@@ -1677,1377 +1658,5 @@ export default function CoachAttendancePage() {
       </AnimatePresence>
 
     </div>
-
   );
-
 }
-
-// import { useEffect, useState } from 'react';
-
-// import { motion, AnimatePresence } from 'framer-motion';
-
-// import Loader from '../../components/Loader';
-
-// import SessionCard from '../../components/attendance/SessionCard';
-
-// import CoachAttendanceCard from '../../components/attendance/CoachAttendanceCard';
-
-// import GPSVerificationCard from '../../components/attendance/GPSVerificationCard';
-
-// import StudentAttendanceCard from '../../components/attendance/StudentAttendanceCard';
-
-// import AttendanceSummaryCard from '../../components/attendance/AttendanceSummaryCard';
-
-// import AttendanceLockedCard from '../../components/attendance/AttendanceLockedCard';
-
-// import { coachGet, coachPost } from '../../api/client';
-
-// import { useCoachBatches } from '../../context/CoachBatchesContext';
-
-// import { AlertCircle } from 'lucide-react';
-
-
-
-// export default function CoachAttendancePage() {
-
-//   const { batches, loading } = useCoachBatches();
-
-//   const [selectedBatchId, setSelectedBatchId] = useState('');
-
-//   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
-
-//   const [attendanceMap, setAttendanceMap] = useState({});
-
-//   const [remarksMap, setRemarksMap] = useState({});
-
-//   const [submitting, setSubmitting] = useState(false);
-
-//   const [message, setMessage] = useState({ text: '', type: '' });
-
-  
-
-//   // Coach attendance state
-
-//   const [coachAttendanceStatus, setCoachAttendanceStatus] = useState(null);
-
-//   const [selectedCoachStatus, setSelectedCoachStatus] = useState('PRESENT');
-
-//   const [coachAttendanceMarked, setCoachAttendanceMarked] = useState(false);
-
-//   const [coachAttendanceLoading, setCoachAttendanceLoading] = useState(false);
-
-//   const [loadingCoachAttendance, setLoadingCoachAttendance] = useState(false);
-
-  
-
-//   // GPS state
-
-//   const [gpsCoords, setGpsCoords] = useState({ latitude: null, longitude: null, accuracy: null });
-
-//   const [gpsError, setGpsError] = useState('');
-
-//   const [gpsVerified, setGpsVerified] = useState(false);
-
-//   const [distanceFromCenter, setDistanceFromCenter] = useState(null);
-
-//   const [sportCenter, setSportCenter] = useState(null);
-
-//   const [attendanceRadius, setAttendanceRadius] = useState(100);
-
-  
-
-//   // Attendance window state
-
-//   const [attendanceWindow, setAttendanceWindow] = useState({ active: false, reason: '' });
-
-//   const [showAutoMarkConfirm, setShowAutoMarkConfirm] = useState(false);
-
-
-
-//   const selectedBatch = batches.find((b) => String(b.batch_id) === String(selectedBatchId));
-
-
-
-//   // Fetch today's coach attendance for the selected batch
-
-//   const fetchTodayCoachAttendance = async () => {
-
-//     if (!attendanceDate || !selectedBatchId) return;
-
-    
-
-//     setLoadingCoachAttendance(true);
-
-//     try {
-
-//       const response = await coachGet(`/coach/self-attendance?date=${attendanceDate}&batch_id=${selectedBatchId}`);
-
-//       const attendance = response.data;
-
-      
-
-//       if (attendance) {
-
-//         setCoachAttendanceMarked(true);
-
-//         setCoachAttendanceStatus({
-
-//           status: attendance.status,
-
-//           remarks: attendance.remarks,
-
-//           date: attendance.date
-
-//         });
-
-//         setSelectedCoachStatus(attendance.status);
-
-//       } else {
-
-//         setCoachAttendanceMarked(false);
-
-//         setCoachAttendanceStatus(null);
-
-//         setSelectedCoachStatus('PRESENT');
-
-//       }
-
-//     } catch (error) {
-
-//       // If no attendance found, that's expected
-
-//       if (error.message.includes('No attendance record found')) {
-
-//         setCoachAttendanceMarked(false);
-
-//         setCoachAttendanceStatus(null);
-
-//         setSelectedCoachStatus('PRESENT');
-
-//       } else {
-
-//         console.error('Error fetching coach attendance:', error);
-
-//       }
-
-//     } finally {
-
-//       setLoadingCoachAttendance(false);
-
-//     }
-
-//   };
-
-
-
-//   // Fetch coach attendance when date or batch changes
-
-//   useEffect(() => {
-
-//     fetchTodayCoachAttendance();
-
-//   }, [attendanceDate, selectedBatchId]);
-
-
-
-//   // Load sport center location when batch is selected
-
-//   useEffect(() => {
-
-//     if (selectedBatch?.sport) {
-
-//       // Use sport location if custom, otherwise use academy location
-
-//       if (selectedBatch.sport.use_custom_location && selectedBatch.sport.latitude && selectedBatch.sport.longitude) {
-
-//         setSportCenter({
-
-//           latitude: parseFloat(selectedBatch.sport.latitude),
-
-//           longitude: parseFloat(selectedBatch.sport.longitude)
-
-//         });
-
-//       } else if (selectedBatch.academy?.latitude && selectedBatch.academy?.longitude) {
-
-//         setSportCenter({
-
-//           latitude: parseFloat(selectedBatch.academy.latitude),
-
-//           longitude: parseFloat(selectedBatch.academy.longitude)
-
-//         });
-
-//       } else {
-
-//         setSportCenter(null);
-
-//       }
-
-      
-
-//       // Set attendance radius (sport-specific or academy default)
-
-//       setAttendanceRadius(selectedBatch.sport.attendance_radius_meters || selectedBatch.academy.attendance_radius_meters || 100);
-
-//     }
-
-//   }, [selectedBatch]);
-
-
-
-//   // Calculate distance when GPS coordinates are captured
-
-//   useEffect(() => {
-
-//     if (gpsCoords.latitude && gpsCoords.longitude && sportCenter) {
-
-//       const distance = calculateDistance(
-
-//         gpsCoords.latitude,
-
-//         gpsCoords.longitude,
-
-//         sportCenter.latitude,
-
-//         sportCenter.longitude
-
-//       );
-
-//       setDistanceFromCenter(distance);
-
-      
-
-//       // Verify if within radius
-
-//       const isWithinRadius = distance <= attendanceRadius;
-
-//       setGpsVerified(isWithinRadius);
-
-      
-
-//       if (!isWithinRadius) {
-
-//         setGpsError(`You are ${Math.round(distance)}m from the sport center. Attendance requires being within ${attendanceRadius}m.`);
-
-//       } else {
-
-//         setGpsError('');
-
-//       }
-
-//     }
-
-//   }, [gpsCoords, sportCenter, attendanceRadius]);
-
-
-
-//   // Haversine formula for distance calculation
-
-//   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-
-//     const R = 6371e3; // Earth's radius in meters
-
-//     const φ1 = lat1 * Math.PI / 180;
-
-//     const φ2 = lat2 * Math.PI / 180;
-
-//     const Δφ = (lat2 - lat1) * Math.PI / 180;
-
-//     const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-
-
-//     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-
-//               Math.cos(φ1) * Math.cos(φ2) *
-
-//               Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-//     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-
-
-//     return R * c;
-
-//   };
-
-
-
-//   // Check attendance window based on batch timing
-
-//   const checkAttendanceWindow = () => {
-
-//     if (!selectedBatch?.timing) {
-
-//       setAttendanceWindow({ active: true, reason: '' });
-
-//       return;
-
-//     }
-
-
-
-//     // Parse batch timing (assuming format like "09:00-10:00")
-
-//     const [startTime, endTime] = selectedBatch.timing.split('-').map(t => t.trim());
-
-//     if (!startTime || !endTime) {
-
-//       setAttendanceWindow({ active: true, reason: '' });
-
-//       return;
-
-//     }
-
-
-
-//     const now = new Date();
-
-//     const currentDate = attendanceDate ? new Date(attendanceDate) : now;
-
-    
-
-//     const [startHour, startMin] = startTime.split(':').map(Number);
-
-//     const [endHour, endMin] = endTime.split(':').map(Number);
-
-    
-
-//     const batchStart = new Date(currentDate);
-
-//     batchStart.setHours(startHour, startMin, 0, 0);
-
-    
-
-//     const batchEnd = new Date(currentDate);
-
-//     batchEnd.setHours(endHour, endMin, 0, 0);
-
-
-
-//     // Add grace periods (10 min before, 15 min after)
-
-//     const graceBefore = 10 * 60 * 1000; // 10 minutes in ms
-
-//     const graceAfter = 15 * 60 * 1000; // 15 minutes in ms
-
-
-
-//     const windowStart = new Date(batchStart.getTime() - graceBefore);
-
-//     const windowEnd = new Date(batchEnd.getTime() + graceAfter);
-
-
-
-//     const isActive = now >= windowStart && now <= windowEnd;
-
-    
-
-//     if (!isActive) {
-
-//       if (now < windowStart) {
-
-//         setAttendanceWindow({ 
-
-//           active: false, 
-
-//           reason: `Attendance window opens at ${windowStart.toLocaleTimeString()}` 
-
-//         });
-
-//       } else {
-
-//         setAttendanceWindow({ 
-
-//           active: false, 
-
-//           reason: `Attendance window closed at ${windowEnd.toLocaleTimeString()}` 
-
-//         });
-
-//       }
-
-//     } else {
-
-//       setAttendanceWindow({ active: true, reason: '' });
-
-//     }
-
-//   };
-
-
-
-//   // Handle GPS location capture from GPSCapture component
-
-//   const handleLocationCapture = (locationData) => {
-
-//     if (locationData) {
-
-//       setGpsCoords({
-
-//         latitude: locationData.latitude,
-
-//         longitude: locationData.longitude,
-
-//         accuracy: locationData.accuracy
-
-//       });
-
-//       setMessage({ text: 'Location captured successfully', type: 'success' });
-
-//       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
-
-//     } else {
-
-//       setGpsCoords({ latitude: null, longitude: null, accuracy: null });
-
-//       setGpsVerified(false);
-
-//       setDistanceFromCenter(null);
-
-//     }
-
-//   };
-
-
-
-//   // Handle coach attendance marking
-
-//   const handleCoachAttendance = async ({ status, remarks }) => {
-
-//     // Prevent marking Present when window is closed
-
-//     if (status === 'PRESENT' && !attendanceWindow.active) {
-
-//       setMessage({ text: 'You cannot mark yourself as Present after the attendance window closes. Please mark yourself as Absent instead.', type: 'error' });
-
-//       return;
-
-//     }
-
-    
-
-//     // Require GPS verification for Present
-
-//     if (status === 'PRESENT' && !gpsVerified) {
-
-//       setMessage({ text: 'Please verify your location before marking attendance as Present.', type: 'error' });
-
-//       return;
-
-//     }
-
-
-
-//     setCoachAttendanceLoading(true);
-
-//     setMessage({ text: '', type: '' });
-
-
-
-//     try {
-
-//       const payload = {
-
-//         batch_id: selectedBatch.batch_id,
-
-//         date: attendanceDate,
-
-//         status,
-
-//         remarks
-
-//       };
-
-
-
-//       // Include GPS data if present
-
-//       if (status === 'PRESENT' && gpsCoords.latitude && gpsCoords.longitude) {
-
-//         payload.latitude = gpsCoords.latitude;
-
-//         payload.longitude = gpsCoords.longitude;
-
-//         payload.accuracy = gpsCoords.accuracy;
-
-//       }
-
-
-
-//       const result = await coachPost('/coach/self-attendance', payload);
-
-      
-
-//       setCoachAttendanceMarked(true);
-
-//       setCoachAttendanceStatus({ status, remarks, date: attendanceDate });
-
-//       setMessage({ text: result.message || 'Coach attendance marked successfully', type: 'success' });
-
-//       setTimeout(() => setMessage({ text: '', type: '' }), 4000);
-
-      
-
-//       // Initialize student attendance after coach attendance
-
-//       if (selectedBatch.students) {
-
-//         const initialAttendance = {};
-
-//         const initialRemarks = {};
-
-//         selectedBatch.students.forEach((student) => {
-
-//           initialAttendance[student.student_id] = 'PRESENT';
-
-//           initialRemarks[student.student_id] = '';
-
-//         });
-
-//         setAttendanceMap(initialAttendance);
-
-//         setRemarksMap(initialRemarks);
-
-//       }
-
-//     } catch (error) {
-
-//       setMessage({ text: error.message, type: 'error' });
-
-//     } finally {
-
-//       setCoachAttendanceLoading(false);
-
-//     }
-
-//   };
-
-
-
-//   // Handle student attendance change
-
-//   const handleStudentAttendanceChange = (studentId, status) => {
-
-//     setAttendanceMap(prev => ({ ...prev, [studentId]: status }));
-
-//   };
-
-
-
-//   // Handle student remarks change
-
-//   const handleStudentRemarksChange = (studentId, remarks) => {
-
-//     setRemarksMap(prev => ({ ...prev, [studentId]: remarks }));
-
-//   };
-
-
-
-//   // Handle student attendance submission
-
-//   const handleStudentAttendanceSubmit = async (autoMarkAbsent = false) => {
-
-//     if (!selectedBatch) {
-
-//       setMessage({ text: 'Please select a batch first.', type: 'error' });
-
-//       return;
-
-//     }
-
-//     if (!selectedBatch.students?.length) {
-
-//       setMessage({ text: 'This batch has no active students.', type: 'error' });
-
-//       return;
-
-//     }
-
-//     if (!coachAttendanceMarked) {
-
-//       setMessage({ text: 'Please mark your attendance first.', type: 'error' });
-
-//       return;
-
-//     }
-
-
-
-//     // Auto-mark remaining students as absent if requested
-
-//     let finalAttendanceMap = { ...attendanceMap };
-
-//     if (autoMarkAbsent) {
-
-//       selectedBatch.students.forEach((student) => {
-
-//         if (!finalAttendanceMap[student.student_id]) {
-
-//           finalAttendanceMap[student.student_id] = 'ABSENT';
-
-//         }
-
-//       });
-
-//     }
-
-
-
-//     setSubmitting(true);
-
-//     setMessage({ text: '', type: '' });
-
-
-
-//     const records = selectedBatch.students.map((student) => ({
-
-//       student_id: student.student_id,
-
-//       status: finalAttendanceMap[student.student_id] || 'PRESENT',
-
-//       remarks: remarksMap[student.student_id] || ''
-
-//     }));
-
-
-
-//     try {
-
-//       const result = await coachPost('/coach/attendance', {
-
-//         batch_id: selectedBatch.batch_id,
-
-//         date: attendanceDate,
-
-//         records,
-
-//         latitude: gpsCoords.latitude,
-
-//         longitude: gpsCoords.longitude,
-
-//         accuracy: gpsCoords.accuracy
-
-//       });
-
-//       setMessage({
-
-//         text: `${result.message} Parent notifications are being sent where email is on file.`,
-
-//         type: 'success'
-
-//       });
-
-//       setShowAutoMarkConfirm(false);
-
-//       setTimeout(() => setMessage({ text: '', type: '' }), 5000);
-
-//     } catch (error) {
-
-//       setMessage({ text: error.message, type: 'error' });
-
-//     } finally {
-
-//       setSubmitting(false);
-
-//     }
-
-//   };
-
-
-
-//   useEffect(() => {
-
-//     if (!selectedBatch?.students) {
-
-//       setAttendanceMap({});
-
-//       setRemarksMap({});
-
-//       return;
-
-//     }
-
-//     // Only initialize student attendance after coach attendance is marked
-
-//     if (coachAttendanceMarked) {
-
-//       const initialAttendance = {};
-
-//       const initialRemarks = {};
-
-//       selectedBatch.students.forEach((student) => {
-
-//         initialAttendance[student.student_id] = 'PRESENT';
-
-//         initialRemarks[student.student_id] = '';
-
-//       });
-
-//       setAttendanceMap(initialAttendance);
-
-//       setRemarksMap(initialRemarks);
-
-//     }
-
-//   }, [selectedBatchId, selectedBatch, coachAttendanceMarked]);
-
-
-
-//   // Check attendance window when batch or date changes
-
-//   useEffect(() => {
-
-//     checkAttendanceWindow();
-
-//   }, [selectedBatch, attendanceDate]);
-
-
-
-//   // Framer Motion Variants
-
-//   const containerVariants = {
-
-//     hidden: { opacity: 0 },
-
-//     show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-
-//   };
-
-
-
-//   const itemVariants = {
-
-//     hidden: { opacity: 0, y: 20 },
-
-//     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-
-//   };
-
-
-
-//   if (loading) {
-
-//     return <Loader message="Loading batches…" />;
-
-//   }
-
-
-
-//   return (
-
-//     <div className="relative min-h-full w-full">
-
-//       {/* Background SVG Pattern */}
-
-//       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-[0.04] dark:opacity-[0.03]">
-
-//         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-
-//           <defs>
-
-//             <pattern id="sports-icons" width="200" height="200" patternUnits="userSpaceOnUse" patternTransform="rotate(-15)">
-
-//               <g transform="translate(20, 20) scale(1.2)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M12 7l-3 4h6z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M12 7V2m-3 9l-4 3m10-3l4 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></g>
-
-//               <g transform="translate(120, 40) scale(1.2)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M12 2v20M2 12h20M4.93 4.93c3.9 3.9 3.9 10.24 0 14.14M19.07 4.93c-3.9 3.9-3.9 10.24 0 14.14" fill="none" stroke="currentColor" strokeWidth="1.5" /></g>
-
-//             </pattern>
-
-//           </defs>
-
-//           <rect width="100%" height="100%" fill="url(#sports-icons)" />
-
-//         </svg>
-
-//       </div>
-
-
-
-//       <motion.section 
-
-//         className="relative z-10 space-y-8 w-full max-w-6xl mx-auto"
-
-//         initial="hidden"
-
-//         animate="show"
-
-//         variants={containerVariants}
-
-//       >
-
-//         {/* Header Section */}
-
-//         <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/50 pb-6 relative">
-
-//           <div className="absolute top-0 left-0 w-48 h-48 bg-primary/20 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
-
-//           <div>
-
-//             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground flex items-center gap-3">
-
-//               Attendance Register
-
-//               <span className="flex h-3 w-3 relative ml-2">
-
-//                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-
-//                 <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-
-//               </span>
-
-//             </h1>
-
-//             <p className="text-muted-foreground mt-2 text-sm font-medium">
-
-//               Verify your presence via GPS, then mark your students.
-
-//             </p>
-
-//           </div>
-
-//         </motion.div>
-
-
-
-//         {/* Floating Alert Notification */}
-
-//         <AnimatePresence>
-
-//           {message.text && (
-
-//             <motion.div 
-
-//               initial={{ opacity: 0, y: -20, scale: 0.95 }} 
-
-//               animate={{ opacity: 1, y: 0, scale: 1 }} 
-
-//               exit={{ opacity: 0, y: -20, scale: 0.95 }}
-
-//               className={`fixed top-6 right-6 z-50 rounded-xl px-6 py-4 shadow-xl border flex items-center gap-3 font-bold ${
-
-//                 message.type === 'success' 
-
-//                   ? 'bg-white dark:bg-card border-l-4 border-l-emerald-500 text-emerald-600 dark:text-emerald-400 border-y-border border-r-border' 
-
-//                   : 'bg-white dark:bg-card border-l-4 border-l-red-500 text-red-600 dark:text-red-400 border-y-border border-r-border'
-
-//               }`}
-
-//             >
-
-//               <AlertCircle className="w-6 h-6 flex-shrink-0" />
-
-//               {message.text}
-
-//             </motion.div>
-
-//           )}
-
-//         </AnimatePresence>
-
-
-
-//         {/* Configuration Panel */}
-
-//         <motion.div variants={itemVariants} className="bg-card border border-border shadow-sm rounded-2xl p-6 relative overflow-hidden group hover:shadow-md transition-shadow">
-
-//           <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
-
-//           <h3 className="text-lg font-black tracking-tight mb-5 text-foreground flex items-center gap-2">
-
-//             <span className="bg-primary/10 text-primary w-8 h-8 rounded-lg flex items-center justify-center text-sm">1</span> 
-
-//             Session Setup
-
-//           </h3>
-
-
-
-//           <div className="grid gap-6 sm:grid-cols-2">
-
-//             <div>
-
-//               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-2" htmlFor="attendanceBatch">
-
-//                 Select Training Batch
-
-//               </label>
-
-//               <select
-
-//                 id="attendanceBatch"
-
-//                 className="w-full bg-surface border border-border rounded-xl p-3.5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer transition-all"
-
-//                 value={selectedBatchId}
-
-//                 onChange={(e) => {
-
-//                   setSelectedBatchId(e.target.value);
-
-//                   setCoachAttendanceMarked(false);
-
-//                   setCoachAttendanceStatus(null);
-
-//                   setSelectedCoachStatus('PRESENT');
-
-//                   setAttendanceMap({});
-
-//                   setRemarksMap({});
-
-//                 }}
-
-//               >
-
-//                 <option value="" className="text-muted-foreground">-- Choose a batch --</option>
-
-//                 {batches.map((batch) => (
-
-//                   <option key={batch.batch_id} value={batch.batch_id}>
-
-//                     {batch.name} {batch.timing ? `(${batch.timing})` : ''}
-
-//                   </option>
-
-//                 ))}
-
-//               </select>
-
-//             </div>
-
-//             <div>
-
-//               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-2" htmlFor="attendanceDate">
-
-//                 Attendance Date
-
-//               </label>
-
-//               <input
-
-//                 id="attendanceDate"
-
-//                 type="date"
-
-//                 className="w-full bg-surface border border-border rounded-xl p-3.5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-
-//                 value={attendanceDate}
-
-//                 onChange={(e) => setAttendanceDate(e.target.value)}
-
-//                 required
-
-//               />
-
-//             </div>
-
-//           </div>
-
-//         </motion.div>
-
-
-
-//         {selectedBatch && (
-
-//           <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-
-            
-
-//             {/* Session Info Wrapper */}
-
-//             <motion.div variants={itemVariants} className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden">
-
-//               <SessionCard batch={selectedBatch} academy={selectedBatch.academy} />
-
-//             </motion.div>
-
-
-
-//             {/* Attendance Window Locked Alert */}
-
-//             <AnimatePresence>
-
-//               {!attendanceWindow.active && coachAttendanceMarked && (
-
-//                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-
-//                   <AttendanceLockedCard 
-
-//                     reason={attendanceWindow.reason}
-
-//                     canUnlock={false}
-
-//                   />
-
-//                 </motion.div>
-
-//               )}
-
-//             </AnimatePresence>
-
-
-
-//             {/* Coach Attendance Section */}
-
-//             {!coachAttendanceMarked && (
-
-//               <motion.div variants={itemVariants} className="space-y-4">
-
-//                 {!attendanceWindow.active && (
-
-//                   <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-l-amber-500 border-y border-r border-amber-200 dark:border-amber-500/20 rounded-xl text-amber-800 dark:text-amber-400">
-
-//                     <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-
-//                     <p className="text-sm font-semibold">
-
-//                       Attendance window is closed. You can only mark yourself as Absent.
-
-//                     </p>
-
-//                   </div>
-
-//                 )}
-
-                
-
-//                 <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
-
-//                   <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-
-//                   <div className="p-1">
-
-//                     <CoachAttendanceCard
-
-//                       onMarkAttendance={handleCoachAttendance}
-
-//                       disabled={coachAttendanceLoading}
-
-//                       alreadyMarked={false}
-
-//                       initialStatus={selectedCoachStatus}
-
-//                       onStatusChange={setSelectedCoachStatus}
-
-//                       windowClosed={!attendanceWindow.active}
-
-//                     />
-
-//                   </div>
-
-//                 </div>
-
-
-
-//                 {/* GPS Verification Wrapper */}
-
-//                 <AnimatePresence>
-
-//                   {selectedCoachStatus === 'PRESENT' && attendanceWindow.active && (
-
-//                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden">
-
-//                       <GPSVerificationCard
-
-//                         onLocationCapture={handleLocationCapture}
-
-//                         gpsCoords={gpsCoords}
-
-//                         gpsVerified={gpsVerified}
-
-//                         gpsError={gpsError}
-
-//                         distanceFromCenter={distanceFromCenter}
-
-//                         sportCenter={sportCenter}
-
-//                         attendanceRadius={attendanceRadius}
-
-//                         required={true}
-
-//                         disabled={false}
-
-//                       />
-
-//                     </motion.div>
-
-//                   )}
-
-//                 </AnimatePresence>
-
-
-
-//                 {/* Closed Window Error Wrapper */}
-
-//                 <AnimatePresence>
-
-//                   {selectedCoachStatus === 'PRESENT' && !attendanceWindow.active && (
-
-//                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/10 border-l-4 border-l-red-500 border-y border-r border-red-200 dark:border-red-500/20 rounded-xl text-red-800 dark:text-red-400 mt-4">
-
-//                       <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-
-//                       <p className="text-sm font-bold">
-
-//                         You cannot mark yourself as Present after the attendance window closes. Please switch to Absent.
-
-//                       </p>
-
-//                     </motion.div>
-
-//                   )}
-
-//                 </AnimatePresence>
-
-//               </motion.div>
-
-//             )}
-
-
-
-//             {coachAttendanceMarked && (
-
-//               <motion.div variants={itemVariants} className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
-
-//                 <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-
-//                 <div className="p-1">
-
-//                   <CoachAttendanceCard
-
-//                     onMarkAttendance={handleCoachAttendance}
-
-//                     disabled={false}
-
-//                     alreadyMarked={true}
-
-//                     existingAttendance={coachAttendanceStatus}
-
-//                   />
-
-//                 </div>
-
-//               </motion.div>
-
-//             )}
-
-
-
-//             {/* Student Attendance Section */}
-
-//             {coachAttendanceMarked && attendanceWindow.active && selectedBatch.students?.length > 0 && (
-
-//               <motion.div variants={itemVariants} className="space-y-6">
-
-                
-
-//                 <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden">
-
-//                   <AttendanceSummaryCard 
-
-//                     attendanceMap={attendanceMap} 
-
-//                     students={selectedBatch.students} 
-
-//                   />
-
-//                 </div>
-
-
-
-//                 <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
-
-//                   <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
-
-//                   <StudentAttendanceCard
-
-//                     students={selectedBatch.students}
-
-//                     attendanceMap={attendanceMap}
-
-//                     remarksMap={remarksMap}
-
-//                     onAttendanceChange={handleStudentAttendanceChange}
-
-//                     onRemarksChange={handleStudentRemarksChange}
-
-//                     disabled={submitting}
-
-//                     readOnly={!attendanceWindow.active}
-
-//                   />
-
-//                 </div>
-
-
-
-//                 {/* Submit Controls Block */}
-
-//                 <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden p-6 relative">
-
-//                   <h3 className="text-lg font-black tracking-tight mb-5 text-foreground flex items-center gap-2">
-
-//                     <span className="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 w-8 h-8 rounded-lg flex items-center justify-center text-sm">✓</span> 
-
-//                     Finalize & Submit
-
-//                   </h3>
-
-                  
-
-//                   <div className="flex flex-col sm:flex-row gap-4">
-
-//                     <motion.button
-
-//                       whileHover={{ scale: 1.02 }}
-
-//                       whileTap={{ scale: 0.98 }}
-
-//                       onClick={() => handleStudentAttendanceSubmit(false)}
-
-//                       disabled={submitting}
-
-//                       className="btn-primary flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.4)] py-4 rounded-xl font-black text-sm"
-
-//                     >
-
-//                       {submitting ? 'Submitting…' : 'Submit Selected Attendance'}
-
-//                     </motion.button>
-
-                    
-
-//                     <motion.button
-
-//                       whileHover={{ scale: 1.02 }}
-
-//                       whileTap={{ scale: 0.98 }}
-
-//                       onClick={() => setShowAutoMarkConfirm(true)}
-
-//                       disabled={submitting}
-
-//                       className="px-6 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors font-black text-sm shadow-[0_4px_15px_rgba(245,158,11,0.3)] hover:shadow-[0_6px_20px_rgba(245,158,11,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
-
-//                     >
-
-//                       Auto-mark Unselected as Absent
-
-//                     </motion.button>
-
-//                   </div>
-
-
-
-//                   {/* Auto-mark Confirmation Modal */}
-
-//                   <AnimatePresence>
-
-//                     {showAutoMarkConfirm && (
-
-//                       <motion.div 
-
-//                         initial={{ opacity: 0, height: 0, marginTop: 0 }} 
-
-//                         animate={{ opacity: 1, height: 'auto', marginTop: '1.5rem' }} 
-
-//                         exit={{ opacity: 0, height: 0, marginTop: 0 }}
-
-//                         className="overflow-hidden"
-
-//                       >
-
-//                         <div className="p-5 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-l-amber-500 border-y border-r border-amber-200 dark:border-amber-500/20 rounded-xl">
-
-//                           <p className="text-sm font-bold text-amber-800 dark:text-amber-400 mb-4">
-
-//                             ⚠️ This will mark all remaining unmarked students as Absent. Are you absolutely sure?
-
-//                           </p>
-
-//                           <div className="flex flex-wrap gap-3">
-
-//                             <motion.button
-
-//                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-
-//                               onClick={() => handleStudentAttendanceSubmit(true)}
-
-//                               disabled={submitting}
-
-//                               className="px-5 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-bold shadow-md"
-
-//                             >
-
-//                               Yes, Auto-mark & Submit
-
-//                             </motion.button>
-
-//                             <motion.button
-
-//                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-
-//                               onClick={() => setShowAutoMarkConfirm(false)}
-
-//                               className="px-5 py-2.5 bg-surface border border-border text-foreground rounded-lg hover:bg-surface-secondary transition-colors text-sm font-bold shadow-sm"
-
-//                             >
-
-//                               Cancel
-
-//                             </motion.button>
-
-//                           </div>
-
-//                         </div>
-
-//                       </motion.div>
-
-//                     )}
-
-//                   </AnimatePresence>
-
-//                 </div>
-
-//               </motion.div>
-
-//             )}
-
-
-
-//             {/* Empty Students Fallback */}
-
-//             <AnimatePresence>
-
-//               {coachAttendanceMarked && (!selectedBatch.students || selectedBatch.students.length === 0) && (
-
-//                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border border-dashed border-border shadow-sm rounded-2xl p-12 text-center">
-
-//                   <span className="text-4xl opacity-50 block mb-4">👥</span>
-
-//                   <h4 className="text-lg font-bold text-foreground mb-1">No Active Trainees</h4>
-
-//                   <p className="text-muted-foreground text-sm font-medium">This batch currently has no active student enrollments.</p>
-
-//                 </motion.div>
-
-//               )}
-
-//             </AnimatePresence>
-
-            
-
-//           </motion.div>
-
-//         )}
-
-//       </motion.section>
-
-//     </div>
-
-//   );
-
-// }
