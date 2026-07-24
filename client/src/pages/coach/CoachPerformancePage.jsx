@@ -38,6 +38,9 @@ export default function CoachPerformancePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showLiveSummary, setShowLiveSummary] = useState(true);
   const [dailyLock, setDailyLock] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
 
   const loadBatches = useCallback(async () => {
     try {
@@ -417,6 +420,13 @@ ${remarks || 'No notes provided'}
     }
   };
 
+  const filteredBatches = batches.filter(b => b.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(studentSearch.toLowerCase()));
+  const filteredHistory = assessmentHistory.filter(a => {
+    const date = new Date(a.scored_at).toLocaleDateString();
+    return date.includes(historySearch) || (a.coach?.name || '').toLowerCase().includes(historySearch.toLowerCase());
+  });
+
   // Animation variants
   const viewVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -444,6 +454,105 @@ ${remarks || 'No notes provided'}
 
       <div className="relative z-10 w-full max-w-7xl mx-auto space-y-6">
         
+        {/* Global Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-6 text-left">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-foreground">
+              Performance Analytics
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1 font-medium">
+              {selectedStudent 
+                ? `Evaluating ${selectedStudent.name} / ${selectedBatch.name}` 
+                : selectedBatch 
+                  ? `Select an athlete in ${selectedBatch.name} to track progress` 
+                  : "Track and manage athletic parameters and training statistics"}
+            </p>
+          </div>
+          {selectedBatch && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                if (selectedStudent) {
+                  setSelectedStudent(null);
+                } else {
+                  setSelectedBatch(null);
+                }
+              }}
+              className="px-4 py-2.5 text-xs font-bold bg-surface hover:bg-surface-secondary border border-border rounded-xl text-foreground flex items-center gap-2 shadow-sm shrink-0"
+            >
+              ← Back to {selectedStudent ? 'Athletes' : 'Batches'}
+            </motion.button>
+          )}
+        </div>
+
+        {/* Global Summary Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+          {/* Total Athletes Card */}
+          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Athletes</span>
+              <span className="text-xl">👥</span>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-foreground">
+                {selectedBatch ? students.length : batches.reduce((acc, b) => acc + (b.students?.length || 0), 0)}
+              </div>
+              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
+                {selectedBatch ? `Active: ${selectedBatch.name}` : "Across all assigned batches"}
+              </span>
+            </div>
+          </div>
+
+          {/* Completed Evaluations Card */}
+          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Scored Today</span>
+              <span className="text-xl">🟢</span>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-foreground">
+                {selectedBatch ? (dailyLock?.locked ? 1 : 0) : 0}
+              </div>
+              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
+                {selectedBatch ? `Active student: ${selectedStudent ? selectedStudent.name : 'None selected'}` : 'Select a batch to evaluate'}
+              </span>
+            </div>
+          </div>
+
+          {/* Metrics Card */}
+          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sport Metrics</span>
+              <span className="text-xl">📊</span>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-foreground">
+                {selectedBatch ? attributes.length : 0}
+              </div>
+              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
+                {selectedBatch ? `For: ${selectedBatch.sport?.name || 'Assigned Sport'}` : 'No batch selected'}
+              </span>
+            </div>
+          </div>
+
+          {/* Average Rating Card */}
+          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Average Rating</span>
+              <span className="text-xl">⭐</span>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-foreground">
+                {selectedStudent ? getLiveSummary().average : '0.0'}
+              </div>
+              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
+                {selectedStudent ? `Estimated Grade: ${getLiveSummary().grade}` : 'Select student to view score'}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Global Alert */}
         <AnimatePresence>
           {message.text && (
@@ -469,16 +578,21 @@ ${remarks || 'No notes provided'}
           {/* VIEW 1: BATCH SELECTION */}
           {!selectedBatch && (
             <motion.div key="view-batches" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
-              <div className="mb-8">
-                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
-                  Performance Tracker
-                </h2>
-                <p className="text-muted-foreground mt-2 text-sm font-medium">Select a training batch to begin evaluating your athletes.</p>
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border/80 p-4 rounded-2xl shadow-sm text-left">
+                <span className="text-sm font-bold text-foreground">Filter Batches</span>
+                <input
+                  type="text"
+                  placeholder="Search batches by name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-4 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full md:max-w-xs"
+                />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {batches.length > 0 ? (
-                  batches.map((batch, idx) => {
+                {filteredBatches.length > 0 ? (
+                  filteredBatches.map((batch, idx) => {
                     const theme = BATCH_COLORS[idx % BATCH_COLORS.length];
                     return (
                       <motion.button
@@ -496,7 +610,7 @@ ${remarks || 'No notes provided'}
                           {batch.name}
                         </h3>
                         <div className="flex items-center gap-2 mt-4 text-xs font-bold text-muted-foreground">
-                          <span className="bg-background/80 px-2 py-1 rounded shadow-sm border border-border/50">
+                          <span className="bg-background/80 px-2.5 py-1 rounded shadow-sm border border-border/50">
                             👥 {batch.students?.length || 0} Trainees
                           </span>
                         </div>
@@ -506,7 +620,7 @@ ${remarks || 'No notes provided'}
                 ) : (
                   <div className="col-span-full py-16 text-center bg-surface border border-dashed border-border rounded-2xl">
                     <span className="text-4xl opacity-50 block mb-3">🏟️</span>
-                    <p className="text-foreground font-bold">No assigned batches</p>
+                    <p className="text-foreground font-bold">No assigned batches matching search criteria</p>
                   </div>
                 )}
               </div>
@@ -516,24 +630,21 @@ ${remarks || 'No notes provided'}
           {/* VIEW 2: STUDENT SELECTION IN BATCH */}
           {selectedBatch && !selectedStudent && (
             <motion.div key="view-students" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
-              <div className="flex items-center gap-4 border-b border-border/50 pb-6">
-                <motion.button
-                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onClick={() => setSelectedBatch(null)}
-                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-sm"
-                >
-                  ←
-                </motion.button>
-                <div>
-                  <h2 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-                    {selectedBatch.name} <span className="text-muted-foreground font-medium text-lg">/ Select Athlete</span>
-                  </h2>
-                </div>
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border/80 p-4 rounded-2xl shadow-sm text-left">
+                <span className="text-sm font-bold text-foreground">Filter Athletes</span>
+                <input
+                  type="text"
+                  placeholder="Search athletes by name..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  className="px-4 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full md:max-w-xs"
+                />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {students.length > 0 ? (
-                  students.map((student) => (
+                {filteredStudents.length > 0 ? (
+                  filteredStudents.map((student) => (
                     <motion.button
                       key={student.student_id}
                       variants={itemVariants}
@@ -542,53 +653,45 @@ ${remarks || 'No notes provided'}
                       onClick={() => handleStudentSelect(student)}
                       className="group relative rounded-2xl border border-border bg-surface hover:border-emerald-400 p-5 text-left transition-all duration-300 shadow-sm hover:shadow-[0_8px_20px_rgba(16,185,129,0.1)] flex items-center gap-4"
                     >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black bg-surface-secondary border border-border text-muted-foreground group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-500 transition-colors shadow-inner">
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-black bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md uppercase shrink-0 transition-all duration-300">
                         {student.name.charAt(0)}
                       </div>
-                      <div>
-                        <div className="font-black text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors text-base tracking-tight">
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors text-base tracking-tight truncate">
                           {student.name}
                         </div>
-                        <div className="text-muted-foreground mt-0.5 text-[10px] font-bold uppercase tracking-wider">
+                        <div className="text-muted-foreground mt-0.5 text-[10px] font-bold uppercase tracking-wider truncate">
                           {student.sport?.name || selectedBatch.sport?.name}
                         </div>
+                        <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          Active Athlete
+                        </span>
                       </div>
                     </motion.button>
                   ))
                 ) : (
                   <div className="col-span-full py-16 text-center bg-surface border border-dashed border-border rounded-2xl">
                     <span className="text-4xl opacity-50 block mb-3">🚷</span>
-                    <p className="text-foreground font-bold">No athletes in this batch</p>
+                    <p className="text-foreground font-bold">No athletes found matching search criteria</p>
                   </div>
                 )}
               </div>
             </motion.div>
           )}
 
-          {/* VIEW 3: METRICS SCORING LEDGER (With Linear Node Sketch Integration) */}
+          {/* VIEW 3: METRICS SCORING LEDGER */}
           {selectedBatch && selectedStudent && (
-            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-4">
+            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-4 text-left">
               
-              <div className="flex items-center gap-3 border-b border-border/50 pb-3">
-                <motion.button
-                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onClick={() => setSelectedStudent(null)}
-                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground w-9 h-9 rounded-lg flex items-center justify-center transition-colors shadow-sm"
-                >
-                  ←
-                </motion.button>
-                <div className="flex-1">
-                  <h2 className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-                    {selectedStudent.name} <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded text-xs font-bold border border-emerald-200 dark:border-emerald-500/30">Evaluation</span>
-                  </h2>
-                </div>
+              <div className="flex items-center justify-between gap-3 bg-card border border-border/80 p-4 rounded-2xl shadow-sm">
+                <span className="text-sm font-bold text-foreground">Action Console</span>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowHistory(!showHistory)}
-                  className="bg-surface border border-border hover:bg-surface-secondary text-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center gap-2"
+                  className="bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2"
                 >
-                  📋 Assessment History
+                  📋 {showHistory ? 'Hide Assessment History' : 'View Assessment History'}
                 </motion.button>
               </div>
 
@@ -599,67 +702,76 @@ ${remarks || 'No notes provided'}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mb-4 bg-card border border-border rounded-xl overflow-hidden"
+                    className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm"
                   >
-                    <div className="p-4 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-sm font-black tracking-tight text-foreground">
-                        Assessment History
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Click on an assessment to load its ratings
-                      </p>
+                    <div className="p-4 border-b border-border/50 bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight text-foreground">
+                          Assessment History
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Click on any record below to load details
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search Date or Evaluator..."
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full md:max-w-xs animate-none"
+                      />
                     </div>
                     <div className="p-4">
                       {loadingHistory ? (
-                        <div className="flex items-center justify-center py-6">
-                          <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                        <div className="flex items-center justify-center py-8">
+                          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
                         </div>
-                      ) : assessmentHistory.length === 0 ? (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <p className="text-xs font-bold">No assessment history found</p>
+                      ) : filteredHistory.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p className="text-sm font-bold">No historical assessments found matching search</p>
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          {assessmentHistory.map((assessment) => {
-                            const avgRating = calculateAverageRating(assessment.scores);
-                            const grade = calculateGrade(parseFloat(avgRating));
-                            const date = new Date(assessment.scored_at).toLocaleDateString();
-                            
-                            return (
-                              <motion.button
-                                key={assessment.assessment_id}
-                                whileHover={{ scale: 1.01 }}
-                                whileTap={{ scale: 0.99 }}
-                                onClick={() => handleAssessmentClick(assessment)}
-                                className="w-full text-left p-3 rounded-lg border border-border hover:border-emerald-400 bg-surface hover:bg-surface-secondary transition-all"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                      {grade}
-                                    </div>
-                                    <div>
-                                      <div className="text-sm font-bold text-foreground">{date}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {assessment.coach?.name || 'Unknown Coach'}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-sm font-black text-foreground">{avgRating}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {assessment.scores?.length || 0} metrics
-                                    </div>
-                                  </div>
-                                </div>
-                                {assessment.notes && (
-                                  <div className="mt-1.5 text-xs text-muted-foreground truncate">
-                                    {assessment.notes}
-                                  </div>
-                                )}
-                              </motion.button>
-                            );
-                          })}
+                        <div className="max-h-[300px] overflow-y-auto relative rounded-xl border border-border">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead className="bg-surface sticky top-0 z-20 border-b border-border">
+                              <tr>
+                                <th className="p-3 font-bold text-muted-foreground">Grade</th>
+                                <th className="p-3 font-bold text-muted-foreground">Date</th>
+                                <th className="p-3 font-bold text-muted-foreground">Evaluator</th>
+                                <th className="p-3 font-bold text-muted-foreground text-center">Score</th>
+                                <th className="p-3 font-bold text-muted-foreground text-center">Metrics Rated</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/50">
+                              {filteredHistory.map((assessment) => {
+                                const avgRating = calculateAverageRating(assessment.scores);
+                                const grade = calculateGrade(parseFloat(avgRating));
+                                const date = new Date(assessment.scored_at).toLocaleDateString();
+                                
+                                return (
+                                  <tr
+                                    key={assessment.assessment_id}
+                                    onClick={() => handleAssessmentClick(assessment)}
+                                    className="hover:bg-surface-secondary/55 cursor-pointer transition-colors"
+                                  >
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
+                                        grade.startsWith('A') ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-250 dark:border-emerald-900/30' :
+                                        grade.startsWith('B') ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-250 dark:border-blue-900/30' :
+                                        'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-border'
+                                      }`}>
+                                        {grade}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 font-semibold text-foreground">{date}</td>
+                                    <td className="p-3 text-muted-foreground">{assessment.coach?.name || 'Coach'}</td>
+                                    <td className="p-3 text-center font-extrabold text-foreground">{avgRating} / 10</td>
+                                    <td className="p-3 text-center text-muted-foreground font-medium">{assessment.scores?.length || 0}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
@@ -674,117 +786,119 @@ ${remarks || 'No notes provided'}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="mb-4 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-border rounded-xl p-4"
+                    className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-border rounded-2xl p-5"
                   >
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-black text-foreground">Live Assessment Summary</h3>
                       <button
                         onClick={() => setShowLiveSummary(false)}
-                        className="text-muted-foreground hover:text-foreground text-xs"
+                        className="text-muted-foreground hover:text-foreground text-xs font-bold"
                       >
-                        Hide
+                        Hide Panel
                       </button>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                      <div className="bg-surface rounded-lg p-3 text-center">
-                        <div className="text-lg font-black text-emerald-600">
+                    <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
+                        <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
                           {getLiveSummary().completed}/{getLiveSummary().total}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Metrics Completed</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-wider">Metrics Scored</div>
                       </div>
-                      <div className="bg-surface rounded-lg p-3 text-center">
-                        <div className="text-lg font-black text-blue-600">
+                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
+                        <div className="text-xl font-black text-blue-600 dark:text-blue-400">
                           {getLiveSummary().average}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Average Rating</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-wider">Average Rating</div>
                       </div>
-                      <div className="bg-surface rounded-lg p-3 text-center">
-                        <div className="text-sm font-black text-purple-600 truncate">
+                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
+                        <div className="text-xs font-black text-purple-600 dark:text-purple-400 truncate">
                           {getLiveSummary().highest || '-'}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Highest Rated</div>
+                        <div className="text-[10px] text-muted-foreground mt-1.5 font-bold uppercase tracking-wider">Highest Metric</div>
                       </div>
-                      <div className="bg-surface rounded-lg p-3 text-center">
-                        <div className="text-sm font-black text-amber-600 truncate">
+                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
+                        <div className="text-xs font-black text-amber-600 dark:text-amber-400 truncate">
                           {getLiveSummary().lowest || '-'}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Lowest Rated</div>
+                        <div className="text-[10px] text-muted-foreground mt-1.5 font-bold uppercase tracking-wider">Lowest Metric</div>
                       </div>
-                      <div className="bg-surface rounded-lg p-3 text-center">
-                        <div className="text-2xl font-black text-emerald-600">
+                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
+                        <div className="text-2xl font-black text-emerald-600 dark:text-emerald-455">
                           {getLiveSummary().grade}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Estimated Grade</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">Est. Grade</div>
                       </div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="grid gap-4 lg:grid-cols-3 items-start">
+              <div className="grid gap-6 lg:grid-cols-3 items-start">
                 
                 {/* Core Scoring Ledger */}
-                <div className="bg-card shadow-sm rounded-xl border border-border lg:col-span-2 overflow-hidden flex flex-col relative">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
+                <div className="bg-card shadow-sm rounded-2xl border border-border lg:col-span-2 overflow-hidden flex flex-col relative">
+                  <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
                   
-                  <div className="p-4 border-b border-border/50 bg-surface/30">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-black tracking-tight text-foreground">
-                        Metrics Scoring Ledger
-                      </h3>
+                  <div className="p-5 border-b border-border/50 bg-surface/30">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-black tracking-tight text-foreground">
+                          Metrics Scoring Ledger
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Rate parameters from 1 (developing) to 10 (elite)</p>
+                      </div>
                       {dailyLock && dailyLock.locked && (
-                        <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full border border-amber-300 dark:border-amber-500/30">
-                          <span className="text-amber-700 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
-                            🔒 Assessment already submitted today
+                        <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-955/50 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-900/50">
+                          <span className="text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-wider">
+                            🔒 Daily Lock Active
                           </span>
                         </div>
                       )}
                     </div>
                     {dailyLock && dailyLock.locked && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Submitted at: {new Date(dailyLock.scored_at).toLocaleString()}
+                      <p className="text-xs text-muted-foreground mt-2 font-medium">
+                        Evaluation finalized at: {new Date(dailyLock.scored_at).toLocaleString()}
                       </p>
                     )}
                   </div>
 
-                  <div className="p-4 space-y-4 bg-background/30 flex-1">
+                  <div className="p-5 space-y-5 bg-background/30 flex-1">
                     {attributes.length > 0 ? attributes.map((attr) => {
                       const currentScore = scores[attr.attribute_id] || 0;
-                      // Calculate width for the connecting line (0 to 10 mapped to 0% to 100%)
                       const fillWidth = currentScore === 0 ? 0 : ((currentScore - 1) / 9) * 100;
 
                       return (
                         <motion.div
                           variants={itemVariants}
                           key={attr.attribute_id}
-                          className="bg-card border border-border hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors duration-300 rounded-xl p-4 shadow-sm"
+                          className="bg-card border border-border hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors duration-300 rounded-2xl p-5 shadow-sm"
                         >
                           <div className="flex justify-between items-end mb-4">
                             <div>
-                              <label className="text-sm font-black tracking-tight text-foreground">{attr.name}</label>
-                              <div className="text-muted-foreground mt-0.5 text-xs font-bold uppercase tracking-wider">
-                                {attr.sport?.name || 'Core Parameter'}
+                              <label className="text-base font-extrabold tracking-tight text-foreground">{attr.name}</label>
+                              <div className="text-muted-foreground mt-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                {attr.sport?.name || selectedBatch.sport?.name} Score Node
                               </div>
                             </div>
-                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                              {currentScore ? `${currentScore}` : '-'} <span className="text-xs text-muted-foreground">/ 10</span>
+                            <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                              {currentScore ? `${currentScore}` : '-'} <span className="text-xs text-muted-foreground font-semibold">/ 10</span>
                             </span>
                           </div>
 
-                          {/* Linear Node Scorer (Inspired by sketch image_db2d1f.jpg) */}
+                          {/* Linear Node Scorer */}
                           <div className="relative w-full pt-3 pb-1.5 px-2.5">
-                            {/* Background Line */}
-                            <div className="absolute top-1/2 left-[3%] right-[3%] h-1 bg-surface-secondary rounded-full -translate-y-1/2 z-0"></div>
+                            {/* Track Line */}
+                            <div className="absolute top-1/2 left-[3%] right-[3%] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full -translate-y-1/2 z-0"></div>
                             
-                            {/* Filled Golden Line */}
+                            {/* Active Line */}
                             <motion.div
-                              className="absolute top-1/2 left-[3%] h-1 bg-amber-400 rounded-full -translate-y-1/2 z-0 origin-left"
+                              className="absolute top-1/2 left-[3%] h-1.5 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full -translate-y-1/2 z-0 origin-left"
                               initial={{ width: 0 }}
-                              animate={{ width: `${fillWidth * 0.94}%` }} // adjusted for padding
+                              animate={{ width: `${fillWidth * 0.94}%` }}
                               transition={{ type: "spring", stiffness: 200, damping: 25 }}
                             ></motion.div>
 
-                            {/* Circular Nodes */}
+                            {/* Nodes */}
                             <div className="relative z-10 flex justify-between">
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => {
                                 const isSelected = currentScore >= val;
@@ -794,13 +908,13 @@ ${remarks || 'No notes provided'}
                                     key={val}
                                     type="button"
                                     disabled={submitting || (dailyLock && dailyLock.locked)}
-                                    whileHover={{ scale: 1.3 }}
+                                    whileHover={{ scale: 1.25 }}
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => handleScoreChange(attr.attribute_id, val)}
-                                    className={`relative w-6 h-6 rounded-full border-2 flex items-center justify-center text-[9px] font-black transition-all duration-300 outline-none ${
+                                    className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-black transition-all duration-300 outline-none ${
                                       isSelected
                                         ? 'bg-amber-400 border-amber-400 text-amber-950 shadow-[0_0_12px_rgba(251,191,36,0.6)]'
-                                        : 'bg-surface border-border text-muted-foreground hover:border-amber-300'
+                                        : 'bg-surface border-border text-muted-foreground hover:border-amber-300 dark:bg-slate-900'
                                     } ${isExactlySelected ? 'ring-4 ring-amber-400/30' : ''} ${(dailyLock && dailyLock.locked) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   >
                                     {val}
@@ -809,118 +923,120 @@ ${remarks || 'No notes provided'}
                               })}
                             </div>
                           </div>
+
+                          <div className="flex justify-between mt-2.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider px-2">
+                            <span>Developing (1-3)</span>
+                            <span>Proficient (4-7)</span>
+                            <span>Elite (8-10)</span>
+                          </div>
                         </motion.div>
                       );
                     }) : (
                       <div className="py-12 text-center border border-dashed border-border rounded-xl">
-                        <p className="text-muted-foreground text-sm font-bold">No attributes assigned to this sport.</p>
+                        <p className="text-muted-foreground text-sm font-bold">No active performance attributes assigned to this sport.</p>
                       </div>
                     )}
                   </div>
                   
-                  {/* Save Button at Bottom */}
+                  {/* Save Button */}
                   <div className="p-4 border-t border-border/50 bg-surface/30">
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                       type="button"
                       onClick={handleSubmitScores}
                       disabled={submitting || (dailyLock && dailyLock.locked)}
-                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 rounded-lg py-3 text-xs font-black tracking-wide transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 rounded-xl py-3.5 text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
                     >
-                      {dailyLock && dailyLock.locked ? '🔒 Assessment Locked' : submitting ? 'Saving...' : '💾 Save Evaluation'}
+                      {dailyLock && dailyLock.locked ? '🔒 Assessment Locked' : submitting ? 'Saving Evaluated Scores...' : '💾 Save Athlete Evaluation'}
                     </motion.button>
                   </div>
                 </div>
 
-                {/* Right Column: Action Panels */}
+                {/* Right Column Action Panels */}
                 <div className="space-y-4">
                   
                   {/* Feedback Panel */}
-                  <div className="bg-card shadow-sm rounded-xl border border-border overflow-hidden relative">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></div>
-                    <div className="p-3 border-b border-border/50 bg-surface/30">
+                  <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
+                    <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
+                    <div className="p-4 border-b border-border/50 bg-surface/30">
                       <h3 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                        📝 Session Feedback
+                        📝 Session Feedback & Remarks
                       </h3>
                     </div>
-                    <div className="p-3 space-y-3">
-                      <div className="space-y-2">
-                        <textarea
-                          id="coachRemarks"
-                          rows={3}
-                          className="w-full text-xs p-3 rounded-lg bg-surface border border-border focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 outline-none resize-none transition-all placeholder:text-muted-foreground/50"
-                          placeholder="Add observations, tactical notes, or feedback..."
-                          value={remarks}
-                          disabled={submitting || (dailyLock && dailyLock.locked)}
-                          onChange={(e) => setRemarks(e.target.value)}
-                        />
-                      </div>
+                    <div className="p-4 space-y-4">
+                      <textarea
+                        id="coachRemarks"
+                        rows={4}
+                        className="w-full text-xs p-3.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none transition-all placeholder:text-muted-foreground/50 font-medium"
+                        placeholder="Add tactical progress notes, recommendations, or private feedback..."
+                        value={remarks}
+                        disabled={submitting || (dailyLock && dailyLock.locked)}
+                        onChange={(e) => setRemarks(e.target.value)}
+                      />
 
-                      <div className="space-y-2 pt-1">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          type="button"
-                          onClick={handleDownloadReport}
-                          disabled={submitting}
-                          className="w-full border border-border bg-surface hover:bg-surface-secondary text-foreground rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
-                        >
-                          📄 Download PDF Report
-                        </motion.button>
-                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="button"
+                        onClick={handleDownloadReport}
+                        disabled={submitting}
+                        className="w-full border border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl py-3 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+                      >
+                        📄 Download Text Performance Report
+                      </motion.button>
                     </div>
                   </div>
 
                   {/* Tools Panel */}
-                  <div className="bg-card shadow-sm rounded-xl border border-border overflow-hidden relative">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
-                    <div className="p-3 border-b border-border/50 bg-surface/30">
+                  <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
+                    <span className="absolute top-0 left-0 w-full h-1 bg-purple-500"></span>
+                    <div className="p-4 border-b border-border/50 bg-surface/30">
                       <h3 className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                        Coach Tools
+                        Coach Administration Tools
                       </h3>
                     </div>
                     
-                    <div className="divide-y divide-border/50">
+                    <div className="divide-y divide-border/50 text-left">
                       {/* Propose Metric */}
-                      <div className="p-3">
+                      <div className="p-4">
                         <button
                           type="button"
                           onClick={() => setShowNewProposal(!showNewProposal)}
                           className="flex items-center justify-between w-full text-left"
                         >
-                          <span className="text-xs font-bold text-foreground">Propose New Metric</span>
-                          <span className={`text-muted-foreground transition-transform ${showNewProposal ? 'rotate-180' : ''}`}>▼</span>
+                          <span className="text-xs font-extrabold text-foreground">Propose New Parameter</span>
+                          <span className="text-[10px] text-muted-foreground font-black">{showNewProposal ? '▲' : '▼'}</span>
                         </button>
                         <AnimatePresence>
                           {showNewProposal && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <form className="pt-3 space-y-3" onSubmit={handleProposeAttribute}>
+                              <form className="pt-4 space-y-4" onSubmit={handleProposeAttribute}>
                                 <div>
                                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Sport Scope</label>
                                   <select
-                                    className="input-field bg-background/50 border-purple-200 focus:border-purple-500 focus:ring-purple-500/20 px-2 py-1.5 text-xs"
+                                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/75 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
                                     value={newAttributeForm.sport_id}
                                     onChange={(e) => setNewAttributeForm({ ...newAttributeForm, sport_id: e.target.value })}
                                     required
                                   >
-                                    <option value="">Select Sport</option>
+                                    <option value="">Select Sport Scope</option>
                                     {selectedBatch.sport && <option value={selectedBatch.sport_id}>{selectedBatch.sport?.name}</option>}
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Parameter Name</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Proposed Parameter Name</label>
                                   <input
                                     type="text"
-                                    className="input-field bg-background/50 border-purple-200 focus:border-purple-500 focus:ring-purple-500/20 px-2 py-1.5 text-xs"
-                                    placeholder="e.g. Speed, Agility"
+                                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/75 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
+                                    placeholder="e.g. Backhand Spin, Reaction Time"
                                     value={newAttributeForm.name}
                                     onChange={(e) => setNewAttributeForm({ ...newAttributeForm, name: e.target.value })}
                                     required
                                   />
                                 </div>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs py-2 rounded-lg transition-all shadow-sm">
-                                  Submit Request
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white font-black text-xs py-2.5 rounded-xl transition-all shadow-sm uppercase tracking-wider">
+                                  Submit Proposal Request
                                 </motion.button>
                               </form>
                             </motion.div>
@@ -929,25 +1045,25 @@ ${remarks || 'No notes provided'}
                       </div>
 
                       {/* Weekly Report */}
-                      <div className="p-3">
+                      <div className="p-4">
                         <button
                           type="button"
                           onClick={() => setShowWeeklyReport(!showWeeklyReport)}
                           className="flex items-center justify-between w-full text-left"
                         >
-                          <span className="text-xs font-bold text-foreground">Weekly Performance Report</span>
-                          <span className={`text-muted-foreground transition-transform ${showWeeklyReport ? 'rotate-180' : ''}`}>▼</span>
+                          <span className="text-xs font-extrabold text-foreground">Weekly Summary Report</span>
+                          <span className="text-[10px] text-muted-foreground font-black">{showWeeklyReport ? '▲' : '▼'}</span>
                         </button>
                         <AnimatePresence>
                           {showWeeklyReport && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <form className="pt-3 space-y-3" onSubmit={handleSubmitWeeklyReport}>
+                              <form className="pt-4 space-y-4" onSubmit={handleSubmitWeeklyReport}>
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Start Date</label>
                                     <input
                                       type="date"
-                                      className="input-field bg-background/50 px-2 py-1.5 text-xs"
+                                      className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
                                       value={weeklyReportData.week_start}
                                       onChange={(e) => setWeeklyReportData({ ...weeklyReportData, week_start: e.target.value })}
                                       required
@@ -957,7 +1073,7 @@ ${remarks || 'No notes provided'}
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">End Date</label>
                                     <input
                                       type="date"
-                                      className="input-field bg-background/50 px-2 py-1.5 text-xs"
+                                      className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
                                       value={weeklyReportData.week_end}
                                       onChange={(e) => setWeeklyReportData({ ...weeklyReportData, week_end: e.target.value })}
                                       required
@@ -965,18 +1081,18 @@ ${remarks || 'No notes provided'}
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Summary</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Weekly Summary</label>
                                   <textarea
-                                    rows={2}
-                                    className="input-field bg-background/50 resize-none text-xs placeholder:text-muted-foreground/50 px-2 py-1.5"
-                                    placeholder="Weekly progress notes..."
+                                    rows={3}
+                                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/75 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold resize-none"
+                                    placeholder="Detail overall progress and key session observations..."
                                     value={weeklyReportData.summary}
                                     onChange={(e) => setWeeklyReportData({ ...weeklyReportData, summary: e.target.value })}
                                     required
                                   />
                                 </div>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={submitting} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs py-2 rounded-lg transition-all shadow-sm disabled:opacity-50">
-                                  {submitting ? 'Submitting...' : 'Send Report'}
+                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={submitting} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-black text-xs py-2.5 rounded-xl transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider">
+                                  {submitting ? 'Submitting Report...' : 'Publish Weekly Report'}
                                 </motion.button>
                               </form>
                             </motion.div>

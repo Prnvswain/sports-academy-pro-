@@ -24,7 +24,7 @@ import {
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPut, adminPatch } from '../../api/client';
 
-const CATEGORIES = ['Ball', 'Bat', 'Racket', 'Net', 'Cone', 'Jersey', 'Gloves', 'Mat', 'Stumps', 'Other'];
+const CATEGORIES = ['Ball', 'Bat', 'Racket', 'Net', 'Cone', 'Jersey', 'Gloves', 'Mat', 'Stumps', 'Others'];
 const CONDITIONS = ['New', 'Good', 'Fair', 'Damaged'];
 
 export default function InventoryPage() {
@@ -61,17 +61,17 @@ export default function InventoryPage() {
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [itemForm, setItemForm] = useState({
-    name: '',
     category: 'Ball',
+    custom_name: '',
     sport_id: '',
-    brand: '',
-    model_name: '',
+    brand_model: '',
     purchase_date: '',
     purchase_price: '',
     supplier: '',
     total_qty: '',
     min_stock_alert: '5',
     condition: 'New',
+    is_consumable: false,
     notes: ''
   });
   const [imageFile, setImageFile] = useState(null);
@@ -165,19 +165,20 @@ export default function InventoryPage() {
   // ─── ADD/EDIT ITEM FLOW ───────────────────────────────────────────────────
 
   const handleOpenAdd = () => {
+    const today = new Date().toISOString().split('T')[0];
     setEditingItem(null);
     setItemForm({
-      name: '',
       category: 'Ball',
+      custom_name: '',
       sport_id: '',
-      brand: '',
-      model_name: '',
-      purchase_date: '',
+      brand_model: '',
+      purchase_date: today,
       purchase_price: '',
       supplier: '',
       total_qty: '10',
       min_stock_alert: '5',
       condition: 'New',
+      is_consumable: false,
       notes: ''
     });
     setImageFile(null);
@@ -187,17 +188,17 @@ export default function InventoryPage() {
   const handleOpenEdit = (item) => {
     setEditingItem(item);
     setItemForm({
-      name: item.name || '',
       category: item.category || 'Ball',
+      custom_name: item.category === 'Others' ? item.name : '',
       sport_id: item.sport_id || '',
-      brand: item.brand || '',
-      model_name: item.model_name || '',
+      brand_model: [item.brand, item.model_name].filter(Boolean).join(' '),
       purchase_date: item.purchase_date ? item.purchase_date.substring(0, 10) : '',
       purchase_price: item.purchase_price || '',
       supplier: item.supplier || '',
       total_qty: item.total_qty || '0',
       min_stock_alert: item.min_stock_alert || '0',
       condition: item.condition || 'New',
+      is_consumable: item.is_consumable || false,
       notes: item.notes || ''
     });
     setImageFile(null);
@@ -206,12 +207,34 @@ export default function InventoryPage() {
 
   const handleSaveItem = async (e) => {
     e.preventDefault();
+    
+    // Split Brand / Model
+    const brandModel = itemForm.brand_model || '';
+    const spaceIdx = brandModel.trim().indexOf(' ');
+    let brand = brandModel;
+    let modelName = '';
+    if (spaceIdx !== -1) {
+      brand = brandModel.substring(0, spaceIdx).trim();
+      modelName = brandModel.substring(spaceIdx + 1).trim();
+    }
+
+    const payloadName = itemForm.category === 'Others' ? itemForm.custom_name : itemForm.category;
+
     const formData = new FormData();
-    Object.keys(itemForm).forEach((key) => {
-      if (itemForm[key] !== '') {
-        formData.append(key, itemForm[key]);
-      }
-    });
+    formData.append('name', payloadName);
+    formData.append('category', itemForm.category);
+    formData.append('brand', brand);
+    formData.append('model_name', modelName);
+    formData.append('sport_id', itemForm.sport_id || '');
+    formData.append('purchase_date', itemForm.purchase_date || '');
+    formData.append('purchase_price', itemForm.purchase_price || '');
+    formData.append('supplier', itemForm.supplier || '');
+    formData.append('total_qty', itemForm.total_qty || '0');
+    formData.append('min_stock_alert', itemForm.min_stock_alert || '0');
+    formData.append('condition', itemForm.condition || 'New');
+    formData.append('is_consumable', itemForm.is_consumable);
+    formData.append('notes', itemForm.notes || '');
+
     if (imageFile) {
       formData.append('image', imageFile);
     }
@@ -417,11 +440,10 @@ export default function InventoryPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`p-4 rounded-xl flex items-center gap-3 border shadow-sm ${
-              message.type === 'error'
+            className={`p-4 rounded-xl flex items-center gap-3 border shadow-sm ${message.type === 'error'
                 ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-400'
                 : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400'
-            }`}
+              }`}
           >
             {message.type === 'error' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
             <span className="font-medium text-sm">{message.text}</span>
@@ -466,19 +488,17 @@ export default function InventoryPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`py-3 px-1 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeTab === tab.id
+            className={`py-3 px-1 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab.id
                 ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-            }`}
+              }`}
           >
             {tab.label}
             {tab.count !== undefined && (
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                tab.alert && tab.count > 0
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${tab.alert && tab.count > 0
                   ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 animate-pulse'
                   : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-              }`}>
+                }`}>
                 {tab.count}
               </span>
             )}
@@ -582,12 +602,11 @@ export default function InventoryPage() {
                       {/* Info body */}
                       <div className="p-5 space-y-3">
                         <div>
-                          <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{item.name}</h3>
-                          <div className="flex gap-2 items-center mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            {item.brand && <span>{item.brand}</span>}
-                            {item.brand && item.model_name && <span>•</span>}
-                            {item.model_name && <span>{item.model_name}</span>}
-                          </div>
+                          <h3 className="font-extrabold text-lg text-slate-900 dark:text-white truncate">
+                            {item.brand && item.model_name 
+                              ? `${item.brand} / ${item.model_name}` 
+                              : (item.brand || item.model_name || 'Not Specified')}
+                          </h3>
                         </div>
 
                         {/* Specs tags */}
@@ -597,13 +616,12 @@ export default function InventoryPage() {
                               {item.sport.name}
                             </span>
                           )}
-                          <span className={`px-2 py-1 rounded-md ${
-                            item.condition === 'New' || item.condition === 'Good'
+                          <span className={`px-2 py-1 rounded-md ${item.condition === 'New' || item.condition === 'Good'
                               ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
                               : item.condition === 'Fair'
                                 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
                                 : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-455'
-                          }`}>
+                            }`}>
                             {item.condition} condition
                           </span>
                         </div>
@@ -758,15 +776,14 @@ export default function InventoryPage() {
                     <tr key={req.request_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
                       <td className="p-4 font-semibold text-slate-900 dark:text-white">{req.coach?.name}</td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          req.type === 'New'
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${req.type === 'New'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
                             : req.type === 'Replacement'
                               ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
                               : req.type === 'Repair'
                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
                                 : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
-                        }`}>
+                          }`}>
                           {req.type}
                         </span>
                       </td>
@@ -787,20 +804,18 @@ export default function InventoryPage() {
                       </td>
                       <td className="p-4 text-center font-bold">{req.quantity}</td>
                       <td className="p-4">
-                        <span className={`text-xs font-semibold ${
-                          req.priority === 'High'
+                        <span className={`text-xs font-semibold ${req.priority === 'High'
                             ? 'text-rose-600 dark:text-rose-400 font-bold'
                             : req.priority === 'Medium'
                               ? 'text-amber-600 dark:text-amber-400'
                               : 'text-slate-550'
-                        }`}>
+                          }`}>
                           {req.priority}
                         </span>
                       </td>
                       <td className="p-4 max-w-xs truncate" title={req.reason}>{req.reason}</td>
                       <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
-                          req.status === 'Pending'
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${req.status === 'Pending'
                             ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 animate-pulse'
                             : req.status === 'Approved'
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400'
@@ -809,7 +824,7 @@ export default function InventoryPage() {
                                 : req.status === 'Ordered'
                                   ? 'bg-sky-105 text-sky-800 dark:bg-sky-950 dark:text-sky-400'
                                   : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400'
-                        }`}>
+                          }`}>
                           {req.status}
                         </span>
                       </td>
@@ -913,8 +928,7 @@ export default function InventoryPage() {
       )}
 
       {/* ─── MODALS LAYER ────────────────────────────────────────────────────── */}
-
-      {/* Add/Edit Equipment Modal */}
+{/* Add/Edit Equipment Modal */}
       {showAddEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
           <motion.div
@@ -936,164 +950,172 @@ export default function InventoryPage() {
 
             <form onSubmit={handleSaveItem} className="space-y-4 text-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Equipment Name */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Equipment Name *</label>
+                {/* Category Selector / Custom Input */}
+                {itemForm.category === 'Others' ? (
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <div className="flex justify-between items-center">
+                      <label className="font-semibold text-slate-700 dark:text-slate-350">Custom Equipment Name / Category *</label>
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, category: 'Ball', custom_name: '' })}
+                        className="text-xs text-emerald-600 hover:underline"
+                      >
+                        Choose Standard Category
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={itemForm.custom_name}
+                      onChange={(e) => setItemForm({ ...itemForm, custom_name: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
+                      placeholder="e.g. Volleyball Net, Boxing Gloves"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="font-semibold text-slate-700 dark:text-slate-350">Category *</label>
+                    <select
+                      value={itemForm.category}
+                      onChange={(e) => setItemForm({ ...itemForm, category: e.target.value, custom_name: '' })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    >
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Brand / Model - Unified Row */}
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="font-semibold text-slate-700 dark:text-slate-355">Brand / Model</label>
                   <input
                     type="text"
-                    required
-                    value={itemForm.name}
-                    onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
-                    placeholder="e.g. Wilson Tennis Racket"
+                    value={itemForm.brand_model}
+                    onChange={(e) => setItemForm({ ...itemForm, brand_model: e.target.value })}
+                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    placeholder="e.g. Yonex Astrox 99, Cosco Football, Adidas Predator"
                   />
                 </div>
 
-                {/* Category */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Category *</label>
-                  <select
-                    value={itemForm.category}
-                    onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                {/* Sport, Quantity & Min Stock Alerts - Compact Row */}
+                <div className="grid grid-cols-3 gap-3 md:col-span-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Sport</label>
+                    <select
+                      value={itemForm.sport_id}
+                      onChange={(e) => setItemForm({ ...itemForm, sport_id: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    >
+                      <option value="">None / Academy Wide</option>
+                      {sports.map(s => <option key={s.sport_id} value={s.sport_id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Total Quantity *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={itemForm.total_qty}
+                      onChange={(e) => setItemForm({ ...itemForm, total_qty: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Min Warning *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={itemForm.min_stock_alert}
+                      onChange={(e) => setItemForm({ ...itemForm, min_stock_alert: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    />
+                  </div>
                 </div>
 
-                {/* Sport */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Sport</label>
-                  <select
-                    value={itemForm.sport_id}
-                    onChange={(e) => setItemForm({ ...itemForm, sport_id: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  >
-                    <option value="">None / Academy Wide</option>
-                    {sports.map(s => <option key={s.sport_id} value={s.sport_id}>{s.name}</option>)}
-                  </select>
+                {/* Condition, Purchase Price & Purchase Date - Compact Row */}
+                <div className="grid grid-cols-3 gap-3 md:col-span-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Condition *</label>
+                    <select
+                      value={itemForm.condition}
+                      onChange={(e) => setItemForm({ ...itemForm, condition: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    >
+                      {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Purchase Price</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={itemForm.purchase_price}
+                      onChange={(e) => setItemForm({ ...itemForm, purchase_price: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Purchase Date</label>
+                    <input
+                      type="date"
+                      value={itemForm.purchase_date}
+                      onChange={(e) => setItemForm({ ...itemForm, purchase_date: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                    />
+                  </div>
                 </div>
 
-                {/* Brand */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Brand</label>
+                {/* Supplier & Image - Compact Row */}
+                <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Supplier</label>
+                    <input
+                      type="text"
+                      value={itemForm.supplier}
+                      onChange={(e) => setItemForm({ ...itemForm, supplier: e.target.value })}
+                      className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-955 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                      placeholder="e.g. Sports Emporium Ltd."
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Equipment Image</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setImageFile(e.target.files[0])}
+                      className="p-2 border border-slate-250 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl text-slate-655"
+                    />
+                  </div>
+                </div>
+
+                {/* Consumable Toggle */}
+                <div className="flex items-center gap-2 md:col-span-2 pt-1">
                   <input
-                    type="text"
-                    value={itemForm.brand}
-                    onChange={(e) => setItemForm({ ...itemForm, brand: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                    placeholder="e.g. Wilson, Kookaburra"
+                    type="checkbox"
+                    id="is_consumable"
+                    checked={itemForm.is_consumable}
+                    onChange={(e) => setItemForm({ ...itemForm, is_consumable: e.target.checked })}
+                    className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                   />
-                </div>
-
-                {/* Model */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Model Name</label>
-                  <input
-                    type="text"
-                    value={itemForm.model_name}
-                    onChange={(e) => setItemForm({ ...itemForm, model_name: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                    placeholder="e.g. Pro Staff 97"
-                  />
-                </div>
-
-                {/* Condition */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Condition *</label>
-                  <select
-                    value={itemForm.condition}
-                    onChange={(e) => setItemForm({ ...itemForm, condition: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  >
-                    {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-
-                {/* Quantities - ONLY editable on creation, or updates both total/available */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Total Quantity *</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={itemForm.total_qty}
-                    onChange={(e) => setItemForm({ ...itemForm, total_qty: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Minimum Stock Warning */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Min Stock Warning Level *</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={itemForm.min_stock_alert}
-                    onChange={(e) => setItemForm({ ...itemForm, min_stock_alert: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Purchase Price */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Purchase Price (Per Item)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={itemForm.purchase_price}
-                    onChange={(e) => setItemForm({ ...itemForm, purchase_price: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {/* Purchase Date */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Purchase Date</label>
-                  <input
-                    type="date"
-                    value={itemForm.purchase_date}
-                    onChange={(e) => setItemForm({ ...itemForm, purchase_date: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Supplier */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Supplier</label>
-                  <input
-                    type="text"
-                    value={itemForm.supplier}
-                    onChange={(e) => setItemForm({ ...itemForm, supplier: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                    placeholder="e.g. Sports Emporium Ltd."
-                  />
-                </div>
-
-                {/* Image Upload */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Equipment Image File</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setImageFile(e.target.files[0])}
-                    className="p-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl text-slate-655"
-                  />
+                  <label htmlFor="is_consumable" className="font-semibold text-slate-750 dark:text-slate-300 cursor-pointer select-none">
+                    Is Consumable? (Handled in bulk, e.g. cones, shuttlecocks, balls. Hides serial tracking)
+                  </label>
                 </div>
               </div>
 
               {/* Notes */}
               <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Notes & Comments</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Notes</label>
                 <textarea
-                  rows="3"
+                  rows="2"
                   value={itemForm.notes}
                   onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })}
                   className="p-2.5 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white"
-                  placeholder="Provide any description or specific conditions..."
+                  placeholder="Optional notes..."
                 />
               </div>
 
@@ -1117,7 +1139,6 @@ export default function InventoryPage() {
           </motion.div>
         </div>
       )}
-
       {/* Assign to Coach Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">

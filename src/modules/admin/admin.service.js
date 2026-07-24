@@ -276,9 +276,9 @@ export const updateAcademyDetails = async (academy_id, { name, owner_name, email
 
       logo_file_id,
 
-      latitude: latitude !== undefined ? parseFloat(latitude) : existingAcademy.latitude,
+      latitude: latitude === undefined ? existingAcademy.latitude : (latitude === null ? null : parseFloat(latitude)),
 
-      longitude: longitude !== undefined ? parseFloat(longitude) : existingAcademy.longitude,
+      longitude: longitude === undefined ? existingAcademy.longitude : (longitude === null ? null : parseFloat(longitude)),
 
       attendance_radius_meters: radius
 

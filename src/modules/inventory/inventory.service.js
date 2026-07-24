@@ -747,3 +747,19 @@ export const getInventoryReports = async (academy_id, type) => {
       throw new Error(`Invalid report type: ${type}`);
   }
 };
+
+export const getCoachesList = async (academy_id, coach_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const coachId = parseInt(coach_id, 10);
+
+  return prisma.coach.findMany({
+    where: {
+      academy_id: academyId,
+      coach_id: { not: coachId }
+    },
+    select: {
+      coach_id: true,
+      name: true
+    }
+  });
+};

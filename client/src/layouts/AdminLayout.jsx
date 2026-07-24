@@ -135,18 +135,20 @@ export default function AdminLayout() {
   const closeMobileSidebar = () => setSidebarOpen(false);
 
   return (
-    // Main App Background with Soft Greenish-White Gradient (Based on Reference)
-    <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-white to-[#f4fce3] text-slate-900 transition-colors duration-300">
+    /* Main App Background supporting Light and Dark Mode */
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
-      {/* Sidebar - Deep Navy/Black Theme */}
+      {/* Sidebar Layout */}
       <motion.aside
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`bg-[#0f172a] border-r border-slate-800 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl ${sidebarOpen ? '!translate-x-0' : ''}`}
+        className={`bg-slate-900 dark:bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl transition-all duration-300 ${
+          sidebarOpen ? '!translate-x-0' : ''
+        }`}
       >
         {/* Sidebar Header / Logo */}
-        <div className="flex h-16 items-center justify-between px-4 shrink-0 bg-[#0a0f1d] border-b border-slate-800">
+        <div className="flex h-16 items-center justify-between px-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 border-b border-slate-800">
           <BrandingLogo
             to="/admin/dashboard"
             collapsed={sidebarCollapsed}
@@ -165,8 +167,11 @@ export default function AdminLayout() {
           </motion.button>
         </div>
 
-        {/* Navigation Links - Clean, minimal list */}
-        <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" aria-label="Admin sections">
+        {/* Navigation Links */}
+        <nav
+          className="flex-1 overflow-y-auto px-3 py-6 space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          aria-label="Admin sections"
+        >
           {ADMIN_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
@@ -178,12 +183,11 @@ export default function AdminLayout() {
                 data-nav={item.path}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
-                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-xl group outline-none font-bold ${
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-200 rounded-xl group outline-none font-bold ${
                     sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      // Active state matches the Lime Green reference exactly
-                      ? 'bg-[#a3e635] text-slate-950 shadow-md'
+                      ? 'bg-[#84cc16] text-slate-950 shadow-md shadow-lime-500/10'
                       : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
                 }
@@ -196,7 +200,7 @@ export default function AdminLayout() {
                       transition={{ duration: 0.2 }}
                       aria-hidden="true"
                     >
-                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2.5} />
+                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                     </motion.span>
                     <motion.span
                       initial={{ opacity: 1 }}
@@ -213,41 +217,42 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        {/* Sidebar Footer / Actions */}
-        <div className="p-4 shrink-0 bg-[#0a0f1d] border-t border-slate-800 space-y-2">
+        {/* Sidebar Footer / Profile & Sign Out */}
+        <div className="p-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 border-t border-slate-800 space-y-2">
           {!sidebarCollapsed && (
-            <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2 px-2 truncate font-bold">
-              Admin Profile: <br/><span className="text-white font-black text-sm capitalize">{adminUser?.name || 'Loading...'}</span>
+            <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2 px-2 truncate font-bold">
+              Admin Profile: <br />
+              <span className="text-white font-black text-sm capitalize">{adminUser?.name || 'Loading...'}</span>
             </div>
           )}
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center rounded-xl text-sm py-2.5 font-bold transition-all ${
-              sidebarCollapsed 
-              ? 'bg-transparent text-slate-500 hover:bg-slate-800 hover:text-white' 
-              : 'border border-slate-700/50 bg-slate-800/30 text-slate-400 hover:bg-slate-800 hover:text-white hover:border-slate-600'
+              sidebarCollapsed
+                ? 'bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white'
+                : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600'
             }`}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            title={sidebarCollapsed ? "Back to Home" : undefined}
+            title={sidebarCollapsed ? 'Back to Home' : undefined}
           >
             <Link to="/" className="text-inherit no-underline flex items-center justify-center gap-2 w-full">
               <Home size={16} strokeWidth={2.5} />
               {!sidebarCollapsed && <span>Back to Home</span>}
             </Link>
           </motion.button>
-          
+
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
-              sidebarCollapsed 
-              ? 'text-slate-500 hover:bg-slate-800 hover:text-white' 
-              : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600'
+              sidebarCollapsed
+                ? 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600'
             }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            title={sidebarCollapsed ? "Sign Out" : undefined}
+            title={sidebarCollapsed ? 'Sign Out' : undefined}
           >
             <LogOut size={16} strokeWidth={2.5} />
             {!sidebarCollapsed && <span>Sign Out</span>}
@@ -255,7 +260,7 @@ export default function AdminLayout() {
         </div>
       </motion.aside>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Drawer Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.button
@@ -271,15 +276,15 @@ export default function AdminLayout() {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
+      {/* Main Layout Area */}
       <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         
-        {/* Top Header - Vibrant Lime Green matching the UI reference */}
-        <header className="bg-[#84cc16] text-slate-950 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-sm">
+        {/* Top Header - Auto Adapts Color Palette */}
+        <header className="bg-[#84cc16] text-slate-950 dark:bg-slate-900 dark:text-slate-100 border-b border-black/5 dark:border-slate-800 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-sm">
           <div className="flex items-center gap-4">
             <motion.button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/10 lg:hidden text-slate-900 hover:bg-black/20 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/10 dark:bg-slate-800 lg:hidden text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
               whileHover={{ scale: 1.05 }}
@@ -288,37 +293,39 @@ export default function AdminLayout() {
               <Menu size={20} strokeWidth={2.5} />
             </motion.button>
             <div className="flex flex-col">
-              <span className="text-[11px] font-bold tracking-widest uppercase opacity-80 mb-0.5">Admin Portal</span>
+              <span className="text-[11px] font-bold tracking-widest uppercase opacity-80 dark:text-slate-400 mb-0.5">
+                Admin Portal
+              </span>
               <span className="text-xl font-black tracking-tight uppercase leading-none">
                 {academy?.name || 'Academy HQ'}
               </span>
             </div>
           </div>
+
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setBroadcastModalOpen(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 text-slate-900 hover:bg-black/20 transition-colors shadow-sm"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors shadow-sm"
               title="Send Broadcast"
             >
               <Megaphone size={18} strokeWidth={2.5} />
             </motion.button>
-            
-            {/* The wrapper handles the icon styling for these components to match the sporty header */}
-            <div className="flex items-center justify-center bg-black/10 rounded-full h-10 w-10 text-slate-900 hover:bg-black/20 transition-colors">
+
+            <div className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors">
               <NotificationBell userRole="ACADEMY_ADMIN" />
             </div>
-            
-            <div className="h-5 w-px bg-slate-900/20 mx-1 hidden sm:block"></div>
-            
-            <div className="flex items-center justify-center bg-black/10 rounded-full h-10 w-10 text-slate-900 hover:bg-black/20 transition-colors">
+
+            <div className="h-5 w-px bg-slate-900/20 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+
+            <div className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors">
               <ThemeToggle />
             </div>
           </div>
         </header>
 
-       {/* Route Outlet */}
+        {/* Main Route Content */}
         <main className="flex-1 min-w-0 p-5 lg:p-8 relative">
           <motion.div
             key={location.pathname}
@@ -332,6 +339,7 @@ export default function AdminLayout() {
         </main>
       </motion.div>
 
+      {/* Broadcast Modal Dialog */}
       <BroadcastModal
         isOpen={broadcastModalOpen}
         onClose={() => setBroadcastModalOpen(false)}

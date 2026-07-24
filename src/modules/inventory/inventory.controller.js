@@ -24,7 +24,7 @@ export const createItem = async (req, res, next) => {
       );
       imageUrl = uploadResult.url;
     }
-    
+
     const item = await inventoryService.createInventoryItem(
       req.user.academy_id,
       { ...req.body, image_url: imageUrl },
@@ -200,6 +200,15 @@ export const createCoachRequest = async (req, res, next) => {
       { ...req.body, proof_url: proofUrl }
     );
     res.status(201).json(successResponse('Inventory request submitted successfully', request));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCoachesList = async (req, res, next) => {
+  try {
+    const list = await inventoryService.getCoachesList(req.user.academy_id, req.user.coach_id);
+    res.json(successResponse('Coaches list retrieved successfully', list));
   } catch (err) {
     next(err);
   }

@@ -658,7 +658,7 @@ export const endBatchSessionById = async (session_id, academy_id) => {
 
     duration_minutes: durationMinutes,
 
-    attendance_summary
+    attendanceSummary: attendanceSummary
 
   });
 
@@ -901,7 +901,7 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
     duration_minutes: durationMinutes,
 
-    attendance_summary
+    attendanceSummary: attendanceSummary
 
   });
 
@@ -965,7 +965,7 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
             sport_name: batch.sport.name,
             timing: batch.timing,
             duration_minutes: durationMinutes,
-            attendance_summary
+            attendance_summary: attendanceSummary
           })
         }
       });
@@ -1150,6 +1150,10 @@ export const getActiveBatchSessions = async (coach_id, academy_id) => {
 
     start_time: session.start_time,
 
+    end_time: session.end_time,
+
+    attendance_summary: session.attendance_summary ? JSON.parse(session.attendance_summary) : null,
+
     status: session.status,
 
     duration_minutes: session.end_time 
@@ -1216,6 +1220,24 @@ export const getBatchSessionHistory = async (academy_id, filters = {}) => {
 
         }
 
+      },
+
+      attendanceRecords: {
+
+        include: {
+
+          student: {
+
+            select: {
+
+              name: true
+
+            }
+
+          }
+
+        }
+
       }
 
     },
@@ -1258,6 +1280,13 @@ export const getBatchSessionHistory = async (academy_id, filters = {}) => {
     status: session.status,
 
     attendance_summary: session.attendance_summary ? JSON.parse(session.attendance_summary) : null,
+
+    attendance_records: session.attendanceRecords?.map(rec => ({
+      student_id: rec.student_id,
+      student_name: rec.student?.name || 'Unknown Student',
+      status: rec.status,
+      remarks: rec.remarks
+    })) || [],
 
     notes: session.notes
 
@@ -3069,16 +3098,9 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
       },
 
       update: {
-        
-        // Check if attendance is locked before updating
-        data: {
-          status,
-
-          marked_by_coach_id: coachId,
-
-          remarks: record.remarks || null
-
-        }
+        status,
+        marked_by_coach_id: coachId,
+        remarks: record.remarks || null
       }
 
     });

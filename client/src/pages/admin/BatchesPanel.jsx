@@ -549,63 +549,138 @@ export default function BatchesPanel() {
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {sessionHistory.map((session) => (
-                          <div key={session.session_id} className="bg-surface border border-border rounded-xl p-4 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h5 className="font-bold text-foreground">{session.batch_name}</h5>
-                                <p className="text-sm text-muted-foreground">{session.sport_name} • {session.timing}</p>
+                        {sessionHistory.map((session) => {
+                          const presentCount = session.attendance_summary?.present ?? 0;
+                          const absentCount = session.attendance_summary?.absent ?? 0;
+                          const lateCount = session.attendance_summary?.late ?? 0;
+                          const totalStudents = presentCount + absentCount + lateCount;
+                          const attendancePct = totalStudents > 0 ? Math.round(((presentCount + lateCount) / totalStudents) * 100) : 0;
+                          const durationStr = session.duration_minutes ? `${session.duration_minutes} mins` : 'N/A';
+
+                          const presentStudents = session.attendance_records?.filter(r => r.status === 'PRESENT') || [];
+                          const lateStudents = session.attendance_records?.filter(r => r.status === 'LATE') || [];
+                          const absentStudents = session.attendance_records?.filter(r => r.status === 'ABSENT') || [];
+
+                          return (
+                            <div key={session.session_id} className="bg-surface border border-border rounded-xl p-4 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h5 className="font-bold text-foreground">{session.batch_name}</h5>
+                                  <p className="text-sm text-muted-foreground">{session.sport_name} • {session.timing}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                    session.status === 'LIVE' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                    session.status === 'LATE_START' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                    session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                    session.status === 'MISSED' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' :
+                                    session.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                  }`}>
+                                    {session.status}
+                                  </span>
+                                  {(session.status === 'LIVE' || session.status === 'LATE_START') && (
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={() => setSessionToEnd(session)}
+                                      className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors"
+                                    >
+                                      Batch Over
+                                    </motion.button>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                  session.status === 'LIVE' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                                  session.status === 'LATE_START' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                  session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                  session.status === 'MISSED' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' :
-                                  session.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                                  'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                                }`}>
-                                  {session.status}
-                                </span>
-                                {(session.status === 'LIVE' || session.status === 'LATE_START') && (
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => setSessionToEnd(session)}
-                                    className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors"
-                                  >
-                                    Batch Over
-                                  </motion.button>
-                                )}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Date</p>
+                                  <p className="font-semibold">{new Date(session.session_date).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Start Time</p>
+                                  <p className="font-semibold">{session.start_time ? new Date(session.start_time).toLocaleTimeString() : 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Duration</p>
+                                  <p className="font-semibold">{session.duration_minutes ? `${session.duration_minutes} min` : 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground text-xs">Coach</p>
+                                  <p className="font-semibold">{session.coach_name}</p>
+                                </div>
                               </div>
+                              {session.attendance_summary && (
+                                <div className="mt-4 pt-4 border-t border-border space-y-4">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-surface/50 p-3 rounded-xl border border-border/40 text-xs">
+                                    <div>
+                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">✅ Total Students</span>
+                                      <strong className="text-foreground font-black text-sm">{totalStudents}</strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">🟢 Present / 🟡 Late / 🔴 Absent</span>
+                                      <strong className="text-foreground text-sm font-black">
+                                        <span className="text-emerald-600 dark:text-emerald-400">{presentCount}</span> / <span className="text-amber-600 dark:text-amber-400">{lateCount}</span> / <span className="text-rose-600 dark:text-rose-455">{absentCount}</span>
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">📊 Attendance Pct</span>
+                                      <strong className="text-emerald-600 dark:text-emerald-400 text-sm font-black">{attendancePct}%</strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">⌛ Duration</span>
+                                      <strong className="text-foreground text-sm font-black">{durationStr}</strong>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs bg-surface/30 p-3 rounded-xl border border-border/40 text-left">
+                                    <div>
+                                      <span className="text-emerald-600 dark:text-emerald-450 font-bold block mb-1">Present ({presentCount})</span>
+                                      {presentStudents.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {presentStudents.map((s, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded text-[11px] font-medium">
+                                              {s.student_name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground italic text-[11px]">No students present</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-amber-600 dark:text-amber-405 font-bold block mb-1">Late ({lateCount})</span>
+                                      {lateStudents.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {lateStudents.map((s, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30 rounded text-[11px] font-medium">
+                                              {s.student_name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground italic text-[11px]">No students late</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-rose-600 dark:text-rose-455 font-bold block mb-1">Absent ({absentCount})</span>
+                                      {absentStudents.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {absentStudents.map((s, idx) => (
+                                            <span key={idx} className="px-2 py-0.5 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 rounded text-[11px] font-medium">
+                                              {s.student_name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground italic text-[11px]">No students absent</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <p className="text-muted-foreground text-xs">Date</p>
-                                <p className="font-semibold">{new Date(session.session_date).toLocaleDateString()}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Start Time</p>
-                                <p className="font-semibold">{session.start_time ? new Date(session.start_time).toLocaleTimeString() : 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Duration</p>
-                                <p className="font-semibold">{session.duration_minutes ? `${session.duration_minutes} min` : 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Coach</p>
-                                <p className="font-semibold">{session.coach_name}</p>
-                              </div>
-                            </div>
-                            {session.attendance_summary && (
-                              <div className="mt-3 pt-3 border-t border-border flex gap-4 text-xs">
-                                <span className="text-emerald-600 font-bold">Present: {session.attendance_summary.present}</span>
-                                <span className="text-rose-600 font-bold">Absent: {session.attendance_summary.absent}</span>
-                                <span className="text-amber-600 font-bold">Late: {session.attendance_summary.late}</span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

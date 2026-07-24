@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart2, Clock, Trophy, Users, Search, TrendingUp, ChevronRight, Star, Activity, Zap, Award, Target, Filter, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import Loader from '../../components/Loader';
 import ModalWrapper from '../../components/ModalWrapper';
 import Avatar from '../../components/Avatar';
@@ -254,11 +255,8 @@ export default function PerformancePanel() {
     if (!batchId) return;
     try {
       setLoadingAnalytics(true);
-      console.log('DEBUG: Loading batch analytics for batchId:', batchId);
       const result = await adminGet(`/admin/performance/analytics/batch/${batchId}`);
-      console.log('DEBUG: Batch analytics API response:', result);
       setBatchAnalytics(result.data || result);
-      console.log('DEBUG: Set batchAnalytics to:', result.data || result);
     } catch (error) {
       console.error('Error loading batch analytics:', error);
       setMessage({ text: 'Failed to load batch analytics', type: 'error' });
@@ -336,26 +334,14 @@ export default function PerformancePanel() {
     if (!studentId) return;
     try {
       setLoadingStudentDashboard(true);
-      console.log('DEBUG: Loading student dashboard for studentId:', studentId);
-      
       const [historyResult, analyticsResult] = await Promise.all([
         adminGet(`/admin/performance/assessments?student_id=${studentId}`),
         adminGet(`/admin/performance/analytics/student/${studentId}`)
       ]);
-      
-      console.log('DEBUG: History API response:', historyResult);
-      console.log('DEBUG: Analytics API response:', analyticsResult);
-      
       setStudentDashboardData({
         history: historyResult.data?.assessments || [],
         analytics: analyticsResult.data || analyticsResult
       });
-      
-      console.log('DEBUG: Set studentDashboardData:', {
-        history: historyResult.data?.assessments || [],
-        analytics: analyticsResult.data || analyticsResult
-      });
-      
       // Select all attributes by default
       const allAttributes = new Set();
       historyResult.data?.assessments?.forEach(assessment => {
@@ -367,7 +353,6 @@ export default function PerformancePanel() {
       setSelectedAttributes(attributesArray);
       setVisibleAttributes(attributesArray);
     } catch (error) {
-      console.error('DEBUG: Error loading student dashboard:', error);
       setMessage({ text: 'Failed to load student dashboard', type: 'error' });
     } finally {
       setLoadingStudentDashboard(false);
@@ -801,66 +786,88 @@ export default function PerformancePanel() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 sm:p-6">
         {/* Modern Gradient Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-6 sm:p-8 shadow-xl"
+          className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl p-6 sm:p-8 shadow-xl shadow-emerald-500/20"
         >
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTTAgNDBMMDQgMEgwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-30"></div>
+          {/* Decorative blobs */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
           <div className="relative z-10">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-white text-3xl sm:text-4xl font-black tracking-tight drop-shadow-lg">
-                  Performance Tracker
-                </h2>
-                <p className="text-white/90 mt-2 text-sm sm:text-base font-medium">
-                  Monitor athlete progress, track metrics, and analyze performance data
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-white text-2xl sm:text-3xl font-black tracking-tight">
+                    Performance Tracker
+                  </h2>
+                </div>
+                <p className="text-white/80 text-sm font-medium pl-[52px]">
+                  Monitor athlete progress, track metrics &amp; analyze performance data
                 </p>
               </div>
-              <div className="flex gap-2 sm:gap-3">
+              <div className="flex gap-2 sm:gap-3 flex-wrap">
                 <motion.button
                   type="button"
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.35)' }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     setShowAnalyticsPanel(!showAnalyticsPanel);
-                    if (!showAnalyticsPanel) {
-                      loadAcademyAnalytics();
-                    }
+                    if (!showAnalyticsPanel) loadAcademyAnalytics();
                   }}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border-2 border-white/30 text-white rounded-xl px-4 sm:px-6 py-2.5 text-sm font-bold transition-all duration-200 flex items-center gap-2 shadow-lg"
+                  className={`backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg ${
+                    showAnalyticsPanel ? 'bg-white/30 border-white/60' : 'bg-white/15 hover:bg-white/25'
+                  }`}
                 >
-                  <span className="text-lg">📊</span> Analytics
+                  <BarChart2 className="w-4 h-4" /> Analytics
+                  {showAnalyticsPanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </motion.button>
                 <motion.button
                   type="button"
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.35)' }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     setShowTimelinePanel(!showTimelinePanel);
-                    if (!showTimelinePanel) {
-                      loadAssessmentHistory();
-                    }
+                    if (!showTimelinePanel) loadAssessmentHistory();
                   }}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border-2 border-white/30 text-white rounded-xl px-4 sm:px-6 py-2.5 text-sm font-bold transition-all duration-200 flex items-center gap-2 shadow-lg"
+                  className={`backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg ${
+                    showTimelinePanel ? 'bg-white/30 border-white/60' : 'bg-white/15 hover:bg-white/25'
+                  }`}
                 >
-                  <span className="text-lg">📅</span> History
+                  <Clock className="w-4 h-4" /> History
+                  {showTimelinePanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                 </motion.button>
               </div>
             </div>
           </div>
         </motion.div>
 
-        {message.text && (
-          <div className={`border-current/10 rounded-xl border p-4 text-sm font-semibold ${
-            message.type === 'success' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'
-          }`}>
-            {message.text}
-          </div>
-        )}
+        <AnimatePresence>
+          {message.text && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className={`rounded-xl border p-3.5 text-sm font-semibold flex items-center gap-3 ${
+                message.type === 'success'
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                  : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/25'
+              }`}
+            >
+              {message.type === 'success'
+                ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                : <XCircle className="w-4 h-4 flex-shrink-0" />
+              }
+              {message.text}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       {/* Analytics Panel */}
       <AnimatePresence>
@@ -869,42 +876,41 @@ export default function PerformancePanel() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-surface-secondary/30 border border-border rounded-xl p-6"
+            transition={{ duration: 0.3 }}
+            className="bg-card border border-border rounded-2xl p-6 shadow-lg"
           >
+            {/* Analytics Panel Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <BarChart2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Performance Analytics</h3>
+                <p className="text-xs text-muted-foreground">Academy-wide, batch &amp; student insights</p>
+              </div>
+            </div>
             {/* Analytics Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-border pb-4 overflow-x-auto">
-              <button
-                type="button"
-                onClick={() => handleAnalyticsTabChange('academy')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${analyticsTab === 'academy'
-                    ? 'bg-accent text-foreground'
-                    : 'bg-surface text-muted hover:text-foreground'
+            <div className="flex gap-1.5 mb-6 bg-surface-secondary/50 p-1.5 rounded-xl w-fit overflow-x-auto">
+              {[
+                { id: 'academy', label: 'Academy', icon: Trophy },
+                { id: 'batch', label: 'Batch', icon: Users, disabled: !selectedBatchId },
+                { id: 'student', label: 'Student', icon: Star, disabled: !selectedStudent },
+              ].map(({ id, label, icon: Icon, disabled }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => !disabled && handleAnalyticsTabChange(id)}
+                  disabled={disabled}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    analyticsTab === id
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed'
                   }`}
-              >
-                Academy Overview
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAnalyticsTabChange('batch')}
-                disabled={!selectedBatchId}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${analyticsTab === 'batch'
-                    ? 'bg-accent text-foreground'
-                    : 'bg-surface text-muted hover:text-foreground disabled:opacity-50'
-                  }`}
-              >
-                Batch Analytics
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAnalyticsTabChange('student')}
-                disabled={!selectedStudent}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${analyticsTab === 'student'
-                    ? 'bg-accent text-foreground'
-                    : 'bg-surface text-muted hover:text-foreground disabled:opacity-50'
-                  }`}
-              >
-                Student Analytics
-              </button>
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
             </div>
 
             {loadingAnalytics ? (
@@ -1280,13 +1286,24 @@ export default function PerformancePanel() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-2xl p-6"
+            transition={{ duration: 0.3 }}
+            className="bg-card border border-border rounded-2xl p-6 shadow-lg"
           >
+            {/* Timeline Panel Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <Clock className="w-4 h-4 text-cyan-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Assessment History</h3>
+                <p className="text-xs text-muted-foreground">Filter and review all assessments</p>
+              </div>
+            </div>
             {/* Timeline Filters */}
             <div className="mb-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-black text-foreground flex items-center gap-2">
-                  <span className="text-lg">🔍</span> Filter Assessments
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground" /> Filter Assessments
                 </h4>
                 <motion.span
                   initial={{ scale: 0 }}
@@ -1514,15 +1531,16 @@ export default function PerformancePanel() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-6 relative overflow-hidden"
+          className="bg-amber-50/80 dark:bg-amber-900/10 border border-amber-300 dark:border-amber-700/50 rounded-2xl p-5 shadow-sm"
         >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
-          <div className="relative z-10 flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <span className="text-3xl">⚠️</span>
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
               <div>
-                <h3 className="text-sm font-black text-foreground">Pending Attribute Proposals</h3>
-                <p className="text-xs text-muted-foreground mt-1">Review and approve custom metrics proposed by coaches</p>
+                <h3 className="text-sm font-bold text-foreground">Pending Attribute Proposals</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Review and approve custom metrics proposed by coaches</p>
               </div>
             </div>
             <motion.button
@@ -1598,13 +1616,19 @@ export default function PerformancePanel() {
 
       {!selectedSport ? (
         <div className="space-y-6">
-          <motion.h3 
+          <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-lg font-black tracking-tight text-foreground flex items-center gap-2"
+            className="flex items-center gap-3"
           >
-            <span className="text-2xl">🏆</span> Active Sports Catalog
-          </motion.h3>
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Active Sports Catalog</h3>
+              <p className="text-xs text-muted-foreground">{sports.length} sport{sports.length !== 1 ? 's' : ''} configured</p>
+            </div>
+          </motion.div>
           {loading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -1806,13 +1830,19 @@ export default function PerformancePanel() {
           ) : (
             <>
               <div className="space-y-4">
-                <motion.h3 
+                <motion.div
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="text-lg font-black tracking-tight text-foreground flex items-center gap-2"
+                  className="flex items-center gap-3"
                 >
-                  <span className="text-2xl">🎯</span> Select Training Batch
-                </motion.h3>
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Target className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Select Training Batch</h3>
+                    <p className="text-xs text-muted-foreground">{filteredBatches.length} batch{filteredBatches.length !== 1 ? 'es' : ''} available</p>
+                  </div>
+                </motion.div>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredBatches.map((batch, idx) => {
                     const gradients = [
@@ -1880,28 +1910,34 @@ export default function PerformancePanel() {
                   transition={{ duration: 0.3 }} 
                   className="bg-gradient-to-br from-surface-secondary/50 to-surface/30 border border-border rounded-2xl p-6 shadow-lg space-y-4"
                 >
-                  <div className="flex items-center justify-between border-b border-border pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">📊</span>
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                        <Users className="w-4 h-4 text-blue-600" />
+                      </div>
                       <div>
-                        <h3 className="text-foreground text-lg font-black tracking-tight">
+                        <h3 className="text-foreground text-base font-bold">
                           Student Performance Metrics
                         </h3>
-                        <span className="text-xs text-muted-foreground font-normal block mt-1">Click on a student to open detailed tracking and history</span>
+                        <span className="text-xs text-muted-foreground">
+                          {students.length} student{students.length !== 1 ? 's' : ''} · click to open detailed dashboard
+                        </span>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Students in Batch: {students.length}
-                    </div>
+                    <span className="text-xs font-medium text-muted-foreground bg-surface-secondary px-3 py-1.5 rounded-full">
+                      {getFilteredStudents.length} shown
+                    </span>
                   </div>
 
-                  <div className="mb-4">
+                  {/* Search bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Search by Name, Student ID, or Mobile..."
+                      placeholder="Search by name, ID or mobile…"
                       value={studentSearchQuery}
                       onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg bg-surface border border-border focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none text-sm transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
                     />
                   </div>
 
@@ -1957,41 +1993,43 @@ export default function PerformancePanel() {
                             whileHover={{ scale: 1.02, y: -2 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => handleOpenStudentDashboard(student)}
-                            className={`bg-surface border rounded-xl p-4 cursor-pointer hover:shadow-lg transition-all ${
+                            className={`bg-surface border rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all group ${
                               isSelected
-                                ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-md'
-                                : 'border-border hover:border-accent/50'
+                                ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-500/10 shadow-md shadow-emerald-500/10'
+                                : 'border-border hover:border-primary/40'
                             }`}
                           >
-                            <div className="flex items-center gap-4 mb-3">
+                            <div className="flex items-center gap-3 mb-3">
                               <Avatar
                                 src={student.profile_photo}
                                 name={student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim()}
                                 size="xl"
-                                className="shadow-md"
+                                className="shadow-md ring-2 ring-border"
                               />
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-foreground truncate">
+                                <h4 className="font-semibold text-foreground truncate text-sm">
                                   {student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown'}
                                 </h4>
                                 {student.student_id && (
-                                  <p className="text-xs text-muted-foreground">ID: {student.student_id}</p>
+                                  <p className="text-xs text-muted-foreground font-mono">#{student.student_id}</p>
                                 )}
                               </div>
+                              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                             </div>
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="flex gap-1.5 flex-wrap">
                               {student.age && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-xs text-muted-foreground">
-                                  <span>🎂</span>
-                                  <span>{student.age}</span>
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 text-xs font-medium">
+                                  {student.age}y
                                 </span>
                               )}
                               {student.gender && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-xs text-muted-foreground">
-                                  <span>👤</span>
-                                  <span>{student.gender}</span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-surface-secondary text-xs text-muted-foreground font-medium">
+                                  {student.gender}
                                 </span>
                               )}
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium ml-auto">
+                                <TrendingUp className="w-3 h-3" /> View
+                              </span>
                             </div>
                           </motion.div>
                         );
@@ -2012,16 +2050,21 @@ export default function PerformancePanel() {
         modalId="student-dashboard"
         contentClassName="bg-white dark:bg-slate-900 border border-border rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] flex flex-col overflow-hidden"
       >
-        <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-lg sm:text-xl font-black text-foreground">Student Performance Dashboard</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{selectedStudentForDashboard?.name || 'Student'}</p>
+        <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between shrink-0 bg-card">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-sm">
+              <Activity className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Performance Dashboard</h2>
+              <p className="text-xs text-muted-foreground">{selectedStudentForDashboard?.name || 'Student'}</p>
+            </div>
           </div>
           <button
             onClick={handleCloseStudentDashboard}
-            className="p-2 rounded-lg hover:bg-surface-secondary transition-colors"
+            className="w-8 h-8 rounded-lg hover:bg-surface-secondary transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground"
           >
-            ✕
+            <XCircle className="w-4 h-4" />
           </button>
         </div>
 

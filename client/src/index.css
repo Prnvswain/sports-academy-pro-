@@ -10,6 +10,7 @@
 }
 :root,
 :root[data-theme='light'] {
+  color-scheme: light;
   /* Premium 2026 type pairing */
   --font-display: 'Lexend', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -58,6 +59,7 @@
 }
 
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --background: 156 20% 5%; 
   --foreground: 210 40% 98%;
   --card: 146 17% 8%; 
@@ -101,9 +103,15 @@
     width: 100%;
     overflow-x: hidden;
     -webkit-text-size-adjust: 100%;
+    background-color: hsl(var(--background)) !important;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
   body {
-    @apply bg-background text-foreground antialiased min-h-screen transition-colors duration-300 ease-out;
+    @apply text-foreground antialiased transition-colors duration-300 ease-out;
+    background-color: hsl(var(--background)) !important;
+    min-height: 100vh;
+    min-height: 100dvh;
     margin: 0;
     width: 100%;
     font-family: var(--font-body);
@@ -114,7 +122,10 @@
     color: rgb(var(--color-text));
   }
   #root {
-    @apply min-h-screen flex flex-col w-full overflow-x-hidden;
+    @apply flex flex-col w-full overflow-x-hidden;
+    background-color: hsl(var(--background)) !important;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   h1, h2, h3, h4, h5, h6 {

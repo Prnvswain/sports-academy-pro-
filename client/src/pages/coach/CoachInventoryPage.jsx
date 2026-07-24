@@ -63,7 +63,7 @@ export default function CoachInventoryPage() {
 
       setAssignments(assignmentsRes?.data || []);
       setRequests(requestsRes?.data || []);
-      
+
       // Let's also fetch general academy items list so coach can request "Additional" quantity of existing catalog items
       // Wait, we can fetch from a generic public list or fetch admin inventory.
       // For additional items, we can fetch `/admin/inventory` but since coaches are authenticated, let's fetch coach items
@@ -164,11 +164,10 @@ export default function CoachInventoryPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`p-4 rounded-xl flex items-center gap-3 border shadow-sm ${
-              message.type === 'error'
+            className={`p-4 rounded-xl flex items-center gap-3 border shadow-sm ${message.type === 'error'
                 ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-900/50 dark:text-rose-400'
                 : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400'
-            }`}
+              }`}
           >
             {message.type === 'error' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
             <span className="font-medium text-sm">{message.text}</span>
@@ -180,11 +179,10 @@ export default function CoachInventoryPage() {
       <div className="border-b border-slate-200 dark:border-slate-800 flex gap-4">
         <button
           onClick={() => setActiveTab('assigned')}
-          className={`py-3 px-1 border-b-2 font-semibold text-sm transition-all flex items-center gap-2 ${
-            activeTab === 'assigned'
+          className={`py-3 px-1 border-b-2 font-semibold text-sm transition-all flex items-center gap-2 ${activeTab === 'assigned'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
-          }`}
+            }`}
         >
           My Assigned Gear
           <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full text-xs font-bold">
@@ -193,11 +191,10 @@ export default function CoachInventoryPage() {
         </button>
         <button
           onClick={() => setActiveTab('requests')}
-          className={`py-3 px-1 border-b-2 font-semibold text-sm transition-all flex items-center gap-2 ${
-            activeTab === 'requests'
+          className={`py-3 px-1 border-b-2 font-semibold text-sm transition-all flex items-center gap-2 ${activeTab === 'requests'
               ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
-          }`}
+            }`}
         >
           My Request Tickets
           <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full text-xs font-bold">
@@ -330,16 +327,14 @@ export default function CoachInventoryPage() {
                       </td>
                       <td className="p-4 text-center font-bold">{req.quantity}</td>
                       <td className="p-4">
-                        <span className={`text-xs font-semibold ${
-                          req.priority === 'High' ? 'text-rose-600 font-bold' : req.priority === 'Medium' ? 'text-amber-600' : 'text-slate-500'
-                        }`}>
+                        <span className={`text-xs font-semibold ${req.priority === 'High' ? 'text-rose-600 font-bold' : req.priority === 'Medium' ? 'text-amber-600' : 'text-slate-500'
+                          }`}>
                           {req.priority}
                         </span>
                       </td>
                       <td className="p-4 max-w-xs truncate" title={req.reason}>{req.reason}</td>
                       <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
-                          req.status === 'Pending'
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${req.status === 'Pending'
                             ? 'bg-slate-100 text-slate-650'
                             : req.status === 'Approved'
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400'
@@ -348,7 +343,7 @@ export default function CoachInventoryPage() {
                                 : req.status === 'Ordered'
                                   ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-400'
                                   : 'bg-indigo-100 text-indigo-805 dark:bg-indigo-950 dark:text-indigo-400'
-                        }`}>
+                          }`}>
                           {req.status}
                         </span>
                       </td>
