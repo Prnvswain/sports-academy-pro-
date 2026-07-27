@@ -289,7 +289,12 @@ export default function SettingsPanel() {
   );
 
   return (
-    <div className="relative min-h-screen p-6 sm:p-8">
+    <motion.div
+      className="relative z-10 mx-auto max-w-7xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Sticky Save Button */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
@@ -301,13 +306,6 @@ export default function SettingsPanel() {
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
-
-      <motion.div
-        className="relative z-10 max-w-7xl mx-auto space-y-8 pb-20"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
         {/* Header */}
         <motion.div
           className="flex items-center justify-between"
@@ -707,7 +705,6 @@ export default function SettingsPanel() {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
-    </div>
+    </motion.div>
   );
 }

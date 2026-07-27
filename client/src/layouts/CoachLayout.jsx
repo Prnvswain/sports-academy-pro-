@@ -7,7 +7,7 @@ import BrandingLogo from '../components/BrandingLogo';
 import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken } from '../api/client';
 import { CoachBatchesProvider, useCoachBatches } from '../context/CoachBatchesContext';
 import { CoachDailyNotes } from '../pages/coach/CoachExtras';
-import { NotebookPen } from 'lucide-react';
+import { NotebookPen, X } from 'lucide-react';
 
 // Sleek and Premium Sports SaaS Icons
 import {

@@ -3278,7 +3278,8 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
 
         }
 
-      } 
+      },
+      enrollments: true
 
     }
 
@@ -3296,6 +3297,45 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
 
     throw error;
 
+  }
+
+  // Payment validation: Check if payment amount exceeds remaining fee
+  const studentLedger = await prisma.receipt.aggregate({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      status: { in: ['COMPLETED', 'PAID', 'APPROVED'] }
+    },
+    _sum: { amount: true }
+  });
+
+  const totalPaid = studentLedger._sum.amount || 0;
+  
+  // Get total fees assigned from student's latest enrollment
+  let totalFeesAssigned = 0;
+  if (student.enrollments && student.enrollments.length > 0) {
+    const latestEnrollment = student.enrollments[student.enrollments.length - 1];
+    // Use the centralized fee calculation utility
+    const { calculateStudentFee } = await import('../../utils/fee.util.js');
+    const feeBreakdown = calculateStudentFee(latestEnrollment);
+    totalFeesAssigned = feeBreakdown.totalComputedFee;
+  }
+
+  const remainingFee = Math.max(0, totalFeesAssigned - totalPaid);
+
+  // Check if payment exceeds remaining fee
+  if (Math.round(amount * 100) / 100 > Math.round(remainingFee * 100) / 100) {
+    const error = new Error('Payment amount cannot exceed the remaining fee.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+
+  // Check if student is already fully paid
+  if (remainingFee <= 0) {
+    const error = new Error('Student has already paid all fees. No further payments can be accepted.');
+    error.statusCode = 400;
+    throw error;
   }
 
 

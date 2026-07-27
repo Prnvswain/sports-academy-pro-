@@ -92,6 +92,22 @@ export default function ParentFees() {
       return;
     }
 
+    // Validate payment amount against remaining fee
+    const selectedChild = children.find(c => String(c.student_id) === selectedChildId);
+    const totalFeesAssigned = selectedChild?.total_fees_assigned || 0;
+    const totalFeesPaid = selectedChild?.total_fees_paid || 0;
+    const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
+    
+    if (parsedAmount > remainingFee) {
+      showBanner('Payment amount cannot exceed the remaining fee.', 'error');
+      return;
+    }
+
+    if (remainingFee <= 0) {
+      showBanner('Student has already paid all fees. No further payments can be accepted.', 'error');
+      return;
+    }
+
     // Validate transaction number
     const trimmedTransaction = transactionNumber.trim();
     if (trimmedTransaction.length < 12) {
@@ -511,6 +527,12 @@ export default function ParentFees() {
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
 
+  const selectedChild = children.find(c => String(c.student_id) === selectedChildId);
+  const totalFeesAssigned = selectedChild?.total_fees_assigned || 0;
+  const totalFeesPaid = selectedChild?.total_fees_paid || 0;
+  const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
+
+
   return (
     <div className="relative min-h-screen w-full bg-transparent p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
       
@@ -612,14 +634,24 @@ export default function ParentFees() {
                   <input
                     type="number"
                     min="1"
+                    max={remainingFee}
                     step="0.01"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full bg-surface border border-border rounded-xl py-3.5 pl-9 pr-4 text-base font-black focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder:font-medium placeholder:text-muted-foreground/50"
+                    disabled={remainingFee <= 0}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (parseFloat(val) > remainingFee) {
+                        setAmount(remainingFee.toString());
+                      } else {
+                        setAmount(val);
+                      }
+                    }}
+                    className="w-full bg-surface border border-border rounded-xl py-3.5 pl-9 pr-4 text-base font-black focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder:font-medium placeholder:text-muted-foreground/50 disabled:opacity-50"
                     placeholder="0.00"
                   />
                 </div>
               </div>
+
 
               {/* Custom Payment Method Buttons */}
               <div>
@@ -744,16 +776,25 @@ export default function ParentFees() {
               </div>
 
               <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: remainingFee <= 0 ? 1 : 1.01 }}
+                whileTap={{ scale: remainingFee <= 0 ? 1 : 0.98 }}
                 type="submit"
-                disabled={submitting}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm py-4 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all disabled:opacity-50 flex justify-center items-center gap-2"
+                disabled={submitting || remainingFee <= 0}
+                className={`w-full font-black text-sm py-4 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all disabled:opacity-50 flex justify-center items-center gap-2 ${
+                  remainingFee <= 0
+                    ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                }`}
               >
                 {submitting ? (
-                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Submitting...</>
-                ) : 'Submit Payment'}
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Submitting...</>
+                ) : remainingFee <= 0 ? (
+                  <><CheckCircle2 className="w-4 h-4" /> Fully Paid</>
+                ) : (
+                  'Submit Payment'
+                )}
               </motion.button>
+
             </form>
           </motion.div>
 

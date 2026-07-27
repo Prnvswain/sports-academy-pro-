@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { FileSpreadsheet } from 'lucide-react';
 import { getAdminToken } from '../../api/client';
 
 const REPORTS = [
@@ -51,18 +52,27 @@ export default function ReportsPanel() {
 
   return (
     <motion.div
-      className="space-y-8 w-full max-w-7xl mx-auto overflow-x-hidden"
+      className="space-y-6 w-full max-w-7xl mx-auto overflow-x-hidden"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Header Section */}
-      <div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Reports & Export</h2>
-        {/* Fixed: text-muted to text-muted-foreground for visibility */}
-        <p className="text-base text-muted-foreground mt-1">
-          Download CSV and PDF reports for attendance, students, and fees.
-        </p>
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
+        <div>
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-650 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 shadow-inner"
+            >
+              <FileSpreadsheet className="h-6 w-6" />
+            </motion.div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Reports & Export</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Download CSV and PDF reports for attendance, students, and fees.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Date Pickers Section */}

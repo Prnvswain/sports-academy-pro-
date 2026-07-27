@@ -468,22 +468,34 @@ export default function InventoryPage() {
   if (loading) return <Loader />;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <motion.div
+      className="relative z-10 mx-auto max-w-7xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Inventory & Equipment Hub
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Manage training assets, oversee coach checkouts, and process replenishment requests.
-          </p>
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
+            >
+              <Package className="h-6 w-6" />
+            </motion.div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Inventory & Equipment Hub</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage training assets, oversee coach checkouts, and process replenishment requests.</p>
+            </div>
+          </div>
         </div>
+
         <button
           onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md font-semibold transition-all hover:scale-105 active:scale-95"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_14px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2 text-xs transition-all border border-emerald-600"
         >
-          <Plus className="w-5 h-5" /> Add Equipment
+          <Plus className="w-4 h-4" /> Add Equipment
         </button>
       </div>
 
@@ -1475,6 +1487,6 @@ export default function InventoryPage() {
           </motion.div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

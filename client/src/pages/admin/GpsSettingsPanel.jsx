@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { MapPin, Navigation, Shield, Settings, AlertTriangle } from 'lucide-react';
 
 export default function GpsSettingsPanel() {
@@ -192,12 +193,27 @@ export default function GpsSettingsPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <motion.div
+      className="relative z-10 mx-auto max-w-7xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">GPS Attendance Settings</h1>
-          <p className="text-gray-600 mt-1">Configure location-based attendance verification</p>
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 border border-blue-100 dark:border-blue-800/50 shadow-inner"
+            >
+              <MapPin className="h-6 w-6" />
+            </motion.div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">GPS Attendance Settings</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Configure location-based attendance verification</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -500,6 +516,6 @@ export default function GpsSettingsPanel() {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -581,7 +581,7 @@ export default function EnquiriesPanel() {
 
   return (
     <motion.div
-      className="space-y-6 p-6 w-full overflow-x-hidden bg-transparent"
+      className="space-y-6 w-full overflow-x-hidden bg-transparent"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}

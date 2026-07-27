@@ -137,7 +137,30 @@ export default function AdminSubscriptionPanel() {
   const studentProgress = details ? (details.student_limit ? (details.student_usage / details.student_limit) * 100 : 0) : 0;
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+    <motion.div
+      className="relative z-10 mx-auto max-w-7xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
+        <div>
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
+            >
+              <CreditCard className="h-6 w-6" />
+            </motion.div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Subscription HQ</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage your platform plan, subscription tier limits, and invoice billing records.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Current Subscription Status Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main status card */}
@@ -525,6 +548,6 @@ export default function AdminSubscriptionPanel() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

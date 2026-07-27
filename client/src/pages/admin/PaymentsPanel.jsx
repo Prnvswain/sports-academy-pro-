@@ -54,6 +54,13 @@ export default function AccountsPanel() {
   // Image Modal Preview State
   const [previewImage, setPreviewImage] = useState(null);
 
+  // Drawer/Modal State for Summary Cards
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerType, setDrawerType] = useState(null); // 'total' or 'collected'
+  const [drawerSearch, setDrawerSearch] = useState('');
+  const [drawerSort, setDrawerSort] = useState('name'); // 'name', 'amount', 'date'
+  const [highlightPaymentRecords, setHighlightPaymentRecords] = useState(false);
+
   const loadData = useCallback(async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
@@ -234,6 +241,20 @@ export default function AccountsPanel() {
     if (isSubmitting) {
       return;
     }
+
+    // Validate payment amount against remaining fee
+    const paymentAmount = parseFloat(form.amount);
+    const remainingFee = parseFloat(form.pending_amount || 0);
+    
+    if (paymentAmount > remainingFee) {
+      setMessage({ text: 'Payment amount cannot exceed the remaining fee.', type: 'error' });
+      return;
+    }
+
+    if (remainingFee <= 0) {
+      setMessage({ text: 'Student has already paid all fees. No further payments can be accepted.', type: 'error' });
+      return;
+    }
     
     setIsSubmitting(true);
     setMessage({ text: '', type: '' });
@@ -272,6 +293,25 @@ export default function AccountsPanel() {
     if ((!targetId && targetId !== 0) || targetId === fallbackId) {
       setMessage({ text: 'Error: Frontend could not read your database Primary Key ID field.', type: 'error' });
       return;
+    }
+
+    // Check if trying to mark as completed
+    if (status && status.toLowerCase() === 'completed') {
+      // Get student's fee data to check if already fully paid
+      const studentId = paymentObj?.student_id || paymentObj?.student?.student_id;
+      if (studentId) {
+        const student = studentsList.find(s => s.student_id === studentId);
+        if (student) {
+          const totalFeesAssigned = student.total_fees_assigned || 0;
+          const totalFeesPaid = student.total_fees_paid || 0;
+          
+          // Check if student is already fully paid
+          if (totalFeesPaid >= totalFeesAssigned) {
+            setMessage({ text: 'Payment already completed. This student\'s full fee has already been submitted.', type: 'error' });
+            return;
+          }
+        }
+      }
     }
 
     try {
@@ -478,12 +518,115 @@ export default function AccountsPanel() {
     }
   };
 
+  // Handle summary card clicks
+  const handleTotalAmountClick = () => {
+    setDrawerType('total');
+    setDrawerOpen(true);
+    setDrawerSearch('');
+    setDrawerSort('name');
+  };
+
+  const handleCollectedClick = () => {
+    setDrawerType('collected');
+    setDrawerOpen(true);
+    setDrawerSearch('');
+    setDrawerSort('date');
+  };
+
+  const handlePendingClick = () => {
+    // Set status filter to pending
+    setStatusFilter('pending');
+    // Scroll to payment records section
+    const paymentRecordsSection = document.getElementById('paymentRecordsSection');
+    if (paymentRecordsSection) {
+      paymentRecordsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // Highlight the section for 2-3 seconds
+    setHighlightPaymentRecords(true);
+    setTimeout(() => {
+      setHighlightPaymentRecords(false);
+    }, 3000);
+  };
+
+  // Get drawer data based on type
+  const getDrawerData = () => {
+    if (drawerType === 'total') {
+      // Return all students with their fee details
+      return students.map(student => {
+        const totalAmount = getStudentAmount(student);
+        const paidAmount = getPaidAmount(student);
+        const pendingAmount = Math.max(0, totalAmount - paidAmount);
+        return {
+          student,
+          totalAmount,
+          paidAmount,
+          pendingAmount
+        };
+      });
+    } else if (drawerType === 'collected') {
+      // Return completed payments
+      return payments.filter(p => (p?.status || '').toUpperCase() === 'COMPLETED').map(payment => ({
+        payment,
+        studentName: payment?.student?.name || payment?.student_name || '—',
+        amount: parseFloat(payment?.amount || 0),
+        paymentDate: payment?.payment_date || payment?.date,
+        method: payment?.method || '—',
+        receiptNo: payment?.receipt_number || payment?.receipt_number || '—'
+      }));
+    }
+    return [];
+  };
+
+  // Filter and sort drawer data
+  const getFilteredDrawerData = () => {
+    let data = getDrawerData();
+    
+    // Apply search filter
+    if (drawerSearch) {
+      const searchLower = drawerSearch.toLowerCase();
+      data = data.filter(item => {
+        if (drawerType === 'total') {
+          const name = item.student?.name || `${item.student?.first_name || ''} ${item.student?.last_name || ''}`;
+          return name.toLowerCase().includes(searchLower);
+        } else {
+          return item.studentName.toLowerCase().includes(searchLower);
+        }
+      });
+    }
+    
+    // Apply sorting
+    data = [...data].sort((a, b) => {
+      if (drawerType === 'total') {
+        if (drawerSort === 'name') {
+          const nameA = a.student?.name || '';
+          const nameB = b.student?.name || '';
+          return nameA.localeCompare(nameB);
+        } else if (drawerSort === 'amount') {
+          return b.totalAmount - a.totalAmount;
+        }
+      } else if (drawerType === 'collected') {
+        if (drawerSort === 'name') {
+          return a.studentName.localeCompare(b.studentName);
+        } else if (drawerSort === 'amount') {
+          return b.amount - a.amount;
+        } else if (drawerSort === 'date') {
+          const dateA = new Date(a.paymentDate || 0);
+          const dateB = new Date(b.paymentDate || 0);
+          return dateB - dateA;
+        }
+      }
+      return 0;
+    });
+    
+    return data;
+  };
+
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 15 }} 
-      animate={{ opacity: 1, y: 0 }} 
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="space-y-4 w-full overflow-x-hidden relative px-4 sm:px-6 -mt-4"
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      transition={{ duration: 0.4 }}
+      className="space-y-6 w-full overflow-x-hidden relative"
     >
       {/* Subtle Sports-Themed Background Decorative Elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -492,21 +635,25 @@ export default function AccountsPanel() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#a3e635]/2 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center shadow-lg shadow-[#84cc16]/30">
-              <Wallet className="w-5 h-5 text-white" />
-            </div>
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
+            >
+              <Wallet className="h-6 w-6" />
+            </motion.div>
             <div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Track payments, due dates, and collection statistics.</p>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Fee Management</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Track payments, due dates, and collection statistics.</p>
             </div>
           </div>
         </div>
         
         {/* Premium Segmented Toggle */}
-        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl p-1 border border-slate-200 dark:border-slate-700/50 shadow-sm">
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl p-1 border border-slate-200 dark:border-slate-700/50 shadow-sm relative z-10">
           <button
             onClick={() => setActiveTab('payments')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 ${
@@ -537,9 +684,9 @@ export default function AccountsPanel() {
           {/* Premium Statistics Cards with Icons */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Amount', value: stats.total, color: 'text-blue-600', bgGradient: 'from-blue-500 to-blue-600', icon: DollarSign, bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
-          { label: 'Collected', value: stats.collected, color: 'text-[#84cc16]', bgGradient: 'from-[#84cc16] to-[#65a30d]', icon: CheckCircle, bgColor: 'bg-[#84cc16]/10 dark:bg-[#84cc16]/20' },
-          { label: 'Pending', value: stats.pending, color: 'text-amber-500', bgGradient: 'from-amber-500 to-amber-600', icon: Clock, bgColor: 'bg-amber-50 dark:bg-amber-900/20' }
+          { label: 'Total Amount', value: stats.total, color: 'text-blue-600', bgGradient: 'from-blue-500 to-blue-600', icon: DollarSign, bgColor: 'bg-blue-50 dark:bg-blue-900/20', onClick: handleTotalAmountClick },
+          { label: 'Collected', value: stats.collected, color: 'text-[#84cc16]', bgGradient: 'from-[#84cc16] to-[#65a30d]', icon: CheckCircle, bgColor: 'bg-[#84cc16]/10 dark:bg-[#84cc16]/20', onClick: handleCollectedClick },
+          { label: 'Pending', value: stats.pending, color: 'text-amber-500', bgGradient: 'from-amber-500 to-amber-600', icon: Clock, bgColor: 'bg-amber-50 dark:bg-amber-900/20', onClick: handlePendingClick }
         ].map((stat, i) => (
           <motion.div 
             key={i}
@@ -548,13 +695,14 @@ export default function AccountsPanel() {
             transition={{ duration: 0.3, delay: i * 0.1 }}
             whileHover={{ y: -6, scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden group cursor-default"
+            onClick={stat.onClick}
+            className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden group cursor-pointer hover:shadow-xl hover:shadow-black/10 transition-all duration-300 flex items-center justify-between"
           >
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity" style={{ background: `linear-gradient(135deg, ${stat.bgGradient})` }} />
             <div className={`absolute top-3 right-3 w-8 h-8 rounded-lg ${stat.bgColor} flex items-center justify-center shadow-md`}>
               <stat.icon className={`w-4 h-4 ${stat.color}`} />
             </div>
-            <div className="relative z-10">
+            <div className="relative z-10 flex flex-col justify-center">
               <div className={`text-2xl font-black ${stat.color} tracking-tight`}>
                 ₹{stat.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
@@ -571,21 +719,17 @@ export default function AccountsPanel() {
           transition={{ duration: 0.3, delay: 0.3 }}
           whileHover={{ y: -6, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="relative bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-4 shadow-lg shadow-red-500/20 border border-red-200 dark:border-red-700/50 overflow-hidden group cursor-pointer"
+          className="relative bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-4 shadow-lg shadow-red-500/20 border border-red-200 dark:border-red-700/50 overflow-hidden group cursor-pointer flex items-center justify-between"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shadow-md">
             <Bell className="w-4 h-4 text-white" />
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 flex flex-col justify-center">
             <div className="text-2xl font-black text-white tracking-tight">
               ₹{stats.overdue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="text-white/80 text-[10px] font-bold uppercase tracking-wider mt-1">Overdue</div>
-            <div className="mt-2 flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 rounded-lg px-2.5 py-1 w-fit">
-              <Zap className="w-3 h-3" />
-              Send Reminders
-            </div>
           </div>
         </motion.button>
       </div>
@@ -750,12 +894,23 @@ export default function AccountsPanel() {
                 name="amount"
                 type="number"
                 min="0"
+                max={parseFloat(form.pending_amount || 0)}
                 step="0.01"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm disabled:opacity-50"
                 value={form.amount}
-                onChange={handleChange}
+                disabled={!form.student_id || parseFloat(form.pending_amount || 0) <= 0}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const maxVal = parseFloat(form.pending_amount || 0);
+                  if (parseFloat(val) > maxVal) {
+                    setForm((prev) => ({ ...prev, amount: maxVal.toString() }));
+                  } else {
+                    setForm((prev) => ({ ...prev, amount: val }));
+                  }
+                }}
                 required
               />
+
             </div>
           </div>
 
@@ -834,12 +989,17 @@ export default function AccountsPanel() {
           </div>
 
           <motion.button 
-            whileHover={{ scale: isSubmitting ? 1 : 1.02, y: isSubmitting ? 0 : -2 }}
-            whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+            whileHover={{ scale: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 1 : 1.02, y: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 0 : -2 }}
+            whileTap={{ scale: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 1 : 0.98 }}
             type="submit" 
-            disabled={isSubmitting} 
-            className="w-full h-11 mt-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white rounded-xl shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all duration-300"
+            disabled={isSubmitting || parseFloat(form.pending_amount || 0) <= 0} 
+            className={`w-full h-11 mt-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ${
+              parseFloat(form.pending_amount || 0) <= 0
+                ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                : 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50'
+            }`}
           >
+
             {isSubmitting ? (
               <>
                 <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -847,6 +1007,11 @@ export default function AccountsPanel() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Creating...
+              </>
+            ) : parseFloat(form.pending_amount || 0) <= 0 ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Fully Paid
               </>
             ) : (
               <>
@@ -920,10 +1085,13 @@ export default function AccountsPanel() {
 
       {/* PAYMENT RECORDS TABLE - Premium Design */}
       <motion.div 
+        id="paymentRecordsSection"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.4 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 mt-4 overflow-hidden"
+        className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 mt-4 overflow-hidden transition-all duration-500 ${
+          highlightPaymentRecords ? 'ring-4 ring-amber-500/50 shadow-2xl shadow-amber-500/20' : ''
+        }`}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
           <div className="flex items-center gap-2">
@@ -1538,6 +1706,197 @@ export default function AccountsPanel() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* RIGHT-SIDE DRAWER FOR SUMMARY CARDS */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDrawerOpen(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 h-full w-full max-w-lg bg-white dark:bg-slate-800 shadow-2xl z-50 flex flex-col"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {drawerType === 'total' ? 'Total Amount Breakdown' : 'Collected Payments'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(false)}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Search and Sort */}
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder={drawerType === 'total' ? 'Search students...' : 'Search payments...'}
+                    value={drawerSearch}
+                    onChange={(e) => setDrawerSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                  />
+                </div>
+                <div className="relative">
+                  <select
+                    value={drawerSort}
+                    onChange={(e) => setDrawerSort(e.target.value)}
+                    className="w-full pl-4 pr-8 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
+                  >
+                    {drawerType === 'total' ? (
+                      <>
+                        <option value="name">Sort by Name</option>
+                        <option value="amount">Sort by Amount</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="date">Sort by Date</option>
+                        <option value="name">Sort by Name</option>
+                        <option value="amount">Sort by Amount</option>
+                      </>
+                    )}
+                  </select>
+                  <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {(() => {
+                  const data = getFilteredDrawerData();
+                  
+                  if (data.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400">
+                        <Search className="w-12 h-12 mb-2" />
+                        <p className="text-sm">No records found</p>
+                      </div>
+                    );
+                  }
+
+                  if (drawerType === 'total') {
+                    return (
+                      <div className="space-y-3">
+                        {data.map((item, index) => {
+                          const student = item.student;
+                          const name = student?.name || `${student?.first_name || ''} ${student?.last_name || ''}`;
+                          const sport = student?.sport?.name || '—';
+                          const batch = student?.batch?.name || '—';
+                          
+                          return (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                              className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{name}</h4>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    {sport} • {batch}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total</div>
+                                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">₹{Number(item.totalAmount || 0).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Paid</div>
+                                  <div className="font-bold text-[#84cc16] text-sm">₹{Number(item.paidAmount || 0).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Pending</div>
+                                  <div className="font-bold text-amber-500 text-sm">₹{Number(item.pendingAmount || 0).toFixed(2)}</div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    );
+                  } else if (drawerType === 'collected') {
+                    return (
+                      <div className="space-y-3">
+                        {data.map((item, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{item.studentName}</h4>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                  {item.paymentDate ? new Date(item.paymentDate).toLocaleDateString('en-IN') : '—'}
+                                </div>
+                              </div>
+                              <div className="font-bold text-[#84cc16] text-sm">₹{item.amount.toFixed(2)}</div>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium">
+                                  {item.method}
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400">
+                                  {item.receiptNo}
+                                </span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+
+              {/* Footer with Total */}
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                {(() => {
+                  const data = getDrawerData();
+                  const total = data.reduce((sum, item) => {
+                    if (drawerType === 'total') {
+                      return sum + item.totalAmount;
+                    } else {
+                      return sum + item.amount;
+                    }
+                  }, 0);
+                  
+                  return (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                        {drawerType === 'total' ? 'Total Amount' : 'Total Collected'}
+                      </span>
+                      <span className="text-lg font-black text-slate-900 dark:text-slate-100">
+                        ₹{total.toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

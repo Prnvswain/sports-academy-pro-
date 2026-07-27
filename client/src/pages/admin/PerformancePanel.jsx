@@ -781,12 +781,12 @@ export default function PerformancePanel() {
 
   return (
     <motion.div
-      className="bg-surface text-foreground min-h-screen w-full relative"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      className="relative z-10 mx-auto max-w-7xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-6">
         {/* Modern Gradient Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}

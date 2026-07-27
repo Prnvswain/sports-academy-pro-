@@ -42,38 +42,51 @@ export default function AdminNotificationsPanel() {
       case 'payment_success':
       case 'plan_upgraded':
       case 'subscription_extended':
-        return { icon: CreditCard, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
+        return { icon: CreditCard, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30' };
       case 'payment_failed':
-        return { icon: ShieldAlert, color: 'text-red-400 bg-red-500/10 border-red-500/20' };
+        return { icon: ShieldAlert, color: 'text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30' };
       case 'coupon_applied':
-        return { icon: Gift, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' };
+        return { icon: Gift, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/30' };
       default:
-        return { icon: Bell, color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' };
+        return { icon: Bell, color: 'text-blue-550 bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30' };
     }
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
+    <motion.div
+      className="relative z-10 mx-auto max-w-5xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* Header Panel */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Bell className="text-lime-400 h-6 w-6" /> Academy Notifications
-          </h1>
-          <p className="text-slate-400 mt-1 text-sm">Review important alerts, invoices approval confirmations, plan usage thresholds, and support logs.</p>
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 border border-blue-100 dark:border-blue-800/50 shadow-inner"
+            >
+              <Bell className="h-6 w-6" />
+            </motion.div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Academy Notifications</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Review important alerts, invoices approval confirmations, plan usage thresholds, and support logs.</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Notifications List */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="h-10 w-10 animate-spin text-lime-400" />
+          <Loader2 className="h-10 w-10 animate-spin text-[#84cc16]" />
           <p className="text-slate-400 text-sm">Fetching notifications...</p>
         </div>
       ) : notifications.length === 0 ? (
-        <div className="text-center py-20 bg-slate-900/20 rounded-2xl border border-slate-800 border-dashed">
-          <Bell className="mx-auto h-12 w-12 text-slate-650 mb-4 animate-bounce" />
-          <h3 className="text-lg font-bold text-slate-355">No notifications yet</h3>
+        <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-250 dark:border-gray-800 border-dashed">
+          <Bell className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-700 mb-4 animate-bounce" />
+          <h3 className="text-lg font-bold text-gray-950 dark:text-white">No notifications yet</h3>
           <p className="text-slate-500 text-sm mt-1">We'll alert you here when subscriptions or transactions require your attention.</p>
         </div>
       ) : (
@@ -89,30 +102,30 @@ export default function AdminNotificationsPanel() {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -50 }}
-                  className={`flex gap-4 p-4 rounded-xl border transition-all ${
+                  className={`flex gap-4 p-4 rounded-2xl border transition-all ${
                     n.is_read
-                      ? 'bg-slate-900/10 border-slate-900/40 opacity-75'
-                      : 'bg-slate-900/60 border-slate-800/80 shadow-md shadow-slate-950/20'
+                      ? 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-150 dark:border-gray-850 opacity-75'
+                      : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm'
                   }`}
                 >
-                  <div className={`p-3 rounded-lg border ${config.color} shrink-0 self-start`}>
+                  <div className={`p-3 rounded-xl border ${config.color} shrink-0 self-start`}>
                     <IconComponent className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
-                      <h4 className={`font-bold ${n.is_read ? 'text-slate-300' : 'text-white'}`}>
+                      <h4 className={`font-bold text-sm ${n.is_read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>
                         {n.title}
                       </h4>
-                      <span className="text-xs text-slate-500 whitespace-nowrap self-start">
+                      <span className="text-xs text-slate-400 whitespace-nowrap self-start">
                         {new Date(n.created_at).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-400 mt-1 leading-relaxed">{n.body}</p>
+                    <p className="text-sm text-slate-650 dark:text-slate-405 mt-1 leading-relaxed">{n.body}</p>
                     
                     {!n.is_read && (
                       <button
                         onClick={() => handleMarkAsRead(n.notification_id)}
-                        className="text-xs font-semibold text-lime-400 hover:text-lime-300 mt-2.5 flex items-center gap-1 transition-all"
+                        className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 mt-2.5 flex items-center gap-1 transition-all"
                       >
                         <CheckCircle className="h-3 w-3" />
                         Mark as read
@@ -125,6 +138,6 @@ export default function AdminNotificationsPanel() {
           </AnimatePresence>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

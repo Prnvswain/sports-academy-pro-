@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Plus, Trash2 } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminDelete } from '../../api/client';
 
@@ -22,9 +23,14 @@ export default function PlansPanel() {
   useEffect(() => { loadData(); }, [loadData]);
 
   return (
-    <div className="relative min-h-screen p-8">
+    <motion.div
+      className="relative z-10"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Background Floating Sports Icons */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] select-none flex flex-wrap justify-around items-center z-0 overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-[0.02] select-none flex flex-wrap justify-around items-center z-0 overflow-hidden">
         {Array.from({ length: 16 }).map((_, i) => (
           <motion.div 
             key={i} 
@@ -37,23 +43,34 @@ export default function PlansPanel() {
         ))}
       </div>
 
-      <motion.div 
-        className="relative z-10 max-w-7xl mx-auto space-y-10"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      >
-        {/* Header */}
-        <div className="space-y-2">
-          <h2 className="text-4xl font-extrabold text-foreground tracking-tight">Duration Plans</h2>
-          <p className="text-lg text-muted-foreground">Manage your academy's subscription pricing & duration models.</p>
+      <div className="mx-auto max-w-7xl space-y-6 relative z-10">
+        {/* Header Panel */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
+          <div>
+            <div className="flex items-center gap-4">
+              <motion.div
+                whileHover={{ rotate: 15, scale: 1.05 }}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
+              >
+                <Clock className="h-6 w-6" />
+              </motion.div>
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Duration Plans</h2>
+                <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage your academy's subscription pricing & duration models.</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Content Grid with massive gap */}
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
+        {/* Content Grid */}
+        <div className="grid lg:grid-cols-2 gap-6 items-start">
           
           {/* Create Form */}
           <motion.form 
-            className="card p-8 bg-card shadow-xl border-t-4 border-primary"
-            initial={{ x: -50 }} animate={{ x: 0 }}
+            className="card p-6 bg-card shadow-sm border border-gray-150 dark:border-gray-850"
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.3 }}
           >
             <h3 className="text-2xl font-bold mb-6">Create New Plan</h3>
             <div className="space-y-5">
@@ -68,8 +85,10 @@ export default function PlansPanel() {
 
           {/* Table */}
           <motion.div 
-            className="card p-8 bg-card shadow-xl border-t-4 border-accent"
-            initial={{ x: 50 }} animate={{ x: 0 }}
+            className="card p-6 bg-card shadow-sm border border-gray-150 dark:border-gray-850"
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.3 }}
           >
             <h3 className="text-2xl font-bold mb-6">Active Plans</h3>
             <div className="overflow-x-auto">
@@ -100,7 +119,7 @@ export default function PlansPanel() {
             </div>
           </motion.div>
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 }

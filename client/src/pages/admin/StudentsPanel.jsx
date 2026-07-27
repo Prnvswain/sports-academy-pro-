@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter } from 'lucide-react';
+import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users } from 'lucide-react';
 
 import Loader from '../../components/Loader';
 
@@ -2772,39 +2772,55 @@ export default function StudentsPanel() {
 
     <motion.div
 
-      className="w-full space-y-6 overflow-x-hidden p-6"
+      className="w-full space-y-6 overflow-x-hidden"
 
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0 }}
 
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1 }}
 
       transition={{ duration: 0.4 }}
 
     >
 
-      {/* Header */}
+      {/* Header Panel */}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
 
         <div>
 
-          <h2 className="text-2xl font-bold">Students</h2>
+          <div className="flex items-center gap-4">
 
-          <p className="text-muted">
+            <motion.div
 
-            Manage student enrollments, sports, batches, and fee records.
+              whileHover={{ rotate: 15, scale: 1.05 }}
 
-          </p>
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 border border-blue-100 dark:border-blue-800/50 shadow-inner"
+
+            >
+
+              <Users className="h-6 w-6" />
+
+            </motion.div>
+
+            <div>
+
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Students Management</h2>
+
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage student enrollments, sports, batches, and fee records.</p>
+
+            </div>
+
+          </div>
 
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
 
           <motion.button
 
             type="button"
 
-            className="btn-primary"
+            className="btn-primary font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_14px_rgba(59,130,246,0.25)] flex items-center justify-center gap-1.5 text-xs transition-all border border-blue-500 uppercase tracking-widest"
 
             onClick={() => setShowAddStudentModal(true)}
 
@@ -2822,7 +2838,7 @@ export default function StudentsPanel() {
 
             type="button"
 
-            className="btn-secondary"
+            className="btn-secondary font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-xs transition-all border border-slate-350 uppercase tracking-widest text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
 
             onClick={() => setShowBulkUpload(true)}
 
@@ -2836,7 +2852,7 @@ export default function StudentsPanel() {
 
           </motion.button>
 
-        </div>
+      </div>
 
       </div>
 

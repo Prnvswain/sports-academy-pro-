@@ -4,6 +4,7 @@ import { coachGet, coachPost, coachPatch } from '../../api/client';
 import Loader from '../../components/Loader';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle } from 'lucide-react';
 
 export function CoachFeeCollection({ students = [] }) {
   // --- STATES ---
@@ -301,6 +302,20 @@ export function CoachFeeCollection({ students = [] }) {
     }
     if (!amount || parseFloat(amount) <= 0) {
       showBanner('Please enter a valid amount.', 'error');
+      return;
+    }
+
+    // Validate payment amount against remaining fee
+    const paymentAmount = parseFloat(amount);
+    const remainingFee = studentFeeData?.pending_fees || 0;
+    
+    if (paymentAmount > remainingFee) {
+      showBanner('Payment amount cannot exceed the remaining fee.', 'error');
+      return;
+    }
+
+    if (remainingFee <= 0) {
+      showBanner('Student has already paid all fees. No further payments can be accepted.', 'error');
       return;
     }
 
@@ -639,13 +654,24 @@ export function CoachFeeCollection({ students = [] }) {
                 <input
                   type="number"
                   min="0"
+                  max={studentFeeData?.pending_fees || 0}
                   step="0.01"
-                  className="w-full bg-surface border border-border rounded-xl py-3.5 pl-8 pr-4 text-base font-black focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder:font-medium placeholder:text-muted-foreground/50"
+                  className="w-full bg-surface border border-border rounded-xl py-3.5 pl-8 pr-4 text-base font-black focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder:font-medium placeholder:text-muted-foreground/50 disabled:opacity-50"
                   placeholder="0.00"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  disabled={!selectedStudentId || (studentFeeData?.pending_fees || 0) <= 0}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const maxVal = studentFeeData?.pending_fees || 0;
+                    if (parseFloat(val) > maxVal) {
+                      setAmount(maxVal.toString());
+                    } else {
+                      setAmount(val);
+                    }
+                  }}
                   required
                 />
+
               </div>
             </div>
 
@@ -714,16 +740,23 @@ export function CoachFeeCollection({ students = [] }) {
 
             {/* Submit Trigger */}
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: (studentFeeData?.pending_fees || 0) <= 0 ? 1 : 1.01 }}
+              whileTap={{ scale: (studentFeeData?.pending_fees || 0) <= 0 ? 1 : 0.98 }}
               type="submit"
-              disabled={submitting}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm py-4 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all disabled:opacity-50 flex justify-center items-center gap-2"
+              disabled={submitting || (studentFeeData?.pending_fees || 0) <= 0}
+              className={`w-full font-black text-sm py-4 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all disabled:opacity-50 flex justify-center items-center gap-2 ${
+                (studentFeeData?.pending_fees || 0) <= 0
+                  ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+              }`}
             >
               {submitting ? (
                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Submitting...</>
+              ) : (studentFeeData?.pending_fees || 0) <= 0 ? (
+                 <><CheckCircle className="w-4 h-4" /> Fully Paid</>
               ) : 'Submit Payment'}
             </motion.button>
+
           </form>
         </motion.div>
 
