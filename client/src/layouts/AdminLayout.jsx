@@ -136,36 +136,54 @@ export default function AdminLayout() {
 
   return (
     /* Main App Background supporting Light and Dark Mode */
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative z-0">
       
+      {/* Universal Fixed Background (Fully Stationary, No scrolling/clipping/repeating bugs) */}
+      <div className="absolute inset-0 -z-10 bg-slate-50 dark:bg-slate-950 select-none pointer-events-none overflow-visible">
+        {/* Yellow top 40% (40vh height) */}
+        <div className="w-full h-[40dvh] bg-[#FFC400] relative overflow-visible">
+          {/* Curve transition to the background color */}
+          <div className="absolute bottom-0 left-0 right-0 translate-y-[99%] text-[#FFC400] fill-current overflow-visible">
+            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="w-full h-48 text-[#FFC400] fill-current overflow-visible">
+              <path d="M0,0 L1440,0 L1440,10 C960,320 480,320 0,10 Z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
       {/* Sidebar Layout */}
       <motion.aside
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`bg-slate-900 dark:bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl transition-all duration-300 ${
+        whileHover={{ scale: 1.0005 }}
+        className={`bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-xl border-r border-slate-800/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 transition-all duration-300 ${
           sidebarOpen ? '!translate-x-0' : ''
         }`}
       >
         {/* Sidebar Header / Logo */}
-        <div className="flex h-16 items-center justify-between px-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 border-b border-slate-800">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.25 }}
+          className="flex h-16 items-center justify-between px-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 shadow-lg shadow-black/10"
+        >
           <BrandingLogo
             to="/admin/dashboard"
             collapsed={sidebarCollapsed}
             onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-            className="rounded-lg focus-visible:ring-2 focus-visible:ring-[#84cc16]"
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-[#84cc16] transition-transform duration-250 hover:scale-105"
           />
           <motion.button
             type="button"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white lg:flex shrink-0 transition-colors"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800/80 hover:text-white lg:flex shrink-0 transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.1, y: -1 }}
             whileTap={{ scale: 0.95 }}
           >
             {sidebarCollapsed ? <ChevronRight size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} strokeWidth={2.5} />}
           </motion.button>
-        </div>
+        </motion.div>
 
         {/* Navigation Links */}
         <nav
@@ -183,12 +201,12 @@ export default function AdminLayout() {
                 data-nav={item.path}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
-                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-200 rounded-xl group outline-none font-bold ${
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
                     sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      ? 'bg-[#84cc16] text-slate-950 shadow-md shadow-lime-500/10'
-                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                      ? 'bg-[#84cc16] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
+                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
               >
@@ -196,8 +214,8 @@ export default function AdminLayout() {
                   <>
                     <motion.span
                       className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
-                      whileHover={{ scale: 1.1 }}
-                      transition={{ duration: 0.2 }}
+                      whileHover={{ scale: 1.15, rotate: 5 }}
+                      transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
                       aria-hidden="true"
                     >
                       <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
@@ -218,7 +236,11 @@ export default function AdminLayout() {
         </nav>
 
         {/* Sidebar Footer / Profile & Sign Out */}
-        <div className="p-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 border-t border-slate-800 space-y-2">
+        <motion.div 
+          whileHover={{ scale: 1.01 }}
+          transition={{ duration: 0.25 }}
+          className="p-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-800/50 shadow-lg shadow-black/10 space-y-2"
+        >
           {!sidebarCollapsed && (
             <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2 px-2 truncate font-bold">
               Admin Profile: <br />
@@ -227,12 +249,12 @@ export default function AdminLayout() {
           )}
           <motion.button
             type="button"
-            className={`w-full flex justify-center items-center rounded-xl text-sm py-2.5 font-bold transition-all ${
+            className={`w-full flex justify-center items-center rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
               sidebarCollapsed
-                ? 'bg-transparent text-slate-400 hover:bg-slate-800 hover:text-white'
-                : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600'
+                ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
+                : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
             }`}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
             title={sidebarCollapsed ? 'Back to Home' : undefined}
           >
@@ -244,20 +266,20 @@ export default function AdminLayout() {
 
           <motion.button
             type="button"
-            className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
+            className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
               sidebarCollapsed
-                ? 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600'
+                ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
+                : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
             }`}
             onClick={handleLogout}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
             title={sidebarCollapsed ? 'Sign Out' : undefined}
           >
             <LogOut size={16} strokeWidth={2.5} />
             {!sidebarCollapsed && <span>Sign Out</span>}
           </motion.button>
-        </div>
+        </motion.div>
       </motion.aside>
 
       {/* Mobile Drawer Overlay */}
@@ -277,17 +299,29 @@ export default function AdminLayout() {
       </AnimatePresence>
 
       {/* Main Layout Area */}
-      <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <motion.div 
+        whileHover={{ scale: 1.002 }}
+        transition={{ duration: 0.3 }}
+        className="flex min-w-0 flex-1 flex-col overflow-y-auto"
+      >
         
         {/* Top Header - Auto Adapts Color Palette */}
-        <header className="bg-[#84cc16] text-slate-950 dark:bg-slate-900 dark:text-slate-100 border-b border-black/5 dark:border-slate-800 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-sm">
-          <div className="flex items-center gap-4">
+        <motion.header 
+          whileHover={{ y: -1, scale: 1.002 }}
+          transition={{ duration: 0.3 }}
+          className="bg-[#84cc16]/95 dark:bg-slate-900/95 backdrop-blur-xl text-slate-950 dark:text-slate-100 border-b border-black/5 dark:border-slate-800/50 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-xl shadow-black/20"
+        >
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center gap-4"
+          >
             <motion.button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/10 dark:bg-slate-800 lg:hidden text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/10 dark:bg-slate-800 lg:hidden text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.1, y: -1 }}
               whileTap={{ scale: 0.95 }}
             >
               <Menu size={20} strokeWidth={2.5} />
@@ -300,30 +334,38 @@ export default function AdminLayout() {
                 {academy?.name || 'Academy HQ'}
               </span>
             </div>
-          </div>
+          </motion.div>
 
           <div className="flex items-center gap-3">
             <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
+              whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setBroadcastModalOpen(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors shadow-sm"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
               title="Send Broadcast"
             >
               <Megaphone size={18} strokeWidth={2.5} />
             </motion.button>
 
-            <div className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors">
+            <motion.div 
+              whileHover={{ scale: 1.1, y: -2 }}
+              transition={{ duration: 0.25 }}
+              className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
+            >
               <NotificationBell userRole="ACADEMY_ADMIN" />
-            </div>
+            </motion.div>
 
             <div className="h-5 w-px bg-slate-900/20 dark:bg-slate-700 mx-1 hidden sm:block"></div>
 
-            <div className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-colors">
+            <motion.div 
+              whileHover={{ scale: 1.1, y: -2 }}
+              transition={{ duration: 0.25 }}
+              className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
+            >
               <ThemeToggle />
-            </div>
+            </motion.div>
           </div>
-        </header>
+        </motion.header>
 
         {/* Main Route Content */}
         <main className="flex-1 min-w-0 p-5 lg:p-8 relative">
@@ -332,7 +374,7 @@ export default function AdminLayout() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="w-full min-w-0 relative z-10"
+            className="w-full min-w-0 relative z-10 rounded-2xl shadow-xl shadow-black/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm p-6 lg:p-8"
           >
             <Outlet />
           </motion.div>

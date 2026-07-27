@@ -1778,6 +1778,7 @@ model Enquiry {
   notes                   String?        @db.Text
 
   converted_to_student_id Int?
+  is_deleted              Boolean        @default(false)
 
   created_at              DateTime       @default(now())
 

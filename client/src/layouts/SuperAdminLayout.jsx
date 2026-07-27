@@ -84,27 +84,32 @@ export default function SuperAdminLayout() {
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/60 border-r border-emerald-900/30 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl ${sidebarOpen ? '!translate-x-0' : ''}`}
+        whileHover={{ scale: 1.0005 }}
+        className={`bg-gradient-to-b from-slate-950/95 via-slate-900/95 to-emerald-950/60 backdrop-blur-xl border-r border-emerald-900/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
         {/* Sidebar Header / Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-emerald-900/40 px-4 shrink-0">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.25 }}
+          className="flex h-16 items-center justify-between border-b border-emerald-900/50 px-4 shrink-0 shadow-lg shadow-black/10"
+        >
           <BrandingLogo
             to="/super-admin/dashboard"
             collapsed={sidebarCollapsed}
             onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500"
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500 transition-transform duration-250 hover:scale-105"
           />
           <motion.button
             type="button"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-colors"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-emerald-500/70 hover:bg-white/10 hover:text-lime-400 lg:flex shrink-0 transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
             onClick={() => setSidebarCollapsed((c) => !c)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.1, y: -1 }}
             whileTap={{ scale: 0.95 }}
           >
             {sidebarCollapsed ? <ChevronRight size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} strokeWidth={2.5} />}
           </motion.button>
-        </div>
+        </motion.div>
 
         {/* Navigation Links - Scrollbar Hidden but fully scrollable */}
         <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" aria-label="Super Admin sections">
@@ -119,13 +124,13 @@ export default function SuperAdminLayout() {
                 data-nav={item.path}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
-                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-xl group outline-none font-bold ${
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
                     sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
                   } ${
                     isActive
                       // Premium Dark Contrast: Lime Green Background with Dark Text + Glow
-                      ? 'bg-lime-400 text-slate-950 shadow-[0_4px_20px_rgba(132,204,22,0.3)] translate-x-1'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-lime-300'
+                      ? 'bg-lime-400 text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-lime-300 hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
               >
@@ -134,7 +139,7 @@ export default function SuperAdminLayout() {
                     <motion.span
                       className={`flex items-center justify-center relative ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
                       whileHover={{ scale: 1.15, rotate: isActive ? 0 : 5 }}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
                       aria-hidden="true"
                     >
                       <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
@@ -165,11 +170,15 @@ export default function SuperAdminLayout() {
         </nav>
 
         {/* Sidebar Footer / Actions */}
-        <div className="border-t border-emerald-900/40 p-4 space-y-2 shrink-0">
+        <motion.div 
+          whileHover={{ scale: 1.01 }}
+          transition={{ duration: 0.25 }}
+          className="border-t border-emerald-900/50 p-4 space-y-2 shrink-0 shadow-lg shadow-black/10"
+        >
           <motion.button
             type="button"
-            className="w-full flex justify-center items-center rounded-xl text-sm py-2 font-semibold transition-all bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-            whileHover={{ scale: 1.02 }}
+            className="w-full flex justify-center items-center rounded-2xl text-sm py-2 font-semibold transition-all duration-300 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white hover:shadow-lg hover:shadow-black/20"
+            whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
           >
             <Link to="/" className="text-inherit no-underline flex items-center justify-center gap-2 w-full">
@@ -179,20 +188,20 @@ export default function SuperAdminLayout() {
           </motion.button>
           <motion.button
             type="button"
-            className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
+            className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
               sidebarCollapsed 
-              ? 'text-slate-500 hover:bg-red-500/20 hover:text-red-400' 
-              : 'bg-white/5 text-slate-300 hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+              ? 'text-slate-500 hover:bg-red-500/20 hover:text-red-400 hover:shadow-lg hover:shadow-black/20'
+              : 'bg-white/5 text-slate-300 hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:shadow-lg hover:shadow-black/20'
             }`}
             onClick={handleLogout}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
             title={sidebarCollapsed ? "Sign Out" : undefined}
           >
             <LogOut size={16} strokeWidth={2.5} />
             {!sidebarCollapsed && <span>Sign Out</span>}
           </motion.button>
-        </div>
+        </motion.div>
       </motion.aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -212,17 +221,29 @@ export default function SuperAdminLayout() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <motion.div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background/50">
+      <motion.div 
+        whileHover={{ scale: 1.002 }}
+        transition={{ duration: 0.3 }}
+        className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background/50"
+      >
         
         {/* Top Header */}
-        <header className="bg-background/80 backdrop-blur-xl border-b border-border/40 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-[0_4px_24px_rgba(0,0,0,0.01)]">
-          <div className="flex items-center gap-4">
+        <motion.header 
+          whileHover={{ y: -1, scale: 1.002 }}
+          transition={{ duration: 0.3 }}
+          className="bg-background/95 backdrop-blur-xl border-b border-border/50 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-xl shadow-black/20"
+        >
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center gap-4"
+          >
             <motion.button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/50 lg:hidden text-muted-foreground hover:text-foreground transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.1, y: -1 }}
               whileTap={{ scale: 0.95 }}
             >
               <Menu size={20} strokeWidth={2.5} />
@@ -232,11 +253,15 @@ export default function SuperAdminLayout() {
                 {pageTitle}
               </span>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
+          </motion.div>
+          <motion.div 
+            whileHover={{ scale: 1.1, y: -2 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center justify-center bg-border/20 rounded-full h-10 w-10 hover:bg-border/30 transition-all duration-250 shadow-lg shadow-black/20"
+          >
             <ThemeToggle />
-          </div>
-        </header>
+          </motion.div>
+        </motion.header>
 
         {/* Route Outlet */}
         <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
@@ -250,7 +275,7 @@ export default function SuperAdminLayout() {
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="w-full min-w-0 relative z-10"
+            className="w-full min-w-0 relative z-10 rounded-2xl shadow-xl shadow-black/5 bg-background/50 backdrop-blur-sm p-6 lg:p-8"
           >
             <Outlet />
           </motion.div>

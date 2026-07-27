@@ -110,12 +110,21 @@ export const getEnquiries = async (academyId, filters = {}) => {
   } = filters;
 
   const where = {
-    academy_id: academyId
+    academy_id: academyId,
+    is_deleted: false
   };
 
   // Apply status filter
   if (status) {
-    where.status = status;
+    if (status === 'DELETED') {
+      where.is_deleted = true;
+    } else {
+      where.status = status;
+    }
+  } else {
+    where.status = {
+      not: 'CONVERTED'
+    };
   }
 
   // Apply sport filter
@@ -264,6 +273,24 @@ export const createEnquiry = async (academyId, data) => {
     student_name: enquiry.student_name
   });
 
+  // Create notification for new enquiry
+  try {
+    await prisma.notification.create({
+      data: {
+        academy_id: parseInt(academyId),
+        type: 'GENERAL',
+        title: 'New Enquiry Received',
+        body: `A new enquiry has been received for student ${student_name} (${sport_interested || 'General'}).`,
+        metadata: JSON.stringify({ enquiry_id: enquiry.enquiry_id, type: 'new_enquiry' })
+      }
+    });
+  } catch (notifErr) {
+    logger.error('Failed to create notification for new enquiry', {
+      error: notifErr.message,
+      enquiry_id: enquiry.enquiry_id
+    });
+  }
+
   return {
     ...enquiry,
     id: enquiry.enquiry_id
@@ -379,11 +406,15 @@ export const deleteEnquiry = async (academyId, enquiryId) => {
     throw error;
   }
 
-  await prisma.enquiry.delete({
-    where: { enquiry_id: parseInt(enquiryId) }
+  // Soft delete instead of hard delete
+  await prisma.enquiry.update({
+    where: { enquiry_id: parseInt(enquiryId) },
+    data: {
+      is_deleted: true
+    }
   });
 
-  logger.info('Enquiry deleted', {
+  logger.info('Enquiry soft-deleted', {
     enquiry_id: enquiryId,
     academy_id: academyId
   });
@@ -396,7 +427,9 @@ export const deleteEnquiry = async (academyId, enquiryId) => {
 /**
  * Schedule follow-up for enquiry
  */
-export const scheduleFollowUp = async (academyId, enquiryId, followUpDate) => {
+export const scheduleFollowUp = async (academyId, enquiryId, followUpDate, options = {}) => {
+  const { note, status = 'CONTACTED', staffName = 'Admin' } = options;
+
   const enquiry = await prisma.enquiry.findFirst({
     where: {
       enquiry_id: parseInt(enquiryId),
@@ -410,15 +443,36 @@ export const scheduleFollowUp = async (academyId, enquiryId, followUpDate) => {
     throw error;
   }
 
+  if (enquiry.status === 'CONVERTED' || enquiry.is_deleted) {
+    const error = new Error('Cannot schedule follow-up for converted or deleted enquiries');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Build the follow-up history text segment to append to notes
+  const dateStr = new Date().toISOString();
+  const followUpSegment = [
+    '',
+    '---',
+    `[FOLLOW-UP]`,
+    `Date: ${dateStr}`,
+    `Staff: ${staffName}`,
+    `Status: ${status}`,
+    `Note: ${note || 'No notes provided'}`
+  ].join('\n');
+
+  const updatedNotes = enquiry.notes ? `${enquiry.notes}${followUpSegment}` : followUpSegment.trim();
+
   const updated = await prisma.enquiry.update({
     where: { enquiry_id: parseInt(enquiryId) },
     data: {
       follow_up_date: new Date(followUpDate),
-      status: 'CONTACTED'
+      status: status,
+      notes: updatedNotes
     }
   });
 
-  logger.info('Follow-up scheduled', {
+  logger.info('Follow-up scheduled and logged', {
     enquiry_id: enquiryId,
     academy_id: academyId,
     follow_up_date: followUpDate
@@ -447,6 +501,12 @@ export const completeFollowUp = async (academyId, enquiryId) => {
     throw error;
   }
 
+  if (enquiry.is_deleted) {
+    const error = new Error('Cannot complete follow-up for deleted enquiries');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const updated = await prisma.enquiry.update({
     where: { enquiry_id: parseInt(enquiryId) },
     data: {
@@ -469,9 +529,12 @@ export const completeFollowUp = async (academyId, enquiryId) => {
 
 /**
  * Convert enquiry to student
- * Creates a new student record from enquiry data and updates enquiry status
+ * Creates a new student record from enquiry data and updates enquiry status.
+ * Accepts optional body with { converted_by_name } to record conversion audit trail.
  */
-export const convertToStudent = async (academyId, enquiryId) => {
+export const convertToStudent = async (academyId, enquiryId, body = {}) => {
+  const { converted_by_name } = body;
+
   const enquiry = await prisma.enquiry.findFirst({
     where: {
       enquiry_id: parseInt(enquiryId),
@@ -490,6 +553,14 @@ export const convertToStudent = async (academyId, enquiryId) => {
     error.statusCode = 400;
     throw error;
   }
+
+  if (enquiry.is_deleted) {
+    const error = new Error('Cannot convert deleted enquiries');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const convertedAt = new Date();
 
   // Create student record from enquiry data
   const student = await prisma.student.create({
@@ -510,19 +581,57 @@ export const convertToStudent = async (academyId, enquiryId) => {
     }
   });
 
-  // Update enquiry status to CONVERTED and link to student
+  // Build conversion audit footer appended to notes (non-breaking, no schema change)
+  const auditFooter = [
+    '',
+    '---',
+    `[CONVERTED] Student ID: ${student.student_id}`,
+    `Converted At: ${convertedAt.toISOString()}`,
+    converted_by_name ? `Converted By: ${converted_by_name}` : null
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const updatedNotes = enquiry.notes ? `${enquiry.notes}${auditFooter}` : auditFooter.trim();
+
+  // Update enquiry status to CONVERTED and link to student; append audit to notes
   const updatedEnquiry = await prisma.enquiry.update({
     where: { enquiry_id: parseInt(enquiryId) },
     data: {
       status: 'CONVERTED',
-      converted_to_student_id: student.student_id
+      converted_to_student_id: student.student_id,
+      notes: updatedNotes
     }
   });
+
+  // Create notification for conversion
+  try {
+    await prisma.notification.create({
+      data: {
+        academy_id: parseInt(academyId),
+        type: 'GENERAL',
+        title: 'Enquiry Converted to Student',
+        body: `Enquiry for ${enquiry.student_name} has been converted to a student profile (ID: ${student.student_id}).`,
+        metadata: JSON.stringify({
+          enquiry_id: enquiry.enquiry_id,
+          student_id: student.student_id,
+          type: 'enquiry_converted',
+          converted_by: converted_by_name || 'Admin'
+        })
+      }
+    });
+  } catch (notifErr) {
+    logger.error('Failed to create notification for enquiry conversion', {
+      error: notifErr.message,
+      enquiry_id: enquiryId
+    });
+  }
 
   logger.info('Enquiry converted to student', {
     enquiry_id: enquiryId,
     academy_id: academyId,
-    student_id: student.student_id
+    student_id: student.student_id,
+    converted_by: converted_by_name || 'Admin'
   });
 
   return {
@@ -533,6 +642,11 @@ export const convertToStudent = async (academyId, enquiryId) => {
     enquiry: {
       ...updatedEnquiry,
       id: updatedEnquiry.enquiry_id
+    },
+    conversion_metadata: {
+      converted_at: convertedAt.toISOString(),
+      converted_by_name: converted_by_name || null,
+      student_id: student.student_id
     }
   };
 };

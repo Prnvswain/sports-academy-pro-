@@ -54,10 +54,19 @@ export default function NotificationBell({ userRole }) {
 
   const fetchUnreadCount = async () => {
     try {
-      let response;
       if (userRole === 'ACADEMY_ADMIN') {
-        response = await adminGet('/admin/announcements/unread-count');
-      } else if (userRole === 'COACH') {
+        const [annRes, notRes] = await Promise.all([
+          adminGet('/admin/announcements/unread-count'),
+          adminGet('/admin/notifications/unread-count')
+        ]);
+        const annCount = annRes?.data?.count || 0;
+        const notCount = notRes?.data?.count || 0;
+        setUnreadCount(annCount + notCount);
+        return;
+      }
+
+      let response;
+      if (userRole === 'COACH') {
         response = await coachGet('/coach/announcements/unread-count');
       } else if (userRole === 'PARENT') {
         response = await parentGet('/parent/announcements/unread-count');
@@ -74,18 +83,67 @@ export default function NotificationBell({ userRole }) {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      let response;
       if (userRole === 'ACADEMY_ADMIN') {
-        response = await adminGet('/admin/announcements/my/announcements?limit=10');
-      } else if (userRole === 'COACH') {
-        response = await coachGet('/coach/announcements/my/announcements?limit=10');
-      } else if (userRole === 'PARENT') {
-        response = await parentGet('/parent/announcements/my/announcements?limit=10');
+        const [annRes, notRes] = await Promise.all([
+          adminGet('/admin/announcements/my/announcements?limit=10'),
+          adminGet('/admin/notifications?limit=10')
+        ]);
+
+        const announcements = annRes?.data?.announcements || [];
+        const mappedAnn = announcements.map(a => ({
+          id: `ann_${a.announcement_id}`,
+          type: 'ANNOUNCEMENT',
+          title: a.title,
+          body: a.message,
+          category: a.category || 'GENERAL',
+          priority: a.priority || 'NORMAL',
+          created_at: a.published_at || a.created_at,
+          is_read: a.readStatuses?.[0]?.is_read || false,
+          original: a
+        }));
+
+        const notifications = notRes?.data || [];
+        const mappedNot = notifications.map(n => ({
+          id: `not_${n.notification_id}`,
+          type: 'NOTIFICATION',
+          title: n.title,
+          body: n.body,
+          category: 'GENERAL',
+          priority: 'NORMAL',
+          created_at: n.created_at,
+          is_read: n.is_read,
+          original: n
+        }));
+
+        const combined = [...mappedAnn, ...mappedNot].sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+        setNotifications(combined.slice(0, 10));
+        return;
       }
 
-      if (response?.data?.announcements) {
-        setNotifications(response.data.announcements);
+      let response;
+      let announcements = [];
+      if (userRole === 'COACH') {
+        response = await coachGet('/coach/announcements/my/announcements?limit=10');
+        announcements = response?.data?.announcements || [];
+      } else if (userRole === 'PARENT') {
+        response = await parentGet('/parent/announcements/my/announcements?limit=10');
+        announcements = response?.data?.announcements || [];
       }
+
+      const mapped = announcements.map(a => ({
+        id: `ann_${a.announcement_id}`,
+        type: 'ANNOUNCEMENT',
+        title: a.title,
+        body: a.message,
+        category: a.category || 'GENERAL',
+        priority: a.priority || 'NORMAL',
+        created_at: a.published_at || a.created_at,
+        is_read: a.readStatuses?.[0]?.is_read || false,
+        original: a
+      }));
+      setNotifications(mapped);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -93,19 +151,27 @@ export default function NotificationBell({ userRole }) {
     }
   };
 
-  const handleMarkAsRead = async (announcementId) => {
+  const handleMarkAsRead = async (item) => {
     try {
-      if (userRole === 'ACADEMY_ADMIN') {
-        await adminPatch(`/admin/announcements/${announcementId}/read`);
-      } else if (userRole === 'COACH') {
-        await coachPatch(`/coach/announcements/${announcementId}/read`);
-      } else if (userRole === 'PARENT') {
-        await parentPatch(`/parent/announcements/${announcementId}/read`);
+      if (item.type === 'ANNOUNCEMENT') {
+        const announcementId = item.original.announcement_id;
+        if (userRole === 'ACADEMY_ADMIN') {
+          await adminPatch(`/admin/announcements/${announcementId}/read`);
+        } else if (userRole === 'COACH') {
+          await coachPatch(`/coach/announcements/${announcementId}/read`);
+        } else if (userRole === 'PARENT') {
+          await parentPatch(`/parent/announcements/${announcementId}/read`);
+        }
+      } else {
+        const notificationId = item.original.notification_id;
+        if (userRole === 'ACADEMY_ADMIN') {
+          await adminPatch(`/admin/notifications/${notificationId}/read`);
+        }
       }
 
       setNotifications(notifications.map(n =>
-        n.announcement_id === announcementId
-          ? { ...n, readStatuses: [{ is_read: true }] }
+        n.id === item.id
+          ? { ...n, is_read: true }
           : n
       ));
       setUnreadCount(Math.max(0, unreadCount - 1));
@@ -117,34 +183,51 @@ export default function NotificationBell({ userRole }) {
   const handleMarkAllAsRead = async () => {
     try {
       if (userRole === 'ACADEMY_ADMIN') {
-        await adminPatch('/admin/announcements/read-all');
+        await Promise.all([
+          adminPatch('/admin/announcements/read-all'),
+          adminPatch('/admin/notifications/read-all')
+        ]);
       } else if (userRole === 'COACH') {
         await coachPatch('/coach/announcements/read-all');
       } else if (userRole === 'PARENT') {
         await parentPatch('/parent/announcements/read-all');
       }
 
-      setNotifications(notifications.map(n => ({ ...n, readStatuses: [{ is_read: true }] })));
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }
   };
 
-  const handleNotificationClick = (announcement) => {
-    handleMarkAsRead(announcement.announcement_id);
+  const handleNotificationClick = (item) => {
+    handleMarkAsRead(item);
     setIsOpen(false);
-    
-    // Navigate to announcement details
-    let detailsPath;
-    if (userRole === 'PARENT') {
-      detailsPath = `/parent/announcements/${announcement.announcement_id}`;
-    } else if (userRole === 'COACH') {
-      detailsPath = `/coach/announcements/${announcement.announcement_id}`;
+
+    if (item.type === 'ANNOUNCEMENT') {
+      const announcementId = item.original.announcement_id;
+      let detailsPath;
+      if (userRole === 'PARENT') {
+        detailsPath = `/parent/announcements/${announcementId}`;
+      } else if (userRole === 'COACH') {
+        detailsPath = `/coach/announcements/${announcementId}`;
+      } else {
+        detailsPath = `/admin/announcements/${announcementId}`;
+      }
+      navigate(detailsPath);
     } else {
-      detailsPath = `/admin/announcements/${announcement.announcement_id}`;
+      if (item.original.metadata) {
+        let meta = {};
+        try {
+          meta = typeof item.original.metadata === 'string' ? JSON.parse(item.original.metadata) : item.original.metadata;
+        } catch (e) {}
+        if (meta.type === 'new_enquiry') {
+          navigate('/admin/enquiries');
+          return;
+        }
+      }
+      navigate('/admin/notifications');
     }
-    navigate(detailsPath);
   };
 
   return (
@@ -204,12 +287,12 @@ export default function NotificationBell({ userRole }) {
                 </div>
               ) : (
                 notifications.map((notification) => {
-                  const isRead = notification.readStatuses?.[0]?.is_read;
+                  const isRead = notification.is_read;
                   return (
                     <div
-                      key={notification.announcement_id}
+                      key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
-                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors border-l-4 ${PRIORITY_COLORS[notification.priority]} ${!isRead ? 'bg-blue-50' : ''}`}
+                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors border-l-4 ${PRIORITY_COLORS[notification.priority || 'NORMAL']} ${!isRead ? 'bg-blue-50' : ''}`}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="flex-1 min-w-0">
@@ -219,21 +302,21 @@ export default function NotificationBell({ userRole }) {
                               <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 line-clamp-2">{notification.message}</p>
+                          <p className="text-sm text-gray-600 line-clamp-2">{notification.body}</p>
                           <div className="flex items-center space-x-2 mt-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${CATEGORY_COLORS[notification.category]}`}>
-                              {notification.category}
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${CATEGORY_COLORS[notification.category || 'GENERAL']}`}>
+                              {notification.category || 'GENERAL'}
                             </span>
                             <span className="text-xs text-gray-400">
                               {new Date(notification.created_at).toLocaleDateString()}
                             </span>
                           </div>
-                          {notification.attachments && notification.attachments.length > 0 && (
+                          {notification.original.attachments && notification.original.attachments.length > 0 && (
                             <div className="mt-2 flex items-center text-xs text-gray-500">
                               <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
                               </svg>
-                              {notification.attachments.length} attachment{notification.attachments.length > 1 ? 's' : ''}
+                              {notification.original.attachments.length} attachment{notification.original.attachments.length > 1 ? 's' : ''}
                             </div>
                           )}
                         </div>

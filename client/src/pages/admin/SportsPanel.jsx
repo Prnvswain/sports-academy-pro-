@@ -257,6 +257,12 @@ export default function SportsPanel() {
   // ─── Submit: create one sport per selected entry ────────────────────────────
   const handleCreateSports = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      return;
+    }
+    
     setMessage({ text: '', type: '' });
     setFieldErrors({});
 
@@ -991,11 +997,15 @@ export default function SportsPanel() {
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-[0_4px_14px_0_rgb(16,185,129,0.39)] transition-all hover:bg-emerald-700 hover:shadow-[0_6px_20px_rgb(16,185,129,0.23)] disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting
-                    ? <Loader message="" />
-                    : selectedSports.length > 1
-                    ? `Deploy ${selectedSports.length} Sports`
-                    : 'Deploy Sport'}
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deploying...
+                    </>
+                  ) : selectedSports.length > 1 ? `Deploy ${selectedSports.length} Sports` : 'Deploy Sport'}
                 </button>
               </div>
             </div>

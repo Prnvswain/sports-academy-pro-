@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -53,6 +54,7 @@ const getStatusDot = (status) => {
 };
 
 export default function EnquiriesPanel() {
+  const navigate = useNavigate();
   // Dashboard stats
   const [stats, setStats] = useState({
     totalEnquiries: 0,
@@ -114,6 +116,9 @@ export default function EnquiriesPanel() {
 
   // Follow-up date
   const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [statusAfterFollowUp, setStatusAfterFollowUp] = useState('CONTACTED');
+  const timelineRef = useRef(null);
 
   // Loading states
   const [submitting, setSubmitting] = useState(false);
@@ -178,7 +183,17 @@ export default function EnquiriesPanel() {
     fetchDashboardStats();
     fetchEnquiries();
     fetchAcademyInfo();
-  }, [filters]);
+  }, [filters, viewFilter]);
+
+  useEffect(() => {
+    if (showViewModal && timelineRef.current) {
+      setTimeout(() => {
+        if (timelineRef.current) {
+          timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [showViewModal, selectedEnquiry]);
 
   // Fetch academy info for QR code
   const fetchAcademyInfo = async () => {
@@ -207,7 +222,15 @@ export default function EnquiriesPanel() {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
-      if (filters.status) queryParams.append('status', filters.status);
+      
+      if (viewFilter === 'deleted') {
+        queryParams.append('status', 'DELETED');
+      } else if (viewFilter === 'converted') {
+        queryParams.append('status', 'CONVERTED');
+      } else if (filters.status) {
+        queryParams.append('status', filters.status);
+      }
+
       if (filters.sportInterested) queryParams.append('sportInterested', filters.sportInterested);
       if (filters.search) queryParams.append('search', filters.search);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
@@ -225,6 +248,12 @@ export default function EnquiriesPanel() {
 
   const handleCreateEnquiry = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (submitting) {
+      return;
+    }
+    
     setFieldErrors({});
 
     const isValid =
@@ -263,6 +292,12 @@ export default function EnquiriesPanel() {
 
   const handleUpdateEnquiry = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (submitting) {
+      return;
+    }
+    
     setFieldErrors({});
 
     const isValid =
@@ -316,16 +351,93 @@ export default function EnquiriesPanel() {
     }
   };
 
+  const getAdminName = () => {
+    try {
+      const token = localStorage.getItem('sams_admin_token');
+      if (!token) return 'Admin';
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload).name || 'Admin';
+    } catch (e) {
+      return 'Admin';
+    }
+  };
+
+  const parseFollowUps = (notes) => {
+    if (!notes) return [];
+    const followUps = [];
+    const parts = notes.split('---');
+    
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith('[FOLLOW-UP]')) {
+        const dateMatch = trimmed.match(/Date: ([^\n]+)/);
+        const staffMatch = trimmed.match(/Staff: ([^\n]+)/);
+        const statusMatch = trimmed.match(/Status: ([^\n]+)/);
+        const noteMatch = trimmed.match(/Note: ([\s\S]+)/);
+        
+        if (dateMatch && statusMatch) {
+          followUps.push({
+            date: dateMatch[1],
+            staff: staffMatch ? staffMatch[1] : 'Admin',
+            status: statusMatch[1],
+            note: noteMatch ? noteMatch[1].trim() : 'No notes provided'
+          });
+        }
+      }
+    }
+    return followUps;
+  };
+
+  const timeAgo = (dateString) => {
+    if (!dateString) return '';
+    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) return interval + " month" + (interval > 1 ? "s" : "") + " ago";
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) return interval + " day" + (interval > 1 ? "s" : "") + " ago";
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) return interval + " hr" + (interval > 1 ? "s" : "") + " ago";
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return interval + " min" + (interval > 1 ? "s" : "") + " ago";
+    return "just now";
+  };
+
+  const isFollowUpOverdue = (enquiry) => {
+    if (!enquiry.follow_up_date) return false;
+    if (['CONVERTED', 'CLOSED', 'NOT_INTERESTED'].includes(enquiry.status)) return false;
+    if (enquiry.is_deleted) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(enquiry.follow_up_date) < today;
+  };
+
   const handleScheduleFollowUp = async () => {
-    if (selectedEnquiry?.status === 'CONVERTED') {
-      showToast('Cannot schedule follow-up for converted enquiries', 'error');
+    if (selectedEnquiry?.status === 'CONVERTED' || selectedEnquiry?.is_deleted) {
+      showToast('Cannot schedule follow-up for converted or deleted enquiries', 'error');
+      return;
+    }
+    if (!followUpNote.trim()) {
+      showToast('Follow-up note is required', 'error');
       return;
     }
     setSubmitting(true);
     try {
-      await adminPost(`/admin/enquiries/${selectedEnquiry.id}/follow-up`, { followUpDate });
+      await adminPost(`/admin/enquiries/${selectedEnquiry.id}/follow-up`, {
+        followUpDate,
+        note: followUpNote,
+        status: statusAfterFollowUp,
+        staffName: getAdminName()
+      });
       setShowFollowUpModal(false);
       setFollowUpDate('');
+      setFollowUpNote('');
+      setStatusAfterFollowUp('CONTACTED');
       setSelectedEnquiry(null);
       fetchEnquiries();
       showToast('Follow-up scheduled successfully', 'success');
@@ -346,24 +458,26 @@ export default function EnquiriesPanel() {
     }
   };
 
-  const handleConvertToStudent = async () => {
+  // Parse the conversion audit footer from notes (format stored by backend)
+  const parseConversionAudit = (notes) => {
+    if (!notes) return null;
+    const match = notes.match(/\[CONVERTED\] Student ID: (\d+)\nConverted At: ([^\n]+)(?:\nConverted By: ([^\n]+))?/);
+    if (!match) return null;
+    return {
+      studentId: parseInt(match[1]),
+      convertedAt: match[2],
+      convertedBy: match[3] || 'Admin'
+    };
+  };
+
+  const handleConvertToStudent = () => {
     if (selectedEnquiry?.status === 'CONVERTED') {
       showToast('Enquiry is already converted', 'error');
       return;
     }
-    setSubmitting(true);
-    try {
-      await adminPost(`/admin/enquiries/${selectedEnquiry.id}/convert`);
-      setShowConvertModal(false);
-      setSelectedEnquiry(null);
-      fetchEnquiries();
-      fetchDashboardStats();
-      showToast('Student created successfully', 'success');
-    } catch (err) {
-      showToast(err.message || 'Failed to convert to student', 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    setShowConvertModal(false);
+    navigate('/admin/students', { state: { convertEnquiry: selectedEnquiry } });
+    setSelectedEnquiry(null);
   };
 
   // ==================== HELPER FUNCTIONS ====================
@@ -667,6 +781,16 @@ export default function EnquiriesPanel() {
             >
               Converted Only
             </button>
+            <button
+              onClick={() => setViewFilter('deleted')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-300 ${
+                viewFilter === 'deleted'
+                  ? 'bg-danger/10 text-danger shadow-sm border border-danger/20'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Deleted Only
+            </button>
           </div>
         </div>
 
@@ -712,7 +836,10 @@ export default function EnquiriesPanel() {
                     if (viewFilter === 'converted') {
                       return enq.status === 'CONVERTED';
                     }
-                    return true;
+                    if (viewFilter === 'deleted') {
+                      return enq.is_deleted;
+                    }
+                    return enq.status !== 'CONVERTED' && !enq.is_deleted;
                   })
                   .map((enq) => (
                   <motion.tr
@@ -802,7 +929,14 @@ export default function EnquiriesPanel() {
                         >
                           Edit
                         </motion.button>
-                        {enq.status !== 'CONVERTED' && (
+                        {enq.is_deleted ? (
+                          <button
+                            disabled
+                            className="btn-sm text-[11px] font-bold bg-danger/10 text-danger border border-danger/20 cursor-not-allowed px-2.5 py-1"
+                          >
+                            Deleted
+                          </button>
+                        ) : enq.status !== 'CONVERTED' ? (
                           <>
                             <motion.button
                               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -827,18 +961,41 @@ export default function EnquiriesPanel() {
                               Convert
                             </motion.button>
                           </>
+                        ) : (
+                          <>
+                            <button
+                              disabled
+                              className="btn-sm text-[11px] font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed px-2.5 py-1 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-700/50"
+                            >
+                              ✓ Converted
+                            </button>
+                            {enq.converted_to_student_id && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate('/admin/students', { state: { openStudentId: enq.converted_to_student_id } });
+                                }}
+                                className="btn-sm text-[11px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white border border-transparent hover:border-emerald-600 transition-colors px-2.5 py-1 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-600"
+                              >
+                                View Student
+                              </motion.button>
+                            )}
+                          </>
                         )}
-                        <motion.button
-                          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEnquiry(enq);
-                            setShowDeleteModal(true);
-                          }}
-                          className="btn-sm text-[11px] font-bold text-muted-foreground hover:bg-danger hover:text-white transition-colors px-2.5 py-1"
-                        >
-                          Del
-                        </motion.button>
+                        {!enq.is_deleted && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEnquiry(enq);
+                              setShowDeleteModal(true);
+                            }}
+                            className="btn-sm text-[11px] font-bold text-muted-foreground hover:bg-danger hover:text-white transition-colors px-2.5 py-1"
+                          >
+                            Del
+                          </motion.button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -1021,8 +1178,18 @@ export default function EnquiriesPanel() {
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
                     Cancel
                   </button>
-                  <button type="submit" form="add-form" disabled={submitting} className="btn-primary shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)]">
-                    {submitting ? 'Adding...' : 'Save Enquiry'}
+                  <button type="submit" form="add-form" disabled={submitting} className="btn-primary shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    {submitting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Adding...
+                      </>
+                    ) : (
+                      'Save Enquiry'
+                    )}
                   </button>
               </div>
             </motion.div>
@@ -1212,8 +1379,18 @@ export default function EnquiriesPanel() {
                   <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary">
                     Cancel
                   </button>
-                  <button type="submit" form="edit-form" disabled={submitting} className="btn-primary">
-                    {submitting ? 'Updating...' : 'Save Changes'}
+                  <button type="submit" form="edit-form" disabled={submitting} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    {submitting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Updating...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
                   </button>
               </div>
             </motion.div>
@@ -1241,7 +1418,19 @@ export default function EnquiriesPanel() {
                 <div className="flex items-center gap-3">
                   <div className="bg-purple/20 p-2.5 rounded-xl text-purple shadow-inner">👁</div>
                   <div>
-                    <h3 className="text-xl font-bold text-foreground">Enquiry Details</h3>
+                    <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                      Enquiry Details
+                      {selectedEnquiry.is_deleted && (
+                        <span className="badge bg-danger/10 text-danger border border-danger/30 text-xs font-bold">
+                          DELETED
+                        </span>
+                      )}
+                      {selectedEnquiry.status === 'CONVERTED' && (
+                        <span className="badge bg-success/10 text-success border border-success/30 text-xs font-bold">
+                          CONVERTED
+                        </span>
+                      )}
+                    </h3>
                     <p className="text-sm text-muted-foreground">ID: {selectedEnquiry.id}</p>
                   </div>
                 </div>
@@ -1314,9 +1503,16 @@ export default function EnquiriesPanel() {
                       </div>
                       <div className="flex justify-between items-start">
                         <span className="text-sm text-muted-foreground">Created</span>
-                        <span className="text-sm font-semibold text-foreground">
-                          {selectedEnquiry.created_at ? new Date(selectedEnquiry.created_at).toLocaleString() : '—'}
-                        </span>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold text-foreground block">
+                            {selectedEnquiry.created_at ? new Date(selectedEnquiry.created_at).toLocaleString() : '—'}
+                          </span>
+                          {selectedEnquiry.created_at && (
+                            <span className="text-[10px] text-muted-foreground font-bold block mt-0.5 bg-surface/50 px-1.5 py-0.5 rounded border border-border/40 inline-block">
+                              🕒 {timeAgo(selectedEnquiry.created_at)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex justify-between items-start">
                         <span className="text-sm text-muted-foreground">Updated</span>
@@ -1364,15 +1560,28 @@ export default function EnquiriesPanel() {
                   {/* Follow-up Information */}
                   <div className="space-y-4 md:col-span-2">
                     <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Follow-up Information</h4>
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm text-muted-foreground">Follow-up Date</span>
-                      <span className="text-sm font-semibold text-foreground">
+                    <div className="flex justify-between items-center p-3 rounded-xl border border-border/40 bg-surface-secondary/40">
+                      <div>
+                        <span className="text-sm text-muted-foreground font-semibold text-slate-400">Next Follow-up Date</span>
+                        {isFollowUpOverdue(selectedEnquiry) && (
+                          <span className="badge bg-danger/10 text-danger border border-danger/30 font-bold ml-2 text-[10px] animate-pulse">
+                            ⚠️ OVERDUE
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-sm font-bold p-1 px-2.5 rounded-lg border ${
+                        isFollowUpOverdue(selectedEnquiry)
+                          ? 'bg-danger/10 text-danger border-danger/30 shadow-[0_0_10px_rgba(239,68,68,0.2)] animate-pulse'
+                          : selectedEnquiry.follow_up_date
+                            ? 'bg-blue/10 text-blue border-blue/20'
+                            : 'text-muted-foreground/60 bg-surface'
+                      }`}>
                         {selectedEnquiry.follow_up_date ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground/60 text-xs">📅</span>
+                            <span>📅</span>
                             {formatDate(selectedEnquiry.follow_up_date)}
                           </div>
-                        ) : '—'}
+                        ) : 'Not Scheduled'}
                       </span>
                     </div>
                   </div>
@@ -1382,10 +1591,104 @@ export default function EnquiriesPanel() {
                     <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Notes / Remarks</h4>
                     <div className="bg-surface-secondary/50 rounded-xl p-4 border border-border/40">
                       <p className="text-sm text-foreground whitespace-pre-wrap">
-                        {selectedEnquiry.notes || 'No notes available'}
+                        {(selectedEnquiry.notes || 'No notes available').split('---')[0].trim()}
                       </p>
                     </div>
                   </div>
+
+                  {/* Follow-up Timeline */}
+                  <div className="space-y-4 md:col-span-2 border-t border-border/40 pt-4">
+                    <div className="flex justify-between items-center pb-2 border-b border-border/40">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Follow-up Timeline</h4>
+                      <span className="badge bg-primary/10 text-primary border border-primary/20 font-bold text-xs">
+                        Followed Up {parseFollowUps(selectedEnquiry.notes).length} Times
+                      </span>
+                    </div>
+
+                    {parseFollowUps(selectedEnquiry.notes).length === 0 ? (
+                      <div className="text-sm text-muted-foreground italic py-4 text-center bg-surface-secondary/35 rounded-xl border border-border/30">
+                        No follow-up history recorded.
+                      </div>
+                    ) : (
+                      <div ref={timelineRef} className="max-h-[250px] overflow-y-auto pr-2 custom-scrollbar space-y-4 relative pl-4 before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border/60">
+                        {parseFollowUps(selectedEnquiry.notes).map((fu, idx) => (
+                          <div key={idx} className="relative flex gap-4 text-sm group pl-4">
+                            {/* Timeline Dot */}
+                            <div className="absolute left-[-2px] top-1.5 w-[10px] h-[10px] rounded-full border-2 border-primary bg-background z-10 shadow-sm" />
+                            
+                            {/* Timeline Card */}
+                            <div className="flex-1 bg-surface-secondary/50 rounded-xl p-3 border border-border/45 shadow-sm">
+                              <div className="flex justify-between items-start mb-1 flex-wrap gap-1">
+                                <span className="font-bold text-foreground/90">{fu.staff}</span>
+                                <span className="text-[10px] text-muted-foreground/80 font-mono">
+                                  {new Date(fu.date).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-foreground/85 whitespace-pre-wrap mt-1 mb-2 bg-background/40 p-2 rounded-lg border border-border/20 italic">
+                                "{fu.note}"
+                              </p>
+                              <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-muted-foreground">Status After:</span>
+                                <span className={STATUS_COLORS[fu.status] || 'badge'}>
+                                  {fu.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Conversion History — shown only for CONVERTED enquiries */}
+                  {selectedEnquiry.status === 'CONVERTED' && (() => {
+                    const audit = parseConversionAudit(selectedEnquiry.notes);
+                    const studentId = audit?.studentId || selectedEnquiry.converted_to_student_id;
+                    return (
+                      <div className="space-y-3 md:col-span-2">
+                        <h4 className="text-sm font-bold uppercase tracking-wider text-success border-b border-success/30 pb-2 flex items-center gap-2">
+                          <span>🎓</span> Conversion History
+                        </h4>
+                        <div className="bg-success/5 border border-success/25 rounded-xl p-4 space-y-2 text-sm">
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground font-semibold">Status</span>
+                            <span className="badge bg-success/15 text-success border border-success/30 font-bold">✓ CONVERTED</span>
+                          </div>
+                          {studentId && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground font-semibold">Student ID</span>
+                              <span className="font-mono font-bold text-foreground">#{studentId}</span>
+                            </div>
+                          )}
+                          {audit?.convertedAt && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground font-semibold">Converted On</span>
+                              <span className="font-semibold text-foreground">
+                                {new Date(audit.convertedAt).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {audit?.convertedBy && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground font-semibold">Converted By</span>
+                              <span className="font-semibold text-foreground">{audit.convertedBy}</span>
+                            </div>
+                          )}
+                          {studentId && (
+                            <button
+                              onClick={() => {
+                                setShowViewModal(false);
+                                navigate('/admin/students', { state: { openStudentId: studentId } });
+                              }}
+                              className="w-full mt-2 btn-success text-sm py-2 flex items-center justify-center gap-2"
+                            >
+                              👤 View Student Profile →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1393,16 +1696,30 @@ export default function EnquiriesPanel() {
                 <button onClick={() => setShowViewModal(false)} className="btn-secondary">
                   Close
                 </button>
-                <button 
-                  onClick={() => {
-                    setShowViewModal(false);
-                    openEditModal(selectedEnquiry);
-                  }}
-                  className="btn-primary"
-                >
-                  Edit Enquiry
-                </button>
+                {selectedEnquiry.status !== 'CONVERTED' && !selectedEnquiry.is_deleted && (
+                  <button
+                    onClick={() => {
+                      setShowViewModal(false);
+                      setShowConvertModal(true);
+                    }}
+                    className="btn-success"
+                  >
+                    🎓 Convert to Student
+                  </button>
+                )}
+                {!selectedEnquiry.is_deleted && (
+                  <button 
+                    onClick={() => {
+                      setShowViewModal(false);
+                      openEditModal(selectedEnquiry);
+                    }}
+                    className="btn-primary"
+                  >
+                    Edit Enquiry
+                  </button>
+                )}
               </div>
+
             </motion.div>
           </motion.div>
         )}
@@ -1440,7 +1757,7 @@ export default function EnquiriesPanel() {
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="label text-blue">Next Follow-up Date *</label>
                 <input
                   type="date"
@@ -1449,6 +1766,32 @@ export default function EnquiriesPanel() {
                   onChange={(e) => setFollowUpDate(e.target.value)}
                   className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5"
                 />
+              </div>
+
+              <div className="mb-4">
+                <label className="label text-blue">Follow-up Note / Remark *</label>
+                <textarea
+                  required
+                  value={followUpNote}
+                  onChange={(e) => setFollowUpNote(e.target.value)}
+                  placeholder="Enter notes about the conversation..."
+                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5 h-24 resize-none"
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="label text-blue">Status After Follow-up *</label>
+                <select
+                  value={statusAfterFollowUp}
+                  onChange={(e) => setStatusAfterFollowUp(e.target.value)}
+                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5 text-slate-900"
+                >
+                  {STATUS_OPTIONS.filter(opt => !['CONVERTED', 'DELETED'].includes(opt)).map((status) => (
+                    <option key={status} value={status}>
+                      {status.replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -1478,56 +1821,56 @@ export default function EnquiriesPanel() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-success/80 relative overflow-hidden"
             >
-              <div className="absolute -right-8 -top-8 w-32 h-32 bg-success/10 rounded-full blur-2xl"></div>
+              {/* Glow */}
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-success/10 rounded-full blur-2xl pointer-events-none" />
 
               <div className="flex items-center justify-between mb-5 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="bg-success/20 p-2.5 rounded-xl text-success shadow-inner">🎓</div>
-                  <h3 className="text-xl font-bold text-foreground">Convert to Student</h3>
+                  <div className="bg-success/20 p-2.5 rounded-xl text-success shadow-inner text-xl">🎓</div>
+                  <h3 className="text-xl font-bold text-foreground">Convert to Student?</h3>
                 </div>
                 <button onClick={() => setShowConvertModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
 
-              <div className="bg-surface space-y-3 rounded-xl p-5 mb-5 border border-border/50 text-sm relative z-10 shadow-sm">
+              <div className="bg-surface space-y-3 rounded-xl p-4 mb-5 border border-border/50 text-sm relative z-10 shadow-sm">
                 <div className="flex justify-between items-center border-b border-border/40 pb-2">
                   <span className="text-muted-foreground font-semibold">Student Name</span>
-                  <span className="font-bold text-[15px]">{selectedEnquiry.student_name}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground font-semibold">Parent</span>
-                  <span className="font-medium">{selectedEnquiry.parent_name || '—'}</span>
+                  <span className="font-bold text-foreground">{selectedEnquiry.student_name}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-border/40 pb-2">
                   <span className="text-muted-foreground font-semibold">Phone</span>
-                  <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded">{selectedEnquiry.phone}</span>
+                  <span className="font-mono text-foreground">{selectedEnquiry.phone}</span>
                 </div>
-                <div className="flex flex-col items-end gap-1.5 pt-1">
-                  <span className="text-muted-foreground font-semibold w-full text-left">Interested Sports</span>
-                  <div className="flex flex-wrap gap-1 justify-end">
-                    {selectedEnquiry.interested_sports ? (
-                      (() => {
-                        try {
-                          const sports = JSON.parse(selectedEnquiry.interested_sports);
-                          return sports.length > 0 ? sports.map(s => <span key={s} className="badge bg-background shadow-sm border-border border">{s}</span>) : <span>{selectedEnquiry.sport_interested || '—'}</span>;
-                        } catch (e) {
-                          return <span>{selectedEnquiry.sport_interested || '—'}</span>;
-                        }
-                      })()
-                    ) : (
-                      <span>{selectedEnquiry.sport_interested || '—'}</span>
-                    )}
-                  </div>
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-muted-foreground font-semibold">Interested Sport</span>
+                  <span className="font-semibold text-foreground">
+                    {(() => {
+                      try {
+                        const sportsList = typeof selectedEnquiry.interested_sports === 'string'
+                          ? JSON.parse(selectedEnquiry.interested_sports)
+                          : selectedEnquiry.interested_sports;
+                        return Array.isArray(sportsList) && sportsList.length > 0
+                          ? sportsList[0]
+                          : selectedEnquiry.sport_interested || '—';
+                      } catch {
+                        return selectedEnquiry.sport_interested || '—';
+                      }
+                    })()}
+                  </span>
                 </div>
               </div>
 
-              <p className="text-muted-foreground text-xs leading-relaxed mb-6 p-3.5 bg-success/5 border border-success/20 rounded-lg text-success/90 relative z-10">
-                This action will provision a new active student record in the system and automatically update the enquiry lifecycle status to <strong>CONVERTED</strong>. The original historic timeline will be safely preserved.
+              <p className="text-muted-foreground text-xs leading-relaxed mb-6 bg-success/5 border border-success/25 rounded-lg p-3 text-success/90">
+                You will be redirected to the <strong>Add Student</strong> form with these details pre-filled. You can review, complete the profile, and enroll them in a batch.
               </p>
 
               <div className="flex justify-end gap-3 relative z-10">
                 <button onClick={() => setShowConvertModal(false)} className="btn-secondary">Cancel</button>
-                <button onClick={handleConvertToStudent} disabled={submitting} className="btn-success shadow-[0_0_15px_rgba(16,185,129,0.3)] w-full sm:w-auto">
-                  {submitting ? 'Processing...' : 'Confirm Conversion'}
+                <button
+                  onClick={handleConvertToStudent}
+                  className="btn-success shadow-[0_0_15px_rgba(16,185,129,0.3)] px-5 py-2 font-bold flex items-center gap-1.5"
+                >
+                  Confirm & Proceed ➔
                 </button>
               </div>
             </motion.div>
@@ -1562,14 +1905,14 @@ export default function EnquiriesPanel() {
               </div>
 
               <p className="text-sm text-muted-foreground mb-6 leading-relaxed relative z-10 p-4 bg-surface rounded-xl border border-border/50">
-                You are about to permanently delete the enquiry record for <strong className="text-foreground text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
-                <br/>This action is irreversible and removes all associated historic logs. Proceed?
+                You are about to delete the enquiry record for <strong className="text-foreground text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
+                <br/>This record will be moved to the "Deleted Only" view. Proceed?
               </p>
 
               <div className="flex justify-end gap-3 relative z-10">
                 <button onClick={() => setShowDeleteModal(false)} className="btn-secondary">Keep Record</button>
                 <button onClick={handleDeleteEnquiry} disabled={submitting} className="btn-danger shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                  {submitting ? 'Deleting...' : 'Delete Permanently'}
+                  {submitting ? 'Deleting...' : 'Delete Record'}
                 </button>
               </div>
             </motion.div>

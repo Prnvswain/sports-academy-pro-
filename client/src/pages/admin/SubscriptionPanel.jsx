@@ -78,6 +78,12 @@ export default function AdminSubscriptionPanel() {
 
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (submittingCheckout) {
+      return;
+    }
+    
     if (!transactionId.trim()) {
       alert('Please enter your Transaction Reference Number / UTR');
       return;
@@ -500,10 +506,19 @@ export default function AdminSubscriptionPanel() {
                 <button
                   type="submit"
                   disabled={submittingCheckout}
-                  className="w-full py-3 bg-lime-500 hover:bg-lime-400 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-lime-500/20 transition-all disabled:opacity-50"
+                  className="w-full py-3 bg-lime-500 hover:bg-lime-400 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-lime-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submittingCheckout ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Submit Payment Verification Reference
+                  {submittingCheckout ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Submit Payment Verification Reference
+                    </>
+                  )}
                 </button>
               </form>
             </motion.div>

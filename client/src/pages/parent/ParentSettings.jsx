@@ -67,7 +67,7 @@ export default function ParentSettings() {
 
   return (
     /* w-full, h-full, aur absolute 0 margins diye hain taaki koi white line na bache */
-    <div className="w-full h-full min-h-screen flex-1 bg-gradient-to-br from-[#effbe3] via-[#f8fafc] to-[#d8f4bc] p-6 md:p-8 -m-4 sm:m-0">
+    <div className="w-full h-full min-h-screen flex-1 bg-slate-50 dark:bg-slate-950 p-6 md:p-8 -m-4 sm:m-0 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
       {/* Header */}
       <div className="mb-6 border-b border-slate-300/50 pb-4 w-full">

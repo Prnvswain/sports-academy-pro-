@@ -27,6 +27,13 @@ import { adminGet, adminPost, adminPut, adminPatch } from '../../api/client';
 const CATEGORIES = ['Ball', 'Bat', 'Racket', 'Net', 'Cone', 'Jersey', 'Gloves', 'Mat', 'Stumps', 'Others'];
 const CONDITIONS = ['New', 'Good', 'Fair', 'Damaged'];
 
+// Returns the display label for a category — uses custom name when category is 'Others'
+const getDisplayLabel = (item) => {
+  if (!item) return 'Unknown';
+  if (item.category === 'Others' && item.name) return item.name;
+  return item.category || item.name || 'Unknown';
+};
+
 export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
@@ -105,6 +112,12 @@ export default function InventoryPage() {
   const [selectedReportType, setSelectedReportType] = useState('current_stock');
   const [reportData, setReportData] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
+
+  // Form submission states to prevent duplicate submissions
+  const [isSavingItem, setIsSavingItem] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
+  const [isUpdatingRequest, setIsUpdatingRequest] = useState(false);
 
   // Helper alert flash
   const flashMessage = (text, type = 'success') => {
@@ -208,6 +221,13 @@ export default function InventoryPage() {
   const handleSaveItem = async (e) => {
     e.preventDefault();
     
+    // Prevent duplicate submissions
+    if (isSavingItem) {
+      return;
+    }
+    
+    setIsSavingItem(true);
+    
     // Split Brand / Model
     const brandModel = itemForm.brand_model || '';
     const spaceIdx = brandModel.trim().indexOf(' ');
@@ -251,6 +271,8 @@ export default function InventoryPage() {
       loadData();
     } catch (err) {
       flashMessage(err.message || 'Failed to save inventory item', 'error');
+    } finally {
+      setIsSavingItem(false);
     }
   };
 
@@ -287,10 +309,19 @@ export default function InventoryPage() {
 
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isAssigning) {
+      return;
+    }
+    
     if (assignForm.qty > assignTargetItem.available_qty) {
       flashMessage('Cannot assign more than available stock quantity!', 'error');
       return;
     }
+    
+    setIsAssigning(true);
+    
     try {
       await adminPost(`/admin/inventory/${assignTargetItem.item_id}/assign`, {
         coach_id: parseInt(assignForm.coach_id, 10),
@@ -302,6 +333,8 @@ export default function InventoryPage() {
       loadData();
     } catch (err) {
       flashMessage(err.message || 'Failed to assign equipment', 'error');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -319,11 +352,20 @@ export default function InventoryPage() {
 
   const handleReturnSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isReturning) {
+      return;
+    }
+    
     const maxReturn = returnTargetAssignment.assigned_qty - returnTargetAssignment.returned_qty;
     if (returnForm.qty > maxReturn) {
       flashMessage(`Cannot return more than checked out quantity (${maxReturn})!`, 'error');
       return;
     }
+    
+    setIsReturning(true);
+    
     try {
       await adminPost(`/admin/inventory/assignment/${returnTargetAssignment.assignment_id}/return`, {
         qty: parseInt(returnForm.qty, 10),
@@ -334,6 +376,8 @@ export default function InventoryPage() {
       loadData();
     } catch (err) {
       flashMessage(err.message || 'Failed to return equipment', 'error');
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -350,6 +394,14 @@ export default function InventoryPage() {
 
   const handleRequestActionSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isUpdatingRequest) {
+      return;
+    }
+    
+    setIsUpdatingRequest(true);
+    
     try {
       await adminPost(`/admin/inventory/requests/${selectedRequest.request_id}/action`, {
         status: requestActionForm.status,
@@ -360,6 +412,8 @@ export default function InventoryPage() {
       loadData();
     } catch (err) {
       flashMessage(err.message || 'Failed to update request status', 'error');
+    } finally {
+      setIsUpdatingRequest(false);
     }
   };
 
@@ -590,7 +644,7 @@ export default function InventoryPage() {
                           <Package className="w-16 h-16 text-slate-300 dark:text-slate-700 stroke-1" />
                         )}
                         <span className="absolute top-3 left-3 bg-slate-900/80 text-white text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider backdrop-blur-sm">
-                          {item.category}
+                          {getDisplayLabel(item)}
                         </span>
                         {isLowStock && (
                           <span className="absolute top-3 right-3 bg-amber-500 text-slate-900 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
@@ -717,7 +771,7 @@ export default function InventoryPage() {
                         <td className="p-4 font-semibold text-slate-900 dark:text-white">{asgn.coach?.name}</td>
                         <td className="p-4">
                           <div className="font-medium text-slate-900 dark:text-white">{asgn.item?.name}</div>
-                          <span className="text-xs text-slate-400">{asgn.item?.category}</span>
+                          <span className="text-xs text-slate-400">{getDisplayLabel(asgn.item)}</span>
                         </td>
                         <td className="p-4 text-center font-medium">{asgn.assigned_qty}</td>
                         <td className="p-4 text-center text-slate-400">{asgn.returned_qty}</td>
@@ -1130,9 +1184,20 @@ export default function InventoryPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md"
+                  disabled={isSavingItem}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Save Equipment
+                  {isSavingItem ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Equipment'
+                  )}
                 </button>
               </div>
             </form>
@@ -1214,9 +1279,20 @@ export default function InventoryPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md"
+                  disabled={isAssigning}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Confirm Assignment
+                  {isAssigning ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Assigning...
+                    </>
+                  ) : (
+                    'Confirm Assignment'
+                  )}
                 </button>
               </div>
             </form>
@@ -1288,9 +1364,20 @@ export default function InventoryPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md"
+                  disabled={isReturning}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Confirm Return
+                  {isReturning ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Returning...
+                    </>
+                  ) : (
+                    'Confirm Return'
+                  )}
                 </button>
               </div>
             </form>
@@ -1368,9 +1455,20 @@ export default function InventoryPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md"
+                  disabled={isUpdatingRequest}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Update Request
+                  {isUpdatingRequest ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </>
+                  ) : (
+                    'Update Request'
+                  )}
                 </button>
               </div>
             </form>

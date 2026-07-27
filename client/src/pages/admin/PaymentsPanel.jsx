@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPatch, adminPost } from '../../api/client';
 import { calculateStudentFee, calculateBalance } from '../../utils/fee.util.js';
+import { Wallet, TrendingUp, AlertCircle, CheckCircle, Users, DollarSign, Calendar, Filter, Search, ArrowUpDown, Bell, Zap, Clock, Phone, Settings, XCircle } from 'lucide-react';
 
 const emptyForm = {
   student_id: '',
@@ -42,6 +43,9 @@ export default function AccountsPanel() {
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [sortBy, setSortBy] = useState('name'); // name, highest_due, highest_paid, recently_paid
   const [activeTab, setActiveTab] = useState('payments'); // 'payments' or 'students'
+
+  // Form submission state to prevent duplicate submissions
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -225,6 +229,13 @@ export default function AccountsPanel() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      return;
+    }
+    
+    setIsSubmitting(true);
     setMessage({ text: '', type: '' });
 
     const payload = {
@@ -244,6 +255,8 @@ export default function AccountsPanel() {
       loadData(false);
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -470,34 +483,50 @@ export default function AccountsPanel() {
       initial={{ opacity: 0, y: 15 }} 
       animate={{ opacity: 1, y: 0 }} 
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="space-y-6 w-full max-w-7xl mx-auto overflow-x-hidden"
+      className="space-y-4 w-full overflow-x-hidden relative px-4 sm:px-6 -mt-4"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Subtle Sports-Themed Background Decorative Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#84cc16]/3 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#22c55e]/3 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#a3e635]/2 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
-          <p className="text-base text-muted-foreground mt-1">Track payments, due dates, and collection statistics.</p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center shadow-lg shadow-[#84cc16]/30">
+              <Wallet className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Fee Management</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Track payments, due dates, and collection statistics.</p>
+            </div>
+          </div>
         </div>
         
-        {/* Tab Navigation */}
-        <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+        {/* Premium Segmented Toggle */}
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl p-1 border border-slate-200 dark:border-slate-700/50 shadow-sm">
           <button
             onClick={() => setActiveTab('payments')}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 ${
               activeTab === 'payments'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
             }`}
           >
+            <DollarSign className="w-3.5 h-3.5" />
             Payment Management
           </button>
           <button
             onClick={() => setActiveTab('students')}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 ${
               activeTab === 'students'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
             }`}
           >
+            <Users className="w-3.5 h-3.5" />
             Student Accounts
           </button>
         </div>
@@ -505,77 +534,110 @@ export default function AccountsPanel() {
 
       {activeTab === 'payments' ? (
         <>
-          {/* Modern KPI Statistics */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Premium Statistics Cards with Icons */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Amount', value: stats.total, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
-          { label: 'Collected', value: stats.collected, color: 'text-[rgb(var(--color-accent-primary))]', bgLine: 'rgb(var(--color-accent-primary))' },
-          { label: 'Pending', value: stats.pending, color: 'text-[rgb(var(--color-amber-primary))]', bgLine: 'rgb(var(--color-amber-primary))' },
-          { label: 'Overdue', value: stats.overdue, color: 'text-[rgb(var(--color-danger))]', bgLine: 'rgb(var(--color-danger))' }
+          { label: 'Total Amount', value: stats.total, color: 'text-blue-600', bgGradient: 'from-blue-500 to-blue-600', icon: DollarSign, bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
+          { label: 'Collected', value: stats.collected, color: 'text-[#84cc16]', bgGradient: 'from-[#84cc16] to-[#65a30d]', icon: CheckCircle, bgColor: 'bg-[#84cc16]/10 dark:bg-[#84cc16]/20' },
+          { label: 'Pending', value: stats.pending, color: 'text-amber-500', bgGradient: 'from-amber-500 to-amber-600', icon: Clock, bgColor: 'bg-amber-50 dark:bg-amber-900/20' }
         ].map((stat, i) => (
           <motion.div 
             key={i}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: i * 0.1 }}
-            whileHover={{ y: -4 }}
-            className="card flex flex-col justify-center relative overflow-hidden"
-            style={{ borderTopWidth: '4px', borderTopColor: stat.bgLine }}
+            whileHover={{ y: -6, scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden group cursor-default"
           >
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity" style={{ background: `linear-gradient(135deg, ${stat.bgGradient})` }} />
+            <div className={`absolute top-3 right-3 w-8 h-8 rounded-lg ${stat.bgColor} flex items-center justify-center shadow-md`}>
+              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+            </div>
             <div className="relative z-10">
-              <div className={`text-3xl font-extrabold ${stat.color}`}>
+              <div className={`text-2xl font-black ${stat.color} tracking-tight`}>
                 ₹{stat.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <div className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1.5">{stat.label}</div>
+              <div className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-1">{stat.label}</div>
             </div>
           </motion.div>
         ))}
-
         <motion.button
+          key="overdue"
           type="button"
           onClick={handleSendOverdueReminders}
-          className="card flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-          whileHover={{ scale: 1.02 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          whileHover={{ y: -6, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          className="relative bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-4 shadow-lg shadow-red-500/20 border border-red-200 dark:border-red-700/50 overflow-hidden group cursor-pointer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          Send Overdue Reminders
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shadow-md">
+            <Bell className="w-4 h-4 text-white" />
+          </div>
+          <div className="relative z-10">
+            <div className="text-2xl font-black text-white tracking-tight">
+              ₹{stats.overdue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-white/80 text-[10px] font-bold uppercase tracking-wider mt-1">Overdue</div>
+            <div className="mt-2 flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 rounded-lg px-2.5 py-1 w-fit">
+              <Zap className="w-3 h-3" />
+              Send Reminders
+            </div>
+          </div>
         </motion.button>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        {/* RECORD PAYMENT FORM */}
-        <form className="card space-y-5" onSubmit={handleSubmit}>
-          <div className="border-b border-border/50 pb-3">
-            <h3 className="text-xl font-bold text-foreground">Record Payment</h3>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {/* RECORD PAYMENT FORM - Premium Card */}
+        <motion.form 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 p-5 space-y-4"
+          onSubmit={handleSubmit}
+        >
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center shadow-md shadow-[#84cc16]/30">
+              <DollarSign className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">Record Payment</h3>
           </div>
 
           <div className="relative">
-            <label className="label" htmlFor="payStudent">Select Student</label>
-            <input
-              id="payStudent"
-              type="text"
-              className="input-field"
-              placeholder="Search student by name, mobile or ID..."
-              value={studentSearchTerm}
-              onChange={(e) => {
-                setStudentSearchTerm(e.target.value);
-                setHighlightedIndex(-1);
-              }}
-              onFocus={() => setDropdownOpen(true)}
-              onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
-              onKeyDown={handleKeyDown}
-              required
-              autoComplete="off"
-            />
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payStudent">Select Student</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                id="payStudent"
+                type="text"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                placeholder="Search student by name, mobile or ID..."
+                value={studentSearchTerm}
+                onChange={(e) => {
+                  setStudentSearchTerm(e.target.value);
+                  setHighlightedIndex(-1);
+                }}
+                onFocus={() => setDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setDropdownOpen(false), 250)}
+                onKeyDown={handleKeyDown}
+                required
+                autoComplete="off"
+              />
+            </div>
             {dropdownOpen && studentSearchTerm && (
-              <div className="absolute z-50 w-full rounded-xl border border-border bg-card max-h-60 overflow-y-auto mt-2 shadow-xl">
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute z-50 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 max-h-72 overflow-y-auto mt-2 shadow-xl shadow-black/10"
+              >
                 {(() => {
                   const filteredStudents = getFilteredStudents();
                   if (filteredStudents.length === 0) {
-                    return <div className="px-4 py-3 text-sm text-muted-foreground">No students found</div>;
+                    return <div className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">No students found</div>;
                   }
                   return filteredStudents.map((s, index) => {
                     const name = s?.name || `${s?.first_name || ''} ${s?.last_name || ''}`;
@@ -584,10 +646,12 @@ export default function AccountsPanel() {
                     const isHighlighted = index === highlightedIndex;
                     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                     return (
-                      <div
+                      <motion.div
                         key={s?.id || s?.student_id}
-                        className={`cursor-pointer px-4 py-3 text-sm transition-colors duration-150 border-b border-border/50 last:border-b-0 flex items-center gap-3 ${
-                          isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
+                        whileHover={{ scale: 1.02, x: 4 }}
+                        transition={{ duration: 0.15 }}
+                        className={`cursor-pointer px-4 py-3 text-xs transition-all duration-150 border-b border-slate-100 dark:border-slate-800/50 last:border-b-0 flex items-center gap-3 ${
+                          isHighlighted ? 'bg-[#84cc16]/10 text-[#84cc16]' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-900 dark:text-slate-100'
                         }`}
                         onMouseDown={() => {
                           const studentId = s?.id || s?.student_id;
@@ -598,160 +662,223 @@ export default function AccountsPanel() {
                         }}
                         onMouseEnter={() => setHighlightedIndex(index)}
                       >
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 shadow-md shadow-[#84cc16]/30">
                           {s?.profile_photo ? (
-                            <img src={s.profile_photo} alt={name} className="w-full h-full rounded-full object-cover" />
+                            <img src={s.profile_photo} alt={name} className="w-full h-full rounded-2xl object-cover" />
                           ) : (
                             initials
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold truncate">{name}</div>
-                          <div className="text-xs mt-1 text-muted-foreground">
-                            <span className="inline-block mr-3">Parent: {parentName}</span>
-                            <span className="inline-block mr-3">Phone: {phone}</span>
-                            <span className="inline-block">Batch: {s?.batch?.name || '—'}</span>
+                          <div className="font-bold text-sm truncate">{name}</div>
+                          <div className="text-[10px] mt-1 text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">
+                            <span className="flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Parent: {parentName}</span>
+                            <span className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" /> Phone: {phone}</span>
+                            <span className="flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> Batch: {s?.batch?.name || '—'}</span>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   });
                 })()}
-              </div>
+              </motion.div>
             )}
           </div>
 
-          {/* Comprehensive Fee Breakdown */}
+          {/* Comprehensive Fee Breakdown - Premium Card */}
           {form.student_id && (
-            <div className="bg-secondary border border-border/60 rounded-xl p-5 space-y-3 shadow-sm">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3 shadow-md"
+            >
               {loadingFeeData ? (
-                <div className="text-muted-foreground text-center text-sm font-medium animate-pulse">Fetching ledger data...</div>
+                <div className="text-slate-500 dark:text-slate-400 text-center text-xs font-medium animate-pulse flex items-center justify-center gap-2">
+                  <Clock className="w-3 h-3 animate-spin" />
+                  Fetching ledger data...
+                </div>
               ) : studentFeeData ? (
                 <>
-                  <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
-                    <span className="text-muted-foreground text-sm font-semibold">Total Fees Assigned:</span>
-                    <span className="text-foreground font-bold text-sm">₹{studentFeeData.total_fees_assigned?.toFixed(2) || '0.00'}</span>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                      <DollarSign className="w-3 h-3" /> Total Fees Assigned
+                    </span>
+                    <span className="text-slate-900 dark:text-slate-100 font-bold text-sm">₹{studentFeeData.total_fees_assigned?.toFixed(2) || '0.00'}</span>
                   </div>
-                  <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
-                    <span className="text-muted-foreground text-sm font-semibold">Total Fees Paid:</span>
-                    <span className="text-[rgb(var(--color-accent-primary))] font-bold text-sm">₹{studentFeeData.total_fees_paid?.toFixed(2) || '0.00'}</span>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                      <CheckCircle className="w-3 h-3 text-[#84cc16]" /> Total Fees Paid
+                    </span>
+                    <span className="text-[#84cc16] font-bold text-sm">₹{studentFeeData.total_fees_paid?.toFixed(2) || '0.00'}</span>
                   </div>
-                  <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
-                    <span className="text-muted-foreground text-sm font-semibold">Pending Fees:</span>
-                    <span className="text-[rgb(var(--color-amber-primary))] font-bold text-sm">₹{studentFeeData.pending_fees?.toFixed(2) || '0.00'}</span>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 text-amber-500" /> Pending Fees
+                    </span>
+                    <span className="text-amber-500 font-bold text-sm">₹{studentFeeData.pending_fees?.toFixed(2) || '0.00'}</span>
                   </div>
-                  <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
-                    <span className="text-muted-foreground text-sm font-semibold">Overdue Fees:</span>
-                    <span className="text-[rgb(var(--color-danger))] font-bold text-sm">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</span>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3 text-red-500" /> Overdue Fees
+                    </span>
+                    <span className="text-red-500 font-bold text-sm">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</span>
                   </div>
-                  <div className="flex items-center justify-between bg-background border border-border rounded-lg p-3 mt-2 shadow-inner">
-                    <span className="text-foreground font-bold">Pending Dues Outstanding:</span>
-                    <span className="text-[rgb(var(--color-danger))] text-lg font-black">₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}</span>
+                  <div className="flex items-center justify-between bg-white dark:bg-slate-900 border-2 border-[#84cc16] rounded-xl p-3 shadow-md shadow-[#84cc16]/10">
+                    <span className="text-slate-900 dark:text-slate-100 font-bold flex items-center gap-1.5 text-xs">
+                      <Wallet className="w-4 h-4 text-[#84cc16]" /> Pending Dues Outstanding
+                    </span>
+                    <span className="text-[#84cc16] text-lg font-black">₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex items-center justify-between bg-background border border-border rounded-lg p-3 shadow-inner">
-                  <span className="text-foreground font-bold">Pending Dues Outstanding:</span>
-                  <span className="text-[rgb(var(--color-danger))] text-lg font-black">₹{parseFloat(form.pending_amount || 0).toFixed(2)}</span>
+                <div className="flex items-center justify-between bg-white dark:bg-slate-900 border-2 border-[#84cc16] rounded-xl p-3 shadow-md shadow-[#84cc16]/10">
+                  <span className="text-slate-900 dark:text-slate-100 font-bold flex items-center gap-1.5 text-xs">
+                    <Wallet className="w-4 h-4 text-[#84cc16]" /> Pending Dues Outstanding
+                  </span>
+                  <span className="text-[#84cc16] text-lg font-black">₹{parseFloat(form.pending_amount || 0).toFixed(2)}</span>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           <div>
-            <label className="label" htmlFor="payAmount">Amount to Pay (₹)</label>
-            <input
-              id="payAmount"
-              name="amount"
-              type="number"
-              min="0"
-              step="0.01"
-              className="input-field"
-              value={form.amount}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="payDate">Payment Date</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payAmount">Amount to Pay (₹)</label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                id="payDate"
-                name="payment_date"
-                type="date"
-                className="input-field"
-                value={form.payment_date}
+                id="payAmount"
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                value={form.amount}
                 onChange={handleChange}
                 required
               />
             </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="dueDate">Due Date (Optional)</label>
-              <input
-                id="dueDate"
-                name="due_date"
-                type="date"
-                className="input-field"
-                value={form.due_date}
-                onChange={handleChange}
-              />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payDate">Payment Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  id="payDate"
+                  name="payment_date"
+                  type="date"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                  value={form.payment_date}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dueDate">Due Date (Optional)</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  id="dueDate"
+                  name="due_date"
+                  type="date"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                  value={form.due_date}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="payMethod">Payment Method</label>
-              <select
-                id="payMethod"
-                name="method"
-                className="input-field"
-                value={form.method}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Method</option>
-                <option value="upi">UPI</option>
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="cheque">Cheque</option>
-                <option value="online">Online</option>
-              </select>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payMethod">Payment Method</label>
+              <div className="relative">
+                <select
+                  id="payMethod"
+                  name="method"
+                  className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
+                  value={form.method}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select Method</option>
+                  <option value="upi">UPI</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="online">Online</option>
+                </select>
+                <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
             <div>
-              <label className="label" htmlFor="payStatus">Status</label>
-              <select
-                id="payStatus"
-                name="status"
-                className="input-field"
-                value={form.status}
-                onChange={handleChange}
-              >
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-              </select>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payStatus">Status</label>
+              <div className="relative">
+                <select
+                  id="payStatus"
+                  name="status"
+                  className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
+                  value={form.status}
+                  onChange={handleChange}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
-          <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} type="submit" className="btn-primary w-full h-12 mt-2 text-base">
-            Create Payment
+          <motion.button 
+            whileHover={{ scale: isSubmitting ? 1 : 1.02, y: isSubmitting ? 0 : -2 }}
+            whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+            type="submit" 
+            disabled={isSubmitting} 
+            className="w-full h-11 mt-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white rounded-xl shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all duration-300"
+          >
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating...
+              </>
+            ) : (
+              <>
+                <DollarSign className="w-4 h-4" />
+                Create Payment
+              </>
+            )}
           </motion.button>
-        </form>
+        </motion.form>
 
-        {/* FILTERS CARD */}
-        <div className="card h-fit space-y-5">
-          <div className="flex items-center justify-between border-b border-border/50 pb-3">
-            <h3 className="text-xl font-bold text-foreground">Filters</h3>
-            <button type="button" className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer" onClick={clearFilters}>
+        {/* FILTERS CARD - Premium Design */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 p-5 space-y-4 h-fit"
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/50">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md shadow-blue-500/30">
+                <Filter className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Filters</h3>
+            </div>
+            <button type="button" className="text-[10px] font-bold text-slate-500 hover:text-[#84cc16] transition-colors cursor-pointer flex items-center gap-1" onClick={clearFilters}>
               Clear Filters
             </button>
           </div>
 
           <div>
-            <label className="label" htmlFor="statusFilter">Status</label>
-            <select id="statusFilter" className="input-field" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="statusFilter">Status</label>
+            <select id="statusFilter" className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="completed">Completed</option>
@@ -760,8 +887,8 @@ export default function AccountsPanel() {
           </div>
 
           <div>
-            <label className="label" htmlFor="methodFilter">Payment Method</label>
-            <select id="methodFilter" className="input-field" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="methodFilter">Payment Method</label>
+            <select id="methodFilter" className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
               <option value="">All Methods</option>
               <option value="upi">UPI</option>
               <option value="cash">Cash</option>
@@ -772,55 +899,82 @@ export default function AccountsPanel() {
             </select>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="dateFrom">From Date</label>
-              <input id="dateFrom" type="date" className="input-field" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dateFrom">From Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input id="dateFrom" type="date" className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              </div>
             </div>
             <div>
-              <label className="label" htmlFor="dateTo">To Date</label>
-              <input id="dateTo" type="date" className="input-field" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dateTo">To Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input id="dateTo" type="date" className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* FIX: FIXED PAYMENT RECORDS TABLE LAYOUT */}
-      <div className="card mt-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
-          <h3 className="text-xl font-bold text-foreground">Payment Records</h3>
-          <input
-            type="text"
-            className="input-field w-full sm:w-64 !py-2 !text-xs"
-            placeholder="Search records globally..."
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-          />
+      {/* PAYMENT RECORDS TABLE - Premium Design */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.4 }}
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 mt-4 overflow-hidden"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md shadow-purple-500/30">
+              <TrendingUp className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">Payment Records</h3>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+              placeholder="Search records globally..."
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         {loading && payments.length === 0 ? (
-          <Loader />
+          <div className="p-8 flex items-center justify-center">
+            <Loader />
+          </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-            <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
-              <thead className="bg-secondary text-muted-foreground text-xs uppercase font-bold tracking-wider">
-                <tr>
-                  <th className="px-5 py-4 border-b border-border">Student</th>
-                  <th className="px-5 py-4 border-b border-border">Source</th>
-                  <th className="px-5 py-4 border-b border-border">Amount</th>
-                  <th className="px-5 py-4 border-b border-border">Remarks & Proof</th>
-                  <th className="px-5 py-4 border-b border-border">Payment Date</th>
-                  <th className="px-5 py-4 border-b border-border">Due Date</th>
-                  <th className="px-5 py-4 border-b border-border">Method</th>
-                  <th className="px-5 py-4 border-b border-border">Status</th>
-                  <th className="px-5 py-4 border-b border-border text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-card divide-y divide-border">
+          <div className="overflow-x-auto">
+            <div className="min-w-full">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Student</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Source</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Amount</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Remarks & Proof</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Payment Date</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Due Date</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Method</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Status</th>
+                    <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                 {paginatedPayments.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="px-5 py-8 text-center text-muted-foreground font-medium italic">
-                      No payments found matching your criteria.
+                    <td colSpan="9" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <Search className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <p className="text-xs">No payments found matching your criteria.</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -830,196 +984,251 @@ export default function AccountsPanel() {
                     const isOverdue = normalizedStatus === 'PENDING' && payment?.due_date && new Date(payment.due_date) < new Date();
 
                     return (
-                      <tr key={currentId} className="hover:bg-secondary/40 transition-colors">
-                        <td className="px-5 py-4 font-bold text-foreground">
-                          {payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`}
+                      <motion.tr 
+                        key={currentId}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                            {payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`}
+                          </div>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           {payment?.collected_by?.name ? (
-                            <span className="badge badge-info inline-flex items-center">👤 Coach - {payment.collected_by.name}</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                              <Users className="w-2.5 h-2.5" /> Coach - {payment.collected_by.name}
+                            </span>
                           ) : (
-                            <span className="badge border-border text-muted-foreground bg-secondary inline-flex items-center">⚙️ Admin</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              <Settings className="w-2.5 h-2.5" /> Admin
+                            </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 font-bold text-foreground">₹{parseFloat(payment?.amount || 0).toFixed(2)}</td>
-                        <td className="px-5 py-4 max-w-[200px] truncate">
-                          <div className="flex flex-col space-y-1">
-                            {payment?.remarks && <span className="text-xs text-muted-foreground italic truncate">"{payment.remarks}"</span>}
+                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100 text-sm">₹{parseFloat(payment?.amount || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 max-w-[150px]">
+                          <div className="flex flex-col gap-0.5">
+                            {payment?.remarks && <span className="text-[10px] text-slate-500 dark:text-slate-400 italic truncate">"{payment.remarks}"</span>}
                             {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) ? (
-                              <button
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 type="button"
                                 onClick={() => {
                                   const proofUrl = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof;
-                                  // Prepend backend URL if proof_url is a relative path
                                   const fullUrl = proofUrl.startsWith('http') ? proofUrl : `http://localhost:5000/${proofUrl}`;
                                   setPreviewImage(fullUrl);
                                 }}
-                                className="text-primary hover:text-[rgb(var(--color-blue-primary))] font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors w-fit"
+                                className="text-[#84cc16] hover:text-[#65a30d] font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition-colors w-fit"
                               >
-                                📸 View Proof
-                              </button>
+                                <Calendar className="w-2.5 h-2.5" /> View Proof
+                              </motion.button>
                             ) : (
-                              <span className="text-xs text-muted-foreground italic">No proof</span>
+                              <span className="text-[10px] text-slate-400 italic">No proof</span>
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-muted-foreground">{payment?.payment_date || payment?.date ? new Date(payment.payment_date || payment.date).toLocaleDateString('en-IN') : '-'}</td>
-                        <td className={`px-5 py-4 ${isOverdue ? 'text-[rgb(var(--color-danger))] font-semibold' : 'text-muted-foreground'}`}>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-[10px]">{payment?.payment_date || payment?.date ? new Date(payment.payment_date || payment.date).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className={`px-4 py-3 text-[10px] ${isOverdue ? 'text-red-500 font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
                           {payment?.due_date ? new Date(payment.due_date).toLocaleDateString('en-IN') : '-'}
                         </td>
-                        <td className="px-5 py-4">
-                          <span className="badge badge-warning inline-flex">{payment?.method || 'N/A'}</span>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                            {payment?.method || 'N/A'}
+                          </span>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           {isOverdue ? (
-                            <span className="badge badge-danger animate-pulse inline-flex">OVERDUE</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 animate-pulse">
+                              <AlertCircle className="w-2.5 h-2.5" /> OVERDUE
+                            </span>
                           ) : normalizedStatus === 'COMPLETED' ? (
-                            <span className="badge badge-success inline-flex">COMPLETED</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                              <CheckCircle className="w-2.5 h-2.5" /> COMPLETED
+                            </span>
                           ) : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? (
-                            <span className="badge badge-danger inline-flex">{normalizedStatus}</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                              <XCircle className="w-2.5 h-2.5" /> {normalizedStatus}
+                            </span>
                           ) : (
-                            <span className="badge border-amber-200 bg-amber-50 text-amber-600 inline-flex">{payment?.status || 'PENDING'}</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                              <Clock className="w-2.5 h-2.5" /> {payment?.status || 'PENDING'}
+                            </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-right space-x-2">
+                        <td className="px-4 py-3 text-right space-x-1.5">
                           {normalizedStatus !== 'COMPLETED' && (
-                            <button
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                               type="button"
-                              className="btn btn-success btn-sm inline-flex"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all"
                               onClick={() => updateStatus(payment, currentId, 'completed')}
                             >
-                              Mark Paid
-                            </button>
+                              <CheckCircle className="w-2.5 h-2.5" /> Mark Paid
+                            </motion.button>
                           )}
                           {normalizedStatus === 'PENDING' && (
-                            <button
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                               type="button"
-                              className="btn btn-danger btn-sm inline-flex"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md shadow-red-500/30 hover:shadow-red-500/50 transition-all"
                               onClick={() => rejectPayment(payment, currentId)}
                             >
-                              Reject
-                            </button>
+                              <XCircle className="w-2.5 h-2.5" /> Reject
+                            </motion.button>
                           )}
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
-        {/* Pagination Section */}
+        {/* Pagination Section - Premium Design */}
         {filteredPayments.length > 0 && (
-          <div className="mt-5 flex flex-col items-center justify-between gap-4 sm:flex-row pt-4 border-t border-border/50">
-            <div className="text-sm text-muted-foreground font-medium">
-              Showing <span className="text-foreground font-bold">{startIndex + 1}</span> to <span className="text-foreground font-bold">{Math.min(endIndex, filteredPayments.length)}</span> of <span className="text-foreground font-bold">{filteredPayments.length}</span> records
+          <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row px-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+            <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">
+              Showing <span className="text-slate-900 dark:text-slate-100 font-bold">{startIndex + 1}</span> to <span className="text-slate-900 dark:text-slate-100 font-bold">{Math.min(endIndex, filteredPayments.length)}</span> of <span className="text-slate-900 dark:text-slate-100 font-bold">{filteredPayments.length}</span> records
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                className="btn-secondary btn-sm"
+            <div className="flex items-center gap-1.5">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
               >
-                Prev
-              </button>
+                Previous
+              </motion.button>
               {getPageNumbers().map((page, index) => (
                 page === '...' ? (
-                  <span key={`ellipsis-${index}`} className="text-muted-foreground px-2">...</span>
+                  <span key={`ellipsis-${index}`} className="text-slate-400 px-1.5 text-[10px]">...</span>
                 ) : (
-                  <button
+                  <motion.button
                     key={page}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      currentPage === page ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary text-foreground hover:bg-border/80'
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      currentPage === page 
+                        ? 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                     onClick={() => setCurrentPage(page)}
-                  >
+                    >
                     {page}
-                  </button>
+                  </motion.button>
                 )
               ))}
-              <button
-                className="btn-secondary btn-sm"
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
               >
                 Next
-              </button>
+              </motion.button>
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
         </>
       ) : (
         <>
-          {/* STUDENT ACCOUNTS SECTION */}
+          {/* STUDENT ACCOUNTS SECTION - Premium Design */}
           {/* Dashboard Summary Cards */}
           {studentAccountsData?.summary && (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
+            >
               {[
-                { label: 'Total Students', value: studentAccountsData.summary.total_students, color: 'text-foreground', bgLine: 'rgb(var(--color-blue-primary))' },
-                { label: 'Fully Paid', value: studentAccountsData.summary.fully_paid, color: 'text-[rgb(var(--color-accent-primary))]', bgLine: 'rgb(var(--color-accent-primary))' },
-                { label: 'Partially Paid', value: studentAccountsData.summary.partially_paid, color: 'text-[rgb(var(--color-amber-primary))]', bgLine: 'rgb(var(--color-amber-primary))' },
-                { label: 'Unpaid', value: studentAccountsData.summary.unpaid, color: 'text-[rgb(var(--color-danger))]', bgLine: 'rgb(var(--color-danger))' },
-                { label: 'Outstanding', value: `₹${studentAccountsData.summary.total_outstanding.toFixed(2)}`, color: 'text-[rgb(var(--color-purple-primary))]', bgLine: 'rgb(var(--color-purple-primary))' }
+                { label: 'Total Students', value: studentAccountsData.summary.total_students, color: 'text-blue-600', bgGradient: 'from-blue-500 to-blue-600', icon: Users, bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
+                { label: 'Fully Paid', value: studentAccountsData.summary.fully_paid, color: 'text-[#84cc16]', bgGradient: 'from-[#84cc16] to-[#65a30d]', icon: CheckCircle, bgColor: 'bg-[#84cc16]/10 dark:bg-[#84cc16]/20' },
+                { label: 'Partially Paid', value: studentAccountsData.summary.partially_paid, color: 'text-amber-500', bgGradient: 'from-amber-500 to-amber-600', icon: TrendingUp, bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
+                { label: 'Unpaid', value: studentAccountsData.summary.unpaid, color: 'text-red-500', bgGradient: 'from-red-500 to-red-600', icon: AlertCircle, bgColor: 'bg-red-50 dark:bg-red-900/20' },
+                { label: 'Outstanding', value: `₹${studentAccountsData.summary.total_outstanding.toFixed(2)}`, color: 'text-purple-600', bgGradient: 'from-purple-500 to-purple-600', icon: DollarSign, bgColor: 'bg-purple-50 dark:bg-purple-900/20' }
               ].map((stat, i) => (
                 <motion.div 
                   key={i}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.1 }}
-                  whileHover={{ y: -4 }}
-                  className="card flex flex-col justify-center relative overflow-hidden"
-                  style={{ borderTopWidth: '4px', borderTopColor: stat.bgLine }}
+                  whileHover={{ y: -4, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden group cursor-default"
                 >
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br opacity-5 group-hover:opacity-10 transition-opacity" style={{ background: `linear-gradient(135deg, ${stat.bgGradient})` }} />
+                  <div className={`absolute top-3 right-3 w-8 h-8 rounded-lg ${stat.bgColor} flex items-center justify-center shadow-md`}>
+                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                  </div>
                   <div className="relative z-10">
-                    <div className={`text-3xl font-extrabold ${stat.color}`}>
+                    <div className={`text-2xl font-black ${stat.color} tracking-tight`}>
                       {stat.value}
                     </div>
-                    <div className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1.5">{stat.label}</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-1">{stat.label}</div>
                   </div>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
 
-          {/* Student Accounts Section */}
-          <div className="card mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border/50 pb-4">
-              <div>
-                <h3 className="text-xl font-bold text-foreground">Student Accounts</h3>
-                <p className="text-sm text-muted-foreground mt-1">View student fee status and payment history</p>
+          {/* Student Accounts Section - Premium Card */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 mt-4 overflow-hidden"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/30">
+                  <Users className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Student Accounts</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">View student fee status and payment history</p>
+                </div>
               </div>
               
-              {/* Filter Toggle */}
-              <div className="flex gap-2 bg-surface rounded-lg p-1 border border-border">
+              {/* Premium Filter Toggle */}
+              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl p-1 border border-slate-200 dark:border-slate-700/50 shadow-sm">
                 <button
                   onClick={() => setStudentAccountsFilter('all')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${
                     studentAccountsFilter === 'all'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                   }`}
                 >
                   All ({studentAccountsData?.students?.length || 0})
                 </button>
                 <button
                   onClick={() => setStudentAccountsFilter('paid')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${
                     studentAccountsFilter === 'paid'
-                      ? 'bg-emerald-500 text-white'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                   }`}
                 >
                   Paid ({studentAccountsData?.students?.filter(s => s.fee_status === 'paid').length || 0})
                 </button>
                 <button
                   onClick={() => setStudentAccountsFilter('unpaid')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${
                     studentAccountsFilter === 'unpaid'
-                      ? 'bg-amber-500 text-white'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                   }`}
                 >
                   Unpaid ({studentAccountsData?.students?.filter(s => s.fee_status === 'unpaid').length || 0})
@@ -1027,47 +1236,56 @@ export default function AccountsPanel() {
               </div>
             </div>
 
-            {/* Search and Sort */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Search by student name, parent name, or phone..."
-                value={studentAccountsSearch}
-                onChange={(e) => setStudentAccountsSearch(e.target.value)}
-                className="input-field flex-1 max-w-md !py-2 !text-xs"
-              />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="input-field w-full sm:w-48 !py-2 !text-xs"
-              >
-                <option value="name">Sort by Name</option>
-                <option value="highest_due">Highest Due</option>
-                <option value="highest_paid">Highest Paid</option>
-                <option value="recently_paid">Recently Paid</option>
-              </select>
+            {/* Search and Sort - Premium Design */}
+            <div className="flex flex-col sm:flex-row gap-3 p-4 pb-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by student name, parent name, or phone..."
+                  value={studentAccountsSearch}
+                  onChange={(e) => setStudentAccountsSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                />
+              </div>
+              <div className="relative w-full sm:w-40">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full pl-4 pr-8 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
+                >
+                  <option value="name">Sort by Name</option>
+                  <option value="highest_due">Highest Due</option>
+                  <option value="highest_paid">Highest Paid</option>
+                  <option value="recently_paid">Recently Paid</option>
+                </select>
+                <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
 
-            {/* Student Accounts Table */}
+            {/* Student Accounts Table - Premium Design */}
             {loadingStudentAccounts ? (
-              <Loader message="Loading student accounts..." />
+              <div className="p-8 flex items-center justify-center">
+                <Loader message="Loading student accounts..." />
+              </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-                <table className="w-full text-sm text-left border-collapse whitespace-nowrap">
-                  <thead className="bg-secondary text-muted-foreground text-xs uppercase font-bold tracking-wider">
-                    <tr>
-                      <th className="px-5 py-4 border-b border-border">Student</th>
-                      <th className="px-5 py-4 border-b border-border">Parent</th>
-                      <th className="px-5 py-4 border-b border-border">Progress</th>
-                      <th className="px-5 py-4 border-b border-border">Amount</th>
-                      <th className="px-5 py-4 border-b border-border">Paid</th>
-                      <th className="px-5 py-4 border-b border-border">Due</th>
-                      <th className="px-5 py-4 border-b border-border">Last Paid</th>
-                      <th className="px-5 py-4 border-b border-border">Status</th>
-                      <th className="px-5 py-4 border-b border-border">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-card divide-y divide-border">
+              <div className="overflow-x-auto">
+                <div className="min-w-full">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Student</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Parent</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Progress</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Amount</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Paid</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Due</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Last Paid</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Status</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                     {(() => {
                       console.log('[StudentAccounts Render] studentAccountsData:', studentAccountsData);
                       console.log('[StudentAccounts Render] studentAccountsData.students:', studentAccountsData?.students);
@@ -1103,8 +1321,13 @@ export default function AccountsPanel() {
                       if (sortedStudents.length === 0) {
                         return (
                           <tr>
-                            <td colSpan="9" className="px-5 py-8 text-center text-muted-foreground font-medium italic">
-                              No students found
+                            <td colSpan="9" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                  <Search className="w-6 h-6 text-slate-400" />
+                                </div>
+                                <p className="text-xs">No students found</p>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1127,100 +1350,116 @@ export default function AccountsPanel() {
                             <motion.tr
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: index * 0.02 }}
-                              className={`hover:bg-secondary/40 transition-colors ${isOverdue ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
+                              transition={{ delay: index * 0.03 }}
+                              className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
                             >
-                              <td className="px-5 py-4">
-                                <div className="font-bold text-foreground">
+                              <td className="px-4 py-3">
+                                <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">
                                   {student.name || '—'}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400">
                                   {student.phone || '—'}
                                 </div>
                               </td>
-                              <td className="px-5 py-4 text-sm text-foreground">
+                              <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-300">
                                 {student.parent_name || '—'}
                               </td>
-                              <td className="px-5 py-4">
+                              <td className="px-4 py-3">
                                 <div className="w-full">
-                                  <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-muted-foreground">{paymentProgress.toFixed(0)}%</span>
+                                  <div className="flex items-center justify-between text-[10px] mb-1">
+                                    <span className="text-slate-600 dark:text-slate-400 font-bold">{paymentProgress.toFixed(0)}%</span>
                                   </div>
-                                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                                  <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                                     <motion.div
                                       initial={{ width: 0 }}
                                       animate={{ width: `${paymentProgress}%` }}
                                       transition={{ duration: 0.5, delay: index * 0.05 }}
-                                      className={`h-full ${paymentProgress === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                      className={`h-full rounded-full ${paymentProgress === 100 ? 'bg-gradient-to-r from-[#84cc16] to-[#65a30d]' : 'bg-gradient-to-r from-amber-500 to-amber-600'}`}
                                     />
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-5 py-4 text-sm font-bold text-foreground">
+                              <td className="px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100">
                                 ₹{parseFloat(totalAmount || 0).toFixed(2)}
                               </td>
-                              <td className="px-5 py-4 text-sm text-emerald-600 font-bold">
+                              <td className="px-4 py-3 text-xs font-bold text-[#84cc16]">
                                 ₹{parseFloat(paidAmount || 0).toFixed(2)}
                               </td>
-                              <td className="px-5 py-4 text-sm text-amber-600 font-bold">
+                              <td className="px-4 py-3 text-xs font-bold text-amber-500">
                                 ₹{parseFloat(dueAmount || 0).toFixed(2)}
                               </td>
-                              <td className="px-5 py-4 text-sm text-muted-foreground">
+                              <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
                                 {formatDate(lastPaidDate)}
                               </td>
-                              <td className="px-5 py-4">
+                              <td className="px-4 py-3">
                                 <span
-                                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
                                     feeStatus === 'paid'
-                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
-                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                                   }`}
                                 >
+                                  {feeStatus === 'paid' ? <CheckCircle className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
                                   {feeStatus}
                                 </span>
                               </td>
-                              <td className="px-5 py-4 space-x-2">
-                                <button
+                              <td className="px-4 py-3 space-x-1.5">
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
                                   type="button"
                                   onClick={() => quickCollectFee(student)}
-                                  className="btn btn-primary btn-sm inline-flex"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all"
                                 >
-                                  Quick Collect
-                                </button>
-                                <button
+                                  <DollarSign className="w-2.5 h-2.5" /> Quick Collect
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
                                   type="button"
                                   onClick={() => toggleStudentExpansion(student.student_id)}
-                                  className="btn btn-secondary btn-sm inline-flex"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                                 >
+                                  {isExpanded ? <XCircle className="w-2.5 h-2.5" /> : <Calendar className="w-2.5 h-2.5" />}
                                   {isExpanded ? 'Hide' : 'History'}
-                                </button>
+                                </motion.button>
                               </td>
                             </motion.tr>
                             {isExpanded && (
-                              <tr>
-                                <td colSpan="9" className="px-5 py-4 bg-secondary/30">
+                              <motion.tr
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                              >
+                                <td colSpan="9" className="px-4 py-4 bg-slate-50 dark:bg-slate-900/30">
                                   <div className="space-y-2">
-                                    <h4 className="font-bold text-foreground text-sm">Payment History</h4>
+                                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                                      <Calendar className="w-3 h-3 text-[#84cc16]" /> Payment History
+                                    </h4>
                                     {student.receipts && student.receipts.length > 0 ? (
-                                      <div className="space-y-2">
+                                      <div className="space-y-1.5">
                                         {student.receipts.map((receipt, idx) => (
-                                          <div key={idx} className="flex items-center justify-between text-xs bg-card p-2 rounded border border-border">
-                                            <div>
-                                              <span className="font-semibold">₹{parseFloat(receipt.amount).toFixed(2)}</span>
-                                              <span className="text-muted-foreground ml-2">{formatDate(receipt.payment_date)}</span>
+                                          <div key={idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
+                                                <DollarSign className="w-3 h-3 text-[#84cc16]" />
+                                              </div>
+                                              <div>
+                                                <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
+                                                <span className="text-slate-500 dark:text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
+                                              </div>
                                             </div>
-                                            <div className="text-muted-foreground">
+                                            <div className="text-slate-600 dark:text-slate-400 font-medium">
                                               {receipt.method || '—'}
                                             </div>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
-                                      <p className="text-muted-foreground text-xs">No payment history available</p>
+                                      <p className="text-slate-500 dark:text-slate-400 text-[10px] italic">No payment history available</p>
                                     )}
                                   </div>
                                 </td>
-                              </tr>
+                              </motion.tr>
                             )}
                           </React.Fragment>
                         );
@@ -1228,9 +1467,10 @@ export default function AccountsPanel() {
                     })()}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
-          </div>
+          </motion.div>
         </>
       )}
 

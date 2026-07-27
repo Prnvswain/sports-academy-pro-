@@ -133,15 +133,20 @@ function ParentLayoutShell() {
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`bg-[#0b1121] border-r border-slate-800/60 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-[4px_0_24px_rgba(0,0,0,0.15)] ${sidebarOpen ? '!translate-x-0' : ''}`}
+        whileHover={{ scale: 1.0005 }}
+        className={`bg-[#0b1121]/95 backdrop-blur-xl border-r border-slate-800/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
-        <div className="flex h-16 items-center justify-between px-4 shrink-0 border-b border-slate-800/60">
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.25 }}
+          className="flex h-16 items-center justify-between px-4 shrink-0 border-b border-slate-800/50 shadow-lg shadow-black/10"
+        >
           <Link
             to="/parent/dashboard"
-            className="flex items-center gap-3 no-underline outline-none"
+            className="flex items-center gap-3 no-underline outline-none transition-transform duration-250 hover:scale-105"
             onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
           >
-            <span className="bg-[#b2f04d] text-[#0b1121] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter">
+            <span className="bg-[#b2f04d] text-[#0b1121] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-lg shadow-lime-500/30">
               {PRODUCT_LOGO}
             </span>
             <motion.span
@@ -154,14 +159,16 @@ function ParentLayoutShell() {
             </motion.span>
           </Link>
           
-          <button
+          <motion.button
             type="button"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-[#b2f04d] lg:flex shrink-0 transition-colors"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-800/80 hover:text-[#b2f04d] lg:flex shrink-0 transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
             onClick={() => setSidebarCollapsed((c) => !c)}
+            whileHover={{ scale: 1.1, y: -1 }}
+            whileTap={{ scale: 0.95 }}
           >
             {sidebarCollapsed ? <ChevronRight size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} strokeWidth={2.5} />}
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-2 custom-scrollbar">
           {PARENT_NAV_ITEMS.map((item) => {
@@ -174,19 +181,20 @@ function ParentLayoutShell() {
                 title={sidebarCollapsed ? item.label : undefined}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
-                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-200 rounded-xl group outline-none font-bold ${
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
                     sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      ? 'bg-[#b2f04d] text-[#0b1121]' 
-                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                      ? 'bg-[#b2f04d] text-[#0b1121] shadow-lg shadow-lime-500/30 scale-105' 
+                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
                     <motion.span 
-                      whileHover={{ scale: 1.1 }}
+                      whileHover={{ scale: 1.15, rotate: 5 }}
+                      transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
                       className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
                     >
                       <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
@@ -206,26 +214,32 @@ function ParentLayoutShell() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-800/60 shrink-0 bg-[#080d1a]">
+        <motion.div 
+          whileHover={{ scale: 1.01 }}
+          transition={{ duration: 0.25 }}
+          className="p-4 border-t border-slate-800/50 shrink-0 bg-[#080d1a]/80 backdrop-blur-md shadow-lg shadow-black/10"
+        >
           {!sidebarCollapsed && (
             <div className="text-xs text-slate-400 mb-3 px-1 truncate font-medium">
               Parent: <br/><span className="text-white font-extrabold text-[15px] block mt-0.5">{user?.name || 'Loading...'}</span>
             </div>
           )}
-          <button
+          <motion.button
             type="button"
-            className={`w-full flex justify-center items-center gap-2 rounded-xl text-sm py-2.5 font-bold transition-all ${
+            className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
               sidebarCollapsed 
-              ? 'text-slate-500 hover:bg-red-500/10 hover:text-red-400' 
-              : 'bg-white/5 text-slate-300 border border-slate-700/50 hover:bg-red-500 hover:border-red-500 hover:text-white'
+              ? 'text-slate-500 hover:bg-red-500/10 hover:text-red-400 hover:shadow-lg hover:shadow-black/20'
+              : 'bg-white/5 text-slate-300 border border-slate-700/50 hover:bg-red-500 hover:border-red-500 hover:text-white hover:shadow-lg hover:shadow-black/20'
             }`}
             onClick={handleLogout}
+            whileHover={{ scale: 1.05, y: -1 }}
+            whileTap={{ scale: 0.98 }}
             title={sidebarCollapsed ? "Sign Out" : undefined}
           >
             <LogOut size={16} strokeWidth={2.5} />
             {!sidebarCollapsed && <span>Sign Out</span>}
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </motion.aside>
 
       <AnimatePresence>
@@ -242,7 +256,11 @@ function ParentLayoutShell() {
         )}
       </AnimatePresence>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto relative bg-slate-50">
+      <motion.div 
+        whileHover={{ scale: 1.002 }}
+        transition={{ duration: 0.3 }}
+        className="flex min-w-0 flex-1 flex-col overflow-y-auto relative bg-slate-50"
+      >
         
         {/* Top Header - Dark Navy to match sidebar */}
         {/* <header className="bg-[#0b1121] border-b border-slate-800/60 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-sm">
@@ -271,32 +289,54 @@ function ParentLayoutShell() {
           </div>
         </header> */}
         {/* Yahan bg-[#84cc16] lagaya gaya hai, aur text ko dark (slate-900) kiya gaya hai taaki clear dikhe */}
-<header className="bg-[#84cc16] border-b border-lime-600/30 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-sm">
-  <div className="flex items-center gap-4">
-    <button
-      type="button"
-      className="flex h-10 w-10 items-center justify-center rounded-xl border border-lime-700/30 lg:hidden text-slate-800 hover:bg-black/10 bg-transparent transition-colors"
-      onClick={() => setSidebarOpen(true)}
-    >
-      <Menu size={20} strokeWidth={2.5} />
-    </button>
-    
-    <div className="flex flex-col justify-center">
-      <span className="text-[10px] font-bold tracking-widest text-slate-800/80 uppercase leading-none mb-1">
-        Parent Portal
-      </span>
-      {/* Name text slate-900 (dark) kar diya gaya hai */}
-      <span className="text-lg font-black tracking-tight text-slate-900 uppercase leading-none">
-        {user?.name || 'Loading...'}
-      </span>
-    </div>
-  </div>
-  
-  <div className="flex items-center gap-4">
-    <NotificationBell userRole="PARENT" />
-    <ThemeToggle />
-  </div>
-</header>
+        <motion.header 
+          whileHover={{ y: -1, scale: 1.002 }}
+          transition={{ duration: 0.3 }}
+          className="bg-[#84cc16]/95 backdrop-blur-xl border-b border-lime-600/30 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-xl shadow-black/20"
+        >
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center gap-4"
+          >
+            <motion.button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-lime-700/30 lg:hidden text-slate-800 hover:bg-black/10 bg-transparent transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
+              onClick={() => setSidebarOpen(true)}
+              whileHover={{ scale: 1.1, y: -1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Menu size={20} strokeWidth={2.5} />
+            </motion.button>
+            
+            <div className="flex flex-col justify-center">
+              <span className="text-[10px] font-bold tracking-widest text-slate-800/80 uppercase leading-none mb-1">
+                Parent Portal
+              </span>
+              {/* Name text slate-900 (dark) kar diya gaya hai */}
+              <span className="text-lg font-black tracking-tight text-slate-900 uppercase leading-none">
+                {user?.name || 'Loading...'}
+              </span>
+            </div>
+          </motion.div>
+          
+          <div className="flex items-center gap-4">
+            <motion.div 
+              whileHover={{ scale: 1.1, y: -2 }}
+              transition={{ duration: 0.25 }}
+              className="flex items-center justify-center bg-black/10 rounded-full h-10 w-10 text-slate-900 hover:bg-black/20 transition-all duration-250 shadow-lg shadow-black/20"
+            >
+              <NotificationBell userRole="PARENT" />
+            </motion.div>
+            <motion.div 
+              whileHover={{ scale: 1.1, y: -2 }}
+              transition={{ duration: 0.25 }}
+              className="flex items-center justify-center bg-black/10 rounded-full h-10 w-10 text-slate-900 hover:bg-black/20 transition-all duration-250 shadow-lg shadow-black/20"
+            >
+              <ThemeToggle />
+            </motion.div>
+          </div>
+        </motion.header>
 
         {/* 🌟 YAHAN LIGHT GRADIENT WAPAS LAGA DIYA GAYA HAI 🌟 */}
         <main className="flex-1 min-w-0 overflow-x-hidden relative flex flex-col bg-gradient-to-br from-[#effbe3] via-[#f8fafc] to-[#d8f4bc]">
@@ -305,12 +345,12 @@ function ParentLayoutShell() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full h-full min-w-0 flex flex-col"
+            className="w-full h-full min-w-0 flex flex-col rounded-2xl shadow-xl shadow-black/5 bg-white/50 backdrop-blur-sm p-6 lg:p-8 m-5 lg:m-8"
           >
             <Outlet />
           </motion.div>
         </main>
-      </div>
+      </motion.div>
     </div>
   );
 }

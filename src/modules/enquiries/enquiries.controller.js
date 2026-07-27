@@ -125,7 +125,7 @@ export const deleteEnquiry = async (req, res, next) => {
  */
 export const scheduleFollowUp = async (req, res, next) => {
   try {
-    const { followUpDate } = req.body;
+    const { followUpDate, note, status, staffName } = req.body;
     if (!followUpDate) {
       const error = new Error('followUpDate is required');
       error.statusCode = 400;
@@ -134,7 +134,12 @@ export const scheduleFollowUp = async (req, res, next) => {
     const enquiry = await enquiriesService.scheduleFollowUp(
       req.user.academy_id,
       req.params.id,
-      followUpDate
+      followUpDate,
+      {
+        note,
+        status: status || 'CONTACTED',
+        staffName: staffName || req.user.name || 'Admin'
+      }
     );
     res.json(successResponse('Follow-up scheduled successfully', enquiry));
   } catch (err) {
@@ -168,7 +173,8 @@ export const convertToStudent = async (req, res, next) => {
   try {
     const result = await enquiriesService.convertToStudent(
       req.user.academy_id,
-      req.params.id
+      req.params.id,
+      req.body
     );
     res.json(successResponse('Enquiry converted to student successfully', result));
   } catch (err) {

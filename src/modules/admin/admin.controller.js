@@ -230,7 +230,10 @@ export const getStudentsByBatch = async (req, res, next) => {
 
 export const createStudent = async (req, res, next) => {
   try {
-    const student = await adminService.createStudent(req.user.academy_id, req.body);
+    const student = await adminService.createStudent(req.user.academy_id, {
+      ...req.body,
+      converted_by_name: req.user.name || req.user.email || 'Admin',
+    });
     res.status(201).json(successResponse('Student created successfully', student));
   } catch (err) {
     logger.error('Failed to create student', err);

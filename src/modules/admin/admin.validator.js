@@ -118,6 +118,7 @@ export const validate = (method) => {
           })
           .withMessage('Invalid batch ID'),
         body('duration_plan_id').optional().isInt().withMessage('Invalid duration plan ID'),
+        body('enquiry_id').optional({ nullable: true, checkFalsy: true }).isInt().withMessage('Invalid enquiry ID'),
         body('registration_fee').optional().isFloat({ min: 0 }).withMessage('Registration fee must be a valid number'),
         body('additional_charges').optional().isFloat({ min: 0 }).withMessage('Additional charges must be a valid number'),
         body('discount').optional().isFloat({ min: 0 }).withMessage('Discount must be a valid number'),

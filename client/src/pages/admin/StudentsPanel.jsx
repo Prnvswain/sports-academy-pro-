@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -489,20 +490,44 @@ const emptyForm = {
 
 
 export default function StudentsPanel() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [convertEnquiryId, setConvertEnquiryId] = useState(null);
+  const [convertEnquiry, setConvertEnquiry] = useState(null);
+  const [showEnquiryDetails, setShowEnquiryDetails] = useState(true);
 
   const { form, setForm, updateField, clearDraft, draftSavedAt } = useFormDraft(
-
     'sams_draft_student_form',
-
     emptyForm,
-
   );
+
+  // Restore conversion state from local storage draft if available on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sams_draft_student_form');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.convertEnquiry) {
+          setConvertEnquiry(parsed.convertEnquiry);
+          setConvertEnquiryId(parsed.enquiry_id || parsed.convertEnquiry.id || parsed.convertEnquiry.enquiry_id);
+          if (parsed.profile_photo) {
+            setPhotoPreview(parsed.profile_photo);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load convertEnquiry from draft:', e);
+    }
+  }, []);
 
 
 
   // Field-level validation errors
 
   const [fieldErrors, setFieldErrors] = useState({});
+
+  // Form submission state to prevent duplicate submissions
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
 
@@ -818,6 +843,101 @@ export default function StudentsPanel() {
 
   }, [loadData]);
 
+  useEffect(() => {
+    if (location.state?.convertEnquiry) {
+      const enquiry = location.state.convertEnquiry;
+      setConvertEnquiry(enquiry);
+      setConvertEnquiryId(enquiry.id || enquiry.enquiry_id);
+      
+      const parts = (enquiry.student_name || '').trim().split(/\s+/);
+      let firstName = '';
+      let middleName = '';
+      let lastName = '';
+      if (parts.length === 1) {
+        firstName = parts[0];
+      } else if (parts.length === 2) {
+        firstName = parts[0];
+        lastName = parts[1];
+      } else if (parts.length >= 3) {
+        firstName = parts[0];
+        middleName = parts.slice(1, parts.length - 1).join(' ');
+        lastName = parts[parts.length - 1];
+      }
+
+      let dobVal = '';
+      if (enquiry.age) {
+        const currentYear = new Date().getFullYear();
+        const birthYear = currentYear - parseInt(enquiry.age, 10);
+        dobVal = `${birthYear}-01-01`;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        firstName,
+        middleName,
+        lastName,
+        phone: enquiry.phone || '',
+        parent_name: enquiry.parent_name || '',
+        parent_email: enquiry.email || '',
+        dob: dobVal,
+        gender: normalizeGender(enquiry.gender),
+        enquiry_id: enquiry.id || enquiry.enquiry_id,
+        convertEnquiry: enquiry,
+      }));
+
+      // Automatically carry over photo if available
+      if (enquiry.profile_photo) {
+        setPhotoPreview(enquiry.profile_photo);
+      }
+
+      let matchedSportIds = [];
+      if (enquiry.interested_sports) {
+        let sportsList = [];
+        try {
+          if (typeof enquiry.interested_sports === 'string') {
+            sportsList = JSON.parse(enquiry.interested_sports);
+          } else if (Array.isArray(enquiry.interested_sports)) {
+            sportsList = enquiry.interested_sports;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        if (sportsList.length > 0) {
+          matchedSportIds = sports
+            .filter(s => sportsList.includes(s.name))
+            .map(s => s.id || s.sport_id);
+        }
+      } else if (enquiry.sport_interested) {
+        matchedSportIds = sports
+          .filter(s => s.name === enquiry.sport_interested)
+          .map(s => s.id || s.sport_id);
+      }
+      setSelectedSports(matchedSportIds);
+
+      setShowAddStudentModal(true);
+
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, sports, setForm, navigate]);
+
+  // Auto-open student profile when navigated from Enquiry conversion
+  useEffect(() => {
+    const targetStudentId = location.state?.openStudentId;
+    if (!targetStudentId || students.length === 0) return;
+
+    const student = students.find(
+      (s) => s.student_id === targetStudentId || String(s.student_id) === String(targetStudentId)
+    );
+
+    if (student) {
+      handleStudentClick(student);
+      // Clear the state so this doesn't re-fire on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // handleStudentClick is defined later in the file; students list is the key dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.openStudentId, students]);
+
 
 
   // Fetch batches for filter when sport is selected
@@ -1119,6 +1239,12 @@ export default function StudentsPanel() {
 
     event.preventDefault();
 
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
     setMessage({ text: '', type: '' });
 
     setFieldErrors({});
@@ -1178,23 +1304,16 @@ export default function StudentsPanel() {
 
 
       // Handle profile photo - convert to base64 if file is selected
-
       let profilePhotoData = null;
-
       if (form.profile_photo instanceof File) {
-
         profilePhotoData = await new Promise((resolve, reject) => {
-
           const reader = new FileReader();
-
           reader.onload = () => resolve(reader.result);
-
           reader.onerror = reject;
-
           reader.readAsDataURL(form.profile_photo);
-
         });
-
+      } else if (typeof form.profile_photo === 'string') {
+        profilePhotoData = form.profile_photo;
       }
 
 
@@ -1257,6 +1376,8 @@ export default function StudentsPanel() {
 
         joining_date: form.joining_date,
 
+        enquiry_id: convertEnquiryId || undefined,
+
       };
 
 
@@ -1280,18 +1401,22 @@ export default function StudentsPanel() {
 
 
       setMessage({ text: result.message, type: 'success' });
-
       clearDraft();
-
       setSelectedSports([]);
-
       setFieldErrors({});
-
       setShowAddStudentModal(false);
-
-      loadData();
+      setConvertEnquiryId(null);
+      setConvertEnquiry(null);
+      setIsSubmitting(false);
+      
+      await loadData();
+      if (result.data) {
+        handleStudentClick(result.data);
+      }
 
     } catch (error) {
+
+      setIsSubmitting(false);
 
       const errorPayload = error.payload || error.data || error.response?.data;
 
@@ -1427,6 +1552,13 @@ export default function StudentsPanel() {
 
   const handleEditStudent = async (student) => {
 
+    // Ensure we have a valid student ID
+    const studentId = student.student_id || student.id;
+    if (!studentId) {
+      setMessage({ text: 'Cannot edit student: Missing student ID', type: 'error' });
+      return;
+    }
+
     const batchIds = student.enrollments?.map(e => e.batch_id).filter(Boolean) || [];
 
     const firstEnrollment = student.enrollments?.[0] || {};
@@ -1475,7 +1607,7 @@ export default function StudentsPanel() {
 
     setEditStudentForm({
 
-      student_id: student.student_id,
+      student_id: student.student_id || student.id,
 
       name: student.name,
 
@@ -2002,9 +2134,8 @@ export default function StudentsPanel() {
       setStudentDetails(detailsRes.data);
 
       // Initialize edit form with student data
-
       setEditStudentForm({
-
+        student_id: detailsRes.data.student.student_id || detailsRes.data.student.id || student.student_id || student.id,
         name: detailsRes.data.student.name,
 
         phone: detailsRes.data.student.phone || '',
@@ -2097,58 +2228,35 @@ export default function StudentsPanel() {
 
 
 
-      const result = await adminPut(`/admin/students/${selectedStudent.student_id}`, {
-
+      const studentId = editStudentForm.student_id || selectedStudent?.student_id || selectedStudent?.id;
+      const result = await adminPut(`/admin/students/${studentId}`, {
         name: editStudentForm.name,
-
         phone: editStudentForm.phone,
-
         dob: editStudentForm.dob,
-
         age: calculateAgeFromDOB(editStudentForm.dob),
-
         gender: editStudentForm.gender,
-
         blood_group: editStudentForm.blood_group,
-
         height: editStudentForm.height ? parseFloat(editStudentForm.height) : null,
-
         weight: editStudentForm.weight ? parseFloat(editStudentForm.weight) : null,
-
         parent_name: editStudentForm.parent_name,
-
         parent_email: editStudentForm.parent_email,
-
         parent_phone: editStudentForm.parent_phone,
-
         fees_status: editStudentForm.fees_status,
-
         profile_photo: profilePhotoData,
-
         sport_ids: editSelectedSports,
-
         duration_plan_id: editStudentForm.duration_plan_id
-
           ? parseInt(editStudentForm.duration_plan_id, 10)
-
           : undefined,
-
         batch_id: editStudentForm.batch_id ? parseInt(editStudentForm.batch_id, 10) : undefined,
-
       });
 
       setMessage({ text: result.message || 'Student updated successfully', type: 'success' });
-
       setIsEditingStudent(false);
-
       setPhotoPreview(null);
 
       // Reload student details
-
-      const detailsRes = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
-
+      const detailsRes = await adminGet(`/admin/students/${studentId}/details`);
       setStudentDetails(detailsRes.data);
-
       loadData();
 
     } catch (error) {
@@ -4221,103 +4329,146 @@ export default function StudentsPanel() {
             className="text-muted hover:text-foreground"
 
             onClick={() => {
-
               setShowAddStudentModal(false);
-
               setSelectedSports([]);
-
               setSportSearchQuery('');
-
+              setConvertEnquiryId(null);
+              setConvertEnquiry(null);
             }}
-
           >
-
             ✕
-
           </button>
-
         </div>
-
       </div>
-
       
-
       <form onSubmit={handleSubmit}>
+        {convertEnquiry && (
+          <div className="mb-6 rounded-xl border border-purple-100 bg-purple-50/40 p-4 dark:border-purple-900/40 dark:bg-purple-950/10">
+            <div className="flex items-center justify-between pb-3 border-b border-purple-100 dark:border-purple-900/30">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📋</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">Review Original Enquiry Details</span>
+                <span className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded font-black uppercase tracking-wide">
+                  Enquiry ID #{convertEnquiryId}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEnquiryDetails(!showEnquiryDetails)}
+                className="text-xs font-semibold text-purple-700 dark:text-purple-400 hover:underline"
+              >
+                {showEnquiryDetails ? 'Collapse ✕' : 'Expand ＋'}
+              </button>
+            </div>
+            {showEnquiryDetails && (
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
+                <div>
+                  <span className="block text-muted font-semibold">Student Name:</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{convertEnquiry.student_name}</span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Phone:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">{convertEnquiry.phone}</span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Email:</span>
+                  <span className="text-slate-700 dark:text-slate-300 truncate block" title={convertEnquiry.email}>{convertEnquiry.email || '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Parent Name:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{convertEnquiry.parent_name || '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Gender:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{convertEnquiry.gender || '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Age:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{convertEnquiry.age ? `${convertEnquiry.age} yrs` : '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Interested Sport(s):</span>
+                  <span className="text-slate-700 dark:text-slate-300 truncate block">
+                    {(() => {
+                      try {
+                        const sportsList = typeof convertEnquiry.interested_sports === 'string'
+                          ? JSON.parse(convertEnquiry.interested_sports)
+                          : convertEnquiry.interested_sports;
+                        return Array.isArray(sportsList) && sportsList.length > 0
+                          ? sportsList.join(', ')
+                          : convertEnquiry.sport_interested || '—';
+                      } catch {
+                        return convertEnquiry.sport_interested || '—';
+                      }
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-muted font-semibold">Enquiry Source:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{convertEnquiry.enquiry_source || '—'}</span>
+                </div>
+                {convertEnquiry.notes && (
+                  <div className="col-span-2 sm:col-span-4 bg-white/50 dark:bg-slate-900/50 rounded-lg p-2 border border-purple-100/50 dark:border-purple-900/20">
+                    <span className="block text-muted font-semibold mb-0.5">Enquiry Notes:</span>
+                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed italic">{convertEnquiry.notes.split('---')[0].trim()}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Name Fields */}
 
         <div className="grid gap-4 md:grid-cols-3">
 
           <div>
-
-            <label className="label" htmlFor="firstName">
-
-              First Name
-
+            <label className="label flex items-center justify-between" htmlFor="firstName">
+              <span>First Name</span>
+              {convertEnquiry && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+                  Imported
+                </span>
+              )}
             </label>
-
             <input
-
               id="firstName"
-
               type="text"
-
               className={`input-field ${fieldErrors.firstName ? 'border-red-500' : ''}`}
-
               value={form.firstName}
-
               onChange={(e) => {
-
                 setForm({ ...form, firstName: e.target.value });
-
                 clearFieldError('firstName');
-
               }}
-
               onBlur={() => validateField('firstName', form.firstName)}
-
               required
-
             />
-
             {fieldErrors.firstName && (
-
               <p className="mt-1 text-xs text-red-500">{fieldErrors.firstName}</p>
-
             )}
-
           </div>
 
           <div>
-
             <label className="label" htmlFor="middleName">
-
               Middle Name (Optional)
-
             </label>
-
             <input
-
               id="middleName"
-
               type="text"
-
               className="input-field"
-
               value={form.middleName}
-
               onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-
             />
-
           </div>
 
           <div>
-
-            <label className="label" htmlFor="lastName">
-
-              Last Name
-
+            <label className="label flex items-center justify-between" htmlFor="lastName">
+              <span>Last Name</span>
+              {convertEnquiry && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+                  Imported
+                </span>
+              )}
             </label>
 
             <input
@@ -4535,11 +4686,13 @@ export default function StudentsPanel() {
         <div className="grid gap-4 sm:grid-cols-3 mt-4">
 
           <div>
-
-            <label className="label" htmlFor="studentGender">
-
-              Gender
-
+            <label className="label flex items-center justify-between" htmlFor="studentGender">
+              <span>Gender</span>
+              {convertEnquiry && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+                  Imported
+                </span>
+              )}
             </label>
 
             <select
@@ -4641,11 +4794,13 @@ export default function StudentsPanel() {
         <div className="grid gap-4 sm:grid-cols-2 mt-4">
 
           <div>
-
-            <label className="label" htmlFor="studentPhone">
-
-              Phone
-
+            <label className="label flex items-center justify-between" htmlFor="studentPhone">
+              <span>Phone</span>
+              {convertEnquiry && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+                  Imported
+                </span>
+              )}
             </label>
 
             <input
@@ -4755,35 +4910,31 @@ export default function StudentsPanel() {
         {/* Parent Fields */}
 
         <div className="mb-4">
-
-          <label className="label" htmlFor="parentName">
-
-            Parent Name
-
+          <label className="label flex items-center justify-between" htmlFor="parentName">
+            <span>Parent Name</span>
+            {convertEnquiry && (
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+                Imported
+              </span>
+            )}
           </label>
-
           <input
-
             id="parentName"
-
             name="parent_name"
-
             className="input-field"
-
             value={form.parent_name}
-
             onChange={updateField}
-
           />
-
         </div>
 
         <div className="mb-4">
-
-          <label className="label" htmlFor="parentEmail">
-
-            Parent Email
-
+          <label className="label flex items-center justify-between" htmlFor="parentEmail">
+            <span>Parent Email</span>
+            {convertEnquiry && (
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+                Imported
+              </span>
+            )}
           </label>
 
           <input
@@ -5379,41 +5530,58 @@ export default function StudentsPanel() {
         {/* Footer Actions */}
 
         <div className="mt-6 flex justify-end gap-3 border-t pt-4">
-
           <button
-
             type="button"
-
             className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
-
             onClick={() => {
-
               setShowAddStudentModal(false);
-
               setSelectedSports([]);
-
               setSportSearchQuery('');
-
+              setConvertEnquiryId(null);
+              setConvertEnquiry(null);
             }}
-
           >
-
             Cancel
-
+          </button>
+          
+          <button
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-300 rounded-md hover:bg-amber-100 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/50"
+            onClick={() => {
+              const draftData = {
+                ...form,
+                convertEnquiry,
+                enquiry_id: convertEnquiryId,
+                profile_photo: photoPreview
+              };
+              localStorage.setItem('sams_draft_student_form', JSON.stringify(draftData));
+              setMessage({ text: 'Student profile draft saved successfully!', type: 'success' });
+              
+              setShowAddStudentModal(false);
+              setSelectedSports([]);
+              setSportSearchQuery('');
+            }}
+          >
+            💾 Save as Draft
           </button>
 
           <button
-
             type="submit"
-
-            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm"
-
+            disabled={isSubmitting}
+            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-
-            Save Student
-
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+              </>
+            ) : (
+              'Save Student'
+            )}
           </button>
-
         </div>
 
       </form>
@@ -5449,11 +5617,11 @@ export default function StudentsPanel() {
                 className="btn-danger flex-1"
 
                 onClick={() => {
-
                   clearDraft();
-
+                  setConvertEnquiry(null);
+                  setConvertEnquiryId(null);
+                  setPhotoPreview(null);
                   setShowClearConfirm(false);
-
                 }}
 
               >

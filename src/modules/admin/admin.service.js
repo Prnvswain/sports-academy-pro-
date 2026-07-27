@@ -2929,6 +2929,86 @@ export const createStudent = async (academy_id, data) => {
 
 
 
+  // Link enquiry if enquiry_id is provided
+
+  if (data.enquiry_id) {
+
+    const enquiryId = parseInt(data.enquiry_id, 10);
+
+    try {
+
+      const enquiry = await prisma.enquiry.findFirst({
+
+        where: {
+
+          enquiry_id: enquiryId,
+
+          academy_id: academyId,
+
+        },
+
+      });
+
+
+
+      if (enquiry && enquiry.status !== 'CONVERTED') {
+        const convertedAt = new Date();
+        const auditFooter = [
+          '',
+          '---',
+          `[CONVERTED] Student ID: ${student.student_id}`,
+          `Converted At: ${convertedAt.toISOString()}`,
+          data.converted_by_name ? `Converted By: ${data.converted_by_name}` : null
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        const updatedNotes = enquiry.notes ? `${enquiry.notes}${auditFooter}` : auditFooter.trim();
+
+        // Build update data safely
+        const enquiryUpdateData = {
+          status: 'CONVERTED',
+          converted_to_student_id: student.student_id,
+          notes: updatedNotes,
+        };
+
+        await prisma.enquiry.update({
+          where: { enquiry_id: enquiryId },
+          data: enquiryUpdateData,
+        });
+
+        // Carry over profile photo if available on enquiry in the future
+        if (enquiry.profile_photo && !student.profile_photo) {
+          await prisma.student.update({
+            where: { student_id: student.student_id },
+            data: { profile_photo: enquiry.profile_photo }
+          });
+        }
+
+        logger.info('Enquiry marked as converted and linked to student', {
+          enquiry_id: enquiryId,
+          student_id: student.student_id,
+        });
+      }
+
+    } catch (enquiryError) {
+
+      logger.error('Failed to link enquiry to student during conversion', {
+
+        error: enquiryError.message,
+
+        enquiry_id: enquiryId,
+
+        student_id: student.student_id,
+
+      });
+
+    }
+
+  }
+
+
+
   await logAudit({
 
     academy_id: academyId,

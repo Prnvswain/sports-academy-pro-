@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, X, CheckCircle, AlertCircle, Clock, Trash2, Edit2, Plus, Calendar, AlertTriangle, User, Medal, Users } from 'lucide-react';
+import { Search, X, CheckCircle, AlertCircle, Clock, Trash2, Edit2, Plus, Calendar, AlertTriangle, User, Medal, Users, Activity, Layers, ArrowDown } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminDelete } from '../../api/client';
 
@@ -12,6 +12,59 @@ const emptyBatchForm = {
   coach_id: '',
   sport_id: '',
   max_capacity: '',
+};
+
+// Custom Sports SVG Icons
+const SoccerIcon = ({ size = 24, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m12 2-3.5 3.5v4L12 11l3.5-1.5v-4z" />
+    <path d="M12 11v4.5l-4 3" />
+    <path d="M12 15.5l4 3" />
+    <path d="M3.5 12h5" />
+    <path d="M15.5 12h5" />
+    <path d="M8.5 5.5 5 9" />
+    <path d="m15.5 5.5 3.5 3.5" />
+  </svg>
+);
+
+const CricketIcon = ({ size = 24, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="m14.5 5.5 4 4" />
+    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L7 20l-4.5 1.5L4 17Z" />
+    <circle cx="5" cy="5" r="1" />
+  </svg>
+);
+
+const BasketballIcon = ({ size = 24, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M6.2 6.2c2.4 2.4 2.4 6.4 0 8.8" />
+    <path d="M17.8 6.2c-2.4 2.4-2.4 6.4 0 8.8" />
+    <path d="M2 12h20" />
+    <path d="M12 2v20" />
+  </svg>
+);
+
+
+// Time parsing helper
+const getBatchTimeStatus = (timing) => {
+  if (!timing || !timing.includes('-')) return 'ACTIVE';
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const [startStr, endStr] = timing.split('-');
+  const [startHr, startMin] = startStr.trim().split(':').map(Number);
+  const [endHr, endMin] = endStr.trim().split(':').map(Number);
+
+  if (isNaN(startHr) || isNaN(endHr)) return 'ACTIVE';
+
+  const startMinutes = startHr * 60 + (startMin || 0);
+  const endMinutes = endHr * 60 + (endMin || 0);
+
+  if (currentMinutes < startMinutes) return 'UPCOMING';
+  if (currentMinutes > endMinutes) return 'COMPLETED';
+  return 'ACTIVE';
 };
 
 export default function BatchesPanel() {
@@ -31,6 +84,11 @@ export default function BatchesPanel() {
   const [sessionFilters, setSessionFilters] = useState({ batch_id: '', coach_id: '', date_from: '', date_to: '', status: '' });
   const [sessionToEnd, setSessionToEnd] = useState(null);
   const [endingSession, setEndingSession] = useState(false);
+
+  // Redesign state additions
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedSportFilter, setSelectedSportFilter] = useState('');
+  const [selectedCoachFilter, setSelectedCoachFilter] = useState('');
 
   // States for Searchable Coach Dropdown
   const [coachSearch, setCoachSearch] = useState('');
@@ -63,6 +121,30 @@ export default function BatchesPanel() {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
+  // Scrolling Logic
+  const [scrollTop, setScrollTop] = useState(0);
+  const [showScrollBtn, setShowScrollBtn] = useState(true);
+
+  useEffect(() => {
+    const scrollContainer = document.querySelector('main')?.parentElement || window;
+    const handleScroll = () => {
+      const currentScroll = scrollContainer.scrollTop || window.scrollY;
+      setScrollTop(currentScroll);
+    };
+    scrollContainer.addEventListener('scroll', handleScroll);
+    setTimeout(handleScroll, 500);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [batches]);
+
+  const handleScrollAction = () => {
+    const scrollContainer = document.querySelector('main')?.parentElement || window;
+    if (scrollTop > 150) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight || 5000, behavior: 'smooth' });
+    }
+  };
 
   const validateField = (field, value) => {
     let error = '';
@@ -229,11 +311,12 @@ export default function BatchesPanel() {
       setSportSearch('');
       setEditingBatchId(null);
       setOverlapDetails(null);
+      setIsDrawerOpen(false);
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     }
-    setTimeout(() => setMessage({text: '', type: ''}), 4000);
+    setTimeout(() => setMessage({ text: '', type: '' }), 4000);
   };
 
   const handleEditClick = (batch) => {
@@ -259,9 +342,9 @@ export default function BatchesPanel() {
 
     const currentSport = sports.find(s => s.sport_id === batch.sport_id);
     setSportSearch(currentSport ? currentSport.name : '');
-    
+
     setFieldErrors({});
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Ensure UX scroll to top for edit
+    setIsDrawerOpen(true);
   };
 
   const handleDeleteBatch = async (batchId) => {
@@ -274,7 +357,7 @@ export default function BatchesPanel() {
     } catch (error) {
       setMessage({ text: error.message, type: "error" });
     }
-    setTimeout(() => setMessage({text: '', type: ''}), 4000);
+    setTimeout(() => setMessage({ text: '', type: '' }), 4000);
   };
 
   const loadSessionHistory = async () => {
@@ -286,7 +369,7 @@ export default function BatchesPanel() {
       if (sessionFilters.date_from) params.append('date_from', sessionFilters.date_from);
       if (sessionFilters.date_to) params.append('date_to', sessionFilters.date_to);
       if (sessionFilters.status) params.append('status', sessionFilters.status);
-      
+
       const result = await adminGet(`/admin/batch-sessions?${params.toString()}`);
       setSessionHistory(result.data || []);
     } catch (error) {
@@ -309,14 +392,14 @@ export default function BatchesPanel() {
 
   const handleEndSession = async () => {
     if (!sessionToEnd) return;
-    
+
     setEndingSession(true);
     try {
       await adminPost(`/admin/batch-sessions/${sessionToEnd.session_id}/end`);
       setMessage({ text: 'Batch session ended successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
       setSessionToEnd(null);
-      loadSessionHistory(); // Refresh the session list
+      loadSessionHistory();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -325,55 +408,66 @@ export default function BatchesPanel() {
   };
 
   const filteredBatches = (batches || []).filter(
-    (batch) =>
-      batch?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      batch?.sport?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      batch?.coach?.name?.toLowerCase().includes(searchQuery.toLowerCase()),
+    (batch) => {
+      const matchesSearch =
+        batch?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        batch?.sport?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        batch?.coach?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesSport = selectedSportFilter === '' || batch?.sport_id?.toString() === selectedSportFilter;
+      const matchesCoach = selectedCoachFilter === '' || batch?.coach_id?.toString() === selectedCoachFilter;
+
+      return matchesSearch && matchesSport && matchesCoach;
+    }
   );
 
-  const filteredCoaches = coaches.filter(c => 
+  const filteredCoaches = coaches.filter(c =>
     c.name?.toLowerCase().includes(coachSearch.toLowerCase())
   );
 
-  const filteredSports = sports.filter(s => 
+  const filteredSports = sports.filter(s =>
     s.name?.toLowerCase().includes(sportSearch.toLowerCase())
   );
 
-  // Animation Variants
-  const tableContainerVariants = {
+  const containerVariants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+    show: { opacity: 1, transition: { staggerChildren: 0.04 } }
   };
-  const rowVariants = {
+  const itemVariants = {
     hidden: { opacity: 0, y: 15, scale: 0.98 },
-    show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 400, damping: 25 } }
+    show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 300, damping: 24 } }
   };
+
+  const totalCount = batches.length;
+  const activeCount = batches.filter(b => getBatchTimeStatus(b.timing) === 'ACTIVE').length;
+  const upcomingCount = batches.filter(b => getBatchTimeStatus(b.timing) === 'UPCOMING').length;
+  const completedCount = batches.filter(b => getBatchTimeStatus(b.timing) === 'COMPLETED').length;
 
   return (
     <motion.div
-      className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 font-sans overflow-x-hidden relative"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      className="relative z-10"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="mx-auto max-w-7xl space-y-6 relative z-10">
-        
-        {/* Global Alerts using Portal to prevent overlap issues */}
+      {/* Main Content Wrapper (Sits on top of the curve) */}
+      <div className="mx-auto max-w-7xl space-y-6">
+
+        {/* Global Alerts using Portal */}
         {typeof document !== 'undefined' && createPortal(
           <AnimatePresence>
             {message.text && (
-              <motion.div 
-                initial={{ opacity: 0, y: -20, scale: 0.95 }} 
-                animate={{ opacity: 1, y: 0, scale: 1 }} 
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                className={`fixed top-6 right-6 z-[9999] rounded-2xl px-6 py-4 shadow-2xl border flex items-center gap-3 font-bold ${
-                  message.type === 'success' 
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/90 dark:border-emerald-700 dark:text-emerald-300' 
-                    : 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-900/90 dark:border-rose-700 dark:text-rose-300'
-                }`}
+              <motion.div
+                initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                className={`fixed top-4 right-4 z-[9999] rounded-xl px-4 py-3 shadow-xl border-l-4 flex items-center gap-2.5 font-bold text-sm ${message.type === 'success'
+                  ? 'bg-white border-emerald-500 text-emerald-700 dark:bg-gray-900 dark:border-emerald-500 dark:text-emerald-400'
+                  : 'bg-white border-rose-500 text-rose-700 dark:bg-gray-900 dark:border-rose-500 dark:text-rose-400'
+                  }`}
               >
-                {message.type === 'success' ? <CheckCircle size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
-                <span className="text-sm tracking-wide">{message.text}</span>
+                {message.type === 'success' ? <CheckCircle size={18} className="shrink-0 text-emerald-500" /> : <AlertCircle size={18} className="shrink-0 text-rose-500" />}
+                <span className="tracking-wide">{message.text}</span>
               </motion.div>
             )}
           </AnimatePresence>,
@@ -381,64 +475,120 @@ export default function BatchesPanel() {
         )}
 
         {/* Header Panel */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-card border border-border p-6 rounded-3xl shadow-sm relative overflow-hidden">
-          <div className="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
           <div>
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 shadow-inner">
-                <Calendar className="h-7 w-7" />
-              </div>
+              <motion.div
+                whileHover={{ rotate: 15, scale: 1.05 }}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-500 border border-yellow-100 dark:border-yellow-800/50 shadow-inner"
+              >
+                <Calendar className="h-6 w-6" />
+              </motion.div>
               <div>
-                <h2 className="text-3xl font-black tracking-tight text-foreground">Training Batches</h2>
-                <p className="text-muted-foreground mt-1 font-medium text-sm">Schedule and manage allocations for coaches and sports.</p>
+                <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Batches & Scheduling</h2>
+                <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage your sports and coaching allocations seamlessly.</p>
               </div>
             </div>
           </div>
           <motion.button
-            whileHover={{ scale: 1.03 }}
+            whileHover={{ scale: 1.03, y: -1 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleViewSessionHistory}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all"
+            className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-5 py-3 rounded-xl shadow-[0_4px_14px_rgba(244,63,94,0.3)] flex items-center justify-center gap-2 text-sm transition-all border border-rose-600"
           >
-            <Clock className="w-5 h-5" />
-            Batch Session History
+            <Activity className="w-4 h-4" />
+            Session History
           </motion.button>
         </div>
 
-        {/* Overlap Conflict Modal using Portal */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Batches</span>
+              <span className="text-3xl font-black text-gray-900 dark:text-white mt-1">{totalCount}</span>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 flex items-center justify-center">
+              <Layers className="h-6 w-6" />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Live Today</span>
+              <span className="text-3xl font-black text-gray-900 dark:text-white mt-1 flex items-center gap-2">
+                {activeCount}
+                {activeCount > 0 && (
+                  <span className="flex h-3 w-3 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-orange-50 dark:bg-orange-900/20 text-orange-500 dark:text-orange-400 flex items-center justify-center">
+              <Activity className="h-6 w-6 animate-pulse" />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming</span>
+              <span className="text-3xl font-black text-gray-900 dark:text-white mt-1">{upcomingCount}</span>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500 flex items-center justify-center">
+              <Clock className="h-6 w-6" />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Completed Today</span>
+              <span className="text-3xl font-black text-gray-900 dark:text-white mt-1">{completedCount}</span>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 dark:text-emerald-400 flex items-center justify-center">
+              <CheckCircle className="h-6 w-6" />
+            </div>
+          </div>
+        </div>
+
+        {/* Modals using Portal... */}
+        {/* Overlap Conflict Modal */}
         {typeof document !== 'undefined' && createPortal(
           <AnimatePresence>
             {overlapDetails && (
-              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                 <motion.div
-                  className="bg-card p-8 rounded-[2rem] shadow-2xl max-w-md w-full border border-amber-200 dark:border-amber-900/50"
-                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  className="bg-white dark:bg-gray-900 p-6 rounded-[2rem] shadow-2xl max-w-sm w-full border-t-4 border-amber-500"
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                  transition={{ type: "spring", bounce: 0.4 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  transition={{ type: "spring", bounce: 0.5 }}
                 >
-                  <div className="flex items-center gap-4 mb-5">
-                    <div className="h-14 w-14 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-800">
-                      <AlertTriangle className="h-7 w-7 text-amber-500" />
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                     </div>
-                    <h4 className="text-xl font-black text-foreground">Schedule Conflict</h4>
+                    <h4 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Schedule Conflict</h4>
                   </div>
-                  <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8 bg-surface border border-border p-4 rounded-xl">{overlapDetails}</p>
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed mb-6 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4 rounded-xl">{overlapDetails}</p>
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      className="flex-1 px-4 py-3.5 text-sm font-bold rounded-xl bg-surface border border-border text-foreground hover:bg-surface-secondary transition-colors"
+                      className="flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                       onClick={() => setOverlapDetails(null)}
                     >
-                      Go Back & Fix
+                      Go Back
                     </button>
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       type="button"
-                      className="flex-1 px-4 py-3.5 text-sm font-black rounded-xl bg-amber-500 text-white hover:bg-amber-600 shadow-md shadow-amber-500/20 transition-all"
+                      className="flex-1 px-4 py-3 text-sm font-black uppercase tracking-wider rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/30 transition-all hover:bg-amber-600"
                       onClick={() => handleBatchSubmit(null, true)}
                     >
-                      Override & Save
-                    </button>
+                      Override
+                    </motion.button>
                   </div>
                 </motion.div>
               </div>
@@ -447,44 +597,45 @@ export default function BatchesPanel() {
           document.body
         )}
 
-        {/* Batch Session History Modal using Portal */}
+        {/* Batch Session History Modal */}
         {typeof document !== 'undefined' && createPortal(
           <AnimatePresence>
             {showSessionHistory && (
-              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                 <motion.div
-                  className="bg-card rounded-[2rem] shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-purple-200 dark:border-purple-900/50 flex flex-col"
-                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                  transition={{ type: "spring", bounce: 0.4 }}
+                  className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  transition={{ type: "spring", bounce: 0.3 }}
                 >
-                  <div className="p-6 border-b border-border flex items-center justify-between bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+                  <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-200 dark:border-purple-800">
-                        <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                      <div className="h-12 w-12 rounded-2xl bg-rose-500 flex items-center justify-center text-white shadow-sm shadow-rose-500/20">
+                        <Activity className="h-6 w-6" />
                       </div>
                       <div>
-                        <h4 className="text-xl font-black text-foreground">Batch Session History</h4>
-                        <p className="text-sm text-muted-foreground">View all batch sessions with attendance summaries</p>
+                        <h4 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-none mb-1">Batch History</h4>
+                        <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Track attendances and timelines</p>
                       </div>
                     </div>
-                    <button
+                    <motion.button
+                      whileHover={{ rotate: 90 }}
                       type="button"
                       onClick={handleCloseSessionHistory}
-                      className="p-2 rounded-lg hover:bg-surface-secondary transition-colors"
+                      className="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <X className="w-6 h-6 text-muted-foreground" />
-                    </button>
+                      <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                    </motion.button>
                   </div>
 
                   {/* Filters */}
-                  <div className="p-4 border-b border-border bg-surface/50">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       <select
                         value={sessionFilters.batch_id}
-                        onChange={(e) => setSessionFilters({...sessionFilters, batch_id: e.target.value})}
-                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        onChange={(e) => setSessionFilters({ ...sessionFilters, batch_id: e.target.value })}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                       >
                         <option value="">All Batches</option>
                         {batches.map(b => (
@@ -493,8 +644,8 @@ export default function BatchesPanel() {
                       </select>
                       <select
                         value={sessionFilters.coach_id}
-                        onChange={(e) => setSessionFilters({...sessionFilters, coach_id: e.target.value})}
-                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        onChange={(e) => setSessionFilters({ ...sessionFilters, coach_id: e.target.value })}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                       >
                         <option value="">All Coaches</option>
                         {coaches.map(c => (
@@ -504,21 +655,19 @@ export default function BatchesPanel() {
                       <input
                         type="date"
                         value={sessionFilters.date_from}
-                        onChange={(e) => setSessionFilters({...sessionFilters, date_from: e.target.value})}
-                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                        placeholder="From Date"
+                        onChange={(e) => setSessionFilters({ ...sessionFilters, date_from: e.target.value })}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                       />
                       <input
                         type="date"
                         value={sessionFilters.date_to}
-                        onChange={(e) => setSessionFilters({...sessionFilters, date_to: e.target.value})}
-                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-                        placeholder="To Date"
+                        onChange={(e) => setSessionFilters({ ...sessionFilters, date_to: e.target.value })}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                       />
                       <select
                         value={sessionFilters.status}
-                        onChange={(e) => setSessionFilters({...sessionFilters, status: e.target.value})}
-                        className="px-3 py-2 rounded-lg border border-border bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        onChange={(e) => setSessionFilters({ ...sessionFilters, status: e.target.value })}
+                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                       >
                         <option value="">All Status</option>
                         <option value="SCHEDULED">Scheduled</option>
@@ -527,28 +676,28 @@ export default function BatchesPanel() {
                         <option value="MISSED">Missed</option>
                       </select>
                     </div>
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
                       onClick={loadSessionHistory}
-                      className="mt-3 w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg transition-colors"
+                      className="mt-3 w-full px-4 py-2.5 bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 dark:text-gray-900 text-white text-xs font-black rounded-xl transition-colors uppercase tracking-widest shadow-md"
                     >
                       Apply Filters
-                    </button>
+                    </motion.button>
                   </div>
 
                   {/* Session List */}
-                  <div className="flex-1 overflow-y-auto p-4">
+                  <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-gray-50/50 dark:bg-gray-900">
                     {sessionHistoryLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                      <div className="flex items-center justify-center py-10">
+                        <div className="w-8 h-8 border-4 border-rose-500/20 border-t-rose-500 rounded-full animate-spin"></div>
                       </div>
                     ) : sessionHistory.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <Clock className="w-16 h-16 text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-bold text-foreground">No sessions found</h3>
-                        <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters or check back later.</p>
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <Activity className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-4" />
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white uppercase tracking-tight">No sessions found</h3>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
                         {sessionHistory.map((session) => {
                           const presentCount = session.attendance_summary?.present ?? 0;
                           const absentCount = session.attendance_summary?.absent ?? 0;
@@ -557,26 +706,21 @@ export default function BatchesPanel() {
                           const attendancePct = totalStudents > 0 ? Math.round(((presentCount + lateCount) / totalStudents) * 100) : 0;
                           const durationStr = session.duration_minutes ? `${session.duration_minutes} mins` : 'N/A';
 
-                          const presentStudents = session.attendance_records?.filter(r => r.status === 'PRESENT') || [];
-                          const lateStudents = session.attendance_records?.filter(r => r.status === 'LATE') || [];
-                          const absentStudents = session.attendance_records?.filter(r => r.status === 'ABSENT') || [];
-
                           return (
-                            <div key={session.session_id} className="bg-surface border border-border rounded-xl p-4 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+                            <motion.div variants={itemVariants} key={session.session_id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 hover:border-rose-400 dark:hover:border-rose-500 transition-colors shadow-sm">
                               <div className="flex items-start justify-between mb-3">
                                 <div>
-                                  <h5 className="font-bold text-foreground">{session.batch_name}</h5>
-                                  <p className="text-sm text-muted-foreground">{session.sport_name} • {session.timing}</p>
+                                  <h5 className="font-black text-base text-gray-900 dark:text-white uppercase tracking-tight">{session.batch_name}</h5>
+                                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-0.5">{session.sport_name} • {session.timing}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                    session.status === 'LIVE' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                                    session.status === 'LATE_START' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                    session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                    session.status === 'MISSED' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' :
-                                    session.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                                    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                                  }`}>
+                                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${session.status === 'LIVE' ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400 border border-orange-200 dark:border-orange-900/50' :
+                                    session.status === 'LATE_START' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400' :
+                                      session.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400' :
+                                        session.status === 'MISSED' ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' :
+                                          session.status === 'SCHEDULED' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' :
+                                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                    }`}>
                                     {session.status}
                                   </span>
                                   {(session.status === 'LIVE' || session.status === 'LATE_START') && (
@@ -584,104 +728,55 @@ export default function BatchesPanel() {
                                       whileHover={{ scale: 1.05 }}
                                       whileTap={{ scale: 0.95 }}
                                       onClick={() => setSessionToEnd(session)}
-                                      className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors"
+                                      className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black px-3 py-1 rounded-lg transition-colors uppercase tracking-widest"
                                     >
-                                      Batch Over
+                                      End
                                     </motion.button>
                                   )}
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Date</p>
-                                  <p className="font-semibold">{new Date(session.session_date).toLocaleDateString()}</p>
+                                  <p className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">Date</p>
+                                  <p className="font-black text-gray-900 dark:text-gray-100">{new Date(session.session_date).toLocaleDateString()}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Start Time</p>
-                                  <p className="font-semibold">{session.start_time ? new Date(session.start_time).toLocaleTimeString() : 'N/A'}</p>
+                                  <p className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">Start</p>
+                                  <p className="font-black text-gray-900 dark:text-gray-100">{session.start_time ? new Date(session.start_time).toLocaleTimeString() : 'N/A'}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Duration</p>
-                                  <p className="font-semibold">{session.duration_minutes ? `${session.duration_minutes} min` : 'N/A'}</p>
+                                  <p className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">Duration</p>
+                                  <p className="font-black text-gray-900 dark:text-gray-100">{durationStr}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Coach</p>
-                                  <p className="font-semibold">{session.coach_name}</p>
+                                  <p className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-0.5">Coach</p>
+                                  <p className="font-black text-gray-900 dark:text-gray-100 truncate">{session.coach_name}</p>
                                 </div>
                               </div>
                               {session.attendance_summary && (
-                                <div className="mt-4 pt-4 border-t border-border space-y-4">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-surface/50 p-3 rounded-xl border border-border/40 text-xs">
+                                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/50 space-y-2">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700/50 text-xs">
                                     <div>
-                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">✅ Total Students</span>
-                                      <strong className="text-foreground font-black text-sm">{totalStudents}</strong>
+                                      <span className="text-gray-500 dark:text-gray-400 block mb-1 font-bold text-[10px] uppercase tracking-widest">Total</span>
+                                      <strong className="text-gray-900 dark:text-white font-black text-sm">{totalStudents}</strong>
                                     </div>
                                     <div>
-                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">🟢 Present / 🟡 Late / 🔴 Absent</span>
-                                      <strong className="text-foreground text-sm font-black">
-                                        <span className="text-emerald-600 dark:text-emerald-400">{presentCount}</span> / <span className="text-amber-600 dark:text-amber-400">{lateCount}</span> / <span className="text-rose-600 dark:text-rose-455">{absentCount}</span>
+                                      <span className="text-gray-500 dark:text-gray-400 block mb-1 font-bold text-[10px] uppercase tracking-widest">P/L/A</span>
+                                      <strong className="text-gray-900 dark:text-white font-black text-sm">
+                                        <span className="text-emerald-500">{presentCount}</span> / <span className="text-amber-500">{lateCount}</span> / <span className="text-rose-500">{absentCount}</span>
                                       </strong>
                                     </div>
                                     <div>
-                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">📊 Attendance Pct</span>
-                                      <strong className="text-emerald-600 dark:text-emerald-400 text-sm font-black">{attendancePct}%</strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-muted-foreground block mb-0.5 font-bold uppercase tracking-wider text-[10px]">⌛ Duration</span>
-                                      <strong className="text-foreground text-sm font-black">{durationStr}</strong>
-                                    </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs bg-surface/30 p-3 rounded-xl border border-border/40 text-left">
-                                    <div>
-                                      <span className="text-emerald-600 dark:text-emerald-450 font-bold block mb-1">Present ({presentCount})</span>
-                                      {presentStudents.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {presentStudents.map((s, idx) => (
-                                            <span key={idx} className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded text-[11px] font-medium">
-                                              {s.student_name}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-muted-foreground italic text-[11px]">No students present</span>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <span className="text-amber-600 dark:text-amber-405 font-bold block mb-1">Late ({lateCount})</span>
-                                      {lateStudents.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {lateStudents.map((s, idx) => (
-                                            <span key={idx} className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30 rounded text-[11px] font-medium">
-                                              {s.student_name}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-muted-foreground italic text-[11px]">No students late</span>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <span className="text-rose-600 dark:text-rose-455 font-bold block mb-1">Absent ({absentCount})</span>
-                                      {absentStudents.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {absentStudents.map((s, idx) => (
-                                            <span key={idx} className="px-2 py-0.5 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 rounded text-[11px] font-medium">
-                                              {s.student_name}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-muted-foreground italic text-[11px]">No students absent</span>
-                                      )}
+                                      <span className="text-gray-500 dark:text-gray-400 block mb-1 font-bold text-[10px] uppercase tracking-widest">Attend.</span>
+                                      <strong className="text-emerald-600 dark:text-emerald-400 font-black text-sm">{attendancePct}%</strong>
                                     </div>
                                   </div>
                                 </div>
                               )}
-                            </div>
+                            </motion.div>
                           );
                         })}
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                 </motion.div>
@@ -691,45 +786,47 @@ export default function BatchesPanel() {
           document.body
         )}
 
-        {/* Batch Over Confirmation Modal using Portal */}
+        {/* Batch Over Confirmation Modal */}
         {typeof document !== 'undefined' && createPortal(
           <AnimatePresence>
             {sessionToEnd && (
-              <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+              <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                 <motion.div
-                  className="bg-card p-8 rounded-[2rem] shadow-2xl max-w-md w-full border border-red-200 dark:border-red-900/50"
-                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  className="bg-white dark:bg-gray-900 p-6 rounded-[2rem] shadow-2xl max-w-sm w-full border-t-4 border-rose-500"
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                  transition={{ type: "spring", bounce: 0.4 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  transition={{ type: "spring", bounce: 0.5 }}
                 >
-                  <div className="flex items-center gap-4 mb-5">
-                    <div className="h-14 w-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0 border border-red-100 dark:border-red-800">
-                      <AlertCircle className="h-7 w-7 text-red-500" />
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-12 w-12 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-6 w-6 text-rose-600 dark:text-rose-400" />
                     </div>
-                    <h4 className="text-xl font-black text-foreground">End Batch Session</h4>
+                    <h4 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">End Session</h4>
                   </div>
-                  <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8 bg-surface border border-border p-4 rounded-xl">
-                    Are you sure you want to end the batch session for <span className="text-foreground">{sessionToEnd.batch_name}</span>? 
-                    This will mark the session as completed and lock all attendance records.
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed mb-6 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-4 rounded-xl">
+                    Are you sure you want to end <span className="text-gray-900 dark:text-white font-black">{sessionToEnd.batch_name}</span>?
+                    This will lock all attendance records.
                   </p>
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      className="flex-1 px-4 py-3.5 text-sm font-bold rounded-xl bg-surface border border-border text-foreground hover:bg-surface-secondary transition-colors"
+                      className="flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                       onClick={() => setSessionToEnd(null)}
                       disabled={endingSession}
                     >
                       Cancel
                     </button>
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       type="button"
-                      className="flex-1 px-4 py-3.5 text-sm font-black rounded-xl bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-3 text-sm font-black uppercase tracking-wider rounded-xl bg-rose-500 text-white shadow-lg shadow-rose-500/30 transition-all hover:bg-rose-600 disabled:opacity-50"
                       onClick={handleEndSession}
                       disabled={endingSession}
                     >
-                      {endingSession ? 'Ending...' : 'End Session'}
-                    </button>
+                      {endingSession ? 'Ending...' : 'End Now'}
+                    </motion.button>
                   </div>
                 </motion.div>
               </div>
@@ -738,358 +835,489 @@ export default function BatchesPanel() {
           document.body
         )}
 
-        <div className="grid gap-6 lg:grid-cols-12 items-start">
-          
-          {/* LEFT COLUMN: Create / Edit Form */}
-          <div className="lg:col-span-4 xl:col-span-4 rounded-3xl bg-card shadow-sm border border-border p-6 lg:sticky lg:top-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
-            <form onSubmit={(e) => handleBatchSubmit(e, false)} className="space-y-6 mt-2">
-              <div className="flex items-center justify-between border-b border-border/50 pb-4 mb-2">
-                <h3 className="text-xl font-black text-foreground flex items-center gap-2">
-                  {editingBatchId ? <><Edit2 size={20} className="text-blue-500" /> Modify Batch</> : <><Plus size={20} className="text-primary stroke-[3]" /> Create Batch</>}
-                </h3>
-                {editingBatchId && (
-                  <button 
-                    type="button" 
-                    onClick={() => { 
-                      setEditingBatchId(null); setBatchForm(emptyBatchForm); setCoachSearch(''); setSportSearch(''); setFieldErrors({});
-                    }} 
-                    className="text-xs font-bold text-muted-foreground hover:text-foreground uppercase bg-surface border border-border px-2.5 py-1.5 rounded-lg transition-colors"
+        {/* Search & Filters Row */}
+        <div className="bg-white dark:bg-gray-900 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-500" size={18} />
+            <input
+              type="text"
+              className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-transparent focus:border-yellow-400 rounded-2xl outline-none text-sm transition-all text-gray-900 dark:text-white font-bold placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-yellow-400/20"
+              placeholder="Search by name, sport, or coach..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={selectedSportFilter}
+              onChange={(e) => setSelectedSportFilter(e.target.value)}
+              className="px-4 py-3 text-sm font-bold rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400/20 focus:border-yellow-400 cursor-pointer transition-all"
+            >
+              <option value="">All Sports</option>
+              {sports.map(s => (
+                <option key={s.sport_id} value={s.sport_id}>{s.name}</option>
+              ))}
+            </select>
+
+            <select
+              value={selectedCoachFilter}
+              onChange={(e) => setSelectedCoachFilter(e.target.value)}
+              className="px-4 py-3 text-sm font-bold rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400/20 focus:border-yellow-400 cursor-pointer transition-all"
+            >
+              <option value="">All Coaches</option>
+              {coaches.map(c => (
+                <option key={c.coach_id} value={c.coach_id}>{c.name}</option>
+              ))}
+            </select>
+
+            <motion.button
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setEditingBatchId(null);
+                setBatchForm(emptyBatchForm);
+                setCoachSearch('');
+                setSportSearch('');
+                setFieldErrors({});
+                setIsDrawerOpen(true);
+              }}
+              className="bg-[#FFD100] hover:bg-[#E6BC00] text-gray-950 font-black px-5 py-3 rounded-2xl shadow-[0_4px_14px_rgba(255,209,0,0.3)] flex items-center justify-center gap-2 text-sm transition-all border border-[#FFD100] shrink-0 uppercase tracking-widest"
+            >
+              <Plus size={18} strokeWidth={3} />
+              Create Batch
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Batch Cards Grid */}
+        <div className="relative">
+          {loading ? (
+            <div className="p-16 flex justify-center"><Loader /></div>
+          ) : filteredBatches.length === 0 ? (
+            <motion.div
+              variants={itemVariants}
+              initial="hidden" animate="show"
+              className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-20 text-center shadow-sm"
+            >
+              <div className="flex flex-col items-center justify-center">
+                <span className="text-6xl mb-5 block opacity-50">🏟️</span>
+                <p className="font-black text-xl text-gray-900 dark:text-white uppercase tracking-tight">No training batches found</p>
+                <p className="mt-2 text-sm font-semibold text-gray-500">Create a new batch or try adjusting your search filters.</p>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden" animate="show"
+              className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            >
+              {filteredBatches.map((batch) => {
+                const enrolled = batch?.enrolled_count ?? batch?.students?.length ?? 0;
+                const max = batch?.max_capacity;
+                const isFull = max && enrolled >= max;
+                const sportIcon = sports.find(s => s.sport_id === batch.sport_id)?.icon || '🏅';
+                const status = getBatchTimeStatus(batch.timing);
+
+                return (
+                  <motion.div
+                    layout
+                    key={batch?.batch_id}
+                    variants={itemVariants}
+                    className={`bg-white dark:bg-gray-900 rounded-3xl border transition-all duration-300 p-5 shadow-sm relative overflow-hidden group flex flex-col justify-between ${editingBatchId === batch.batch_id ? 'border-blue-500 bg-blue-50/20 dark:bg-blue-900/10 shadow-blue-500/20 shadow-xl z-10' : 'border-gray-100 dark:border-gray-800 hover:border-yellow-400 hover:shadow-xl'}`}
+                  >
+                    <div>
+                      {/* Top line: Status and Sport badges */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div>
+                          {status === 'ACTIVE' ? (
+                            <span className="inline-flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border border-orange-200/50 dark:border-orange-800/50">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" /> Live
+                            </span>
+                          ) : status === 'UPCOMING' ? (
+                            <span className="inline-flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border border-yellow-200/50 dark:border-yellow-800/50">
+                              Upcoming
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border border-gray-200/50 dark:border-gray-700">
+                              Completed
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="inline-flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-xs leading-none">{sportIcon}</span> {batch?.sport?.name || '—'}
+                        </span>
+                      </div>
+
+                      {/* Batch Name */}
+                      <h4 className="text-lg font-black text-gray-900 dark:text-white group-hover:text-[#FFD100] transition-colors line-clamp-1 leading-snug tracking-tight">
+                        {batch?.name}
+                      </h4>
+
+                      {/* Timing Schedule */}
+                      <div className="inline-flex items-center gap-1.5 bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700 px-3 py-1 rounded-xl text-gray-800 dark:text-gray-200 font-bold text-xs mt-2">
+                        <Clock size={12} className="text-[#FFD100]" />
+                        {batch?.timing || '—'}
+                      </div>
+
+                      {/* Coach Profile */}
+                      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-50 dark:border-gray-800">
+                        <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-black text-xs flex items-center justify-center border border-gray-200/50 dark:border-gray-700 group-hover:scale-105 transition-transform duration-300">
+                          {batch?.coach?.name?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Coach Assigned</span>
+                          <span className="text-xs font-bold text-gray-900 dark:text-white truncate max-w-[140px] mt-0.5">
+                            {batch?.coach?.name || 'Unassigned'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer: Capacity Utilization & Actions */}
+                    <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-800 space-y-3">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          <span>Students: {enrolled} {max ? `/ ${max}` : ''}</span>
+                          {isFull && <span className="text-rose-500">Full</span>}
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                          {max ? (
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min((enrolled / max) * 100, 100)}%` }}
+                              transition={{ duration: 1, ease: "easeOut" }}
+                              className={`h-full ${isFull ? 'bg-rose-500' : 'bg-[#FFD100]'}`}
+                            />
+                          ) : (
+                            <div className="h-full bg-[#FFD100]/50 w-full" />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] font-bold text-gray-400 italic">ID: #{batch?.batch_id}</span>
+                        <div className="flex items-center gap-1.5">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            type="button"
+                            onClick={() => handleEditClick(batch)}
+                            className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500 flex items-center justify-center transition-colors"
+                            title="Edit Batch"
+                          >
+                            <Edit2 size={13} />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            type="button"
+                            onClick={() => handleDeleteBatch(batch?.batch_id)}
+                            className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500 flex items-center justify-center transition-colors"
+                            title="Delete Batch"
+                          >
+                            <Trash2 size={13} />
+                          </motion.button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Slide-over Side Drawer (Create / Edit Form) */}
+        <AnimatePresence>
+          {isDrawerOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => {
+                  setIsDrawerOpen(false);
+                  setEditingBatchId(null);
+                  setBatchForm(emptyBatchForm);
+                  setCoachSearch('');
+                  setSportSearch('');
+                  setFieldErrors({});
+                }}
+                className="fixed inset-0 z-[9990] bg-gray-900/40 backdrop-blur-sm"
+              />
+              {/* Drawer Container */}
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed inset-y-0 right-0 z-[9999] w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col border-l border-gray-100 dark:border-gray-800"
+              >
+                {/* Drawer Header */}
+                <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/30">
+                  <h3 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2.5">
+                    {editingBatchId ? (
+                      <><div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400"><Edit2 size={18} /></div> Edit Batch</>
+                    ) : (
+                      <><div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400"><Plus size={18} strokeWidth={3} /></div> Create Batch</>
+                    )}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      setEditingBatchId(null);
+                      setBatchForm(emptyBatchForm);
+                      setCoachSearch('');
+                      setSportSearch('');
+                      setFieldErrors({});
+                    }}
+                    className="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Drawer Body (Scrollable form) */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+                  {/* Batch Name */}
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Batch Name <span className="text-rose-500">*</span></label>
+                    <input
+                      name="name"
+                      placeholder="e.g. Morning Elite"
+                      className={`w-full rounded-2xl border bg-gray-50 dark:bg-gray-800/50 px-4 py-3.5 text-sm font-bold outline-none transition-all focus:bg-white dark:focus:bg-gray-900 text-gray-900 dark:text-white ${fieldErrors.name ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : `border-gray-200 dark:border-gray-700 ${editingBatchId ? 'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' : 'focus:border-[#FFD100] focus:ring-2 focus:ring-[#FFD100]/20'}`}`}
+                      value={batchForm.name}
+                      onChange={handleBatchChange}
+                    />
+                    {fieldErrors.name && <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="text-[10px] font-bold text-rose-500 mt-1.5">{fieldErrors.name}</motion.p>}
+                  </div>
+
+                  {/* Timings */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Start <span className="text-rose-500">*</span></label>
+                      <div className="relative">
+                        <Clock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input
+                          name="startTime"
+                          type="time"
+                          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 pl-10 pr-3 py-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all focus:bg-white dark:focus:bg-gray-900 ${editingBatchId ? 'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' : 'focus:border-[#FFD100] focus:ring-2 focus:ring-[#FFD100]/20'}`}
+                          value={batchForm.startTime}
+                          onChange={handleBatchChange}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">End <span className="text-rose-500">*</span></label>
+                      <div className="relative">
+                        <Clock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input
+                          name="endTime"
+                          type="time"
+                          className={`w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 pl-10 pr-3 py-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all focus:bg-white dark:focus:bg-gray-900 ${editingBatchId ? 'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' : 'focus:border-[#FFD100] focus:ring-2 focus:ring-[#FFD100]/20'}`}
+                          value={batchForm.endTime}
+                          onChange={handleBatchChange}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coach Selection */}
+                  <div ref={coachRef} className="relative z-20">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Assign Coach <span className="text-rose-500">*</span></label>
+                    <div className="relative">
+                      <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Search coach..."
+                        className={`w-full rounded-2xl border bg-gray-50 dark:bg-gray-800/50 pl-10 pr-10 py-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all focus:bg-white dark:focus:bg-gray-900 ${fieldErrors.coach_id ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : `border-gray-200 dark:border-gray-700 ${editingBatchId ? 'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' : 'focus:border-[#FFD100] focus:ring-2 focus:ring-[#FFD100]/20'}`}`}
+                        value={coachSearch}
+                        onChange={(e) => {
+                          setCoachSearch(e.target.value);
+                          setCoachDropdownOpen(true);
+                          if (batchForm.coach_id) setBatchForm(prev => ({ ...prev, coach_id: '' }));
+                        }}
+                        onFocus={() => setCoachDropdownOpen(true)}
+                      />
+                      {coachSearch && (
+                        <button type="button" className="absolute right-3.5 top-1/2 -translate-y-1/2 bg-gray-200 dark:bg-gray-700 rounded-lg p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" onClick={() => { setCoachSearch(''); setBatchForm(prev => ({ ...prev, coach_id: '' })); }}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {fieldErrors.coach_id && <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="text-[10px] font-bold text-rose-500 mt-1.5">{fieldErrors.coach_id}</motion.p>}
+
+                    <AnimatePresence>
+                      {coachDropdownOpen && (
+                        <motion.ul
+                          initial={{ opacity: 0, y: -5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -5, scale: 0.98 }} transition={{ duration: 0.15 }}
+                          className="absolute w-full mt-2 max-h-48 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl p-2 custom-scrollbar z-50"
+                        >
+                          {filteredCoaches.length === 0 ? (
+                            <li className="p-4 text-xs font-semibold text-gray-500 text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">No coaches found</li>
+                          ) : (
+                            filteredCoaches.map(c => {
+                              const isSel = batchForm.coach_id === c.coach_id?.toString();
+                              return (
+                                <li
+                                  key={c.coach_id}
+                                  className={`px-4 py-3 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-between mb-1 last:mb-0 ${isSel ? (editingBatchId ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-black' : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500 font-black') : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                  onClick={() => {
+                                    setBatchForm(prev => ({ ...prev, coach_id: c.coach_id.toString() }));
+                                    setCoachSearch(c.name);
+                                    setCoachDropdownOpen(false);
+                                    clearFieldError('coach_id');
+                                  }}
+                                >
+                                  <span>{c.name}</span>
+                                  {isSel && <CheckCircle size={16} />}
+                                </li>
+                              );
+                            })
+                          )}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Sport Selection */}
+                  <div ref={sportRef} className="relative z-10">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Assign Sport <span className="text-rose-500">*</span></label>
+                    <div className="relative">
+                      <Medal size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Search sport..."
+                        className={`w-full rounded-2xl border bg-gray-50 dark:bg-gray-800/50 pl-10 pr-10 py-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all focus:bg-white dark:focus:bg-gray-900 ${fieldErrors.sport_id ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : `border-gray-200 dark:border-gray-700 ${editingBatchId ? 'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' : 'focus:border-[#FFD100] focus:ring-2 focus:ring-[#FFD100]/20'}`}`}
+                        value={sportSearch}
+                        onChange={(e) => {
+                          setSportSearch(e.target.value);
+                          setSportDropdownOpen(true);
+                          if (batchForm.sport_id) setBatchForm(prev => ({ ...prev, sport_id: '' }));
+                        }}
+                        onFocus={() => setSportDropdownOpen(true)}
+                      />
+                      {sportSearch && (
+                        <button type="button" className="absolute right-3.5 top-1/2 -translate-y-1/2 bg-gray-200 dark:bg-gray-700 rounded-lg p-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" onClick={() => { setSportSearch(''); setBatchForm(prev => ({ ...prev, sport_id: '' })); }}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {fieldErrors.sport_id && <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="text-[10px] font-bold text-rose-500 mt-1.5">{fieldErrors.sport_id}</motion.p>}
+
+                    <AnimatePresence>
+                      {sportDropdownOpen && (
+                        <motion.ul
+                          initial={{ opacity: 0, y: -5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -5, scale: 0.98 }} transition={{ duration: 0.15 }}
+                          className="absolute w-full mt-2 max-h-48 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl p-2 custom-scrollbar z-50"
+                        >
+                          {filteredSports.length === 0 ? (
+                            <li className="p-4 text-xs font-semibold text-gray-500 text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">No sports found</li>
+                          ) : (
+                            filteredSports.map(s => {
+                              const isSel = batchForm.sport_id === s.sport_id?.toString();
+                              return (
+                                <li
+                                  key={s.sport_id}
+                                  className={`px-4 py-3 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center justify-between mb-1 last:mb-0 ${isSel ? (editingBatchId ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-black' : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500 font-black') : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                  onClick={() => {
+                                    setBatchForm(prev => ({ ...prev, sport_id: s.sport_id.toString() }));
+                                    setSportSearch(s.name);
+                                    setSportDropdownOpen(false);
+                                    clearFieldError('sport_id');
+                                  }}
+                                >
+                                  <span className="flex items-center gap-2"><span className="text-base leading-none">{s.icon || '🏅'}</span> {s.name}</span>
+                                  {isSel && <CheckCircle size={16} />}
+                                </li>
+                              );
+                            })
+                          )}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Max Capacity */}
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Max Capacity <span className="opacity-70 normal-case tracking-normal font-semibold">(Optional)</span></label>
+                    <div className="relative">
+                      <Users size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        name="max_capacity"
+                        type="number"
+                        min={1}
+                        className={`w-full rounded-2xl border bg-gray-50 dark:bg-gray-800/50 pl-10 pr-3 py-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none transition-all focus:bg-white dark:focus:bg-gray-900 ${fieldErrors.max_capacity ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : `border-gray-200 dark:border-gray-700 ${editingBatchId ? 'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' : 'focus:border-[#FFD100] focus:ring-2 focus:ring-[#FFD100]/20'}`}`}
+                        value={batchForm.max_capacity}
+                        onChange={handleBatchChange}
+                        placeholder="e.g. 20"
+                      />
+                    </div>
+                    {fieldErrors.max_capacity && <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="text-[10px] font-bold text-rose-500 mt-1.5">{fieldErrors.max_capacity}</motion.p>}
+                  </div>
+                </div>
+
+                {/* Drawer Footer */}
+                <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      setEditingBatchId(null);
+                      setBatchForm(emptyBatchForm);
+                      setCoachSearch('');
+                      setSportSearch('');
+                      setFieldErrors({});
+                    }}
+                    className="flex-1 py-3.5 text-sm font-bold rounded-2xl border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
                   >
                     Cancel
                   </button>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Batch Name <span className="text-rose-500">*</span></label>
-                <input
-                  name="name"
-                  placeholder="e.g. Morning Elite"
-                  className={`w-full rounded-xl border bg-surface px-4 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.name ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
-                  value={batchForm.name}
-                  onChange={handleBatchChange}
-                />
-                {fieldErrors.name && <p className="text-[11px] font-bold text-rose-500 mt-1">{fieldErrors.name}</p>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Start Time <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input 
-                      name="startTime" 
-                      type="time" 
-                      className="w-full rounded-xl border border-border bg-surface pl-10 pr-3 py-3 text-sm font-black outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all focus:bg-background" 
-                      value={batchForm.startTime} 
-                      onChange={handleBatchChange} 
-                      required 
-                    />
-                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={(e) => handleBatchSubmit(e, false)}
+                    className={`flex-1 py-3.5 text-sm font-black uppercase tracking-widest rounded-2xl text-white shadow-lg transition-all ${editingBatchId ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30'}`}
+                  >
+                    {editingBatchId ? 'Update' : 'Create'}
+                  </motion.button>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">End Time <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input 
-                      name="endTime" 
-                      type="time" 
-                      className="w-full rounded-xl border border-border bg-surface pl-10 pr-3 py-3 text-sm font-black outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all focus:bg-background" 
-                      value={batchForm.endTime} 
-                      onChange={handleBatchChange} 
-                      required 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Coach Picker */}
-              <div ref={coachRef} className="relative z-20">
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Assign Coach <span className="text-rose-500">*</span></label>
-                <div className="relative">
-                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search coach..."
-                    className={`w-full rounded-xl border bg-surface pl-10 pr-8 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.coach_id ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
-                    value={coachSearch}
-                    onChange={(e) => {
-                      setCoachSearch(e.target.value);
-                      setCoachDropdownOpen(true);
-                      if (batchForm.coach_id) setBatchForm(prev => ({ ...prev, coach_id: '' }));
-                    }}
-                    onFocus={() => setCoachDropdownOpen(true)}
-                  />
-                  {coachSearch && (
-                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-surface-secondary rounded p-1 text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setCoachSearch(''); setBatchForm(prev => ({...prev, coach_id: ''})); }}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-                {fieldErrors.coach_id && <p className="text-[11px] font-bold text-rose-500 mt-1">{fieldErrors.coach_id}</p>}
-                
-                <AnimatePresence>
-                  {coachDropdownOpen && (
-                    <motion.ul 
-                      initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}
-                      className="absolute w-full mt-2 max-h-48 overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-2 custom-scrollbar"
-                    >
-                      {filteredCoaches.length === 0 ? (
-                        <li className="p-4 text-xs font-bold text-muted-foreground text-center bg-surface rounded-lg border border-dashed border-border">No coaches match search</li>
-                      ) : (
-                        filteredCoaches.map(c => {
-                          const isSel = batchForm.coach_id === c.coach_id?.toString();
-                          return (
-                            <li 
-                              key={c.coach_id}
-                              className={`p-3 text-sm font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between mb-1 last:mb-0 ${isSel ? 'bg-primary/10 text-primary border border-primary/20' : 'text-foreground hover:bg-surface-secondary'}`}
-                              onClick={() => {
-                                setBatchForm(prev => ({ ...prev, coach_id: c.coach_id.toString() }));
-                                setCoachSearch(c.name);
-                                setCoachDropdownOpen(false);
-                                clearFieldError('coach_id');
-                              }}
-                            >
-                              <span>{c.name}</span>
-                              {isSel && <CheckCircle size={16} />}
-                            </li>
-                          );
-                        })
-                      )}
-                    </motion.ul>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Sport Picker */}
-              <div ref={sportRef} className="relative z-10">
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Assign Sport <span className="text-rose-500">*</span></label>
-                <div className="relative">
-                  <Medal size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search sport..."
-                    className={`w-full rounded-xl border bg-surface pl-10 pr-8 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.sport_id ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
-                    value={sportSearch}
-                    onChange={(e) => {
-                      setSportSearch(e.target.value);
-                      setSportDropdownOpen(true);
-                      if (batchForm.sport_id) setBatchForm(prev => ({ ...prev, sport_id: '' }));
-                    }}
-                    onFocus={() => setSportDropdownOpen(true)}
-                  />
-                  {sportSearch && (
-                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-surface-secondary rounded p-1 text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setSportSearch(''); setBatchForm(prev => ({...prev, sport_id: ''})); }}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-                {fieldErrors.sport_id && <p className="text-[11px] font-bold text-rose-500 mt-1">{fieldErrors.sport_id}</p>}
-                
-                <AnimatePresence>
-                  {sportDropdownOpen && (
-                    <motion.ul 
-                      initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}
-                      className="absolute w-full mt-2 max-h-48 overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-2 custom-scrollbar"
-                    >
-                      {filteredSports.length === 0 ? (
-                        <li className="p-4 text-xs font-bold text-muted-foreground text-center bg-surface rounded-lg border border-dashed border-border">No sports match search</li>
-                      ) : (
-                        filteredSports.map(s => {
-                          const isSel = batchForm.sport_id === s.sport_id?.toString();
-                          return (
-                            <li 
-                              key={s.sport_id}
-                              className={`p-3 text-sm font-bold rounded-lg cursor-pointer transition-colors flex items-center justify-between mb-1 last:mb-0 ${isSel ? 'bg-primary/10 text-primary border border-primary/20' : 'text-foreground hover:bg-surface-secondary'}`}
-                              onClick={() => {
-                                setBatchForm(prev => ({ ...prev, sport_id: s.sport_id.toString() }));
-                                setSportSearch(s.name);
-                                setSportDropdownOpen(false);
-                                clearFieldError('sport_id');
-                              }}
-                            >
-                              <span className="flex items-center gap-2"><span className="text-xl leading-none">{s.icon || '🏅'}</span> {s.name}</span>
-                              {isSel && <CheckCircle size={16} />}
-                            </li>
-                          );
-                        })
-                      )}
-                    </motion.ul>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Max Capacity <span className="text-muted-foreground font-medium normal-case tracking-normal opacity-70">(Optional)</span></label>
-                <div className="relative">
-                  <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input 
-                    name="max_capacity" 
-                    type="number" 
-                    min={1} 
-                    className={`w-full rounded-xl border bg-surface pl-10 pr-4 py-3 text-sm font-semibold outline-none transition-all focus:bg-background ${fieldErrors.max_capacity ? 'border-rose-500 focus:ring-2 focus:ring-rose-500/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'}`} 
-                    value={batchForm.max_capacity} 
-                    onChange={handleBatchChange} 
-                    placeholder="e.g. 20" 
-                  />
-                </div>
-                {fieldErrors.max_capacity && <p className="text-[11px] font-bold text-rose-500 mt-1">{fieldErrors.max_capacity}</p>}
-              </div>
-
-              <div className="pt-4 mt-8">
-                <motion.button 
-                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  type="submit" 
-                  className={`w-full py-4 rounded-xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-2 ${editingBatchId ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-[0_4px_15px_rgba(37,99,235,0.3)]' : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_15px_rgba(16,185,129,0.3)]'}`}
-                >
-                  {editingBatchId ? <Edit2 size={18} /> : <Plus size={18} strokeWidth={3} />}
-                  {editingBatchId ? 'Save Changes' : 'Create Batch'}
-                </motion.button>
-              </div>
-            </form>
-          </div>
-
-          {/* RIGHT COLUMN: Table View */}
-          <div className="lg:col-span-8 xl:col-span-8 space-y-5">
-            
-            {/* Table Search Header */}
-            <div className="bg-card p-4 rounded-2xl border border-border shadow-sm">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <input
-                  type="text"
-                  className="w-full pl-11 pr-4 py-3.5 bg-surface border border-transparent focus:border-primary focus:ring-1 focus:ring-primary rounded-xl outline-none text-sm transition-all text-foreground font-semibold placeholder:text-muted-foreground/60 placeholder:font-medium"
-                  placeholder="Filter scheduled batches by name, sport, or coach..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Table Core */}
-            <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-              {loading ? (
-                <div className="p-20 flex justify-center"><Loader /></div>
-              ) : (
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-surface-secondary/50 border-b border-border/50">
-                      <tr className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        <th className="px-6 py-5">Batch Profile</th>
-                        <th className="px-4 py-5 text-center">Schedule</th>
-                        <th className="px-4 py-5">Assignment</th>
-                        <th className="px-4 py-5 text-center">Capacity</th>
-                        <th className="px-6 py-5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <motion.tbody 
-                      variants={tableContainerVariants}
-                      initial="hidden" animate="show"
-                      className="divide-y divide-border/50"
-                    >
-                      {filteredBatches.length === 0 ? (
-                        <motion.tr variants={rowVariants}>
-                          <td colSpan={5} className="py-24 text-center bg-surface/30">
-                            <div className="flex flex-col items-center justify-center">
-                              <span className="text-5xl opacity-30 mb-4 block">🏟️</span>
-                              <p className="font-bold text-lg text-foreground">No batches found</p>
-                              <p className="mt-1 text-sm font-medium text-muted-foreground">Create a new batch using the form to your left.</p>
-                            </div>
-                          </td>
-                        </motion.tr>
-                      ) : (
-                        filteredBatches.map((batch) => {
-                          const enrolled = batch?.enrolled_count ?? batch?.students?.length ?? 0;
-                          const max = batch?.max_capacity;
-                          const isFull = max && enrolled >= max;
-                          const sportIcon = sports.find(s => s.sport_id === batch.sport_id)?.icon || '🏅';
-
-                          return (
-                            <motion.tr
-                              key={batch?.batch_id}
-                              variants={rowVariants}
-                              className={`group hover:bg-surface-secondary/50 transition-colors ${editingBatchId === batch.batch_id ? 'bg-primary/5 hover:bg-primary/10 relative z-10' : ''}`}
-                            >
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full bg-surface-secondary border border-border shadow-inner flex items-center justify-center text-lg font-black text-muted-foreground group-hover:text-foreground transition-colors">
-                                    {(batch?.name).charAt(0).toUpperCase()}
-                                  </div>
-                                  <span className={`font-black text-base transition-colors ${editingBatchId === batch.batch_id ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>{batch?.name}</span>
-                                </div>
-                              </td>
-                              
-                              <td className="px-4 py-4 text-center">
-                                <div className="inline-flex items-center gap-2 bg-surface border border-border/50 shadow-sm px-3 py-1.5 rounded-lg text-foreground font-bold text-xs">
-                                  <Clock size={12} className="text-muted-foreground" />
-                                  {batch?.timing || '—'}
-                                </div>
-                              </td>
-
-                              <td className="px-4 py-4">
-                                <div className="flex flex-col gap-2">
-                                  {/* Coach Badge */}
-                                  <span className="inline-flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider w-fit border border-blue-200 dark:border-blue-800/50">
-                                    <User size={12} /> {batch?.coach?.name || 'Unassigned'}
-                                  </span>
-                                  {/* Sport Badge */}
-                                  <span className="inline-flex items-center gap-1.5 bg-surface border border-border text-foreground px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider w-fit shadow-sm">
-                                    <span className="text-[12px] leading-none">{sportIcon}</span> {batch?.sport?.name || '—'}
-                                  </span>
-                                </div>
-                              </td>
-
-                              <td className="px-4 py-4">
-                                <div className="flex flex-col items-center gap-1">
-                                  <span className={`text-[11px] font-black ${isFull ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded' : 'text-foreground'}`}>
-                                    {enrolled} {max ? `/ ${max}` : 'enrolled'}
-                                  </span>
-                                  <div className="w-20 h-1.5 bg-surface-secondary border border-border rounded-full overflow-hidden shadow-inner">
-                                    {max ? (
-                                      <div 
-                                        className={`h-full transition-all ${isFull ? 'bg-rose-500' : 'bg-primary'}`} 
-                                        style={{ width: `${Math.min((enrolled / max) * 100, 100)}%` }}
-                                      />
-                                    ) : (
-                                      <div className="h-full bg-primary/50 w-full" />
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td className="px-6 py-4 text-right">
-                                <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditClick(batch)}
-                                    className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 flex items-center justify-center transition-colors"
-                                    title="Edit Batch"
-                                  >
-                                    <Edit2 size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteBatch(batch?.batch_id)}
-                                    className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 flex items-center justify-center transition-colors"
-                                    title="Delete Batch"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                            </motion.tr>
-                          );
-                        })
-                      )}
-                    </motion.tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Floating Scroll Top / Scroll Down Button */}
+      <AnimatePresence>
+        {showScrollBtn && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            whileHover={{ scale: 1.1, y: -2 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={handleScrollAction}
+            className="fixed bottom-6 right-6 z-[9999] p-4 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 shadow-2xl flex items-center justify-center transition-all hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
+            title={scrollTop > 150 ? "Scroll to Top" : "Scroll Down"}
+          >
+            {scrollTop > 150 ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            ) : (
+              <ArrowDown size={20} strokeWidth={3} />
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
