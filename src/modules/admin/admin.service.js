@@ -130,7 +130,7 @@ export const getAcademyDetails = async (academy_id) => {
 
 
 
-export const updateAcademyDetails = async (academy_id, { name, owner_name, email, phone_number, address, city, state, country, pincode, logo, latitude, longitude, attendance_radius_meters }) => {
+export const updateAcademyDetails = async (academy_id, { name, owner_name, email, phone_number, address, city, state, country, pincode, logo, latitude, longitude, attendance_radius_meters, auto_deactivate_default }) => {
 
   const academyId = parseInt(academy_id, 10);
 
@@ -280,8 +280,11 @@ export const updateAcademyDetails = async (academy_id, { name, owner_name, email
 
       longitude: longitude === undefined ? existingAcademy.longitude : (longitude === null ? null : parseFloat(longitude)),
 
-      attendance_radius_meters: radius
+      attendance_radius_meters: radius,
 
+      auto_deactivate_default: auto_deactivate_default !== undefined 
+        ? (auto_deactivate_default === true || auto_deactivate_default === 'true') 
+        : existingAcademy.auto_deactivate_default
     }
 
   });
@@ -598,6 +601,19 @@ export const getDurationPlans = async (academy_id) => {
 
     orderBy: { duration_months: 'asc' },
 
+    include: {
+
+      _count: {
+        select: {
+          enrollments: {
+            where: {
+              is_active: true,
+            },
+          },
+        },
+      },
+    },
+
   });
 
 
@@ -779,8 +795,6 @@ export const getStudentDetails = async (academy_id, student_id) => {
         student_id: student.student_id,
 
         academy_id: parseInt(academy_id, 10),
-
-        is_active: true,
 
       },
 
@@ -1529,6 +1543,12 @@ export const updateSport = async (academy_id, sport_id, data) => {
 
   }
 
+  if (data.use_custom_location !== undefined) {
+
+    updateData.use_custom_location = data.use_custom_location;
+
+  }
+
 
 
   const updatedSport = await prisma.sport.update({
@@ -2171,9 +2191,6 @@ export const getAllStudents = async (academy_id) => {
         },
         sport: true,
         enrollments: {
-          where: {
-            is_active: true
-          },
           include: {
 
             sport: true,
@@ -2193,7 +2210,7 @@ export const getAllStudents = async (academy_id) => {
           },
 
           orderBy: { created_at: 'desc' },
-          take: 1, // Only get the most recent active enrollment
+          take: 5, // Get recent enrollments including inactive ones for reactivation
 
         },
 
@@ -2434,6 +2451,15 @@ export const createStudent = async (academy_id, data) => {
   const academyId = parseInt(academy_id, 10);
   await assertSubscriptionLimits(academyId, 'student');
 
+  const academy = await prisma.academy.findUnique({
+    where: { academy_id: academyId },
+    select: { auto_deactivate_default: true }
+  });
+
+  const autoDeactivateOnDue = data.auto_deactivate_on_due !== undefined 
+    ? (data.auto_deactivate_on_due === true || data.auto_deactivate_on_due === 'true')
+    : (academy?.auto_deactivate_default ?? true);
+
 
 
   // Handle multi-sport enrollment
@@ -2548,17 +2574,19 @@ export const createStudent = async (academy_id, data) => {
 
 
 
-  // Calculate next due date based on duration plan
+  // Calculate next due date based on duration plan (Use 1 Month = 30 Days consistently)
 
   let nextDueDate = null;
+  let planStartDate = null;
+  let planEndDate = null;
 
   if (durationPlan && durationPlan.duration_months) {
 
-    const joiningDate = data.joining_date ? new Date(data.joining_date) : new Date();
+    planStartDate = data.joining_date ? new Date(data.joining_date) : new Date();
+    const durationDays = durationPlan.duration_months * 30;
 
-    nextDueDate = new Date(joiningDate);
-
-    nextDueDate.setMonth(nextDueDate.getMonth() + durationPlan.duration_months);
+    planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    nextDueDate = planEndDate;
 
   }
 
@@ -2863,6 +2891,10 @@ export const createStudent = async (academy_id, data) => {
 
       status: 'ACTIVE',
 
+      auto_deactivate_on_due: autoDeactivateOnDue,
+
+      auto_deactivated: false,
+
       height: data.height ? Number(data.height) : null,
 
       weight: data.weight ? Number(data.weight) : null,
@@ -2910,6 +2942,10 @@ export const createStudent = async (academy_id, data) => {
         final_fee: index === 0 ? finalFee : sportBaseFee * planMultiplier,
 
         next_due_date: index === 0 ? nextDueDate : null,
+
+        plan_start_date: index === 0 ? planStartDate : null,
+
+        plan_end_date: index === 0 ? planEndDate : null,
 
         is_active: true,
 
@@ -3235,6 +3271,14 @@ export const updateStudent = async (academy_id, student_id, data) => {
 
       status: data.status ?? student.status,
 
+      auto_deactivate_on_due: data.auto_deactivate_on_due !== undefined
+        ? (data.auto_deactivate_on_due === true || data.auto_deactivate_on_due === 'true')
+        : student.auto_deactivate_on_due,
+
+      auto_activated: data.auto_activated !== undefined
+        ? (data.auto_activated === true || data.auto_activated === 'true')
+        : student.auto_activated,
+
       joining_date:
 
         data.joining_date !== undefined
@@ -3333,6 +3377,10 @@ export const updateStudent = async (academy_id, student_id, data) => {
 
 
 
+        const durationDays = durationPlanId ? await getPlanDurationDays(durationPlanId) : 30;
+        const planStartDate = new Date();
+        const planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
         await prisma.studentEnrollment.create({
 
           data: {
@@ -3356,6 +3404,12 @@ export const updateStudent = async (academy_id, student_id, data) => {
             final_fee: finalFee,
 
             paid_amount: 0,
+
+            plan_start_date: planStartDate,
+
+            plan_end_date: planEndDate,
+
+            next_due_date: planEndDate,
 
             is_active: true,
 
@@ -4875,26 +4929,7 @@ export const createPayment = async (academy_id, data) => {
 
   const remainingFee = Math.max(0, totalFeesAssigned - totalPaid);
 
-  // Check if payment exceeds remaining fee
-  if (Math.round(paymentAmount * 100) / 100 > Math.round(remainingFee * 100) / 100) {
-    const error = new Error('Payment amount cannot exceed the remaining fee.');
-    error.statusCode = 400;
-    throw error;
-  }
-
-
-  // Check if student is already fully paid
-  if (remainingFee <= 0) {
-    const error = new Error('Student has already paid all fees. No further payments can be accepted.');
-    error.statusCode = 400;
-    throw error;
-  }
-
-
-
   const generatedReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-
 
   const receiptData = {
 
@@ -4913,8 +4948,6 @@ export const createPayment = async (academy_id, data) => {
     status: data.status === 'completed' ? 'COMPLETED' : 'PENDING',
 
   };
-
-
 
   let receipt;
 
@@ -4936,21 +4969,26 @@ export const createPayment = async (academy_id, data) => {
 
   }
 
-
-
   if (data.status === 'completed') {
 
     try {
+      const newTotalPaid = totalPaid + paymentAmount;
+      let newFeesStatus = 'unpaid';
+      if (newTotalPaid >= totalFeesAssigned) {
+        newFeesStatus = 'paid';
+      } else if (newTotalPaid > 0) {
+        newFeesStatus = 'partial';
+      }
 
       await prisma.student.update({
 
         where: { student_id: student.student_id },
 
-        data: { fees_status: 'paid' },
+        data: { fees_status: newFeesStatus },
 
       });
 
-      logger.info('Student fees status updated to paid', { student_id: student.student_id });
+      logger.info('Student fees status updated dynamically', { student_id: student.student_id, fees_status: newFeesStatus });
 
     } catch (error) {
 
@@ -5330,299 +5368,150 @@ export const updatePaymentStatus = async (
 
 
 export const getAcademyReport = async (academy_id) => {
-
   try {
-
     const academyId = parseInt(academy_id, 10);
-
-    const activeStudentFilter = { academy_id: academyId, ...NOT_DELETED };
-
-    const activeCoachFilter = { academy_id: academyId, ...NOT_DELETED };
-
-
-
-    const thirtyDaysAgo = new Date();
-
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-
-
-    const [
-
-      activeCoaches,
-
-      activeStudents,
-
-      totalBatches,
-
-      revenueAggregate,
-
-      paidStudents,
-
-      unpaidStudents,
-
-      attendanceAgg,
-
-      performanceScoresCount,
-
-      dailyNotesCount,
-
-      pendingDuesAggregate,
-
-      monthlyRevenueAggregate,
-
-      monthlyAttendanceCount,
-
-    ] = await Promise.all([
-
-      prisma.coach.count({ where: activeCoachFilter }).catch(() => 0),
-
-      prisma.student.count({ where: { ...activeStudentFilter, status: 'ACTIVE' } }).catch(() => 0),
-
-      prisma.batch.count({ where: { academy_id: academyId, status: 'ACTIVE' } }).catch(() => 0),
-
-      prisma.receipt
-
-        .aggregate({
-
-          where: {
-
-            academy_id: academyId,
-
-            status: 'COMPLETED',
-
-            student: NOT_DELETED,
-
-          },
-
-          _sum: { amount: true },
-
-        })
-
-        .catch(() => ({ _sum: { amount: 0 } })),
-
-      prisma.student
-
-        .count({
-
-          where: { ...activeStudentFilter, fees_status: 'paid' },
-
-        })
-
-        .catch(() => 0),
-
-      prisma.student
-
-        .count({
-
-          where: {
-
-            ...activeStudentFilter,
-
-            fees_status: { in: ['unpaid', 'pending', 'partial'] },
-
-          },
-
-        })
-
-        .catch(() => 0),
-
-      prisma.studentAttendance
-
-        .groupBy({
-
-          by: ['status'],
-
-          where: {
-
-            academy_id: academyId,
-
-            date: { gte: thirtyDaysAgo },
-
-          },
-
-          _count: { status: true },
-
-        })
-
-        .catch(() => []),
-
-      prisma.performanceScore.count({ where: { academy_id: academyId } }).catch(() => 0),
-
-      prisma.dailyStudentNote.count({ where: { academy_id: academyId } }).catch(() => 0),
-
-      prisma.student
-
-        .aggregate({
-
-          where: activeStudentFilter,
-
-          _sum: {
-
-            registration_fee: true,
-
-            additional_charges: true,
-
-            discount: true,
-
-          },
-
-        })
-
-        .catch(() => ({ _sum: { registration_fee: 0, additional_charges: 0, discount: 0 } })),
-
-      prisma.receipt
-
-        .aggregate({
-
-          where: {
-
-            academy_id: academyId,
-
-            status: 'COMPLETED',
-
-            student: NOT_DELETED,
-
-            payment_date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
-
-          },
-
-          _sum: { amount: true },
-
-        })
-
-        .catch(() => ({ _sum: { amount: 0 } })),
-
-      prisma.studentAttendance
-
-        .count({
-
-          where: {
-
-            academy_id: academyId,
-
-            date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
-
-          },
-
-        })
-
-        .catch(() => 0),
-
-    ]);
-
-
-
-    const attendanceCounts = attendanceAgg.reduce(
-
-      (acc, row) => {
-
-        acc[row.status] = row._count.status;
-
-        acc.total += row._count.status;
-
-        return acc;
-
+    const activeStudentFilter = { academy_id: academyId, status: 'ACTIVE', is_deleted: false, auto_deactivated: false };
+
+    // 1. Total Collection
+    const totalCollectionRes = await prisma.receipt.aggregate({
+      where: {
+        academy_id: academyId,
+        status: 'COMPLETED'
       },
+      _sum: { amount: true }
+    });
+    const totalCollection = totalCollectionRes._sum.amount || 0;
 
-      { total: 0 },
+    // 2. Today's Collection
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
 
-    );
+    const todaysCollectionRes = await prisma.receipt.aggregate({
+      where: {
+        academy_id: academyId,
+        status: 'COMPLETED',
+        payment_date: {
+          gte: startOfToday,
+          lte: endOfToday
+        }
+      },
+      _sum: { amount: true }
+    });
+    const todaysCollection = todaysCollectionRes._sum.amount || 0;
 
+    // 3. Fetch all active students and calculate their total computed fee vs paid to get accurate Pending Fees
+    const activeStudents = await prisma.student.findMany({
+      where: activeStudentFilter,
+      include: {
+        enrollments: {
+          where: { is_active: true }
+        },
+        receipts: {
+          where: { status: 'COMPLETED' }
+        }
+      }
+    });
 
+    let pendingFees = 0;
+    let studentsWithPendingFees = 0;
 
-    const presentCount = (attendanceCounts.PRESENT || 0) + (attendanceCounts.LATE || 0);
+    activeStudents.forEach(student => {
+      // Calculate total fees assigned from active enrollments
+      const totalFeeDue = student.enrollments.reduce((sum, e) => {
+        return sum + parseFloat(e.final_fee || 0);
+      }, 0);
 
-    const attendancePercent =
+      // Calculate total paid from completed receipts
+      const totalPaid = student.receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
 
-      attendanceCounts.total > 0 ? Math.round((presentCount / attendanceCounts.total) * 100) : 0;
+      const balance = Math.max(0, totalFeeDue - totalPaid);
+      if (balance > 0) {
+        pendingFees += balance;
+        studentsWithPendingFees += 1;
+      }
+    });
 
+    // 4. Recent Payments (last 10 completed receipts)
+    const recentPayments = await prisma.receipt.findMany({
+      where: {
+        academy_id: academyId,
+        status: 'COMPLETED'
+      },
+      include: {
+        student: true
+      },
+      orderBy: {
+        payment_date: 'desc'
+      },
+      take: 10
+    });
 
+    // 5. Monthly Collection Chart (grouped by month for the last 6 months)
+    const allCompletedReceipts = await prisma.receipt.findMany({
+      where: {
+        academy_id: academyId,
+        status: 'COMPLETED'
+      },
+      orderBy: {
+        payment_date: 'asc'
+      }
+    });
 
-    // Calculate pending dues
+    const monthlyGroups = {};
+    allCompletedReceipts.forEach(r => {
+      const date = new Date(r.payment_date);
+      const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      monthlyGroups[key] = (monthlyGroups[key] || 0) + parseFloat(r.amount);
+    });
 
-    const totalFees =
+    const monthlyCollectionChart = Object.keys(monthlyGroups).map(key => ({
+      month: key,
+      amount: monthlyGroups[key]
+    })).slice(-6);
 
-      (pendingDuesAggregate._sum?.registration_fee || 0) +
-
-      (pendingDuesAggregate._sum?.additional_charges || 0) -
-
-      (pendingDuesAggregate._sum?.discount || 0);
-
-    const totalPaid = revenueAggregate._sum?.amount || 0;
-
-    const pendingDues = Math.max(0, totalFees - totalPaid);
-
-
+    const activeCoachCount = await prisma.coach.count({ where: { academy_id: academyId, is_deleted: false } });
+    const totalBatches = await prisma.batch.count({ where: { academy_id: academyId, status: 'ACTIVE' } });
 
     return {
-
-      active_coach_count: activeCoaches || 0,
-
-      active_student_count: activeStudents || 0,
-
-      total_batches: totalBatches || 0,
-
-      total_revenue: revenueAggregate._sum?.amount || 0,
-
-      attendance_percent: attendancePercent || 0,
-
+      total_collection: totalCollection,
+      pending_fees: pendingFees,
+      students_with_pending_fees: studentsWithPendingFees,
+      todays_collection: todaysCollection,
+      recent_payments: recentPayments,
+      monthly_collection_chart: monthlyCollectionChart,
+      
+      // Keep other counters for dashboard backward compatibility
+      active_student_count: activeStudents.length,
+      active_coach_count: activeCoachCount,
+      total_batches: totalBatches,
+      total_revenue: totalCollection,
+      pending_dues: pendingFees,
       payment_summary: {
-
-        paid_students: paidStudents || 0,
-
-        unpaid_students: unpaidStudents || 0,
-
-      },
-
-      pending_dues: pendingDues || 0,
-
-      performance_scores_count: performanceScoresCount || 0,
-
-      daily_notes_count: dailyNotesCount || 0,
-
-      monthly_revenue: monthlyRevenueAggregate._sum?.amount || 0,
-
-      monthly_attendance: monthlyAttendanceCount || 0,
-
+        paid_students: activeStudents.length - studentsWithPendingFees,
+        unpaid_students: studentsWithPendingFees
+      }
     };
-
   } catch (error) {
-
-    // Return default values if anything fails
-
+    logger.error('Error in getAcademyReport', error);
     return {
-
-      active_coach_count: 0,
-
+      total_collection: 0,
+      pending_fees: 0,
+      students_with_pending_fees: 0,
+      todays_collection: 0,
+      recent_payments: [],
+      monthly_collection_chart: [],
       active_student_count: 0,
-
+      active_coach_count: 0,
       total_batches: 0,
-
       total_revenue: 0,
-
-      attendance_percent: 0,
-
-      payment_summary: {
-
-        paid_students: 0,
-
-        unpaid_students: 0,
-
-      },
-
       pending_dues: 0,
-
-      performance_scores_count: 0,
-
-      daily_notes_count: 0,
-
-      monthly_revenue: 0,
-
-      monthly_attendance: 0,
-
+      payment_summary: {
+        paid_students: 0,
+        unpaid_students: 0
+      }
     };
-
   }
 
 };
@@ -5828,6 +5717,8 @@ export const createAnnouncement = async (academy_id, data) => {
       target_type: target_type,
 
       batch_id: batch_id ? parseInt(batch_id, 10) : null,
+
+      category: 'ANNOUNCEMENT',
 
     },
 
@@ -6980,3 +6871,328 @@ export const resetParentPassword = async (academy_id, student_id, new_password, 
     must_change_password: updatedParent.must_change_password
   };
 };
+
+const getPlanDurationDays = async (planId) => {
+  const plan = await prisma.durationPlan.findUnique({
+    where: { plan_id: planId }
+  });
+  return plan ? plan.duration_months * 30 : 30;
+};
+
+const getFinalFeeForPlan = async (planId, sportId) => {
+  const [plan, sport] = await Promise.all([
+    prisma.durationPlan.findUnique({ where: { plan_id: planId } }),
+    prisma.sport.findUnique({ where: { sport_id: sportId } })
+  ]);
+  const multiplier = plan ? parseFloat(plan.multiplier) : 1.0;
+  const baseFee = sport ? parseFloat(sport.base_fee) : 0.0;
+  return baseFee * multiplier;
+};
+
+export const reactivateStudent = async (academy_id, student_id, data, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const { action, duration_plan_id, sport_id, batch_id, plan_start_date, additional_charges, registration_fee } = data;
+  let targetPlanId = duration_plan_id ? parseInt(duration_plan_id, 10) : null;
+  let targetSportId = sport_id ? parseInt(sport_id, 10) : student.sport_id;
+  let targetBatchId = batch_id ? parseInt(batch_id, 10) : student.batch_id;
+  const additionalCharges = additional_charges ? parseFloat(additional_charges) : 0;
+  const registrationFee = registration_fee ? parseFloat(registration_fee) : 0;
+
+  const latestEnrollment = await prisma.studentEnrollment.findFirst({
+    where: { student_id: studentId, academy_id: academyId },
+    orderBy: { created_at: 'desc' }
+  });
+
+  if (!targetPlanId && latestEnrollment) {
+    targetPlanId = latestEnrollment.duration_plan_id;
+    targetSportId = latestEnrollment.sport_id;
+    targetBatchId = latestEnrollment.batch_id;
+  }
+
+  if (!targetPlanId) {
+    const error = new Error('No plan specified and no previous plan found');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const durationDays = await getPlanDurationDays(targetPlanId);
+  const finalFee = await getFinalFeeForPlan(targetPlanId, targetSportId);
+
+  const result = await prisma.$transaction(async (tx) => {
+    if (action === 'continue' && latestEnrollment) {
+      // Continue Existing Plan: Reactivate the existing enrollment with provided or default start date
+      const planStartDate = plan_start_date ? new Date(plan_start_date) : new Date();
+      const durationPlan = await prisma.durationPlan.findUnique({
+        where: { plan_id: targetPlanId }
+      });
+      const durationMonths = durationPlan?.duration_months || 1;
+      const durationDays = durationMonths * 30;
+      const newEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+      const updatedEnrollment = await tx.studentEnrollment.update({
+        where: { enrollment_id: latestEnrollment.enrollment_id },
+        data: {
+          is_active: true,
+          plan_start_date: planStartDate,
+          plan_end_date: newEndDate,
+          next_due_date: newEndDate,
+          batch_id: targetBatchId
+        }
+      });
+
+      await tx.student.update({
+        where: { student_id: studentId },
+        data: {
+          status: 'ACTIVE',
+          auto_deactivated: false
+        }
+      });
+
+      await tx.fee.create({
+        data: {
+          academy_id: academyId,
+          student_id: studentId,
+          amount_due: finalFee,
+          due_date: newEndDate,
+          status: 'PENDING',
+          description: `Plan Reactivation (Continue Existing): ${planStartDate.toLocaleDateString()} to ${newEndDate.toLocaleDateString()}`
+        }
+      });
+
+      return updatedEnrollment;
+    } else {
+      // Assign New Plan: Create a new enrollment with provided or default values
+      await tx.studentEnrollment.updateMany({
+        where: { student_id: studentId, is_active: true },
+        data: { is_active: false }
+      });
+
+      const planStartDate = plan_start_date ? new Date(plan_start_date) : new Date();
+      const planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+      const newEnrollment = await tx.studentEnrollment.create({
+        data: {
+          academy_id: academyId,
+          student_id: studentId,
+          sport_id: targetSportId,
+          duration_plan_id: targetPlanId,
+          batch_id: targetBatchId,
+          registration_fee: registrationFee,
+          sports_fee: finalFee,
+          additional_charges: additionalCharges,
+          discount: 0,
+          final_fee: finalFee + registrationFee + additionalCharges,
+          paid_amount: 0,
+          plan_start_date: planStartDate,
+          plan_end_date: planEndDate,
+          next_due_date: planEndDate,
+          is_active: true
+        }
+      });
+
+      await tx.student.update({
+        where: { student_id: studentId },
+        data: {
+          status: 'ACTIVE',
+          auto_deactivated: false
+        }
+      });
+
+      await tx.fee.create({
+        data: {
+          academy_id: academyId,
+          student_id: studentId,
+          amount_due: finalFee + registrationFee + additionalCharges,
+          due_date: planEndDate,
+          status: 'PENDING',
+          description: `Plan Reactivation (New Plan): ${planStartDate.toLocaleDateString()} to ${planEndDate.toLocaleDateString()}`
+        }
+      });
+
+      return newEnrollment;
+    }
+  });
+
+  return result;
+};
+
+export const renewStudent = async (academy_id, student_id, data, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const latestEnrollment = await prisma.studentEnrollment.findFirst({
+    where: { student_id: studentId, academy_id: academyId, is_active: true },
+    orderBy: { created_at: 'desc' }
+  });
+
+  if (!latestEnrollment) {
+    const error = new Error('No active plan found to renew. Please use Reactivate.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetPlanId = data.duration_plan_id ? parseInt(data.duration_plan_id, 10) : latestEnrollment.duration_plan_id;
+  const targetSportId = latestEnrollment.sport_id;
+  const targetBatchId = latestEnrollment.batch_id;
+
+  const durationDays = await getPlanDurationDays(targetPlanId);
+  const finalFee = await getFinalFeeForPlan(targetPlanId, targetSportId);
+
+  let planStartDate = new Date();
+  if (latestEnrollment.plan_end_date) {
+    const currentEnd = new Date(latestEnrollment.plan_end_date);
+    if (currentEnd > planStartDate) {
+      planStartDate = currentEnd;
+    }
+  }
+
+  const planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.studentEnrollment.update({
+      where: { enrollment_id: latestEnrollment.enrollment_id },
+      data: { is_active: false }
+    });
+
+    const newEnrollment = await tx.studentEnrollment.create({
+      data: {
+        academy_id: academyId,
+        student_id: studentId,
+        sport_id: targetSportId,
+        duration_plan_id: targetPlanId,
+        batch_id: targetBatchId,
+        registration_fee: 0,
+        sports_fee: finalFee,
+        additional_charges: 0,
+        discount: 0,
+        final_fee: finalFee,
+        paid_amount: 0,
+        plan_start_date: planStartDate,
+        plan_end_date: planEndDate,
+        next_due_date: planEndDate,
+        is_active: true
+      }
+    });
+
+    await tx.student.update({
+      where: { student_id: studentId },
+      data: {
+        status: 'ACTIVE',
+        auto_deactivated: false
+      }
+    });
+
+    await tx.fee.create({
+      data: {
+        academy_id: academyId,
+        student_id: studentId,
+        amount_due: finalFee,
+        due_date: planEndDate,
+        status: 'PENDING',
+        description: `Plan Renewal: ${planStartDate.toLocaleDateString()} to ${planEndDate.toLocaleDateString()}`
+      }
+    });
+
+    return newEnrollment;
+  });
+
+  return result;
+};
+
+export const changeStudentPlan = async (academy_id, student_id, data, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const { duration_plan_id } = data;
+  if (!duration_plan_id) {
+    const error = new Error('New duration plan ID is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const targetPlanId = parseInt(duration_plan_id, 10);
+
+  const latestEnrollment = await prisma.studentEnrollment.findFirst({
+    where: { student_id: studentId, academy_id: academyId, is_active: true }
+  });
+
+  const targetSportId = latestEnrollment ? latestEnrollment.sport_id : student.sport_id;
+  const targetBatchId = latestEnrollment ? latestEnrollment.batch_id : student.batch_id;
+
+  const durationDays = await getPlanDurationDays(targetPlanId);
+  const finalFee = await getFinalFeeForPlan(targetPlanId, targetSportId);
+
+  const planStartDate = new Date();
+  const planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.studentEnrollment.updateMany({
+      where: { student_id: studentId, is_active: true },
+      data: { is_active: false }
+    });
+
+    const newEnrollment = await tx.studentEnrollment.create({
+      data: {
+        academy_id: academyId,
+        student_id: studentId,
+        sport_id: targetSportId,
+        duration_plan_id: targetPlanId,
+        batch_id: targetBatchId,
+        registration_fee: 0,
+        sports_fee: finalFee,
+        additional_charges: 0,
+        discount: 0,
+        final_fee: finalFee,
+        paid_amount: 0,
+        plan_start_date: planStartDate,
+        plan_end_date: planEndDate,
+        next_due_date: planEndDate,
+        is_active: true
+      }
+    });
+
+    await tx.student.update({
+      where: { student_id: studentId },
+      data: {
+        status: 'ACTIVE',
+        auto_deactivated: false
+      }
+    });
+
+    await tx.fee.create({
+      data: {
+        academy_id: academyId,
+        student_id: studentId,
+        amount_due: finalFee,
+        due_date: planEndDate,
+        status: 'PENDING',
+        description: `Plan Upgrade/Downgrade: ${planStartDate.toLocaleDateString()} to ${planEndDate.toLocaleDateString()}`
+      }
+    });
+
+    return newEnrollment;
+  });
+
+  return result;
+};
+

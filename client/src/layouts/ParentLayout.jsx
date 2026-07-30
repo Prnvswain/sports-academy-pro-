@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BrandingLogo from '../components/BrandingLogo';
-import { SIDEBAR_COLLAPSED_KEY } from '../api/client';
+import GlobalBackground from '../components/GlobalBackground';
+import { SIDEBAR_COLLAPSED_KEY, parentGet } from '../api/client';
+import { useTheme } from '../context/ThemeContext';
 
 // Energetic sports icons
 import { 
@@ -69,6 +71,23 @@ function ParentLayoutShell() {
     fetchChildren();
   }, [navigate]);
 
+  // Load theme colors from backend
+  const { updateThemeColors } = useTheme();
+  useEffect(() => {
+    const loadThemeColors = async () => {
+      try {
+        const response = await parentGet('/super-admin/theme');
+        const themeData = response?.data || response;
+        if (themeData) {
+          updateThemeColors(themeData);
+        }
+      } catch (error) {
+        console.error('Failed to load theme colors:', error);
+      }
+    };
+    loadThemeColors();
+  }, [updateThemeColors]);
+
   const fetchChildren = async () => {
     try {
       const token = localStorage.getItem('parent_token');
@@ -126,8 +145,11 @@ function ParentLayoutShell() {
   }
 
   return (
-    <div className="bg-slate-50 text-slate-900 flex h-screen w-screen overflow-hidden antialiased font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative z-0 antialiased font-sans">
       
+      {/* Universal Fixed Background (Fully Stationary, No scrolling/clipping/repeating bugs) */}
+      <GlobalBackground />
+
       {/* Sidebar - Dark theme */}
       <motion.aside
         initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
@@ -146,7 +168,7 @@ function ParentLayoutShell() {
             className="flex items-center gap-3 no-underline outline-none transition-transform duration-250 hover:scale-105"
             onClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
           >
-            <span className="bg-[#b2f04d] text-[#0b1121] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-lg shadow-lime-500/30">
+            <span className="bg-[var(--theme-primary,#b2f04d)] text-[#0b1121] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-lg shadow-lime-500/30">
               {PRODUCT_LOGO}
             </span>
             <motion.span
@@ -185,7 +207,7 @@ function ParentLayoutShell() {
                     sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      ? 'bg-[#b2f04d] text-[#0b1121] shadow-lg shadow-lime-500/30 scale-105' 
+                      ? 'bg-[var(--theme-primary,#b2f04d)] text-[#0b1121] shadow-lg shadow-lime-500/30 scale-105' 
                       : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
@@ -292,7 +314,7 @@ function ParentLayoutShell() {
         <motion.header 
           whileHover={{ y: -1, scale: 1.002 }}
           transition={{ duration: 0.3 }}
-          className="bg-[#84cc16]/95 backdrop-blur-xl border-b border-lime-600/30 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-xl shadow-black/20"
+          className="bg-[var(--theme-navbar,#84cc16)]/95 backdrop-blur-xl border-b border-lime-600/30 sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-8 shrink-0 shadow-xl shadow-black/20"
         >
           <motion.div 
             whileHover={{ scale: 1.02 }}
@@ -339,13 +361,19 @@ function ParentLayoutShell() {
         </motion.header>
 
         {/* 🌟 YAHAN LIGHT GRADIENT WAPAS LAGA DIYA GAYA HAI 🌟 */}
-        <main className="flex-1 min-w-0 overflow-x-hidden relative flex flex-col bg-gradient-to-br from-[#effbe3] via-[#f8fafc] to-[#d8f4bc]">
+        <main className="flex-1 min-w-0 overflow-x-hidden relative flex flex-col">
+          {/* Subtle Sports-Themed Background Decorative Elements */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--theme-primary,#84cc16)]/3 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#22c55e]/3 rounded-full blur-3xl" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#a3e635]/2 rounded-full blur-3xl" />
+          </div>
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full h-full min-w-0 flex flex-col rounded-2xl shadow-xl shadow-black/5 bg-white/50 backdrop-blur-sm p-6 lg:p-8 m-5 lg:m-8"
+            className="w-full h-full min-w-0 flex flex-col rounded-2xl shadow-xl shadow-black/5 bg-white/50 backdrop-blur-sm p-6 lg:p-8 m-5 lg:m-8 relative z-10"
           >
             <Outlet />
           </motion.div>

@@ -907,7 +907,7 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
 
 
 
-  // Lock all student attendance records for this session
+  // Lock all student attendance records for this session and finalize them
   await prisma.studentAttendance.updateMany({
     where: {
       batch_session_id: session.session_id,
@@ -915,11 +915,12 @@ export const endBatchSession = async (coach_id, academy_id, batch_id) => {
     },
     data: {
       locked: true,
-      locked_at: new Date()
+      locked_at: new Date(),
+      submission_status: 'FINAL'
     }
   });
 
-  logger.info('Student attendance locked for session', {
+  logger.info('Student attendance locked and finalized for session', {
     session_id: session.session_id,
     batch_id: batchId
   });
@@ -3091,6 +3092,8 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
         status,
 
+        submission_status: 'DRAFT',
+
         marked_by_coach_id: coachId,
 
         remarks: record.remarks || null
@@ -3099,6 +3102,7 @@ export const markStudentAttendance = async (coach_id, academy_id, payload) => {
 
       update: {
         status,
+        submission_status: 'DRAFT',
         marked_by_coach_id: coachId,
         remarks: record.remarks || null
       }

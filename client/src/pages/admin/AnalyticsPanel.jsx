@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { BarChart2 } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { adminGet } from '../../api/client';
 
@@ -44,15 +46,29 @@ export default function AnalyticsPanel() {
 
   return (
     <div className="space-y-6 w-full overflow-x-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Academy Analytics</h2>
-          <p className="text-muted">KPI aggregates for active records only (is_deleted: false).</p>
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <BarChart2 className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Academy Analytics
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              KPI aggregates for active records only (is_deleted: false).
+            </p>
+          </div>
         </div>
         <button type="button" className="btn-secondary" onClick={loadAnalytics}>
           Refresh
         </button>
-      </div>
+      </motion.div>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 w-full">
         <div className="card bg-surface-secondary">
           <span className="kpi-label">Total Revenue</span>

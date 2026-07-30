@@ -787,64 +787,57 @@ export default function PerformancePanel() {
       transition={{ duration: 0.4 }}
     >
       <div className="space-y-6">
-        {/* Modern Gradient Header */}
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl p-6 sm:p-8 shadow-xl shadow-emerald-500/20"
+          className="flex items-center justify-between"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
         >
-          {/* Decorative blobs */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
-          <div className="relative z-10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <Activity className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-white text-2xl sm:text-3xl font-black tracking-tight">
-                    Performance Tracker
-                  </h2>
-                </div>
-                <p className="text-white/80 text-sm font-medium pl-[52px]">
-                  Monitor athlete progress, track metrics &amp; analyze performance data
-                </p>
-              </div>
-              <div className="flex gap-2 sm:gap-3 flex-wrap">
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.35)' }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setShowAnalyticsPanel(!showAnalyticsPanel);
-                    if (!showAnalyticsPanel) loadAcademyAnalytics();
-                  }}
-                  className={`backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg ${
-                    showAnalyticsPanel ? 'bg-white/30 border-white/60' : 'bg-white/15 hover:bg-white/25'
-                  }`}
-                >
-                  <BarChart2 className="w-4 h-4" /> Analytics
-                  {showAnalyticsPanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-                </motion.button>
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.35)' }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setShowTimelinePanel(!showTimelinePanel);
-                    if (!showTimelinePanel) loadAssessmentHistory();
-                  }}
-                  className={`backdrop-blur-sm border border-white/30 text-white rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg ${
-                    showTimelinePanel ? 'bg-white/30 border-white/60' : 'bg-white/15 hover:bg-white/25'
-                  }`}
-                >
-                  <Clock className="w-4 h-4" /> History
-                  {showTimelinePanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-                </motion.button>
-              </div>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Activity className="w-7 h-7 text-white" />
             </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                Performance Tracker
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Monitor athlete progress, track metrics & analyze performance data
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 sm:gap-3 flex-wrap relative z-10">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowAnalyticsPanel(!showAnalyticsPanel);
+                if (!showAnalyticsPanel) loadAcademyAnalytics();
+              }}
+              className={`btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                showAnalyticsPanel ? 'bg-primary text-white border-primary' : ''
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" /> Analytics
+              {showAnalyticsPanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowTimelinePanel(!showTimelinePanel);
+                if (!showTimelinePanel) loadAssessmentHistory();
+              }}
+              className={`btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                showTimelinePanel ? 'bg-primary text-white border-primary' : ''
+              }`}
+            >
+              <Clock className="w-4 h-4" /> History
+              {showTimelinePanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+            </motion.button>
           </div>
         </motion.div>
 

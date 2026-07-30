@@ -2,6 +2,7 @@ import * as parentService from './parent.service.js';
 import * as performanceService from '../performance/performance.service.js';
 import * as performanceAnalytics from '../performance/performance.analytics.js';
 import * as coachService from '../coach/coach.service.js';
+import * as adminService from '../admin/admin.service.js';
 import { successResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
 import prisma from '../../config/prisma.js';

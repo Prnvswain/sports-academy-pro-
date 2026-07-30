@@ -242,20 +242,6 @@ export default function AccountsPanel() {
       return;
     }
 
-    // Validate payment amount against remaining fee
-    const paymentAmount = parseFloat(form.amount);
-    const remainingFee = parseFloat(form.pending_amount || 0);
-    
-    if (paymentAmount > remainingFee) {
-      setMessage({ text: 'Payment amount cannot exceed the remaining fee.', type: 'error' });
-      return;
-    }
-
-    if (remainingFee <= 0) {
-      setMessage({ text: 'Student has already paid all fees. No further payments can be accepted.', type: 'error' });
-      return;
-    }
-    
     setIsSubmitting(true);
     setMessage({ text: '', type: '' });
 
@@ -635,23 +621,27 @@ export default function AccountsPanel() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#a3e635]/2 rounded-full blur-3xl" />
       </div>
 
-      {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-        <div>
-          <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ rotate: 15, scale: 1.05 }}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
-            >
-              <Wallet className="h-6 w-6" />
-            </motion.div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Fee Management</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Track payments, due dates, and collection statistics.</p>
-            </div>
+      {/* Header */}
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <Wallet className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Fee Management
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Track payments, due dates, and collection statistics.
+            </p>
           </div>
         </div>
-        
+
         {/* Premium Segmented Toggle */}
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl p-1 border border-slate-200 dark:border-slate-700/50 shadow-sm relative z-10">
           <button
@@ -677,7 +667,7 @@ export default function AccountsPanel() {
             Student Accounts
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {activeTab === 'payments' ? (
         <>
@@ -894,23 +884,16 @@ export default function AccountsPanel() {
                 name="amount"
                 type="number"
                 min="0"
-                max={parseFloat(form.pending_amount || 0)}
                 step="0.01"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm disabled:opacity-50"
                 value={form.amount}
-                disabled={!form.student_id || parseFloat(form.pending_amount || 0) <= 0}
+                disabled={!form.student_id}
                 onChange={(e) => {
                   const val = e.target.value;
-                  const maxVal = parseFloat(form.pending_amount || 0);
-                  if (parseFloat(val) > maxVal) {
-                    setForm((prev) => ({ ...prev, amount: maxVal.toString() }));
-                  } else {
-                    setForm((prev) => ({ ...prev, amount: val }));
-                  }
+                  setForm((prev) => ({ ...prev, amount: val }));
                 }}
                 required
               />
-
             </div>
           </div>
 

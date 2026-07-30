@@ -474,32 +474,36 @@ export default function BatchesPanel() {
           document.body
         )}
 
-        {/* Header Panel */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-          <div>
-            <div className="flex items-center gap-4">
-              <motion.div
-                whileHover={{ rotate: 15, scale: 1.05 }}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-500 border border-yellow-100 dark:border-yellow-800/50 shadow-inner"
-              >
-                <Calendar className="h-6 w-6" />
-              </motion.div>
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Batches & Scheduling</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage your sports and coaching allocations seamlessly.</p>
-              </div>
+        {/* Header */}
+        <motion.div
+          className="flex items-center justify-between"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Calendar className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                Batches & Scheduling
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Manage your sports and coaching allocations seamlessly.
+              </p>
             </div>
           </div>
           <motion.button
             whileHover={{ scale: 1.03, y: -1 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleViewSessionHistory}
-            className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-5 py-3 rounded-xl shadow-[0_4px_14px_rgba(244,63,94,0.3)] flex items-center justify-center gap-2 text-sm transition-all border border-rose-600"
+            className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-5 py-3 rounded-xl shadow-[0_4px_14px_rgba(244,63,94,0.3)] flex items-center justify-center gap-2 text-sm transition-all border border-rose-600 relative z-10"
           >
             <Activity className="w-4 h-4" />
             Session History
           </motion.button>
-        </div>
+        </motion.div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

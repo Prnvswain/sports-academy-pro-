@@ -17,547 +17,303 @@ const toCsv = (headers, rows) => {
   return lines.join('\n');
 };
 
-export const exportAttendanceReport = async (academy_id, { from, to } = {}) => {
+// 1. Monthly Collection
+export const exportMonthlyCollectionReport = async (academy_id) => {
   const academyId = parseInt(academy_id, 10);
-  const dateFilter = {};
-  if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to);
-
-  const records = await prisma.studentAttendance.findMany({
-    where: {
-      academy_id: academyId,
-      ...(Object.keys(dateFilter).length ? { date: dateFilter } : {})
-    },
-    include: {
-      student: true,
-      batch: true,
-      coach: { select: { name: true } }
-    },
-    orderBy: { date: 'desc' }
+  const receipts = await prisma.receipt.findMany({
+    where: { academy_id: academyId, status: 'COMPLETED' },
+    orderBy: { payment_date: 'asc' }
   });
 
-  const headers = [
-    'date',
-    'student_name',
-    'batch_name',
-    'status',
-    'coach_name',
-    'remarks'
-  ];
+  const monthlyGroups = {};
+  receipts.forEach(r => {
+    const date = new Date(r.payment_date);
+    const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+    if (!monthlyGroups[key]) {
+      monthlyGroups[key] = { amount: 0, count: 0 };
+    }
+    monthlyGroups[key].amount += parseFloat(r.amount);
+    monthlyGroups[key].count += 1;
+  });
 
-  const rows = records.map((r) => ({
-    date: r.date.toISOString().slice(0, 10),
-    student_name: r.student?.name,
-    batch_name: r.batch?.name,
-    status: r.status,
-    coach_name: r.coach?.name,
-    remarks: r.remarks
+  const headers = ['Month', 'Total Amount Collected (₹)', 'Transaction Count'];
+  const rows = Object.keys(monthlyGroups).map(key => ({
+    'Month': key,
+    'Total Amount Collected (₹)': monthlyGroups[key].amount.toFixed(2),
+    'Transaction Count': monthlyGroups[key].count
   }));
 
   return toCsv(headers, rows);
 };
 
-export const exportStudentsReport = async (academy_id) => {
-  const students = await prisma.student.findMany({
-    where: { academy_id: parseInt(academy_id, 10), ...NOT_DELETED },
-    include: { sport: true, batch: true }
-  });
+export const exportMonthlyCollectionReportPdf = async (academy_id) => {
+  const csv = await exportMonthlyCollectionReport(academy_id);
+  const lines = csv.split('\n');
+  const headers = lines[0].split(',');
+  const rows = lines.slice(1).map(line => line.split(','));
 
-  const headers = [
-    'name',
-    'age',
-    'gender',
-    'sport',
-    'batch',
-    'parent_email',
-    'fees_status',
-    'status'
-  ];
-
-  const rows = students.map((s) => ({
-    name: s.name,
-    age: s.age,
-    gender: s.gender,
-    sport: s.sport?.name,
-    batch: s.batch?.name,
-    parent_email: s.parent_email,
-    fees_status: s.fees_status,
-    status: s.status
-  }));
-
-  return toCsv(headers, rows);
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        h1 { color: #0f172a; margin-bottom: 5px; }
+        p { color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+        th { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      <h1>Monthly Collection Report</h1>
+      <p>Report generated on ${new Date().toLocaleDateString()}</p>
+      <table>
+        <thead>
+          <tr>
+            ${headers.map(h => `<th>${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `<tr>${row.map(val => `<td>${val}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
 };
 
-export const exportFeesReport = async (academy_id) => {
-  const payments = await prisma.payment.findMany({
-    where: { academy_id: parseInt(academy_id, 10) },
-    include: { student: true, collected_by: { select: { name: true } } },
-    orderBy: { payment_date: 'desc' }
-  });
-
-  const headers = [
-    'payment_date',
-    'student_name',
-    'amount',
-    'method',
-    'status',
-    'collected_by',
-    'remarks'
-  ];
-
-  const rows = payments.map((p) => ({
-    payment_date: p.payment_date.toISOString().slice(0, 10),
-    student_name: p.student?.name,
-    amount: p.amount,
-    method: p.method,
-    status: p.status,
-    collected_by: p.collected_by?.name,
-    remarks: p.remarks
-  }));
-
-  return toCsv(headers, rows);
-};
-
-// PDF Export Functions
-export const exportAttendanceReportPdf = async (academy_id, { from, to } = {}) => {
+// 2. Pending Fees
+export const exportPendingFeesReport = async (academy_id) => {
   const academyId = parseInt(academy_id, 10);
-  const dateFilter = {};
-  if (from) dateFilter.gte = new Date(from);
-  if (to) dateFilter.lte = new Date(to);
-
-  const records = await prisma.studentAttendance.findMany({
-    where: {
-      academy_id: academyId,
-      ...(Object.keys(dateFilter).length ? { date: dateFilter } : {})
-    },
+  const activeStudents = await prisma.student.findMany({
+    where: { academy_id: academyId, status: 'ACTIVE', is_deleted: false, auto_deactivated: false },
     include: {
-      student: true,
-      batch: true,
-      coach: { select: { name: true } }
-    },
-    orderBy: { date: 'desc' }
-  });
-
-  // Generate simple HTML for PDF
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-      </style>
-    </head>
-    <body>
-      <h1>Attendance Report</h1>
-      <p>Date Range: ${from || 'All'} to ${to || 'All'}</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Student Name</th>
-            <th>Batch Name</th>
-            <th>Status</th>
-            <th>Coach Name</th>
-            <th>Remarks</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${records.map(r => `
-            <tr>
-              <td>${r.date.toISOString().slice(0, 10)}</td>
-              <td>${r.student?.name || 'N/A'}</td>
-              <td>${r.batch?.name || 'N/A'}</td>
-              <td>${r.status}</td>
-              <td>${r.coach?.name || 'N/A'}</td>
-              <td>${r.remarks || ''}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
-
-  return html;
-};
-
-export const exportStudentsReportPdf = async (academy_id) => {
-  const students = await prisma.student.findMany({
-    where: { academy_id: parseInt(academy_id, 10), ...NOT_DELETED },
-    include: { sport: true, batch: true }
-  });
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-      </style>
-    </head>
-    <body>
-      <h1>Students Report</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Age</th>
-            <th>Gender</th>
-            <th>Sport</th>
-            <th>Batch</th>
-            <th>Parent Email</th>
-            <th>Fees Status</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${students.map(s => `
-            <tr>
-              <td>${s.name}</td>
-              <td>${s.age || 'N/A'}</td>
-              <td>${s.gender || 'N/A'}</td>
-              <td>${s.sport?.name || 'N/A'}</td>
-              <td>${s.batch?.name || 'N/A'}</td>
-              <td>${s.parent_email || 'N/A'}</td>
-              <td>${s.fees_status}</td>
-              <td>${s.status}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
-
-  return html;
-};
-
-export const exportFeesReportPdf = async (academy_id) => {
-  const payments = await prisma.receipt.findMany({
-    where: { academy_id: parseInt(academy_id, 10) },
-    include: { student: true, collected_by: { select: { name: true } } },
-    orderBy: { payment_date: 'desc' }
-  });
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-      </style>
-    </head>
-    <body>
-      <h1>Fees Report</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Payment Date</th>
-            <th>Student Name</th>
-            <th>Amount</th>
-            <th>Method</th>
-            <th>Status</th>
-            <th>Collected By</th>
-            <th>Remarks</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${payments.map(p => `
-            <tr>
-              <td>${p.payment_date.toISOString().slice(0, 10)}</td>
-              <td>${p.student?.name || 'N/A'}</td>
-              <td>${p.amount}</td>
-              <td>${p.method || 'N/A'}</td>
-              <td>${p.status}</td>
-              <td>${p.collected_by?.name || 'N/A'}</td>
-              <td>${p.remarks || ''}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
-
-  return html;
-};
-
-// Coach Report Export
-export const exportCoachesReport = async (academy_id) => {
-  const coaches = await prisma.coach.findMany({
-    where: { academy_id: parseInt(academy_id, 10), ...NOT_DELETED },
-    include: {
-      batches: {
-        include: {
-          batch: {
-            include: {
-              sport: true,
-              students: {
-                where: { ...NOT_DELETED },
-                select: { student_id: true }
-              }
-            }
-          }
-        }
-      },
-      student_attendances: {
-        where: {
-          date: {
-            gte: new Date(new Date().setDate(new Date().getDate() - 30))
-          }
-        },
-        select: { attendance_id: true }
-      }
+      enrollments: { where: { is_active: true } },
+      receipts: { where: { status: 'COMPLETED' } }
     }
   });
 
-  const headers = [
-    'name',
-    'email',
-    'phone_number',
-    'specialization',
-    'status',
-    'batches_count',
-    'students_count',
-    'attendance_last_30d'
-  ];
+  const headers = ['Student Name', 'Parent Name', 'Parent Email', 'Parent Phone', 'Next Due Date', 'Total Assigned (₹)', 'Total Paid (₹)', 'Pending Dues (₹)'];
+  const rows = [];
 
-  const rows = coaches.map((c) => ({
-    name: c.name,
-    email: c.email || 'N/A',
-    phone_number: c.phone_number || 'N/A',
-    specialization: c.specialization || 'N/A',
-    status: c.status,
-    batches_count: c.batches.length,
-    students_count: c.batches.reduce((sum, b) => sum + (b.batch?.students?.length || 0), 0),
-    attendance_last_30d: c.student_attendances.length
-  }));
+  activeStudents.forEach(student => {
+    const totalFeeDue = student.enrollments.reduce((sum, e) => sum + parseFloat(e.final_fee || 0), 0);
+    const totalPaid = student.receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+    const balance = Math.max(0, totalFeeDue - totalPaid);
+
+    if (balance > 0) {
+      const latestEnrollment = student.enrollments[0];
+      const dueDate = latestEnrollment?.next_due_date ? new Date(latestEnrollment.next_due_date).toLocaleDateString() : '—';
+      rows.push({
+        'Student Name': student.name,
+        'Parent Name': student.parent_name || '—',
+        'Parent Email': student.parent_email || '—',
+        'Parent Phone': student.parent_phone || '—',
+        'Next Due Date': dueDate,
+        'Total Assigned (₹)': totalFeeDue.toFixed(2),
+        'Total Paid (₹)': totalPaid.toFixed(2),
+        'Pending Dues (₹)': balance.toFixed(2)
+      });
+    }
+  });
 
   return toCsv(headers, rows);
 };
 
-export const exportCoachesReportPdf = async (academy_id) => {
-  const coaches = await prisma.coach.findMany({
-    where: { academy_id: parseInt(academy_id, 10), ...NOT_DELETED },
-    include: {
-      batches: {
-        include: {
-          batch: {
-            include: {
-              sport: true,
-              students: {
-                where: { ...NOT_DELETED },
-                select: { student_id: true }
-              }
-            }
-          }
-        }
-      },
-      student_attendances: {
-        where: {
-          date: {
-            gte: new Date(new Date().setDate(new Date().getDate() - 30))
-          }
-        },
-        select: { attendance_id: true }
-      }
-    }
-  });
+export const exportPendingFeesReportPdf = async (academy_id) => {
+  const csv = await exportPendingFeesReport(academy_id);
+  const lines = csv.split('\n');
+  const headers = lines[0].split(',');
+  const rows = lines.slice(1).map(line => line.split(','));
 
-  const html = `
+  return `
     <!DOCTYPE html>
     <html>
     <head>
       <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        h1 { color: #0f172a; margin-bottom: 5px; }
+        p { color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 12px; }
+        th { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
+        tr:nth-child(even) { background-color: #f8fafc; }
       </style>
     </head>
     <body>
-      <h1>Coaches Report</h1>
+      <h1>Pending Fees Report</h1>
+      <p>Report generated on ${new Date().toLocaleDateString()}</p>
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Specialization</th>
-            <th>Status</th>
-            <th>Batches</th>
-            <th>Students</th>
-            <th>Attendance (30d)</th>
+            ${headers.map(h => `<th>${h}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
-          ${coaches.map(c => `
-            <tr>
-              <td>${c.name}</td>
-              <td>${c.email || 'N/A'}</td>
-              <td>${c.phone_number || 'N/A'}</td>
-              <td>${c.specialization || 'N/A'}</td>
-              <td>${c.status}</td>
-              <td>${c.batches.length}</td>
-              <td>${c.batches.reduce((sum, b) => sum + (b.batch?.students?.length || 0), 0)}</td>
-              <td>${c.student_attendances.length}</td>
-            </tr>
-          `).join('')}
+          ${rows.map(row => `<tr>${row.map(val => `<td>${val}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
     </body>
     </html>
   `;
-
-  return html;
 };
 
-// Batch Report Export
-export const exportBatchesReport = async (academy_id) => {
+// 3. Student-wise Fee Report
+export const exportStudentFeeReport = async (academy_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const activeStudents = await prisma.student.findMany({
+    where: { academy_id: academyId, status: 'ACTIVE', is_deleted: false, auto_deactivated: false },
+    include: {
+      enrollments: { where: { is_active: true }, include: { sport: true } },
+      receipts: { where: { status: 'COMPLETED' } }
+    }
+  });
+
+  const headers = ['Student Name', 'Sport', 'Total Assigned (₹)', 'Total Paid (₹)', 'Outstanding Balance (₹)', 'Status'];
+  const rows = activeStudents.map(student => {
+    const totalFeeDue = student.enrollments.reduce((sum, e) => sum + parseFloat(e.final_fee || 0), 0);
+    const totalPaid = student.receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+    const balance = Math.max(0, totalFeeDue - totalPaid);
+
+    let status = 'unpaid';
+    if (totalPaid >= totalFeeDue && totalFeeDue > 0) {
+      status = 'paid';
+    } else if (totalPaid > 0) {
+      status = 'partial';
+    }
+
+    const sportName = student.enrollments[0]?.sport?.name || '—';
+
+    return {
+      'Student Name': student.name,
+      'Sport': sportName,
+      'Total Assigned (₹)': totalFeeDue.toFixed(2),
+      'Total Paid (₹)': totalPaid.toFixed(2),
+      'Outstanding Balance (₹)': balance.toFixed(2),
+      'Status': status.toUpperCase()
+    };
+  });
+
+  return toCsv(headers, rows);
+};
+
+export const exportStudentFeeReportPdf = async (academy_id) => {
+  const csv = await exportStudentFeeReport(academy_id);
+  const lines = csv.split('\n');
+  const headers = lines[0].split(',');
+  const rows = lines.slice(1).map(line => line.split(','));
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        h1 { color: #0f172a; margin-bottom: 5px; }
+        p { color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 12px; }
+        th { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      <h1>Student-wise Fee Report</h1>
+      <p>Report generated on ${new Date().toLocaleDateString()}</p>
+      <table>
+        <thead>
+          <tr>
+            ${headers.map(h => `<th>${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `<tr>${row.map(val => `<td>${val}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
+// 4. Batch-wise Collection
+export const exportBatchCollectionReport = async (academy_id) => {
+  const academyId = parseInt(academy_id, 10);
   const batches = await prisma.batch.findMany({
-    where: { academy_id: parseInt(academy_id, 10), ...NOT_DELETED },
+    where: { academy_id: academyId, status: 'ACTIVE' },
     include: {
       sport: true,
-      coaches: {
-        include: {
-          coach: {
-            select: { name: true, email: true }
-          }
-        }
-      },
       students: {
-        where: { ...NOT_DELETED },
-        select: { student_id: true }
-      },
-      student_attendances: {
-        where: {
-          date: {
-            gte: new Date(new Date().setDate(new Date().getDate() - 30))
-          }
-        },
-        select: { attendance_id: true }
+        where: { is_deleted: false, auto_deactivated: false },
+        include: {
+          enrollments: { where: { is_active: true } },
+          receipts: { where: { status: 'COMPLETED' } }
+        }
       }
     }
   });
 
-  const headers = [
-    'name',
-    'sport',
-    'timing',
-    'start_time',
-    'end_time',
-    'max_capacity',
-    'status',
-    'coaches_count',
-    'students_count',
-    'attendance_last_30d'
-  ];
+  const headers = ['Batch Name', 'Sport', 'Student Count', 'Total Collected (₹)', 'Total Dues Outstanding (₹)'];
+  const rows = batches.map(batch => {
+    let totalCollected = 0;
+    let totalDues = 0;
 
-  const rows = batches.map((b) => ({
-    name: b.name,
-    sport: b.sport?.name || 'N/A',
-    timing: b.timing || 'N/A',
-    start_time: b.start_time || 'N/A',
-    end_time: b.end_time || 'N/A',
-    max_capacity: b.max_capacity || 'N/A',
-    status: b.status,
-    coaches_count: b.coaches.length,
-    students_count: b.students.length,
-    attendance_last_30d: b.student_attendances.length
-  }));
+    batch.students.forEach(student => {
+      const totalFeeDue = student.enrollments.reduce((sum, e) => sum + parseFloat(e.final_fee || 0), 0);
+      const studentPaid = student.receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+      const balance = Math.max(0, totalFeeDue - studentPaid);
+
+      totalCollected += studentPaid;
+      totalDues += balance;
+    });
+
+    return {
+      'Batch Name': batch.name,
+      'Sport': batch.sport?.name || '—',
+      'Student Count': batch.students.length,
+      'Total Collected (₹)': totalCollected.toFixed(2),
+      'Total Dues Outstanding (₹)': totalDues.toFixed(2)
+    };
+  });
 
   return toCsv(headers, rows);
 };
 
-export const exportBatchesReportPdf = async (academy_id) => {
-  const batches = await prisma.batch.findMany({
-    where: { academy_id: parseInt(academy_id, 10), ...NOT_DELETED },
-    include: {
-      sport: true,
-      coaches: {
-        include: {
-          coach: {
-            select: { name: true, email: true }
-          }
-        }
-      },
-      students: {
-        where: { ...NOT_DELETED },
-        select: { student_id: true }
-      },
-      student_attendances: {
-        where: {
-          date: {
-            gte: new Date(new Date().setDate(new Date().getDate() - 30))
-          }
-        },
-        select: { attendance_id: true }
-      }
-    }
-  });
+export const exportBatchCollectionReportPdf = async (academy_id) => {
+  const csv = await exportBatchCollectionReport(academy_id);
+  const lines = csv.split('\n');
+  const headers = lines[0].split(',');
+  const rows = lines.slice(1).map(line => line.split(','));
 
-  const html = `
+  return `
     <!DOCTYPE html>
     <html>
     <head>
       <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        h1 { color: #0f172a; margin-bottom: 5px; }
+        p { color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+        th { background-color: #f8fafc; font-weight: bold; color: #0f172a; }
+        tr:nth-child(even) { background-color: #f8fafc; }
       </style>
     </head>
     <body>
-      <h1>Batches Report</h1>
+      <h1>Batch-wise Collection Report</h1>
+      <p>Report generated on ${new Date().toLocaleDateString()}</p>
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Sport</th>
-            <th>Timing</th>
-            <th>Start Time</th>
-            <th>End Time</th>
-            <th>Max Capacity</th>
-            <th>Status</th>
-            <th>Coaches</th>
-            <th>Students</th>
-            <th>Attendance (30d)</th>
+            ${headers.map(h => `<th>${h}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
-          ${batches.map(b => `
-            <tr>
-              <td>${b.name}</td>
-              <td>${b.sport?.name || 'N/A'}</td>
-              <td>${b.timing || 'N/A'}</td>
-              <td>${b.start_time || 'N/A'}</td>
-              <td>${b.end_time || 'N/A'}</td>
-              <td>${b.max_capacity || 'N/A'}</td>
-              <td>${b.status}</td>
-              <td>${b.coaches.length}</td>
-              <td>${b.students.length}</td>
-              <td>${b.student_attendances.length}</td>
-            </tr>
-          `).join('')}
+          ${rows.map(row => `<tr>${row.map(val => `<td>${val}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
     </body>
     </html>
   `;
-
-  return html;
 };

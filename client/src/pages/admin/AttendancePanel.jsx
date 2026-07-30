@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Calendar } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { adminGet } from '../../api/client';
@@ -115,10 +117,26 @@ export default function AttendancePanel() {
 
   return (
     <section className="space-y-6 w-full overflow-x-hidden">
-      <div>
-        <h2 className="text-2xl font-bold">Attendance Management</h2>
-        <p className="text-muted">View and filter attendance records with summaries.</p>
-      </div>
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <Calendar className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Attendance Management
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              View and filter attendance records with summaries.
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">

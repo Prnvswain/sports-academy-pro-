@@ -64,6 +64,7 @@ import CoachCreateAnnouncement from './pages/coach/announcements/CoachCreateAnno
 import CoachAnnouncementHistory from './pages/coach/announcements/CoachAnnouncementHistory';
 import CoachAnnouncementDetails from './pages/coach/announcements/CoachAnnouncementDetails';
 import CoachAnnouncementStats from './pages/coach/announcements/CoachAnnouncementStats';
+import SuperAdminSettingsPanel from './pages/super-admin/SuperAdminSettingsPanel';
 
 export default function App() {
   return (
@@ -198,6 +199,7 @@ export default function App() {
             <Route path="payments" element={<SuperAdminPaymentsPanel />} />
             <Route path="notifications" element={<SuperAdminNotificationsPanel />} />
             <Route path="controller" element={<ControllerPanel />} />
+            <Route path="settings" element={<SuperAdminSettingsPanel />} />
             <Route path="announcements" element={<SuperAdminAnnouncementHistory />} />
             <Route path="announcements/create" element={<SuperAdminCreateAnnouncement />} />
             <Route path="announcements/:id" element={<SuperAdminAnnouncementDetails />} />

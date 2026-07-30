@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users } from 'lucide-react';
+import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users, History } from 'lucide-react';
 
 import Loader from '../../components/Loader';
 
@@ -484,6 +484,7 @@ const emptyForm = {
   discount: '',
 
   joining_date: new Date().toISOString().split('T')[0],
+  auto_deactivate_on_due: true,
 
 };
 
@@ -693,6 +694,9 @@ export default function StudentsPanel() {
 
   const [customMaxWeight, setCustomMaxWeight] = useState('');
 
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
+
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [showStudentModal, setShowStudentModal] = useState(false);
@@ -722,6 +726,22 @@ export default function StudentsPanel() {
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
 
   const [photoPreview, setPhotoPreview] = useState(null);
+
+  const [studentListTab, setStudentListTab] = useState('active'); // 'active' or 'deactivated'
+  const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [reactivateForm, setReactivateForm] = useState({ 
+    action: 'continue', 
+    duration_plan_id: '',
+    sport_id: '',
+    batch_id: '',
+    plan_start_date: new Date().toISOString().split('T')[0],
+    additional_charges: '',
+    registration_fee: ''
+  });
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [renewForm, setRenewForm] = useState({ duration_plan_id: '' });
+  const [showChangePlanModal, setShowChangePlanModal] = useState(false);
+  const [changePlanForm, setChangePlanForm] = useState({ duration_plan_id: '' });
 
   // Pause modal state
   const [showPauseModal, setShowPauseModal] = useState(false);
@@ -1061,6 +1081,29 @@ export default function StudentsPanel() {
 
 
 
+  // Load batches for Reactivate Student modal when sport changes
+  useEffect(() => {
+    if (!reactivateForm.sport_id) {
+      setAvailableBatches([]);
+      return;
+    }
+
+    const loadReactivateBatches = async () => {
+      try {
+        const result = await adminGet(
+          `/admin/batches/available?sport_id=${reactivateForm.sport_id}`
+        );
+        setAvailableBatches(result.data || []);
+      } catch (error) {
+        setMessage({ text: error.message, type: 'error' });
+      }
+    };
+
+    loadReactivateBatches();
+  }, [reactivateForm.sport_id]);
+
+
+
   const handleBatchSelect = (batchId) => {
 
     const selectedBatch = availableBatches.find(b => b.batch_id === parseInt(batchId));
@@ -1376,6 +1419,8 @@ export default function StudentsPanel() {
 
         joining_date: form.joining_date,
 
+        auto_deactivate_on_due: form.auto_deactivate_on_due,
+
         enquiry_id: convertEnquiryId || undefined,
 
       };
@@ -1646,6 +1691,7 @@ export default function StudentsPanel() {
         : '',
 
       profile_photo: student.profile_photo || null,
+      auto_deactivate_on_due: student.auto_deactivate_on_due ?? true,
 
     });
 
@@ -1744,6 +1790,8 @@ export default function StudentsPanel() {
         weight: editStudentForm.weight ? parseFloat(editStudentForm.weight) : null,
 
         joining_date: editStudentForm.joining_date || null,
+
+        auto_deactivate_on_due: editStudentForm.auto_deactivate_on_due,
 
         profile_photo: profilePhotoData,
 
@@ -2031,6 +2079,64 @@ export default function StudentsPanel() {
     }
   };
 
+  const handleReactivateSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    try {
+      // Update local state immediately for real-time feedback
+      setStudents((prevStudents) =>
+        prevStudents.map((s) =>
+          s.student_id === selectedStudent.student_id
+            ? { ...s, status: 'ACTIVE', auto_deactivated: false }
+            : s
+        )
+      );
+
+      await adminPost(`/admin/students/${selectedStudent.student_id}/reactivate`, reactivateForm);
+      setMessage({ text: 'Student reactivated successfully.', type: 'success' });
+      setShowReactivateModal(false);
+      const details = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
+      setStudentDetails(details.data || details);
+      loadData();
+      
+      // Switch to Active Students tab to show the reactivated student
+      setStudentListTab('active');
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+      loadData(); // Revert on error
+    }
+  };
+
+  const handleRenewSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    try {
+      await adminPost(`/admin/students/${selectedStudent.student_id}/renew`, renewForm);
+      setMessage({ text: 'Student plan renewed successfully.', type: 'success' });
+      setShowRenewModal(false);
+      const details = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
+      setStudentDetails(details.data || details);
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleChangePlanSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    try {
+      await adminPost(`/admin/students/${selectedStudent.student_id}/change-plan`, changePlanForm);
+      setMessage({ text: 'Student plan changed successfully.', type: 'success' });
+      setShowChangePlanModal(false);
+      const details = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
+      setStudentDetails(details.data || details);
+      loadData();
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
   const calculateResumeDate = () => {
     if (!pauseForm.pause_start_date) return null;
     
@@ -2073,6 +2179,15 @@ export default function StudentsPanel() {
     setCustomMaxAge('');
     setCustomMaxWeight('');
     setSelectedStudent(null);
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
 
@@ -2163,6 +2278,7 @@ export default function StudentsPanel() {
         fees_status: detailsRes.data.student.fees_status || 'unpaid',
 
         batch_id: detailsRes.data.student.batch_id || '',
+        auto_deactivate_on_due: detailsRes.data.student.auto_deactivate_on_due ?? true,
 
       });
 
@@ -2244,6 +2360,7 @@ export default function StudentsPanel() {
         fees_status: editStudentForm.fees_status,
         profile_photo: profilePhotoData,
         sport_ids: editSelectedSports,
+        auto_deactivate_on_due: editStudentForm.auto_deactivate_on_due,
         duration_plan_id: editStudentForm.duration_plan_id
           ? parseInt(editStudentForm.duration_plan_id, 10)
           : undefined,
@@ -2748,6 +2865,10 @@ export default function StudentsPanel() {
 
 
 
+    const matchesTab = studentListTab === 'active' 
+      ? student.status?.toUpperCase() === 'ACTIVE' && !student.auto_deactivated
+      : student.status?.toUpperCase() !== 'ACTIVE' || student.auto_deactivated;
+
     return (
 
       matchesSearch &&
@@ -2760,10 +2881,31 @@ export default function StudentsPanel() {
 
       matchesGender &&
 
-      matchesWeight
+      matchesWeight &&
+
+      matchesTab
 
     );
 
+  }).sort((a, b) => {
+    if (!sortField) return 0;
+    
+    if (sortField === 'remainingPlan') {
+      const getRemainingDays = (student) => {
+        const activeEnrollment = student.enrollments?.find(e => e.is_active);
+        if (!activeEnrollment) return 0;
+        const today = new Date();
+        const endDate = new Date(activeEnrollment.plan_end_date);
+        return Math.max(0, Math.ceil((endDate - today) / (1000 * 60 * 60 * 24)));
+      };
+      
+      const aDays = getRemainingDays(a);
+      const bDays = getRemainingDays(b);
+      
+      return sortDirection === 'asc' ? aDays - bDays : bDays - aDays;
+    }
+    
+    return 0;
   });
 
 
@@ -2782,81 +2924,79 @@ export default function StudentsPanel() {
 
     >
 
-      {/* Header Panel */}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-
-        <div>
-
-          <div className="flex items-center gap-4">
-
-            <motion.div
-
-              whileHover={{ rotate: 15, scale: 1.05 }}
-
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 border border-blue-100 dark:border-blue-800/50 shadow-inner"
-
-            >
-
-              <Users className="h-6 w-6" />
-
-            </motion.div>
-
-            <div>
-
-              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Students Management</h2>
-
-              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage student enrollments, sports, batches, and fee records.</p>
-
-            </div>
-
+      {/* Header */}
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <Users className="w-7 h-7 text-white" />
           </div>
-
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Students Management
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage student enrollments, sports, batches, and fee records.
+            </p>
+          </div>
         </div>
-
-        <div className="flex items-center gap-2">
-
+        <div className="flex items-center gap-2 relative z-10">
           <motion.button
-
             type="button"
-
             className="btn-primary font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_14px_rgba(59,130,246,0.25)] flex items-center justify-center gap-1.5 text-xs transition-all border border-blue-500 uppercase tracking-widest"
-
             onClick={() => setShowAddStudentModal(true)}
-
             whileHover={{ scale: 1.02 }}
-
             whileTap={{ scale: 0.98 }}
-
           >
-
             + Add Student
-
           </motion.button>
-
           <motion.button
-
             type="button"
-
             className="btn-secondary font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 text-xs transition-all border border-slate-350 uppercase tracking-widest text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-
             onClick={() => setShowBulkUpload(true)}
-
             whileHover={{ scale: 1.02 }}
-
             whileTap={{ scale: 0.98 }}
-
           >
-
             Bulk Import (CSV)
-
           </motion.button>
+        </div>
+      </motion.div>
 
+
+
+      {/* Tab Switcher: Active vs Deactivated */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 mb-6">
+        <button
+          onClick={() => {
+            setStudentListTab('active');
+            setSelectedStudent(null);
+          }}
+          className={`pb-3 px-6 text-sm font-extrabold uppercase tracking-wider border-b-2 transition-all ${
+            studentListTab === 'active'
+              ? 'border-primary text-primary font-black'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Active Students
+        </button>
+        <button
+          onClick={() => {
+            setStudentListTab('deactivated');
+            setSelectedStudent(null);
+          }}
+          className={`pb-3 px-6 text-sm font-extrabold uppercase tracking-wider border-b-2 transition-all ${
+            studentListTab === 'deactivated'
+              ? 'border-primary text-primary font-black'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Deactivated Students
+        </button>
       </div>
-
-      </div>
-
-
 
       {/* Filter Section */}
 
@@ -3966,6 +4106,18 @@ export default function StudentsPanel() {
 
                     </th>
 
+                    <th 
+                      className="px-2 pb-3 cursor-pointer hover:text-slate-600 transition-colors"
+                      onClick={() => handleSort('remainingPlan')}
+                    >
+                      Remaining Plan
+                      {sortField === 'remainingPlan' && (
+                        <span className="ml-1">
+                          {sortDirection === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </th>
+
                     <th className="px-2 pb-3">Actions</th>
 
                   </tr>
@@ -3980,7 +4132,7 @@ export default function StudentsPanel() {
 
                       <td
 
-                        colSpan={isBulkEditMode ? 7 : 6}
+                        colSpan={isBulkEditMode ? 8 : 7}
 
                         className="text-muted py-8 text-center text-xs"
 
@@ -4096,16 +4248,82 @@ export default function StudentsPanel() {
 
                           <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
 
-                            {student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
+                            {student.auto_deactivated ? (
+
+                              <span className="badge-inactive bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">AUTO DEACTIVATED (Due Date Expired)</span>
+
+                            ) : student.status?.toUpperCase() === 'ACTIVE' || student.isActive ? (
 
                               <span className="badge-active">ACTIVE</span>
 
                             ) : (
 
-                              <span className="badge-inactive">INACTIVE</span>
+                              <span className="badge-inactive">MANUALLY DEACTIVATED</span>
 
                             )}
 
+                          </td>
+
+                          <td className="px-2 py-4">
+                            {(() => {
+                              const activeEnrollment = student.enrollments?.find(e => e.is_active);
+                              if (!activeEnrollment) {
+                                return (
+                                  <span className="text-red-600 font-medium text-xs">0 Days</span>
+                                );
+                              }
+
+                              const today = new Date();
+                              const startDate = new Date(activeEnrollment.plan_start_date);
+                              const endDate = new Date(activeEnrollment.plan_end_date);
+                              const remainingDays = Math.max(0, Math.ceil((endDate - today) / (1000 * 60 * 60 * 24)));
+                              const totalDuration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                              const daysUsed = Math.max(0, Math.ceil((today - startDate) / (1000 * 60 * 60 * 24)));
+                              const isPaused = activeEnrollment.is_paused;
+                              const isExpired = remainingDays === 0 || endDate < today;
+
+                              let className = 'text-green-600 font-medium text-xs';
+                              let icon = null;
+                              let text = `${remainingDays} Days`;
+
+                              if (isPaused) {
+                                className = 'text-yellow-600 font-medium text-xs';
+                                icon = <Pause className="w-3 h-3 inline mr-1" />;
+                              } else if (isExpired) {
+                                className = 'text-red-600 font-medium text-xs';
+                                text = 'Expired';
+                              }
+
+                              return (
+                                <div 
+                                  className={className}
+                                  style={{ cursor: 'help' }}
+                                onMouseEnter={(e) => {
+                                  const tooltip = document.createElement('div');
+                                  tooltip.className = 'absolute bg-slate-800 text-white text-xs p-3 rounded shadow-lg z-50 whitespace-pre';
+                                  tooltip.style.left = e.pageX + 10 + 'px';
+                                  tooltip.style.top = e.pageY + 10 + 'px';
+                                  tooltip.style.minWidth = '200px';
+                                  tooltip.innerHTML = `<strong>${activeEnrollment.duration_plan?.name || '—'}</strong><br/><br/>Plan Start Date : ${startDate.toLocaleDateString()}<br/>Plan End Date   : ${endDate.toLocaleDateString()}<br/><br/>Total Duration  : ${totalDuration} Days<br/>Days Used       : ${daysUsed} Days<br/>Remaining        : ${remainingDays} Days`;
+                                  tooltip.id = 'remaining-plan-tooltip';
+                                  document.body.appendChild(tooltip);
+                                }}
+                                onMouseLeave={() => {
+                                  const tooltip = document.getElementById('remaining-plan-tooltip');
+                                  if (tooltip) tooltip.remove();
+                                }}
+                                onMouseMove={(e) => {
+                                  const tooltip = document.getElementById('remaining-plan-tooltip');
+                                  if (tooltip) {
+                                    tooltip.style.left = e.pageX + 10 + 'px';
+                                    tooltip.style.top = e.pageY + 10 + 'px';
+                                  }
+                                }}
+                              >
+                                {icon}{text}
+                              </div>
+                            );
+                          })()}
                           </td>
 
                           <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
@@ -4180,9 +4398,21 @@ export default function StudentsPanel() {
 
                                   className="p-2 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
 
-                                  onClick={() => handleMarkActive(student.student_id)}
+                                  onClick={() => {
+                                    setSelectedStudent(student);
+                                    setReactivateForm({ 
+                                      action: 'continue', 
+                                      duration_plan_id: '',
+                                      sport_id: student.sport_id || '',
+                                      batch_id: student.batch_id || '',
+                                      plan_start_date: new Date().toISOString().split('T')[0],
+                                      additional_charges: '',
+                                      registration_fee: ''
+                                    });
+                                    setShowReactivateModal(true);
+                                  }}
 
-                                  title="Activate Student"
+                                  title="Reactivate Student"
 
                                 >
 
@@ -4874,6 +5104,36 @@ export default function StudentsPanel() {
               onChange={updateField}
 
             />
+
+          </div>
+
+          <div className="col-span-full">
+
+            <div className="flex items-center gap-2 mt-2">
+
+              <input
+
+                id="autoDeactivateOnDue"
+
+                name="auto_deactivate_on_due"
+
+                type="checkbox"
+
+                className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary"
+
+                checked={form.auto_deactivate_on_due}
+
+                onChange={(e) => updateField({ target: { name: 'auto_deactivate_on_due', value: e.target.checked } })}
+
+              />
+
+              <label htmlFor="autoDeactivateOnDue" className="text-sm font-semibold text-slate-700 select-none cursor-pointer">
+
+                Auto Deactivate on Due Date
+
+              </label>
+
+            </div>
 
           </div>
 
@@ -6946,6 +7206,135 @@ export default function StudentsPanel() {
 
                     ) : (
 
+                      <>
+                        {/* Plan Metrics Card */}
+                        {(() => {
+                          const activeEnrollment = (studentDetails.enrollments || []).find(e => e.is_active);
+                          if (activeEnrollment) {
+                            const today = new Date();
+                            const nextDue = activeEnrollment.next_due_date ? new Date(activeEnrollment.next_due_date) : null;
+                            const remainingDays = nextDue ? Math.ceil((nextDue - today) / (1000 * 60 * 60 * 24)) : 0;
+                            const durationMonths = activeEnrollment.duration_plan?.duration_months || 1;
+                            const totalPlanDays = durationMonths * 30;
+                            const planStart = activeEnrollment.plan_start_date ? new Date(activeEnrollment.plan_start_date) : null;
+                            const elapsedDays = planStart ? Math.max(0, Math.ceil((today - planStart) / (1000 * 60 * 60 * 24))) : 0;
+                            const progressPercent = Math.min(100, Math.round((elapsedDays / totalPlanDays) * 100));
+
+                            return (
+                              <div className="card p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 dark:from-slate-800 dark:to-slate-900 dark:border-slate-700 rounded-2xl shadow-sm mb-6 space-y-4 text-slate-800 dark:text-slate-200">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Active Subscription</span>
+                                  </div>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-black uppercase ${
+                                    studentDetails.student.auto_deactivated 
+                                      ? 'bg-red-100 text-red-700' 
+                                      : studentDetails.student.status === 'ACTIVE' 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : 'bg-slate-100 text-slate-700'
+                                  }`}>
+                                    {studentDetails.student.auto_deactivated ? 'AUTO DEACTIVATED (Due Date Expired)' : studentDetails.student.status === 'ACTIVE' ? studentDetails.student.status : 'MANUALLY DEACTIVATED'}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                                  <div>
+                                    <span className="text-slate-500 font-semibold block uppercase tracking-wider mb-1">Plan</span>
+                                    <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">{activeEnrollment.duration_plan?.name || 'No Plan'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500 font-semibold block uppercase tracking-wider mb-1">Next Due Date</span>
+                                    <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">
+                                      {activeEnrollment.next_due_date ? new Date(activeEnrollment.next_due_date).toLocaleDateString() : '—'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500 font-semibold block uppercase tracking-wider mb-1">Remaining Days</span>
+                                    <span className={`font-extrabold text-sm ${remainingDays < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-200'}`}>
+                                      {remainingDays < 0 ? `${Math.abs(remainingDays)} Days Overdue` : `${remainingDays} Days`}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500 font-semibold block uppercase tracking-wider mb-1">Auto Deactivation</span>
+                                    <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">
+                                      {studentDetails.student.auto_deactivate_on_due ? 'ENABLED (ON)' : 'DISABLED (OFF)'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {activeEnrollment.duration_plan && (
+                                  <div className="space-y-1 pt-2">
+                                    <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                                      <span>PLAN PROGRESS ({elapsedDays} / {totalPlanDays} Days)</span>
+                                      <span>{progressPercent}% Elapsed</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                                      <div className="bg-primary h-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRenewForm({ duration_plan_id: activeEnrollment.duration_plan_id });
+                                      setShowRenewModal(true);
+                                    }}
+                                    className="btn-primary text-xs px-3 py-1.5 rounded-lg font-bold"
+                                  >
+                                    Renew Plan
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setChangePlanForm({ duration_plan_id: activeEnrollment.duration_plan_id });
+                                      setShowChangePlanModal(true);
+                                    }}
+                                    className="btn-secondary text-xs px-3 py-1.5 rounded-lg font-bold text-slate-700 dark:text-slate-200"
+                                  >
+                                    Upgrade/Downgrade Plan
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="card p-5 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm mb-6 space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-bold text-slate-500">No Active Subscription</span>
+                                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-red-100 text-red-700">
+                                    {studentDetails.student.auto_deactivated ? 'AUTO DEACTIVATED (Due Date Expired)' : 'MANUALLY DEACTIVATED'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">The student has no active plan cycle or was deactivated.</p>
+                                
+                                <div className="pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReactivateForm({ 
+                                        action: 'continue', 
+                                        duration_plan_id: '',
+                                        sport_id: studentDetails?.student?.sport_id || '',
+                                        batch_id: studentDetails?.student?.batch_id || '',
+                                        plan_start_date: new Date().toISOString().split('T')[0],
+                                        additional_charges: '',
+                                        registration_fee: ''
+                                      });
+                                      setShowReactivateModal(true);
+                                    }}
+                                    className="btn-primary text-xs px-4 py-2 rounded-lg font-bold"
+                                  >
+                                    Reactivate Student Plan
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+
                       <div className="grid gap-4 sm:grid-cols-2">
 
                         <div>
@@ -7101,62 +7490,67 @@ export default function StudentsPanel() {
 
                       </div>
 
+                        </>
+
                     )}
 
+
+
+                    {/* Plan History Section */}
                     {studentDetails.enrollments && studentDetails.enrollments.length > 0 && (
-
-                      <div className="mt-4">
-
-                        <h4 className="mb-2 font-semibold">Enrollments</h4>
-
-                        <div className="space-y-2">
-
-                          {studentDetails.enrollments.map((enrollment) => (
-
-                            <div key={enrollment.enrollment_id} className="bg-muted rounded p-3">
-
-                              <div className="flex items-center justify-between">
-
-                                <span className="font-semibold">{enrollment.sport?.name}</span>
-
-                                <span className="text-muted text-sm">
-
-                                  {enrollment.duration_plan?.name || 'No plan'}
-
-                                </span>
-
+                      <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-6">
+                        <h4 className="mb-4 font-extrabold text-foreground text-sm uppercase tracking-wider flex items-center gap-1.5">
+                          <History className="w-4 h-4 text-primary" />
+                          Plan History & Lifecycle
+                        </h4>
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                          {studentDetails.enrollments.map((enrollment) => {
+                            const isEnrollmentActive = enrollment.is_active;
+                            return (
+                              <div
+                                key={enrollment.enrollment_id}
+                                className={`rounded-xl border p-4 transition-all ${
+                                  isEnrollmentActive
+                                    ? 'bg-green-50/50 border-green-200 dark:bg-green-950/10 dark:border-green-800'
+                                    : 'bg-slate-50/50 border-slate-200 dark:bg-slate-900/10 dark:border-slate-800'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {enrollment.duration_plan?.name || 'Custom Plan'}
+                                  </span>
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                                    isEnrollmentActive
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                  }`}>
+                                    {isEnrollmentActive ? 'Active' : 'Expired/Inactive'}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 text-xs text-slate-600 dark:text-slate-400">
+                                  <div>
+                                    <span className="text-slate-400 block font-semibold mb-0.5">Sport</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">{enrollment.sport?.name || '—'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 block font-semibold mb-0.5">Period</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                                      {enrollment.plan_start_date ? new Date(enrollment.plan_start_date).toLocaleDateString() : '—'} - {enrollment.plan_end_date ? new Date(enrollment.plan_end_date).toLocaleDateString() : '—'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 block font-semibold mb-0.5">Amount</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-300">₹{enrollment.final_fee}</span>
+                                  </div>
+                                </div>
                               </div>
-
-                              <div className="mt-2 text-sm">
-
-                                <p>Final Fee: ₹{formatCurrency(enrollment.final_fee)}</p>
-
-                                <p>
-
-                                  Next Due:{' '}
-
-                                  {enrollment.next_due_date
-
-                                    ? new Date(enrollment.next_due_date).toLocaleDateString()
-
-                                    : '—'}
-
-                                </p>
-
-                              </div>
-
-                            </div>
-
-                          ))}
-
+                            );
+                          })}
                         </div>
-
                       </div>
-
                     )}
 
                   </div>
-
                 )}
 
 
@@ -8494,6 +8888,34 @@ export default function StudentsPanel() {
 
               />
 
+              <div className="flex items-center gap-2 mt-4 pt-2">
+
+                <input
+
+                  id="editAutoDeactivateOnDue"
+
+                  type="checkbox"
+
+                  className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary"
+
+                  checked={!!editStudentForm.auto_deactivate_on_due}
+
+                  onChange={(e) =>
+
+                    setEditStudentForm({ ...editStudentForm, auto_deactivate_on_due: e.target.checked })
+
+                  }
+
+                />
+
+                <label htmlFor="editAutoDeactivateOnDue" className="text-sm font-semibold text-slate-700 select-none cursor-pointer">
+
+                  Auto Deactivate on Due Date
+
+                </label>
+
+              </div>
+
             </div>
 
 
@@ -9324,7 +9746,457 @@ export default function StudentsPanel() {
     </motion.div>
   )}
 
+  {/* Reactivate Student Plan Modal */}
+  {showReactivateModal && selectedStudent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="card animate-premiumModal max-w-md w-full"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Reactivate Student Plan</h3>
+          <button
+            type="button"
+            onClick={() => setShowReactivateModal(false)}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
+        <form onSubmit={handleReactivateSubmit} className="space-y-4">
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Student Name
+            </label>
+            <div className="text-sm font-semibold text-slate-900">{selectedStudent.name}</div>
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Action Type
+            </label>
+            <select
+              className="input-field w-full"
+              value={reactivateForm.action}
+              onChange={(e) => setReactivateForm({ ...reactivateForm, action: e.target.value })}
+            >
+              <option value="continue">Continue Existing Plan</option>
+              <option value="new_plan">Assign New Plan</option>
+            </select>
+          </div>
+
+          {reactivateForm.action === 'continue' && (studentDetails?.enrollments || selectedStudent?.enrollments) && (
+            <div className="card p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Previous Plan Details</h4>
+              {(() => {
+                const enrollments = studentDetails?.enrollments || selectedStudent?.enrollments || [];
+                const latestEnrollment = enrollments.sort((a, b) => 
+                  new Date(b.created_at) - new Date(a.created_at)
+                )[0];
+                if (!latestEnrollment) return <p className="text-sm text-slate-500">No previous plan found</p>;
+
+                // Initialize sport_id, batch_id, and duration_plan_id from latest enrollment if not already set
+                if (latestEnrollment.sport_id && (!reactivateForm.sport_id || reactivateForm.sport_id !== String(latestEnrollment.sport_id))) {
+                  setReactivateForm(prev => ({ 
+                    ...prev, 
+                    sport_id: String(latestEnrollment.sport_id),
+                    batch_id: String(latestEnrollment.batch_id || ''),
+                    duration_plan_id: String(latestEnrollment.duration_plan_id || '')
+                  }));
+                }
+                
+                const today = new Date();
+                const originalEndDate = new Date(latestEnrollment.plan_end_date);
+                const originalRemainingDays = Math.max(0, Math.ceil((originalEndDate - today) / (1000 * 60 * 60 * 24)));
+                const dueDate = new Date(latestEnrollment.next_due_date);
+                const pendingAmount = latestEnrollment.final_fee - latestEnrollment.paid_amount;
+                
+                // Calculate new end date based on selected start date and duration plan
+                const planStartDate = reactivateForm.plan_start_date ? new Date(reactivateForm.plan_start_date) : today;
+                const durationMonths = latestEnrollment.duration_plan?.duration_months || 1;
+                const durationDays = durationMonths * 30;
+                const newEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+                const newRemainingDays = Math.max(0, Math.ceil((newEndDate - today) / (1000 * 60 * 60 * 24)));
+                
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-500 font-semibold block">Sport</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{latestEnrollment.sport?.name || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-semibold block">Duration Plan</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{latestEnrollment.duration_plan?.name || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-semibold block">Batch</span>
+                        <select
+                          className="input-field w-full text-xs"
+                          value={reactivateForm.batch_id || latestEnrollment.batch_id || ''}
+                          onChange={(e) => setReactivateForm({ ...reactivateForm, batch_id: e.target.value })}
+                          required
+                        >
+                          <option value="">Select Batch...</option>
+                          {availableBatches.map((batch) => (
+                            <option key={batch.batch_id} value={batch.batch_id}>
+                              {batch.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-semibold block">Plan Status</span>
+                        <span className={`font-medium ${latestEnrollment.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                          {latestEnrollment.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-slate-500 font-semibold block">Plan Start Date</span>
+                        <input
+                          type="date"
+                          className="input-field w-full text-xs"
+                          value={reactivateForm.plan_start_date}
+                          onChange={(e) => setReactivateForm({ ...reactivateForm, plan_start_date: e.target.value })}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-slate-500 font-semibold block">Plan End Date (Auto-calculated)</span>
+                        <input
+                          type="text"
+                          className="input-field w-full bg-slate-100 dark:bg-slate-700 text-xs"
+                          value={newEndDate.toLocaleDateString()}
+                          readOnly
+                        />
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-semibold block">Remaining Days</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{newRemainingDays} days</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-semibold block">Due Date</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{newEndDate.toLocaleDateString()}</span>
+                      </div>
+                      {pendingAmount > 0 && (
+                        <div className="col-span-2">
+                          <span className="text-slate-500 font-semibold block">Pending Amount</span>
+                          <span className="font-medium text-red-600">₹{pendingAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          {reactivateForm.action === 'new_plan' && (
+            <div className="space-y-4">
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Sport <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="input-field w-full"
+                  value={reactivateForm.sport_id}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, sport_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select Sport...</option>
+                  {sports.map((sport) => (
+                    <option key={sport.sport_id} value={sport.sport_id}>
+                      {sport.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Duration Plan <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="input-field w-full"
+                  value={reactivateForm.duration_plan_id}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, duration_plan_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select Plan...</option>
+                  {durationPlans.map((plan) => (
+                    <option key={plan.plan_id} value={plan.plan_id}>
+                      {plan.name} (₹{plan.multiplier}x Multiplier)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Batch <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="input-field w-full"
+                  value={reactivateForm.batch_id}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, batch_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select Batch...</option>
+                  {availableBatches.map((batch) => (
+                    <option key={batch.batch_id} value={batch.batch_id}>
+                      {batch.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Plan Start Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  className="input-field w-full"
+                  value={reactivateForm.plan_start_date}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, plan_start_date: e.target.value })}
+                  required
+                />
+              </div>
+
+              {reactivateForm.duration_plan_id && (
+                <div>
+                  <label className="label block text-sm font-medium text-slate-700 mb-1">
+                    Plan End Date (Auto-calculated)
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field w-full bg-slate-100 dark:bg-slate-700"
+                    value={(() => {
+                      const plan = durationPlans.find(p => p.plan_id === parseInt(reactivateForm.duration_plan_id));
+                      if (!plan || !reactivateForm.plan_start_date) return '—';
+                      const durationDays = plan.duration_months * 30;
+                      const endDate = new Date(new Date(reactivateForm.plan_start_date).getTime() + durationDays * 24 * 60 * 60 * 1000);
+                      return endDate.toLocaleDateString();
+                    })()}
+                    readOnly
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Additional Charges (Optional)
+                </label>
+                <input
+                  type="number"
+                  className="input-field w-full"
+                  placeholder="Enter additional charges"
+                  value={reactivateForm.additional_charges}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, additional_charges: e.target.value })}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Registration Fee (Optional)
+                </label>
+                <input
+                  type="number"
+                  className="input-field w-full"
+                  placeholder="Enter registration fee"
+                  value={reactivateForm.registration_fee}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, registration_fee: e.target.value })}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end pt-2">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowReactivateModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
+            >
+              Reactivate Student
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  )}
+
+  {/* Renew Student Plan Modal */}
+  {showRenewModal && selectedStudent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="card animate-premiumModal max-w-md w-full"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Renew Student Plan</h3>
+          <button
+            type="button"
+            onClick={() => setShowRenewModal(false)}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleRenewSubmit} className="space-y-4">
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Student Name
+            </label>
+            <div className="text-sm font-semibold text-slate-900">{selectedStudent.name}</div>
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Select Plan Duration
+            </label>
+            <select
+              className="input-field w-full"
+              value={renewForm.duration_plan_id}
+              onChange={(e) => setRenewForm({ ...renewForm, duration_plan_id: e.target.value })}
+              required
+            >
+              <option value="">Select Plan...</option>
+              {durationPlans.map((plan) => (
+                <option key={plan.plan_id} value={plan.plan_id}>
+                  {plan.name} (₹{plan.multiplier}x Multiplier)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowRenewModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
+            >
+              Confirm Renewal
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  )}
+
+  {/* Change Plan Modal (Upgrade/Downgrade) */}
+  {showChangePlanModal && selectedStudent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="card animate-premiumModal max-w-md w-full"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-800">Upgrade/Downgrade Plan</h3>
+          <button
+            type="button"
+            onClick={() => setShowChangePlanModal(false)}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleChangePlanSubmit} className="space-y-4">
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Student Name
+            </label>
+            <div className="text-sm font-semibold text-slate-900">{selectedStudent.name}</div>
+          </div>
+
+          <div>
+            <label className="label block text-sm font-medium text-slate-700 mb-1">
+              Choose New Plan
+            </label>
+            <select
+              className="input-field w-full"
+              value={changePlanForm.duration_plan_id}
+              onChange={(e) => setChangePlanForm({ ...changePlanForm, duration_plan_id: e.target.value })}
+              required
+            >
+              <option value="">Select Plan...</option>
+              {durationPlans.map((plan) => (
+                <option key={plan.plan_id} value={plan.plan_id}>
+                  {plan.name} (₹{plan.multiplier}x Multiplier)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowChangePlanModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
+            >
+              Confirm Plan Change
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  )}
 
     </motion.div>
 

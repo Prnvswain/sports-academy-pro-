@@ -1,8 +1,9 @@
 import GPSCapture from '../GPSCapture';
 import MapPreview from '../MapPreview';
 import { MapPin, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
+import { forwardRef } from 'react';
 
-export default function GPSVerificationCard({
+const GPSVerificationCard = forwardRef(({
   onLocationCapture,
   gpsCoords,
   gpsVerified,
@@ -13,7 +14,7 @@ export default function GPSVerificationCard({
   sportName,
   required = true,
   disabled = false
-}) {
+}, ref) => {
   return (
     <div className="card">
       <div className="flex items-center gap-2 mb-4">
@@ -64,6 +65,7 @@ export default function GPSVerificationCard({
       )}
 
       <GPSCapture
+        ref={ref}
         onLocationCapture={onLocationCapture}
         initialLocation={gpsCoords?.latitude && gpsCoords?.longitude ? {
           latitude: gpsCoords.latitude,
@@ -107,4 +109,8 @@ export default function GPSVerificationCard({
       )}
     </div>
   );
-}
+});
+
+GPSVerificationCard.displayName = 'GPSVerificationCard';
+
+export default GPSVerificationCard;

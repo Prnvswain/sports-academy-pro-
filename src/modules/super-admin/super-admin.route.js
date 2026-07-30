@@ -89,6 +89,10 @@ router.put(
   superAdminController.putSetting
 );
 
+/* ─── THEME SETTINGS ───────────────────────────────────────────────────────── */
+router.get('/theme', superAdminController.getThemeSettings);
+router.put('/theme', superAdminController.updateThemeSettings);
+
 // ─── ANNOUNCEMENTS ───────────────────────────────────────────────────────────
 // Upload attachment for announcement (max 10MB)
 router.post('/announcements/upload', upload.single('file'), announcementsController.uploadAttachment);

@@ -5,6 +5,86 @@ import { JWT_SECRET, JWT_EXPIRE, BCRYPT_SALT_ROUNDS } from '../../config/app.con
 import { logAudit } from '../../utils/audit.util.js';
 import logger from '../../utils/logger.js';
 
+export const getThemeSettings = async () => {
+  let theme = await prisma.globalTheme.findFirst();
+  
+  if (!theme) {
+    // Create default theme if none exists
+    theme = await prisma.globalTheme.create({
+      data: {
+        primary_color: '#84cc16',
+        secondary_color: '#FFC400',
+        accent_color: '#84cc16',
+        background_gradient: '#FFC400',
+        navbar_color: '#84cc16',
+        sidebar_color: '#0f172a',
+        button_primary: '#84cc16',
+        button_hover: '#65a30d',
+        card_accent: '#84cc16',
+      }
+    });
+  }
+  
+  return {
+    primary_color: theme.primary_color,
+    secondary_color: theme.secondary_color,
+    accent_color: theme.accent_color,
+    background_gradient: theme.background_gradient,
+    navbar_color: theme.navbar_color,
+    sidebar_color: theme.sidebar_color,
+    button_primary: theme.button_primary,
+    button_hover: theme.button_hover,
+    card_accent: theme.card_accent,
+  };
+};
+
+export const updateThemeSettings = async (themeData) => {
+  let theme = await prisma.globalTheme.findFirst();
+  
+  if (theme) {
+    theme = await prisma.globalTheme.update({
+      where: { id: theme.id },
+      data: {
+        primary_color: themeData.primary_color,
+        secondary_color: themeData.secondary_color,
+        accent_color: themeData.accent_color,
+        background_gradient: themeData.background_gradient,
+        navbar_color: themeData.navbar_color,
+        sidebar_color: themeData.sidebar_color,
+        button_primary: themeData.button_primary,
+        button_hover: themeData.button_hover,
+        card_accent: themeData.card_accent,
+      }
+    });
+  } else {
+    theme = await prisma.globalTheme.create({
+      data: {
+        primary_color: themeData.primary_color,
+        secondary_color: themeData.secondary_color,
+        accent_color: themeData.accent_color,
+        background_gradient: themeData.background_gradient,
+        navbar_color: themeData.navbar_color,
+        sidebar_color: themeData.sidebar_color,
+        button_primary: themeData.button_primary,
+        button_hover: themeData.button_hover,
+        card_accent: themeData.card_accent,
+      }
+    });
+  }
+  
+  return {
+    primary_color: theme.primary_color,
+    secondary_color: theme.secondary_color,
+    accent_color: theme.accent_color,
+    background_gradient: theme.background_gradient,
+    navbar_color: theme.navbar_color,
+    sidebar_color: theme.sidebar_color,
+    button_primary: theme.button_primary,
+    button_hover: theme.button_hover,
+    card_accent: theme.card_accent,
+  };
+};
+
 export const loginSuperAdmin = async ({ email, password, ip }) => {
   const admin = await prisma.superAdmin.findFirst({
     where: { email: email.trim().toLowerCase(), is_active: true }

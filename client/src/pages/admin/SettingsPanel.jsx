@@ -39,6 +39,7 @@ export default function SettingsPanel() {
     address: '',
     latitude: '',
     longitude: '',
+    auto_deactivate_default: true,
     // GPS / Attendance Config
     gps_verification_enabled: DEFAULT_GPS_SETTINGS.gps_verification_enabled,
     attendance_radius_meters: DEFAULT_GPS_SETTINGS.attendance_radius_meters,
@@ -77,6 +78,7 @@ export default function SettingsPanel() {
         address: academyData?.address || '',
         latitude: academyData?.latitude ? String(academyData.latitude) : '',
         longitude: academyData?.longitude ? String(academyData.longitude) : '',
+        auto_deactivate_default: academyData?.auto_deactivate_default ?? true,
         // GPS settings — fall back to defaults if not present
         gps_verification_enabled: gpsData?.gps_verification_enabled ?? DEFAULT_GPS_SETTINGS.gps_verification_enabled,
         attendance_radius_meters: gpsData?.attendance_radius_meters ?? DEFAULT_GPS_SETTINGS.attendance_radius_meters,
@@ -203,6 +205,7 @@ export default function SettingsPanel() {
       if (formData.address !== undefined) submitData.append('address', formData.address);
       if (formData.latitude !== undefined) submitData.append('latitude', formData.latitude);
       if (formData.longitude !== undefined) submitData.append('longitude', formData.longitude);
+      submitData.append('auto_deactivate_default', formData.auto_deactivate_default);
 
       // Save GPS / Attendance Configuration
       await Promise.all([
@@ -613,7 +616,30 @@ export default function SettingsPanel() {
           </div>
         </motion.div>
 
-        {/* Section 4: Danger Zone */}
+        {/* Section 4: Student Lifecycle Configuration */}
+        <motion.div
+          className="bg-gradient-to-br from-card to-card/50 border border-border rounded-2xl p-6 shadow-xl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+        >
+          <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Student Lifecycle Rules
+          </h2>
+
+          <div className="space-y-6">
+            <ToggleRow
+              icon={UserCheck}
+              label="Default Auto Deactivate on Due Date"
+              description="Automatically set new students to deactivate when their plan cycle expires"
+              field="auto_deactivate_default"
+              iconColor="text-blue-500"
+            />
+          </div>
+        </motion.div>
+
+        {/* Section 5: Danger Zone */}
         <motion.div
           className="bg-gradient-to-br from-red-50/50 to-red-100/30 dark:from-red-900/20 dark:to-red-950/10 border border-red-200 dark:border-red-800 rounded-2xl p-6 shadow-xl"
           initial={{ opacity: 0, y: 20 }}

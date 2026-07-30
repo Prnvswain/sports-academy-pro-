@@ -122,6 +122,9 @@ router.post(
 );
 router.put('/students/:student_id/pause', adminController.pauseStudentPlan);
 router.put('/students/:student_id/resume', adminController.resumeStudentPlan);
+router.post('/students/:student_id/reactivate', adminController.reactivateStudent);
+router.post('/students/:student_id/renew', adminController.renewStudent);
+router.post('/students/:student_id/change-plan', adminController.changeStudentPlan);
 router.delete('/students/:student_id', adminController.deleteStudent);
 
 /* ─── BATCHES TIMING & CAPACITY ─────────────────────────────────────────── */

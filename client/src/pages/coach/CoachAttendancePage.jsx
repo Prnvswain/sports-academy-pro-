@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import SessionCard from '../../components/attendance/SessionCard';
@@ -7,17 +7,18 @@ import GPSVerificationCard from '../../components/attendance/GPSVerificationCard
 import StudentAttendanceCard from '../../components/attendance/StudentAttendanceCard';
 import AttendanceSummaryCard from '../../components/attendance/AttendanceSummaryCard';
 import AttendanceLockedCard from '../../components/attendance/AttendanceLockedCard';
+import StickyWorkflowBar from '../../components/attendance/StickyWorkflowBar';
 import { coachGet, coachPost } from '../../api/client';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
-import { 
-  AlertCircle, 
-  MapPin, 
-  Clock, 
-  Users, 
-  Play, 
-  Square, 
-  CheckCircle, 
-  Navigation, 
+import {
+  AlertCircle,
+  MapPin,
+  Clock,
+  Users,
+  Play,
+  Square,
+  CheckCircle,
+  Navigation,
   Compass,
   ChevronRight,
   ArrowLeft,
@@ -56,6 +57,15 @@ export default function CoachAttendancePage() {
   const [coachAttendanceLoading, setCoachAttendanceLoading] = useState(false);
   const [loadingCoachAttendance, setLoadingCoachAttendance] = useState(false);
 
+  // 4-step workflow state
+  const [step1GpsVerified, setStep1GpsVerified] = useState(false);
+  const [step1GpsLoading, setStep1GpsLoading] = useState(false);
+  const [step1TriggeredFromWorkflow, setStep1TriggeredFromWorkflow] = useState(false);
+  const [step2AttendanceMarked, setStep2AttendanceMarked] = useState(false);
+  const [step2AttendanceLoading, setStep2AttendanceLoading] = useState(false);
+  const [step3BatchStarted, setStep3BatchStarted] = useState(false);
+  const [step4BatchEnded, setStep4BatchEnded] = useState(false);
+
   // GPS state
   const [gpsCoords, setGpsCoords] = useState({ latitude: null, longitude: null, accuracy: null });
   const [gpsError, setGpsError] = useState('');
@@ -75,6 +85,9 @@ export default function CoachAttendancePage() {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   const selectedBatch = batches.find((b) => String(b.batch_id) === String(selectedBatchId));
+
+  // Ref for GPS capture to trigger programmatically
+  const gpsCaptureRef = useRef(null);
 
   // Fetch today's coach attendance for the selected batch
   const fetchTodayCoachAttendance = async () => {
@@ -134,11 +147,14 @@ export default function CoachAttendancePage() {
     setDistanceFromCenter(null);
     setGpsError('');
     setIsAttendanceLocked(false);
+    setAttendanceMap({});
+    setRemarksMap({});
     fetchTodayCoachAttendance();
   }, [selectedBatchId]);
 
   useEffect(() => {
     if (selectedBatch?.sport) {
+      // GPS Priority: Sport Custom GPS > Academy GPS
       if (selectedBatch.sport.use_custom_location && selectedBatch.sport.latitude && selectedBatch.sport.longitude) {
         setSportCenter({
           latitude: parseFloat(selectedBatch.sport.latitude),
@@ -151,16 +167,22 @@ export default function CoachAttendancePage() {
         });
       } else {
         setSportCenter(null);
+        setMessage({
+          text: 'Location not configured. Please contact admin to configure GPS settings.',
+          type: 'error'
+        });
       }
 
+      // Attendance Radius Priority: Sport > Academy
       if (selectedBatch.sport?.attendance_radius_meters !== null && selectedBatch.sport?.attendance_radius_meters !== undefined) {
         setAttendanceRadius(selectedBatch.sport.attendance_radius_meters);
-        console.log('Attendance radius set for sport:', selectedBatch.sport.name, selectedBatch.sport.attendance_radius_meters);
+      } else if (selectedBatch.academy?.attendance_radius_meters) {
+        setAttendanceRadius(selectedBatch.academy.attendance_radius_meters);
       } else {
         setAttendanceRadius(null);
-        setMessage({ 
-          text: `Attendance radius not configured for sport: ${selectedBatch.sport?.name || 'Unknown'}. Please contact admin to configure sport settings.`, 
-          type: 'error' 
+        setMessage({
+          text: 'Attendance radius not configured. Please contact admin to configure settings.',
+          type: 'error'
         });
       }
     }
@@ -179,20 +201,41 @@ export default function CoachAttendancePage() {
         sportCenter.latitude,
         sportCenter.longitude
       );
-      setDistanceFromCenter(distance);
-      const isWithinRadius = distance <= attendanceRadius;
+      const roundedDistance = Math.round(distance);
+      const roundedRadius = Math.round(attendanceRadius);
+      setDistanceFromCenter(roundedDistance);
+      const isWithinRadius = roundedDistance <= roundedRadius;
       setGpsVerified(isWithinRadius);
 
       if (!isWithinRadius) {
-        setGpsError(`You are ${Math.round(distance)}m from the sport center. Attendance requires being within ${attendanceRadius}m.`);
+        setGpsError(`You are ${roundedDistance}m from the sport center. Attendance requires being within ${roundedRadius}m.`);
       } else {
         setGpsError('');
       }
     }
   }, [gpsCoords, sportCenter, attendanceRadius]);
 
+  // Auto-complete Step 1 when GPS verification succeeds after being triggered from workflow
+  useEffect(() => {
+    if (step1TriggeredFromWorkflow && gpsVerified && gpsCoords.latitude && gpsCoords.longitude) {
+      setStep1GpsVerified(true);
+      setStep1GpsLoading(false);
+      setStep1TriggeredFromWorkflow(false);
+      setMessage({ text: 'GPS Verified Successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+      
+      // Smooth scroll to Step 2
+      setTimeout(() => {
+        const step2Element = document.getElementById('section-mark-attendance');
+        if (step2Element) {
+          step2Element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+    }
+  }, [step1TriggeredFromWorkflow, gpsVerified, gpsCoords]);
+
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3; 
+    const R = 6371e3;
     const phi1 = (lat1 * Math.PI) / 180;
     const phi2 = (lat2 * Math.PI) / 180;
     const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
@@ -220,34 +263,34 @@ export default function CoachAttendancePage() {
 
     const now = new Date();
     const currentDate = attendanceDate ? new Date(attendanceDate) : now;
-    
+
     const [startHour, startMin] = startTime.split(':').map(Number);
     const [endHour, endMin] = endTime.split(':').map(Number);
-    
+
     const batchStart = new Date(currentDate);
     batchStart.setHours(startHour, startMin, 0, 0);
-    
+
     const batchEnd = new Date(currentDate);
     batchEnd.setHours(endHour, endMin, 0, 0);
 
-    const graceBefore = 10 * 60 * 1000; 
-    const graceAfter = 15 * 60 * 1000; 
+    const graceBefore = 10 * 60 * 1000;
+    const graceAfter = 15 * 60 * 1000;
 
     const windowStart = new Date(batchStart.getTime() - graceBefore);
     const windowEnd = new Date(batchEnd.getTime() + graceAfter);
 
     const isActive = now >= windowStart && now <= windowEnd;
-    
+
     if (!isActive) {
       if (now < windowStart) {
-        setAttendanceWindow({ 
-          active: false, 
-          reason: `Attendance window opens at ${windowStart.toLocaleTimeString()}` 
+        setAttendanceWindow({
+          active: false,
+          reason: `Attendance window opens at ${windowStart.toLocaleTimeString()}`
         });
       } else {
-        setAttendanceWindow({ 
-          active: false, 
-          reason: `Attendance window closed at ${windowEnd.toLocaleTimeString()}` 
+        setAttendanceWindow({
+          active: false,
+          reason: `Attendance window closed at ${windowEnd.toLocaleTimeString()}`
         });
       }
     } else {
@@ -267,16 +310,123 @@ export default function CoachAttendancePage() {
     } else {
       setGpsCoords({ latitude: null, longitude: null, accuracy: null });
       setGpsVerified(false);
+      setStep1GpsVerified(false);
       setDistanceFromCenter(null);
+      
+      // If triggered from workflow and failed, stop loading
+      if (step1TriggeredFromWorkflow) {
+        setStep1GpsLoading(false);
+        setStep1TriggeredFromWorkflow(false);
+      }
     }
   };
+
+  // Step 1: GPS Verification handler
+  const handleStep1GpsVerify = async () => {
+    setStep1GpsLoading(true);
+    setStep1TriggeredFromWorkflow(true);
+    setMessage({ text: 'Capturing Location...', type: '' });
+
+    // Trigger GPS capture programmatically
+    if (gpsCaptureRef.current && gpsCaptureRef.current.captureLocation) {
+      gpsCaptureRef.current.captureLocation();
+    } else {
+      setStep1GpsLoading(false);
+      setStep1TriggeredFromWorkflow(false);
+      setMessage({ text: 'GPS capture not available. Please refresh the page.', type: 'error' });
+    }
+  };
+
+  // Step 2: Mark Attendance handler
+  const handleStep2MarkAttendance = async () => {
+    if (!step1GpsVerified) {
+      setMessage({ text: 'Please complete GPS verification first.', type: 'error' });
+      return;
+    }
+
+    if (!attendanceWindow.active) {
+      setMessage({ text: 'You cannot mark yourself as Present after the attendance window closes.', type: 'error' });
+      return;
+    }
+
+    setStep2AttendanceLoading(true);
+    setMessage({ text: '', type: '' });
+
+    try {
+      const payload = {
+        batch_id: selectedBatch.batch_id,
+        date: attendanceDate,
+        status: 'PRESENT',
+        remarks: ''
+      };
+
+      if (gpsCoords.latitude && gpsCoords.longitude) {
+        payload.latitude = gpsCoords.latitude;
+        payload.longitude = gpsCoords.longitude;
+        payload.accuracy = gpsCoords.accuracy;
+      }
+
+      const result = await coachPost('/coach/self-attendance', payload);
+
+      setCoachAttendanceMarked(true);
+      setCoachAttendanceStatus({ status: 'PRESENT', remarks: '', date: attendanceDate });
+      setStep2AttendanceMarked(true);
+      setMessage({ text: result.message || 'Attendance marked successfully', type: 'success' });
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+
+      if (selectedBatch.students) {
+        const initialAttendance = {};
+        const initialRemarks = {};
+        selectedBatch.students.forEach((student) => {
+          initialAttendance[student.student_id] = 'PRESENT';
+          initialRemarks[student.student_id] = '';
+        });
+        setAttendanceMap(initialAttendance);
+        setRemarksMap(initialRemarks);
+      }
+    } catch (error) {
+      setMessage({ text: error.message, type: 'error' });
+    } finally {
+      setStep2AttendanceLoading(false);
+    }
+  };
+
+  // Step 3: Batch Check-in handler (uses existing handleStartBatch)
+  const handleStep3BatchCheckIn = () => {
+    if (!step2AttendanceMarked) {
+      setMessage({ text: 'Please mark your attendance first.', type: 'error' });
+      return;
+    }
+    // Use existing handleStartBatch logic
+    handleStartBatch();
+  };
+
+  // Step 4: Batch Check-out handler (uses existing handleEndBatch)
+  const handleStep4BatchCheckOut = () => {
+    if (!step3BatchStarted) {
+      setMessage({ text: 'Please start the batch session first.', type: 'error' });
+      return;
+    }
+    // Use existing handleEndBatch logic
+    handleEndBatch();
+  };
+
+  // Reset workflow when batch changes
+  useEffect(() => {
+    setStep1GpsVerified(false);
+    setStep1GpsLoading(false);
+    setStep2AttendanceMarked(false);
+    setStep2AttendanceLoading(false);
+    setStep3BatchStarted(false);
+    setStep4BatchEnded(false);
+  }, [selectedBatchId]);
 
   const handleCoachAttendance = async ({ status, remarks }) => {
     if (status === 'PRESENT' && !attendanceWindow.active) {
       setMessage({ text: 'You cannot mark yourself as Present after the attendance window closes. Please mark yourself as Absent instead.', type: 'error' });
       return;
     }
-    
+
     if (status === 'PRESENT' && !gpsVerified) {
       setMessage({ text: 'Please verify your location before marking attendance as Present.', type: 'error' });
       return;
@@ -300,12 +450,12 @@ export default function CoachAttendancePage() {
       }
 
       const result = await coachPost('/coach/self-attendance', payload);
-      
+
       setCoachAttendanceMarked(true);
       setCoachAttendanceStatus({ status, remarks, date: attendanceDate });
       setMessage({ text: result.message || 'Coach attendance marked successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 4000);
-      
+
       if (selectedBatch.students) {
         const initialAttendance = {};
         const initialRemarks = {};
@@ -386,24 +536,6 @@ export default function CoachAttendancePage() {
   };
 
   useEffect(() => {
-    if (!selectedBatch?.students) {
-      setAttendanceMap({});
-      setRemarksMap({});
-      return;
-    }
-    if (coachAttendanceMarked) {
-      const initialAttendance = {};
-      const initialRemarks = {};
-      selectedBatch.students.forEach((student) => {
-        initialAttendance[student.student_id] = 'PRESENT';
-        initialRemarks[student.student_id] = '';
-      });
-      setAttendanceMap(initialAttendance);
-      setRemarksMap(initialRemarks);
-    }
-  }, [selectedBatchId, selectedBatch, coachAttendanceMarked]);
-
-  useEffect(() => {
     checkAttendanceWindow();
   }, [selectedBatch]);
 
@@ -412,25 +544,26 @@ export default function CoachAttendancePage() {
     try {
       const result = await coachGet(`/coach/attendance?batch_id=${selectedBatchId}&date=${attendanceDate}`);
       const existingRecords = result.data || [];
-      
+
       const initialAttendance = {};
       const initialRemarks = {};
-      
+
       selectedBatch?.students?.forEach((student) => {
         initialAttendance[student.student_id] = 'PRESENT';
         initialRemarks[student.student_id] = '';
       });
-      
+
+      // Only load DRAFT attendance, ignore FINAL (locked) records
       existingRecords.forEach((record) => {
-        if (record.student_id) {
+        if (record.student_id && record.submission_status === 'DRAFT') {
           initialAttendance[record.student_id] = record.status || 'PRESENT';
           initialRemarks[record.student_id] = record.remarks || '';
         }
       });
-      
-      const locked = existingRecords.some((r) => r.locked);
+
+      const locked = existingRecords.some((r) => r.locked || r.submission_status === 'FINAL');
       setIsAttendanceLocked(locked);
-      
+
       setAttendanceMap(initialAttendance);
       setRemarksMap(initialRemarks);
     } catch (error) {
@@ -477,14 +610,15 @@ export default function CoachAttendancePage() {
 
   const handleStartBatch = async () => {
     if (!selectedBatch) return;
-    
+
     setSessionLoading(true);
     setMessage({ text: '', type: '' });
-    
+
     try {
-      await coachPost('/coach/batch-session/start', { 
+      await coachPost('/coach/batch-session/start', {
         batch_id: selectedBatch.batch_id
       });
+      setStep3BatchStarted(true);
       setMessage({ text: 'Batch session started successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
       await fetchActiveSessions();
@@ -499,10 +633,10 @@ export default function CoachAttendancePage() {
   const handleEndBatch = async () => {
     if (!selectedBatch) return;
     if (!window.confirm('Are you sure you want to finalize trainee attendance and end the session? This will lock all records.')) return;
-    
+
     setSessionLoading(true);
     setMessage({ text: '', type: '' });
-    
+
     try {
       const records = selectedBatch.students.map((student) => ({
         student_id: student.student_id,
@@ -519,9 +653,10 @@ export default function CoachAttendancePage() {
       }
 
       await coachPost('/coach/batch-session/end', { batch_id: selectedBatch.batch_id });
+      setStep4BatchEnded(true);
       setMessage({ text: 'Batch session ended and attendance locked successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 4000);
-      
+
       await fetchActiveSessions();
       await fetchTodayStudentAttendance();
     } catch (error) {
@@ -595,19 +730,18 @@ export default function CoachAttendancePage() {
 
   return (
     <div className="relative min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-20 p-4 sm:p-6 lg:p-8 transition-colors">
-      
+
       {/* Toast Notification */}
       <AnimatePresence>
         {message.text && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20, scale: 0.95 }} 
-            animate={{ opacity: 1, y: 0, scale: 1 }} 
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`fixed top-6 right-6 z-50 rounded-xl px-5 py-4 shadow-xl border flex items-center gap-3 font-semibold text-sm max-w-sm ${
-              message.type === 'success' 
-                ? 'bg-emerald-50 border-emerald-250 text-emerald-805 dark:bg-emerald-950/20 dark:border-emerald-900/40 dark:text-emerald-400' 
+            className={`fixed top-6 right-6 z-50 rounded-xl px-5 py-4 shadow-xl border flex items-center gap-3 font-semibold text-sm max-w-sm ${message.type === 'success'
+                ? 'bg-emerald-50 border-emerald-250 text-emerald-805 dark:bg-emerald-950/20 dark:border-emerald-900/40 dark:text-emerald-400'
                 : 'bg-rose-50 border-rose-250 text-rose-805 dark:bg-rose-955/20 dark:border-rose-900/40 dark:text-rose-455'
-            }`}
+              }`}
           >
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span>{message.text}</span>
@@ -620,7 +754,7 @@ export default function CoachAttendancePage() {
           /* =========================================
              VIEW 1: BATCH SELECTION
              ========================================= */
-          <motion.div 
+          <motion.div
             key="selection-view"
             variants={viewVariants}
             initial="initial"
@@ -666,10 +800,9 @@ export default function CoachAttendancePage() {
                       className="bg-white dark:bg-slate-900 border border-slate-250 hover:border-emerald-500 dark:border-slate-800 dark:hover:border-emerald-500 rounded-2xl p-5 text-left transition shadow-sm hover:shadow-md flex flex-col justify-between h-48 relative overflow-hidden group"
                     >
                       {/* Status bar */}
-                      <span className={`absolute top-0 left-0 w-full h-1.5 ${
-                        isLiveSession ? 'bg-red-500 animate-pulse' :
-                        isCompletedSession ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-850'
-                      }`}></span>
+                      <span className={`absolute top-0 left-0 w-full h-1.5 ${isLiveSession ? 'bg-red-500 animate-pulse' :
+                          isCompletedSession ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-850'
+                        }`}></span>
 
                       <div className="w-full">
                         <div className="flex justify-between items-start">
@@ -678,11 +811,10 @@ export default function CoachAttendancePage() {
                           </h4>
 
                           {/* Status Badge */}
-                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-extrabold shadow-sm ${
-                            isLiveSession ? 'bg-red-150 text-red-700 animate-pulse border border-red-200' :
-                            isCompletedSession ? 'bg-emerald-100 text-emerald-805 border border-emerald-200' :
-                            'bg-slate-100 text-slate-500 border border-slate-200/60 dark:bg-slate-800 dark:text-slate-450 dark:border-slate-700'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-extrabold shadow-sm ${isLiveSession ? 'bg-red-150 text-red-700 animate-pulse border border-red-200' :
+                              isCompletedSession ? 'bg-emerald-100 text-emerald-805 border border-emerald-200' :
+                                'bg-slate-100 text-slate-500 border border-slate-200/60 dark:bg-slate-800 dark:text-slate-450 dark:border-slate-700'
+                            }`}>
                             {isLiveSession ? '● Live Now' : isCompletedSession ? 'Completed' : 'Upcoming'}
                           </span>
                         </div>
@@ -741,7 +873,7 @@ export default function CoachAttendancePage() {
           /* =========================================
              VIEW 2: BATCH ATTENDANCE FLOW
              ========================================= */
-          <motion.div 
+          <motion.div
             key="module-view"
             variants={viewVariants}
             initial="initial"
@@ -776,23 +908,20 @@ export default function CoachAttendancePage() {
 
             {/* STEP PROGRESSION BAR */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm grid grid-cols-3 gap-2 text-center text-xs font-bold text-slate-450 select-none">
-              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${
-                step1Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
-              }`}>
+              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step1Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
+                }`}>
                 <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-bold">1</span>
                 <span>Self Check-in</span>
               </div>
-              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${
-                step2Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' : 
-                step1Complete ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400 animate-pulse' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
-              }`}>
+              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step2Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' :
+                  step1Complete ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400 animate-pulse' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
+                }`}>
                 <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-bold">2</span>
                 <span>Session Active</span>
               </div>
-              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${
-                step3Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' : 
-                step2Complete ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400 animate-pulse' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
-              }`}>
+              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step3Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' :
+                  step2Complete ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400 animate-pulse' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
+                }`}>
                 <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-bold">3</span>
                 <span>Trainee Roll</span>
               </div>
@@ -809,7 +938,7 @@ export default function CoachAttendancePage() {
                 )}
 
                 {/* Mark Coach Attendance Card wrapper */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden relative">
+                <div id="section-gps-verify" className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden relative">
                   <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
                   <div className="p-4">
                     <CoachAttendanceCard
@@ -841,6 +970,7 @@ export default function CoachAttendancePage() {
                         </div>
                       ) : (
                         <GPSVerificationCard
+                          ref={gpsCaptureRef}
                           onLocationCapture={handleLocationCapture}
                           gpsCoords={gpsCoords}
                           gpsVerified={gpsVerified}
@@ -856,12 +986,163 @@ export default function CoachAttendancePage() {
                     </div>
                   </div>
                 )}
+
+                {/* 4-Step Workflow */}
+                <div className="space-y-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step1GpsVerified
+                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
+                      }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step1GpsVerified ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}>
+                      {step1GpsVerified ? '✓' : '1'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 1: GPS Verification</h4>
+                      {step1GpsVerified && (
+                        <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <p>📍 Capture your current GPS location</p>
+                          <p>Latitude: {gpsCoords.latitude?.toFixed(6)}</p>
+                          <p>Longitude: {gpsCoords.longitude?.toFixed(6)}</p>
+                          <p>Accuracy: {gpsCoords.accuracy}m</p>
+                          <p className="text-emerald-600 dark:text-emerald-400 font-bold">✅ GPS Verified Successfully</p>
+                        </div>
+                      )}
+                    </div>
+                    {!step1GpsVerified ? (
+                      <button
+                        onClick={handleStep1GpsVerify}
+                        disabled={step1GpsLoading || !gpsVerified}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                      >
+                        {step1GpsLoading ? 'Verifying...' : 'Verify GPS'}
+                      </button>
+                    ) : (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                    )}
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: step1GpsVerified ? 1 : 0.5, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step2AttendanceMarked
+                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                        : step1GpsVerified
+                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
+                          : 'border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 opacity-50'
+                      }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step2AttendanceMarked ? 'bg-emerald-500 text-white' :
+                        step1GpsVerified ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}>
+                      {step2AttendanceMarked ? '✓' : '2'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 2: Mark Your Attendance</h4>
+                      {step2AttendanceMarked && (
+                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">✅ Attendance Marked Successfully</p>
+                      )}
+                    </div>
+                    {!step2AttendanceMarked && step1GpsVerified ? (
+                      <button
+                        onClick={handleStep2MarkAttendance}
+                        disabled={step2AttendanceLoading}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                      >
+                        {step2AttendanceLoading ? 'Marking...' : 'Mark Attendance'}
+                      </button>
+                    ) : step2AttendanceMarked ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                    ) : (
+                      <span className="text-slate-400 text-xs flex-shrink-0">Locked</span>
+                    )}
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: step2AttendanceMarked ? 1 : 0.5, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step3BatchStarted
+                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                        : step2AttendanceMarked
+                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
+                          : 'border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 opacity-50'
+                      }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step3BatchStarted ? 'bg-emerald-500 text-white' :
+                        step2AttendanceMarked ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}>
+                      {step3BatchStarted ? '✓' : '3'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 3: Batch Check-in</h4>
+                      {step3BatchStarted && (
+                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">✅ Batch Started Successfully</p>
+                      )}
+                    </div>
+                    {!step3BatchStarted && step2AttendanceMarked ? (
+                      <button
+                        onClick={handleStep3BatchCheckIn}
+                        disabled={sessionLoading}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                      >
+                        {sessionLoading ? 'Starting...' : 'Start Batch'}
+                      </button>
+                    ) : step3BatchStarted ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                    ) : (
+                      <span className="text-slate-400 text-xs flex-shrink-0">Locked</span>
+                    )}
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: step3BatchStarted ? 1 : 0.5, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step4BatchEnded
+                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                        : step3BatchStarted
+                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
+                          : 'border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 opacity-50'
+                      }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step4BatchEnded ? 'bg-emerald-500 text-white' :
+                        step3BatchStarted ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}>
+                      {step4BatchEnded ? '✓' : '4'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 4: Batch Check-out</h4>
+                      {step4BatchEnded && (
+                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">✅ Batch Ended Successfully</p>
+                      )}
+                    </div>
+                    {!step4BatchEnded && step3BatchStarted ? (
+                      <button
+                        onClick={handleStep4BatchCheckOut}
+                        disabled={sessionLoading}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                      >
+                        {sessionLoading ? 'Ending...' : 'End Batch'}
+                      </button>
+                    ) : step4BatchEnded ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                    ) : (
+                      <span className="text-slate-400 text-xs flex-shrink-0">Locked</span>
+                    )}
+                  </motion.div>
+                </div>
               </div>
             )}
 
             {/* STEP 2: Live training session manager */}
             {coachAttendanceMarked && !isAttendanceLocked && !hasCompletedSession && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden relative">
+              <div id="section-mark-attendance" className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden relative">
                 <span className={`absolute top-0 left-0 w-full h-1 ${hasActiveSession ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
@@ -876,7 +1157,7 @@ export default function CoachAttendancePage() {
                       )}
                     </h3>
                     <p className="text-xs text-slate-450 mt-1">
-                      {hasActiveSession 
+                      {hasActiveSession
                         ? `Timer started. Trainee attendance list is active below. • Elapsed: ${formatTime(elapsedTime)}`
                         : 'Your check-in is complete. GPS location is locked. Click below to start timer.'
                       }
@@ -906,7 +1187,7 @@ export default function CoachAttendancePage() {
             {isCompleted && (
               <div className="bg-card shadow-lg rounded-[2rem] border border-border p-6 relative overflow-hidden transition-all text-left">
                 <span className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500"></span>
-                
+
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center text-xl">
@@ -1023,9 +1304,9 @@ export default function CoachAttendancePage() {
 
             {/* Selected batch summary details card */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden">
-              <SessionCard 
-                batch={selectedBatch} 
-                academy={selectedBatch.academy} 
+              <SessionCard
+                batch={selectedBatch}
+                academy={selectedBatch.academy}
                 activeSession={currentActiveSession}
               />
             </div>
@@ -1054,13 +1335,13 @@ export default function CoachAttendancePage() {
 
             {/* STEP 3: Trainee Roll Call list card */}
             {coachAttendanceMarked && hasActiveSession && !isAttendanceLocked && (
-              <div className="space-y-6">
+              <div id="section-batch-checkin" className="space-y-6">
                 {selectedBatch.students?.length > 0 ? (
                   <>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden">
-                      <AttendanceSummaryCard 
-                        attendanceMap={attendanceMap} 
-                        students={selectedBatch.students} 
+                      <AttendanceSummaryCard
+                        attendanceMap={attendanceMap}
+                        students={selectedBatch.students}
                       />
                     </div>
 
@@ -1087,7 +1368,7 @@ export default function CoachAttendancePage() {
                 )}
 
                 {/* Finalize submit actions card */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl p-6 relative overflow-hidden">
+                <div id="section-batch-checkout" className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl p-6 relative overflow-hidden">
                   <span className="absolute top-0 left-0 w-full h-1.5 bg-red-500"></span>
                   <h3 className="text-lg font-extrabold tracking-tight mb-2 text-slate-900 dark:text-white flex items-center gap-2">
                     🛡 Finish Session & Finalize Attendance
@@ -1095,7 +1376,7 @@ export default function CoachAttendancePage() {
                   <p className="text-xs text-slate-450 mb-4 font-semibold">
                     Submit the training roster to notify parents and close the timer logs. This will lock records permanently.
                   </p>
-                  
+
                   <div className="flex gap-4">
                     <button
                       onClick={handleEndBatch}
@@ -1113,53 +1394,40 @@ export default function CoachAttendancePage() {
         )}
       </AnimatePresence>
 
-      {/* STICKY ACTION BAR FLOAT (Mobile/Desktop on-the-field helper) */}
+      {/* ══════════════════════════════════════════════════════════
+           STICKY WORKFLOW BAR — 4-Step Interactive Progress Panel
+          ══════════════════════════════════════════════════════════ */}
       <AnimatePresence>
-        {selectedBatch && !isAttendanceLocked && !hasCompletedSession && (
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            className="fixed bottom-0 left-0 w-full p-4 bg-white/90 dark:bg-slate-900/90 border-t border-slate-250 dark:border-slate-800 shadow-2xl z-40 backdrop-blur"
-          >
-            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-              <div className="text-xs font-semibold text-slate-500">
-                <span className="block font-bold text-slate-800 dark:text-white truncate max-w-[150px] sm:max-w-none">{selectedBatch.name}</span>
-                <span>Active Step: {!coachAttendanceMarked ? '1. Self Check-in' : !hasActiveSession ? '2. Ready to Start' : '3. Trainee Roll Call'}</span>
-              </div>
+        {selectedBatch && (
+          <StickyWorkflowBar
+            batchName={selectedBatch.name}
+            /* Step state derived entirely from existing API/state — no new logic */
+            step1Done={gpsVerified && step1GpsVerified}
+            step1Loading={step1GpsLoading}
+            step1Active={!step1GpsVerified}
+            onStep1={handleStep1GpsVerify}
+            step1Disabled={step1GpsLoading}
 
-              <div className="flex gap-2">
-                {!coachAttendanceMarked ? (
-                  <button
-                    onClick={() => {
-                      // Scroll to top or trigger form focus
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      flashMessage('Please capture your location and mark check-in above first!');
-                    }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl transition"
-                  >
-                    Check-in Required
-                  </button>
-                ) : !hasActiveSession ? (
-                  <button
-                    onClick={handleStartBatch}
-                    disabled={sessionLoading || !gpsVerified || coachAttendanceStatus?.status === 'ABSENT'}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold rounded-xl transition shadow flex items-center gap-1.5"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" /> Start Batch
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleEndBatch}
-                    disabled={sessionLoading}
-                    className="px-4 py-2.5 bg-red-650 hover:bg-red-750 text-white text-xs font-extrabold rounded-xl transition shadow flex items-center gap-1.5"
-                  >
-                    <Square className="w-3.5 h-3.5 fill-current" /> End Session
-                  </button>
-                )}
-              </div>
-            </div>
-          </motion.div>
+            step2Done={coachAttendanceMarked}
+            step2Loading={step2AttendanceLoading}
+            step2Active={step1GpsVerified && !coachAttendanceMarked}
+            onStep2={handleStep2MarkAttendance}
+            step2Disabled={step2AttendanceLoading || !step1GpsVerified}
+
+            step3Done={step3BatchStarted || hasActiveSession || hasCompletedSession}
+            step3Loading={sessionLoading && !step3BatchStarted && !hasActiveSession}
+            step3Active={coachAttendanceMarked && !step3BatchStarted && !hasActiveSession && !hasCompletedSession}
+            onStep3={handleStep3BatchCheckIn}
+            step3Disabled={sessionLoading || !coachAttendanceMarked}
+
+            step4Done={step4BatchEnded || hasCompletedSession || isAttendanceLocked}
+            step4Loading={sessionLoading && (step3BatchStarted || hasActiveSession) && !step4BatchEnded && !hasCompletedSession}
+            step4Active={(step3BatchStarted || hasActiveSession) && !step4BatchEnded && !hasCompletedSession && !isAttendanceLocked}
+            onStep4={handleStep4BatchCheckOut}
+            step4Disabled={sessionLoading || (!step3BatchStarted && !hasActiveSession)}
+
+            allDone={step4BatchEnded || hasCompletedSession || isAttendanceLocked}
+          />
         )}
       </AnimatePresence>
     </div>

@@ -52,12 +52,16 @@ function verifyLocation(currentLat, currentLon, targetLat, targetLon, radiusMete
     parseFloat(targetLon)
   );
 
+  const roundedDistance = Math.round(distance);
+  const roundedRadius = Math.round(radiusMeters);
+
   return {
-    valid: distance <= radiusMeters,
-    distance: Math.round(distance),
-    radius: radiusMeters
+    valid: roundedDistance <= roundedRadius,
+    distance: roundedDistance,
+    radius: roundedRadius
   };
 }
+
 
 /**
  * Get attendance location for a batch/sport

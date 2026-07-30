@@ -5,7 +5,9 @@ import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BroadcastModal from '../components/BroadcastModal';
 import BrandingLogo from '../components/BrandingLogo';
+import GlobalBackground from '../components/GlobalBackground';
 import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet, getAdminToken } from '../api/client';
+import { useTheme } from '../context/ThemeContext';
 
 // Sleek and Premium Sports SaaS Icons
 import {
@@ -127,6 +129,23 @@ export default function AdminLayout() {
     setAdminUser(decodeJwtPayload(token));
   }, []);
 
+  // Load theme colors from backend
+  const { updateThemeColors } = useTheme();
+  useEffect(() => {
+    const loadThemeColors = async () => {
+      try {
+        const response = await adminGet('/super-admin/theme');
+        const themeData = response?.data || response;
+        if (themeData) {
+          updateThemeColors(themeData);
+        }
+      } catch (error) {
+        console.error('Failed to load theme colors:', error);
+      }
+    };
+    loadThemeColors();
+  }, [updateThemeColors]);
+
   const handleLogout = () => {
     clearAdminToken();
     navigate('/');
@@ -139,17 +158,7 @@ export default function AdminLayout() {
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative z-0">
       
       {/* Universal Fixed Background (Fully Stationary, No scrolling/clipping/repeating bugs) */}
-      <div className="absolute inset-0 -z-10 bg-slate-50 dark:bg-slate-950 select-none pointer-events-none overflow-visible">
-        {/* Yellow top 40% (40vh height) */}
-        <div className="w-full h-[40dvh] bg-[#FFC400] relative overflow-visible">
-          {/* Curve transition to the background color */}
-          <div className="absolute bottom-0 left-0 right-0 translate-y-[99%] text-[#FFC400] fill-current overflow-visible">
-            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="w-full h-48 text-[#FFC400] fill-current overflow-visible">
-              <path d="M0,0 L1440,0 L1440,10 C960,320 480,320 0,10 Z" />
-            </svg>
-          </div>
-        </div>
-      </div>
+      <GlobalBackground />
 
       {/* Sidebar Layout */}
       <motion.aside
@@ -171,7 +180,7 @@ export default function AdminLayout() {
             to="/admin/dashboard"
             collapsed={sidebarCollapsed}
             onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
-            className="rounded-lg focus-visible:ring-2 focus-visible:ring-[#84cc16] transition-transform duration-250 hover:scale-105"
+            className="rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--theme-primary,#84cc16)] transition-transform duration-250 hover:scale-105"
           />
           <motion.button
             type="button"
@@ -205,7 +214,7 @@ export default function AdminLayout() {
                     sidebarCollapsed ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
-                      ? 'bg-[#84cc16] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
+                      ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
                       : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
@@ -309,7 +318,7 @@ export default function AdminLayout() {
         <motion.header 
           whileHover={{ y: -1, scale: 1.002 }}
           transition={{ duration: 0.3 }}
-          className="bg-[#84cc16]/95 dark:bg-slate-900/95 backdrop-blur-xl text-slate-950 dark:text-slate-100 border-b border-black/5 dark:border-slate-800/50 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-xl shadow-black/20"
+          className="bg-[var(--theme-navbar,#84cc16)]/95 dark:bg-slate-900/95 backdrop-blur-xl text-slate-950 dark:text-slate-100 border-b border-black/5 dark:border-slate-800/50 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-xl shadow-black/20"
         >
           <motion.div 
             whileHover={{ scale: 1.02 }}

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { coachGet, coachPost } from '../../api/client';
+import { useCoachBatches } from '../../context/CoachBatchesContext';
 
 // Colorful themes for batch cards
 const BATCH_COLORS = [
@@ -12,6 +13,7 @@ const BATCH_COLORS = [
 ];
 
 export default function CoachPerformancePage() {
+  const { allStudents } = useCoachBatches();
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [students, setStudents] = useState([]);
@@ -39,8 +41,17 @@ export default function CoachPerformancePage() {
   const [showLiveSummary, setShowLiveSummary] = useState(true);
   const [dailyLock, setDailyLock] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [lastSelectedBatchId, setLastSelectedBatchId] = useState(() => {
+    try {
+      return localStorage.getItem('lastSelectedBatchId') || null;
+    } catch {
+      return null;
+    }
+  });
   const [studentSearch, setStudentSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
+  const [globalStudentSearch, setGlobalStudentSearch] = useState('');
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
 
   const loadBatches = useCallback(async () => {
     try {
@@ -156,6 +167,13 @@ export default function CoachPerformancePage() {
   }, []);
 
   useEffect(() => {
+    if (lastSelectedBatchId && batches.length > 0 && !selectedBatch) {
+      const lastBatch = batches.find(b => b.batch_id === parseInt(lastSelectedBatchId));
+      if (lastBatch) {
+        setSelectedBatch(lastBatch);
+      }
+    }
+
     const initialize = async () => {
       setLoading(true);
       await loadBatches();
@@ -165,6 +183,13 @@ export default function CoachPerformancePage() {
   }, [loadBatches]);
 
   useEffect(() => {
+    if (lastSelectedBatchId && batches.length > 0 && !selectedBatch) {
+      const lastBatch = batches.find(b => b.batch_id === parseInt(lastSelectedBatchId));
+      if (lastBatch) {
+        setSelectedBatch(lastBatch);
+      }
+    }
+
     if (selectedBatch) {
       loadStudents(selectedBatch.batch_id);
       if (selectedBatch.sport_id) {
@@ -172,6 +197,15 @@ export default function CoachPerformancePage() {
       }
     }
   }, [selectedBatch, loadStudents, loadAttributes]);
+
+  useEffect(() => {
+    if (lastSelectedBatchId && batches.length > 0 && !selectedBatch) {
+      const lastBatch = batches.find(b => b.batch_id === parseInt(lastSelectedBatchId));
+      if (lastBatch) {
+        setSelectedBatch(lastBatch);
+      }
+    }
+  }, [lastSelectedBatchId, batches, selectedBatch]);
 
   useEffect(() => {
     if (selectedStudent) {
@@ -184,6 +218,8 @@ export default function CoachPerformancePage() {
   }, [selectedStudent, loadStudentPerformance, loadAssessmentHistory]);
 
   const handleBatchSelect = (batch) => {
+    localStorage.setItem('lastSelectedBatchId', batch.batch_id.toString());
+    setLastSelectedBatchId(batch.batch_id);
     setSelectedBatch(batch);
     setSelectedStudent(null);
     setScores({});
@@ -194,6 +230,30 @@ export default function CoachPerformancePage() {
     setMessage({ text: '', type: '' });
     setShowHistory(false);
   };
+
+  const handleGlobalStudentSelect = (student) => {
+    // Find the batch this student belongs to
+    const studentBatch = batches.find(b => 
+      b.students?.some(s => s.student_id === student.student_id)
+    );
+    if (studentBatch) {
+      setSelectedBatch(studentBatch);
+      setSelectedStudent(student);
+      setScores({});
+      setShowStudentDropdown(false);
+      setGlobalStudentSearch('');
+    }
+  };
+
+  const filteredGlobalStudents = allStudents.filter(student => {
+    const searchLower = globalStudentSearch.toLowerCase();
+    return (
+      student.name?.toLowerCase().includes(searchLower) ||
+      student.student_id?.toString().includes(searchLower) ||
+      student.mobile_number?.includes(searchLower) ||
+      student.parent?.name?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const checkDailyLock = async (studentId) => {
     if (!studentId) return;
@@ -440,7 +500,34 @@ ${remarks || 'No notes provided'}
   };
 
   if (loading) {
-    return <Loader />;
+    return (
+      <div className="relative min-h-screen w-full bg-background p-4 sm:p-6 lg:p-8">
+        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background">
+          <div className="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full bg-emerald-100/40 dark:bg-emerald-900/10 blur-3xl"></div>
+          <div className="absolute bottom-[-10%] right-[-5%] w-[50vw] h-[50vw] rounded-full bg-amber-100/30 dark:bg-amber-900/10 blur-3xl"></div>
+        </div>
+        <div className="relative z-10 w-full max-w-7xl mx-auto space-y-6">
+          <div className="h-8 bg-surface rounded-xl animate-pulse"></div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="bg-card border border-border/80 p-5 rounded-2xl animate-pulse">
+                <div className="h-6 bg-surface rounded mb-2"></div>
+                <div className="h-8 bg-surface rounded"></div>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[1,2,3,4,5,6,7,8].map((i) => (
+              <div key={i} className="bg-surface border border-border rounded-2xl p-6 animate-pulse">
+                <div className="w-10 h-10 bg-border rounded-full mb-4"></div>
+                <div className="h-6 bg-border rounded mb-2"></div>
+                <div className="h-4 bg-border rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -468,24 +555,63 @@ ${remarks || 'No notes provided'}
                   : "Track and manage athletic parameters and training statistics"}
             </p>
           </div>
-          {selectedBatch && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                if (selectedStudent) {
-                  setSelectedStudent(null);
-                } else {
-                  setSelectedBatch(null);
-                }
-              }}
-              className="px-4 py-2.5 text-xs font-bold bg-surface hover:bg-surface-secondary border border-border rounded-xl text-foreground flex items-center gap-2 shadow-sm shrink-0"
-            >
-              ← Back to {selectedStudent ? 'Athletes' : 'Batches'}
-            </motion.button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Global Student Search */}
+            <div className="relative w-full md:w-96">
+              <input
+                type="text"
+                placeholder="Search by name, ID, mobile, parent..."
+                value={globalStudentSearch}
+                onChange={(e) => {
+                  setGlobalStudentSearch(e.target.value);
+                  setShowStudentDropdown(e.target.value.length > 0);
+                }}
+                onFocus={() => setShowStudentDropdown(globalStudentSearch.length > 0)}
+                onBlur={() => setTimeout(() => setShowStudentDropdown(false), 200)}
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+              />
+              {showStudentDropdown && filteredGlobalStudents.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                  {filteredGlobalStudents.slice(0, 10).map((student) => {
+                    const studentBatch = batches.find(b => b.students?.some(s => s.student_id === student.student_id));
+                    return (
+                      <button
+                        key={student.student_id}
+                        onClick={() => handleGlobalStudentSelect(student)}
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors text-left border-b border-border/50 last:border-0"
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md uppercase shrink-0">
+                          {student.name?.charAt(0) || '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-foreground text-sm truncate">{student.name}</div>
+                          <div className="text-xs text-muted-foreground">ID: {student.student_id} • {studentBatch?.sport?.name || 'Unknown Sport'}</div>
+                          <div className="text-xs text-muted-foreground">Batch: {studentBatch?.name || 'Unknown'}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {selectedBatch && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  if (selectedStudent) {
+                    setSelectedStudent(null);
+                  } else {
+                    setSelectedBatch(null);
+                  }
+                }}
+                className="px-4 py-2.5 text-xs font-bold bg-surface hover:bg-surface-secondary border border-border rounded-xl text-foreground flex items-center gap-2 shadow-sm shrink-0"
+              >
+                ← Back to {selectedStudent ? 'Athletes' : 'Batches'}
+              </motion.button>
+            )}
+          </div>
         </div>
-
         {/* Global Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-left">
           {/* Total Athletes Card */}
@@ -611,8 +737,25 @@ ${remarks || 'No notes provided'}
                         </h3>
                         <div className="flex items-center gap-2 mt-4 text-xs font-bold text-muted-foreground">
                           <span className="bg-background/80 px-2.5 py-1 rounded shadow-sm border border-border/50">
-                            👥 {batch.students?.length || 0} Trainees
-                          </span>
+                            👥 {batch.students?.length || 0} Trainees</span>
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) => { e.stopPropagation(); handleBatchSelect(batch); }}
+                            className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-background/80 hover:bg-background border border-border/50 rounded-lg transition-colors"
+                          >
+                            View Students
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) => { e.stopPropagation(); handleBatchSelect(batch); }}
+                            className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors"
+                          >
+                            Continue
+                          </motion.button>
                         </div>
                       </motion.button>
                     )

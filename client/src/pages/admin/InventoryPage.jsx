@@ -474,30 +474,34 @@ export default function InventoryPage() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
-      {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-        <div>
-          <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ rotate: 15, scale: 1.05 }}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
-            >
-              <Package className="h-6 w-6" />
-            </motion.div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Inventory & Equipment Hub</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Manage training assets, oversee coach checkouts, and process replenishment requests.</p>
-            </div>
+      {/* Header */}
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <Package className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Inventory & Equipment Hub
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage training assets, oversee coach checkouts, and process replenishment requests.
+            </p>
           </div>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_14px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2 text-xs transition-all border border-emerald-600"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_14px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2 text-xs transition-all border border-emerald-600 relative z-10"
         >
           <Plus className="w-4 h-4" /> Add Equipment
         </button>
-      </div>
+      </motion.div>
 
       {/* Message System Alerts */}
       <AnimatePresence>

@@ -23,7 +23,8 @@ const validateTargetPermission = (sender, targetType) => {
   } else if (sender.sender_type === 'ACADEMY_ADMIN') {
     // Academy Admin can send to coaches, parents, students, sports, batches
     const allowed = ['ALL_COACHES', 'SELECTED_COACHES', 'ALL_PARENTS', 'SELECTED_PARENTS', 
-                     'ALL_STUDENTS', 'SELECTED_STUDENTS', 'BY_SPORT', 'BY_BATCH', 'INDIVIDUAL'];
+                     'ALL_STUDENTS', 'SELECTED_STUDENTS', 'BY_SPORT', 'BY_BATCH', 'INDIVIDUAL',
+                     'SPECIFIC_COACHES', 'BATCH_COACHES', 'PARENTS_ALL', 'PARENTS_DUE', 'SPECIFIC_PARENTS'];
     if (!allowed.includes(targetType)) {
       throw new Error('Academy Admin cannot send this type of announcement');
     }
@@ -38,7 +39,7 @@ const validateTargetPermission = (sender, targetType) => {
 
 // ─── RECIPIENT SELECTION LOGIC ─────────────────────────────────────────────────
 
-const getRecipients = async (sender, targetType, targetIds, sportId, batchId) => {
+const getRecipients = async (sender, targetType, targetIds, sportId, batchId, selectedCoachIds, selectedStudentIds) => {
   let recipients = [];
 
   if (sender.sender_type === 'SUPER_ADMIN') {
@@ -68,7 +69,10 @@ const getRecipients = async (sender, targetType, targetIds, sportId, batchId) =>
       recipients = coaches.map(c => ({ type: 'COACH', id: c.coach_id }));
     } else if (targetType === 'SELECTED_COACHES' && targetIds?.length) {
       recipients = targetIds.map(id => ({ type: 'COACH', id }));
-    } else if (targetType === 'ALL_PARENTS') {
+    } else if (targetType === 'SPECIFIC_COACHES') {
+      const ids = selectedCoachIds || [];
+      recipients = ids.map(id => ({ type: 'COACH', id: parseInt(id, 10) }));
+    } else if (targetType === 'ALL_PARENTS' || targetType === 'PARENTS_ALL') {
       const parents = await prisma.parent.findMany({ where: { academy_id, is_active: true } });
       recipients = parents.map(p => ({ type: 'PARENT', id: p.parent_id }));
     } else if (targetType === 'SELECTED_PARENTS' && targetIds?.length) {
@@ -85,13 +89,47 @@ const getRecipients = async (sender, targetType, targetIds, sportId, batchId) =>
         where: { academy_id, sport_id, status: 'ACTIVE', is_deleted: false } 
       });
       // Get parents of these students
-      const parentIds = students.filter(s => s.parent_id).map(s => s.parent_id);
+      const parentIds = [...new Set(students.filter(s => s.parent_id).map(s => s.parent_id))];
       recipients = parentIds.map(id => ({ type: 'PARENT', id }));
-    } else if (targetType === 'BY_BATCH' && batchId) {
-      const students = await prisma.student.findMany({ 
-        where: { academy_id, batch_id, status: 'ACTIVE', is_deleted: false } 
+    } else if ((targetType === 'BY_BATCH' || targetType === 'BATCH_COACHES') && batchId) {
+      if (targetType === 'BATCH_COACHES') {
+        const batchCoaches = await prisma.batchCoach.findMany({
+          where: { batch_id: parseInt(batchId, 10) },
+          include: { coach: true }
+        });
+        const validBatchCoaches = batchCoaches
+          .filter(bc => bc.coach && !bc.coach.is_deleted)
+          .map(bc => bc.coach.coach_id);
+        recipients = validBatchCoaches.map(id => ({ type: 'COACH', id }));
+      } else {
+        const students = await prisma.student.findMany({ 
+          where: { academy_id, batch_id: parseInt(batchId, 10), status: 'ACTIVE', is_deleted: false } 
+        });
+        const parentIds = [...new Set(students.filter(s => s.parent_id).map(s => s.parent_id))];
+        recipients = parentIds.map(id => ({ type: 'PARENT', id }));
+      }
+    } else if (targetType === 'PARENTS_DUE') {
+      const dueStudents = await prisma.student.findMany({
+        where: {
+          academy_id,
+          is_deleted: false,
+          fees_status: 'unpaid'
+        },
+        select: { parent_id: true }
       });
-      const parentIds = students.filter(s => s.parent_id).map(s => s.parent_id);
+      const parentIds = [...new Set(dueStudents.filter(s => s.parent_id).map(s => s.parent_id))];
+      recipients = parentIds.map(id => ({ type: 'PARENT', id }));
+    } else if (targetType === 'SPECIFIC_PARENTS') {
+      const studentIds = selectedStudentIds || [];
+      const specificStudents = await prisma.student.findMany({
+        where: {
+          academy_id,
+          is_deleted: false,
+          student_id: { in: studentIds.map(id => parseInt(id, 10)) }
+        },
+        select: { parent_id: true }
+      });
+      const parentIds = [...new Set(specificStudents.filter(s => s.parent_id).map(s => s.parent_id))];
       recipients = parentIds.map(id => ({ type: 'PARENT', id }));
     } else if (targetType === 'INDIVIDUAL' && targetIds?.length) {
       // targetIds can be mix of coach_id, parent_id, student_id
@@ -154,7 +192,7 @@ const getRecipients = async (sender, targetType, targetIds, sportId, batchId) =>
 
 export const createAnnouncement = async (user, data) => {
   const { title, message, category, priority, target_type, target_ids, sport_id, batch_id, 
-          scheduled_for, expires_at, attachments } = data;
+          scheduled_for, expires_at, attachments, selected_coach_ids, selected_student_ids } = data;
 
   // Debug logging
   console.log('=== CREATE ANNOUNCEMENT DEBUG ===');
@@ -169,7 +207,7 @@ export const createAnnouncement = async (user, data) => {
 
   validateTargetPermission(sender, target_type);
 
-  const recipients = await getRecipients(sender, target_type, target_ids, sport_id, batch_id);
+  const recipients = await getRecipients(sender, target_type, target_ids, sport_id, batch_id, selected_coach_ids, selected_student_ids);
 
   console.log('Recipients generated:', recipients.length);
   console.log('Recipient details:', recipients);

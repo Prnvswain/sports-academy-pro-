@@ -549,23 +549,27 @@ export default function SportsPanel() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-        <div>
-          <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ rotate: 15, scale: 1.05 }}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-500 border border-emerald-100 dark:border-emerald-800/50 shadow-inner"
-            >
-              <Grid className="h-6 w-6" />
-            </motion.div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Sports Catalog</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Create and manage sports available in your academy workspace.</p>
-            </div>
+      {/* Header */}
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <Grid className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Sports Catalog
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Create and manage sports available in your academy workspace.
+            </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── Global Alert Message ── */}
       <AnimatePresence>

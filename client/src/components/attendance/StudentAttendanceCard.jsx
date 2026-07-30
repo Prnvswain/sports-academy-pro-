@@ -131,125 +131,140 @@ export default function StudentAttendanceCard({
         </div>
       )}
 
-      {/* Trainees List */}
-      <div className="px-5 pb-5 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-        <AnimatePresence initial={false}>
-          {filteredStudents.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 dark:bg-slate-950/30 rounded-xl border border-dashed border-slate-200">
-              <p className="text-slate-400 text-xs font-semibold">No trainees match the search filter criteria.</p>
-            </div>
-          ) : (
-            filteredStudents.map((student) => {
-              const status = attendanceMap[student.student_id] || 'PRESENT';
-              const isSelected = (statusFilter === 'ALL' || status === statusFilter);
+      {/* Trainees Table */}
+      <div className="px-5 pb-5">
+        <div className="overflow-x-auto">
+          <div className="min-w-[900px]">
+            <AnimatePresence initial={false}>
+              {filteredStudents.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-950/30 rounded-xl border border-dashed border-slate-200">
+                  <p className="text-slate-400 text-xs font-semibold">No trainees match the search filter criteria.</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                    <tr className="border-b border-slate-200 dark:border-slate-800">
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Photo</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Student Name</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ID</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Batch</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sport</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Attendance Status</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mark Attendance</th>
+                      <th className="text-left py-3 px-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents.map((student, index) => {
+                      const status = attendanceMap[student.student_id] || 'PRESENT';
+                      const rowBg = index % 2 === 0 
+                        ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50' 
+                        : 'bg-slate-50/50 dark:bg-slate-950/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/30';
 
-              // Status styles mapping
-              const rowBg = status === 'PRESENT'
-                ? 'bg-emerald-50/10 border-emerald-100 hover:bg-emerald-50/20 dark:bg-emerald-950/5 dark:border-emerald-900/20'
-                : status === 'ABSENT'
-                ? 'bg-rose-50/10 border-rose-100 hover:bg-rose-50/20 dark:bg-rose-950/5 dark:border-rose-900/20'
-                : 'bg-amber-50/10 border-amber-100 hover:bg-amber-50/20 dark:bg-amber-950/5 dark:border-amber-900/20';
+                      const statusBadge = status === 'PRESENT'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40'
+                        : status === 'ABSENT'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-455 border-rose-200 dark:border-rose-900/40'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-200 dark:border-amber-900/40';
 
-              return (
-                <motion.div
-                  key={student.student_id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`grid gap-4 rounded-xl border p-4 sm:grid-cols-[1fr_auto_1fr] items-center transition shadow-sm ${rowBg}`}
-                >
-                  {/* Avatar & Profile */}
-                  <div className="flex items-center gap-3">
-                    <Avatar
-                      src={student.profile_photo}
-                      name={student.name}
-                      size="sm"
-                    />
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white text-sm">{student.name}</p>
-                      <p className="text-xs text-slate-400 font-semibold">{student.sport || 'Athlete'}</p>
-                    </div>
-                  </div>
-
-                  {/* Attendance status radio selection */}
-                  {!readOnly ? (
-                    <div className="flex gap-2">
-                      {[
-                        { id: 'PRESENT', label: 'Present', color: 'green', icon: CheckCircle },
-                        { id: 'ABSENT', label: 'Absent', color: 'red', icon: XCircle },
-                        { id: 'LATE', label: 'Late', color: 'yellow', icon: Clock }
-                      ].map((item) => {
-                        const Icon = item.icon;
-                        const active = status === item.id;
-                        
-                        const activeColors = item.id === 'PRESENT'
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                          : item.id === 'ABSENT'
-                          ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-455'
-                          : 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400';
-
-                        return (
-                          <label
-                            key={item.id}
-                            className={`flex cursor-pointer items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all ${
-                              active
-                                ? activeColors + ' shadow-sm scale-[1.03] font-bold border-2'
-                                : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-slate-350 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
-                            } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                          >
-                            <input
-                              type="radio"
-                              name={`status_${student.student_id}`}
-                              value={item.id}
-                              checked={active}
-                              onChange={() => !disabled && onAttendanceChange(student.student_id, item.id)}
-                              disabled={disabled}
-                              className="sr-only"
+                      return (
+                        <motion.tr
+                          key={student.student_id}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className={`border-b border-slate-100 dark:border-slate-800 transition-colors ${rowBg}`}
+                        >
+                          <td className="py-3 px-2">
+                            <Avatar
+                              src={student.profile_photo}
+                              name={student.name}
+                              size="sm"
                             />
-                            <Icon className="w-3.5 h-3.5" />
-                            <span>{item.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const activeItem = [
-                          { id: 'PRESENT', label: 'Present', icon: CheckCircle, colors: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20' },
-                          { id: 'ABSENT', label: 'Absent', icon: XCircle, colors: 'text-rose-600 dark:text-rose-455 bg-rose-50/50 dark:bg-rose-955/20' },
-                          { id: 'LATE', label: 'Late', icon: Clock, colors: 'text-amber-605 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20' }
-                        ].find(i => i.id === status) || { label: 'Present', icon: CheckCircle, colors: 'text-slate-500 bg-slate-50' };
+                          </td>
+                          <td className="py-3 px-2">
+                            <p className="font-semibold text-slate-900 dark:text-white text-sm">{student.name}</p>
+                          </td>
+                          <td className="py-3 px-2">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">#{student.student_id}</p>
+                          </td>
+                          <td className="py-3 px-2">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">{student.batch_name || '—'}</p>
+                          </td>
+                          <td className="py-3 px-2">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">{student.sport || '—'}</p>
+                          </td>
+                          <td className="py-3 px-2">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold border ${statusBadge}`}>
+                              {status === 'PRESENT' && <CheckCircle className="w-3 h-3" />}
+                              {status === 'ABSENT' && <XCircle className="w-3 h-3" />}
+                              {status === 'LATE' && <Clock className="w-3 h-3" />}
+                              {status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2">
+                            {!readOnly ? (
+                              <div className="flex gap-1">
+                                {[
+                                  { id: 'PRESENT', label: 'P', color: 'emerald' },
+                                  { id: 'ABSENT', label: 'A', color: 'rose' },
+                                  { id: 'LATE', label: 'L', color: 'amber' }
+                                ].map((item) => {
+                                  const active = status === item.id;
+                                  const activeColors = item.id === 'PRESENT'
+                                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                    : item.id === 'ABSENT'
+                                    ? 'bg-rose-500 text-white hover:bg-rose-600'
+                                    : 'bg-amber-500 text-white hover:bg-amber-600';
 
-                        const Icon = activeItem.icon;
-                        return (
-                          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200/60 text-xs font-semibold ${activeItem.colors}`}>
-                            <Icon className="w-3.5 h-3.5" />
-                            <span>{activeItem.label}</span>
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Inline remarks field */}
-                  <div className="w-full relative">
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-300"
-                      placeholder="Add trainee notes / remarks..."
-                      value={remarksMap[student.student_id] || ''}
-                      onChange={(e) => !disabled && !readOnly && onRemarksChange(student.student_id, e.target.value)}
-                      onBlur={() => !disabled && !readOnly && onRemarksBlur && onRemarksBlur(student.student_id)}
-                      disabled={disabled || readOnly}
-                    />
-                  </div>
-                </motion.div>
-              );
-            })
-          )}
-        </AnimatePresence>
+                                  return (
+                                    <label
+                                      key={item.id}
+                                      className={`cursor-pointer px-2 py-1 rounded-md text-xs font-bold transition-all ${
+                                        active
+                                  ? activeColors
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`status_${student.student_id}`}
+                                        value={item.id}
+                                        checked={active}
+                                        onChange={() => !disabled && onAttendanceChange(student.student_id, item.id)}
+                                        disabled={disabled}
+                                        className="sr-only"
+                                      />
+                                      {item.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-2">
+                            <input
+                              type="text"
+                              className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-300"
+                              placeholder="Add remarks..."
+                              value={remarksMap[student.student_id] || ''}
+                              onChange={(e) => !disabled && !readOnly && onRemarksChange(student.student_id, e.target.value)}
+                              onBlur={() => !disabled && !readOnly && onRemarksBlur && onRemarksBlur(student.student_id)}
+                              disabled={disabled || readOnly}
+                            />
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </div>
   );

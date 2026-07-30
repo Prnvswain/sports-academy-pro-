@@ -90,6 +90,16 @@ enum AttendanceStatus {
 
 
 
+enum AttendanceSubmissionStatus {
+
+  DRAFT
+
+  FINAL
+
+}
+
+
+
 enum CoachAttendanceStatus {
 
   PRESENT
@@ -393,6 +403,8 @@ model Academy {
   receipt_template         String?          @db.Text
 
   notification_prefs       String?          @db.Text
+
+  auto_deactivate_default  Boolean          @default(true)
 
   created_at               DateTime         @default(now())
 
@@ -1020,6 +1032,10 @@ model Student {
 
   status        RecordStatus @default(ACTIVE)
 
+  auto_deactivate_on_due Boolean   @default(true)
+
+  auto_deactivated      Boolean      @default(false)
+
   exit_reason   String?
 
   exit_note     String?      @db.Text
@@ -1316,6 +1332,8 @@ model StudentAttendance {
   date                          DateTime         @db.Date
 
   status                        AttendanceStatus
+
+  submission_status             AttendanceSubmissionStatus @default(DRAFT)
 
   marked_by_coach_id            Int?
 
@@ -2338,5 +2356,22 @@ model InventoryHistory {
 
   @@map("inventory_history")
 
+}
+
+model GlobalTheme {
+  id                      Int      @id @default(autoincrement())
+  primary_color           String   @default("#84cc16")
+  secondary_color         String   @default("#FFC400")
+  accent_color            String   @default("#84cc16")
+  background_gradient     String   @default("#FFC400")
+  navbar_color            String   @default("#84cc16")
+  sidebar_color           String   @default("#0f172a")
+  button_primary          String   @default("#84cc16")
+  button_hover            String   @default("#65a30d")
+  card_accent             String   @default("#84cc16")
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  @@map("global_theme")
 }
 

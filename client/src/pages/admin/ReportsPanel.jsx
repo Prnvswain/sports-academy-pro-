@@ -4,36 +4,26 @@ import { FileSpreadsheet } from 'lucide-react';
 import { getAdminToken } from '../../api/client';
 
 const REPORTS = [
-  { id: 'attendance', label: 'Attendance Report', csvFile: 'attendance.csv', pdfFile: 'attendance.pdf' },
-  { id: 'students', label: 'Student Report', csvFile: 'students.csv', pdfFile: 'students.pdf' },
-  { id: 'fees', label: 'Fee / Revenue Report', csvFile: 'fees.csv', pdfFile: 'fees.pdf' },
-  { id: 'coaches', label: 'Coach Report', csvFile: 'coaches.csv', pdfFile: 'coaches.pdf' },
-  { id: 'batches', label: 'Batch Report', csvFile: 'batches.csv', pdfFile: 'batches.pdf' },
+  { id: 'monthly-collection', label: 'Monthly Collection Report', csvFile: 'monthly-collection.csv', pdfFile: 'monthly-collection.pdf' },
+  { id: 'pending-fees', label: 'Pending Fees Report', csvFile: 'pending-fees.csv', pdfFile: 'pending-fees.pdf' },
+  { id: 'student-fee', label: 'Student-wise Fee Report', csvFile: 'student-fee.csv', pdfFile: 'student-fee.pdf' },
+  { id: 'batch-collection', label: 'Batch-wise Collection Report', csvFile: 'batch-collection.csv', pdfFile: 'batch-collection.pdf' },
 ];
 
-// Custom colors mapped from our index.css variables for the colourful cards
 const CARD_COLORS = [
-  'var(--color-accent-primary)', // Greenish
-  'var(--color-blue-primary)',   // Blue
-  'var(--color-amber-primary)',  // Amber/Orange
-  'var(--color-purple-primary)', // Purple
-  'var(--color-cyan-primary)'    // Cyan
+  'var(--color-accent-primary)',
+  'var(--color-blue-primary)',
+  'var(--color-amber-primary)',
+  'var(--color-purple-primary)'
 ];
 
 export default function ReportsPanel() {
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
   const [message, setMessage] = useState('');
 
-  // No logic changed here, completely intact.
   const download = async (file, format = 'csv') => {
     setMessage('');
     try {
-      const params = new URLSearchParams();
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
-      const qs = params.toString() ? `?${params}` : '';
-      const response = await fetch(`/api/v1/admin/reports/${file}${qs}`, {
+      const response = await fetch(`/api/v1/admin/reports/${file}`, {
         headers: { Authorization: `Bearer ${getAdminToken()}` },
       });
       if (!response.ok) throw new Error('Export failed');
@@ -57,57 +47,27 @@ export default function ReportsPanel() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-        <div>
-          <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ rotate: 15, scale: 1.05 }}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-650 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/50 shadow-inner"
-            >
-              <FileSpreadsheet className="h-6 w-6" />
-            </motion.div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Reports & Export</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Download CSV and PDF reports for attendance, students, and fees.</p>
-            </div>
+      {/* Header */}
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <FileSpreadsheet className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Reports & Export
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Download CSV and PDF reports for collection, outstanding dues, student balances, and batch revenue.
+            </p>
           </div>
         </div>
-      </div>
-
-      {/* Date Pickers Section */}
-      <div className="card">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-foreground tracking-wide" htmlFor="reportFrom">
-              From date (attendance)
-            </label>
-            <motion.input
-              id="reportFrom"
-              type="date"
-              className="input-field"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              whileFocus={{ scale: 1.01 }}
-              transition={{ type: 'spring', stiffness: 300 }}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-foreground tracking-wide" htmlFor="reportTo">
-              To date (attendance)
-            </label>
-            <motion.input
-              id="reportTo"
-              type="date"
-              className="input-field"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              whileFocus={{ scale: 1.01 }}
-              transition={{ type: 'spring', stiffness: 300 }}
-            />
-          </div>
-        </div>
-      </div>
+      </motion.div>
 
       {/* Reports Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

@@ -364,3 +364,59 @@ export const getFeeStats = async (academy_id) => {
     total_collected: totalCollected._sum.paid_amount || 0
   };
 };
+
+export const autoDeactivateExpiredStudents = async (academyId = null) => {
+  const now = new Date();
+  const whereClause = {
+    is_deleted: false,
+    auto_deactivate_on_due: true,
+    auto_deactivated: false,
+    status: 'ACTIVE',
+    enrollments: {
+      some: {
+        is_active: true,
+        next_due_date: {
+          lt: now
+        }
+      }
+    }
+  };
+
+  if (academyId) {
+    whereClause.academy_id = academyId;
+  }
+
+  const expiredStudents = await prisma.student.findMany({
+    where: whereClause,
+    include: {
+      enrollments: {
+        where: { is_active: true }
+      }
+    }
+  });
+
+  if (expiredStudents.length === 0) {
+    logger.info('No expired students to auto-deactivate');
+    return [];
+  }
+
+  // Deactivate students
+  await prisma.$transaction(
+    expiredStudents.map(student => [
+      prisma.student.update({
+        where: { student_id: student.student_id },
+        data: {
+          status: 'INACTIVE',
+          auto_deactivated: true
+        }
+      }),
+      prisma.studentEnrollment.updateMany({
+        where: { student_id: student.student_id, is_active: true },
+        data: { is_active: false }
+      })
+    ]).flat()
+  );
+
+  logger.info('Auto-deactivated expired students successfully', { count: expiredStudents.length });
+  return expiredStudents;
+};

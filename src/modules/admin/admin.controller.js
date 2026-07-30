@@ -306,6 +306,52 @@ export const resumeStudentPlan = async (req, res, next) => {
   }
 };
 
+export const reactivateStudent = async (req, res, next) => {
+  try {
+    const result = await adminService.reactivateStudent(
+      req.user.academy_id,
+      req.params.student_id,
+      req.body,
+      req.user.user_id,
+    );
+    res.json(successResponse('Student reactivated successfully', result));
+  } catch (err) {
+    logger.error('Failed to reactivate student', err);
+    next(err);
+  }
+};
+
+export const renewStudent = async (req, res, next) => {
+  try {
+    const result = await adminService.renewStudent(
+      req.user.academy_id,
+      req.params.student_id,
+      req.body,
+      req.user.user_id,
+    );
+    res.json(successResponse('Student plan renewed successfully', result));
+  } catch (err) {
+    logger.error('Failed to renew student plan', err);
+    next(err);
+  }
+};
+
+export const changeStudentPlan = async (req, res, next) => {
+  try {
+    const result = await adminService.changeStudentPlan(
+      req.user.academy_id,
+      req.params.student_id,
+      req.body,
+      req.user.user_id,
+    );
+    res.json(successResponse('Student plan changed successfully', result));
+  } catch (err) {
+    logger.error('Failed to change student plan', err);
+    next(err);
+  }
+};
+
+
 export const resetParentPassword = async (req, res, next) => {
   try {
     const { student_id, new_password, send_email } = req.body;

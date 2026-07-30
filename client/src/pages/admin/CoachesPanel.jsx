@@ -295,24 +295,28 @@ export default function CoachesPanel() {
       {/* Main Content Wrapper */}
       <div className="mx-auto max-w-7xl space-y-6">
 
-        {/* Header Panel */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 rounded-3xl shadow-sm relative overflow-hidden transition-all">
-          <div>
-            <div className="flex items-center gap-4">
-              <motion.div
-                whileHover={{ rotate: 15, scale: 1.05 }}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFD100] text-slate-950 shadow-sm"
-              >
-                <Users className="h-6 w-6" />
-              </motion.div>
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase leading-none">Coaches Management</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-1 font-semibold text-xs tracking-wide">Provision coaches and auto-generate credentials.</p>
-              </div>
+        {/* Header */}
+        <motion.div
+          className="flex items-center justify-between"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Users className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                Coaches Management
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Provision coaches and auto-generate credentials.
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 relative z-10">
             <motion.button
               whileHover={{ scale: 1.03, y: -1 }}
               whileTap={{ scale: 0.97 }}
@@ -332,7 +336,7 @@ export default function CoachesPanel() {
               Add Coach
             </motion.button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Global Alerts */}
         <AnimatePresence>

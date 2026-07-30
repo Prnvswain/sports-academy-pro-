@@ -1,6 +1,24 @@
 import * as superAdminService from './super-admin.service.js';
 import { successResponse } from '../../utils/response.js';
 
+export const getThemeSettings = async (req, res, next) => {
+  try {
+    const theme = await superAdminService.getThemeSettings();
+    res.json(successResponse('Theme settings retrieved successfully', theme));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateThemeSettings = async (req, res, next) => {
+  try {
+    const theme = await superAdminService.updateThemeSettings(req.body);
+    res.json(successResponse('Theme settings updated successfully', theme));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const login = async (req, res, next) => {
   try {
     const result = await superAdminService.loginSuperAdmin({

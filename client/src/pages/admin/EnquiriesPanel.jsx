@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MessageSquare } from 'lucide-react';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -606,21 +607,26 @@ export default function EnquiriesPanel() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/50 pb-6 relative">
-        <div className="absolute top-0 left-0 w-32 h-32 bg-primary/20 rounded-full blur-[80px] -z-10 pointer-events-none"></div>
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-            Enquiries Desk
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-            </span>
-          </h1>
-          <p className="text-sm font-medium text-muted-foreground mt-1">
-            Manage incoming leads, follow-ups, and student conversions.
-          </p>
+      <motion.div
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+            <MessageSquare className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Enquiries Desk
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage incoming leads, follow-ups, and student conversions.
+            </p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto z-10">
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
           <motion.button 
             whileHover={{ scale: 1.02 }} 
             whileTap={{ scale: 0.98 }}
@@ -649,7 +655,7 @@ export default function EnquiriesPanel() {
             + Add Enquiry
           </motion.button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Dashboard Stats */}
       <motion.div 

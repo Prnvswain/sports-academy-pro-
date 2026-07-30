@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { checkOverdueFees, sendOverdueFeeReminders } from '../modules/fees/fees.service.js';
+import { checkOverdueFees, sendOverdueFeeReminders, autoDeactivateExpiredStudents } from '../modules/fees/fees.service.js';
 import logger from '../utils/logger.js';
 
 export const startFeeCronJobs = () => {
@@ -8,6 +8,7 @@ export const startFeeCronJobs = () => {
     try {
       logger.info('Starting daily overdue fee check');
       await checkOverdueFees();
+      await autoDeactivateExpiredStudents();
       logger.info('Daily overdue fee check completed');
     } catch (error) {
       logger.error('Error in daily overdue fee check', { error: error.message });

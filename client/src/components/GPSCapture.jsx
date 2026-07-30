@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { MapPin, Loader2, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 /**
@@ -12,13 +12,13 @@ import { MapPin, Loader2, AlertCircle, CheckCircle, RefreshCw } from 'lucide-rea
  * @param {string} props.label - Label for the location field
  * @param {string} props.placeholder - Placeholder text
  */
-export default function GPSCapture({
+const GPSCapture = forwardRef(({
   onLocationCapture,
   initialLocation = null,
   required = false,
   label = 'Location',
   placeholder = 'Capture GPS coordinates'
-}) {
+}, ref) => {
   const [location, setLocation] = useState(initialLocation);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -77,6 +77,11 @@ export default function GPSCapture({
       }
     );
   }, [onLocationCapture]);
+
+  // Expose captureLocation to parent via ref
+  useImperativeHandle(ref, () => ({
+    captureLocation
+  }));
 
   // Capture location on mount if initialLocation is provided
   useEffect(() => {
@@ -182,4 +187,8 @@ export default function GPSCapture({
       </div>
     </div>
   );
-}
+});
+
+GPSCapture.displayName = 'GPSCapture';
+
+export default GPSCapture;
