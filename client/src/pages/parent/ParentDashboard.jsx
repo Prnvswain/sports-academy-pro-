@@ -300,6 +300,10 @@ export default function ParentDashboard() {
     return list;
   }, [attendances]);
 
+  const prepareGraphData = () => {
+    return heatmapData.filter(d => d.status !== 'NO_CLASS');
+  };
+
   // Growth Chart for Performance History
   const growthChartData = useMemo(() => {
     if (!perfData?.historyData) return [];
@@ -644,7 +648,7 @@ export default function ParentDashboard() {
             className="space-y-6"
           >
             {/* KPI Cards Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
               
               {/* 1. Attendance Rate */}
               <div className="bg-card border border-border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">

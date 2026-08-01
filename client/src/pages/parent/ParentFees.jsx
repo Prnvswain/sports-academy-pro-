@@ -298,28 +298,28 @@ export default function ParentFees() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-4"
+        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200/50 dark:border-slate-800/50 pb-5"
       >
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight font-display">
             Plans & Payments
           </h1>
-          <p className="text-xs font-bold text-muted-foreground mt-0.5 uppercase tracking-wider">
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">
             Submit payment proofs and audit receipt ledgers
           </p>
         </div>
 
-        <div className="flex gap-2 self-start sm:self-center">
+        <div className="flex flex-wrap items-center gap-3">
           {children.length > 1 && (
-            <div className="bg-muted/40 p-1.5 rounded-xl border border-border shadow-inner flex items-center gap-1">
+            <div className="bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-inner flex items-center gap-1">
               {children.map(child => (
                 <button
                   key={child.student_id}
                   onClick={() => setSelectedChildId(String(child.student_id))}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                  className={`px-4 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all duration-200 ${
                     selectedChildId === String(child.student_id)
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-white dark:bg-slate-900 text-slate-950 dark:text-lime-400 shadow-sm border border-slate-200/50 dark:border-slate-800/50'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
                   {child.name}
@@ -329,13 +329,13 @@ export default function ParentFees() {
           )}
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowReceiptsModal(true)}
-            className="btn btn-secondary text-xs flex items-center gap-1.5"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 border border-slate-200 dark:border-slate-700/60 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-md shadow-black/5"
             title="View invoices and receipts history ledger"
           >
-            <Receipt className="w-3.5 h-3.5 text-primary" />
+            <Receipt className="w-4 h-4 text-[#84cc16]" />
             Receipts Ledger
           </motion.button>
         </div>
@@ -348,13 +348,13 @@ export default function ParentFees() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm border ${
+            className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 shadow-md border transition-all ${
               message.type === 'error'
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
             }`}
           >
-            {message.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+            {message.type === 'error' ? <AlertCircle className="w-5 h-5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 shrink-0" />}
             {message.text}
           </motion.div>
         )}
@@ -366,67 +366,77 @@ export default function ParentFees() {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-2 bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5"
+          className="lg:col-span-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-xl space-y-6"
         >
-          <div className="flex items-center gap-2 pb-3 border-b border-border/40">
-            <CreditCard className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-extrabold text-foreground">Log Offline Payment</h3>
+          <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800/60">
+            <div className="p-2 rounded-lg bg-[#84cc16]/10 text-[#84cc16]">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Log Offline Payment</h3>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">Submit offline transaction confirmation receipt details</p>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmitPayment} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmitPayment} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               
               {/* Payment Method */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block">Payment Method</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full input-field py-2.5 px-3 text-xs appearance-none outline-none cursor-pointer"
-                >
-                  <option value="upi">UPI (GPay / PhonePe / Paytm)</option>
-                  <option value="bank_transfer">Bank Transfer (NEFT / IMPS)</option>
-                </select>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest block">Payment Method</label>
+                <div className="relative">
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm py-2.5 pl-3 pr-8 appearance-none cursor-pointer"
+                  >
+                    <option value="upi">UPI (GPay / PhonePe / Paytm)</option>
+                    <option value="bank_transfer">Bank Transfer (NEFT / IMPS)</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </div>
+                </div>
               </div>
 
               {/* Amount Paid */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block">Amount Paid (₹)</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest block">Amount Paid (₹)</label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground">₹</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
                   <input
                     type="number"
                     required
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="Enter amount paid"
-                    className="pl-7 pr-4 py-2.5 w-full input-field text-xs"
+                    className="w-full pl-8 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
                     min="1"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               
               {/* Transaction Code */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block">Transaction Reference Number</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest block">Transaction Reference Number</label>
                 <input
                   type="text"
                   required
                   value={transactionNumber}
                   onChange={(e) => setTransactionNumber(e.target.value)}
                   placeholder="Min 12 digit UPI Ref / IMPS UTR"
-                  className="input-field py-2.5 text-xs font-mono"
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm font-mono"
                   minLength={12}
                   maxLength={50}
                 />
               </div>
 
               {/* Upload Proof */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block">Upload Screenshot Proof</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest block">Upload Screenshot Proof</label>
                 <div className="relative">
                   <input
                     type="file"
@@ -438,15 +448,15 @@ export default function ParentFees() {
                   />
                   <label
                     htmlFor="proof-upload"
-                    className={`w-full flex items-center justify-center gap-2 border border-dashed rounded-xl py-2.5 px-4 text-xs font-bold cursor-pointer transition-all ${
+                    className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-xl py-2.5 px-4 text-xs font-black uppercase tracking-wider cursor-pointer transition-all duration-300 ${
                       proofFile
-                        ? 'border-primary/40 bg-primary/5 text-primary'
-                        : 'border-border hover:border-primary/50 text-muted-foreground'
+                        ? 'border-[#84cc16]/60 bg-[#84cc16]/5 text-[#84cc16]'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-[#84cc16]/50 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     {proofFile ? (
                       <>
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                        <Check className="w-4 h-4 text-[#84cc16]" />
                         <span className="truncate max-w-[200px]">{proofFile.name}</span>
                       </>
                     ) : (
@@ -461,21 +471,21 @@ export default function ParentFees() {
             </div>
 
             {/* Remarks */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block">Payment Remarks (Optional)</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest block">Payment Remarks (Optional)</label>
               <textarea
                 rows={2}
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Add bank accounts detail or invoice codes..."
-                className="input-field py-2.5 text-xs resize-none"
+                placeholder="Add bank details, sports kit adjustments or invoice codes..."
+                className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm resize-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full btn btn-primary py-3 text-xs font-bold shadow-sm"
+              className="w-full py-3.5 bg-slate-950 dark:bg-lime-400 hover:bg-slate-800 dark:hover:bg-lime-500 text-white dark:text-slate-950 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300 shadow-md shadow-black/10 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Submitting payment log...' : 'Log Offline Payment'}
             </button>
@@ -486,45 +496,53 @@ export default function ParentFees() {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-1 bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4"
+          className="lg:col-span-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-200/50 dark:border-slate-800/50 p-6 shadow-xl space-y-5"
         >
-          <div className="flex items-center gap-2 pb-3 border-b border-border/40">
-            <Receipt className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-extrabold text-foreground">Outstanding Plan Dues</h3>
+          <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800/60">
+            <div className="p-2 rounded-lg bg-[#84cc16]/10 text-[#84cc16]">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Plan Dues</h3>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">Billing summary breakdown</p>
+            </div>
           </div>
 
           {selectedChild ? (
-            <div className="space-y-4 text-xs font-semibold text-foreground">
-              <div>
-                <p className="text-[9px] text-muted-foreground uppercase font-black tracking-wider">Active Batch</p>
-                <p className="text-sm font-bold text-foreground mt-0.5">
-                  {selectedChild.batch?.name || 'Assigning Batch'} ({selectedChild.sport?.name || 'General'})
+            <div className="space-y-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <div className="bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800/40">
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest">Active Batch</span>
+                <p className="text-sm font-black text-slate-900 dark:text-white mt-1">
+                  {selectedChild.batch?.name || 'Assigning Batch'}
                 </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border/40">
-                <div>
-                  <span className="text-muted-foreground block text-[9px] uppercase font-black tracking-wider">Assigned Fees</span>
-                  <span className="text-foreground block mt-0.5">₹{totalFeesAssigned.toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[9px] uppercase font-black tracking-wider">Verified Paid</span>
-                  <span className="text-emerald-500 block mt-0.5">₹{totalFeesPaid.toLocaleString()}</span>
+                <div className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-lime-400/10 text-lime-600 dark:text-lime-400 border border-lime-500/20">
+                  {selectedChild.sport?.name || 'General Sport'}
                 </div>
               </div>
 
-              <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl flex items-center justify-between text-xs pt-3 mt-2">
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
                 <div>
-                  <span className="text-rose-500 block text-[10px] font-black uppercase tracking-wider">Outstanding Dues</span>
-                  <span className="text-rose-600 block mt-1 font-black text-xl">₹{remainingFee.toLocaleString()}</span>
+                  <span className="text-slate-400 dark:text-slate-500 block text-[9px] uppercase font-black tracking-widest">Assigned Fees</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-extrabold text-base block mt-1">₹{totalFeesAssigned.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
-                  <AlertCircle className="w-5 h-5" />
+                <div>
+                  <span className="text-slate-400 dark:text-slate-500 block text-[9px] uppercase font-black tracking-widest">Verified Paid</span>
+                  <span className="text-emerald-500 font-extrabold text-base block mt-1">₹{totalFeesPaid.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-rose-500/5 dark:bg-rose-500/10 border-2 border-rose-500/10 rounded-xl flex items-center justify-between text-xs pt-3 mt-2">
+                <div>
+                  <span className="text-rose-500 dark:text-rose-400 block text-[10px] font-black uppercase tracking-widest">Outstanding Dues</span>
+                  <span className="text-rose-600 dark:text-rose-400 block mt-1.5 font-black text-2xl">₹{remainingFee.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-6 h-6" />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-6 text-muted-foreground">Select child to view plan.</div>
+            <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">Select child to view plan.</div>
           )}
         </motion.div>
       </div>
@@ -532,35 +550,40 @@ export default function ParentFees() {
       {/* RECEIPTS LOG MODAL */}
       <AnimatePresence>
         {showReceiptsModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4" onClick={() => setShowReceiptsModal(false)}>
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-card border border-border rounded-2xl w-full max-w-4xl p-5 shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden"
+              className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/50 dark:border-slate-800/50 rounded-2xl w-full max-w-4xl p-6 shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setShowReceiptsModal(false)}
-                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-950 dark:hover:text-white p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/50">
-                <Receipt className="w-5 h-5 text-primary" />
-                <h3 className="text-md font-bold text-foreground">Payment Submissions History</h3>
+              <div className="flex items-center gap-2.5 mb-5 pb-3.5 border-b border-slate-100 dark:border-slate-800/60">
+                <div className="p-2 rounded-lg bg-[#84cc16]/10 text-[#84cc16]">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Payment Submissions History</h3>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">Audit log of submitted proofs and payment statuses</p>
+                </div>
               </div>
 
               {/* Scrollable grid of submissions */}
-              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                 {submissions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-10 font-bold">No payments submitted yet for {selectedChild?.name || 'this student'}.</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-12 font-bold uppercase tracking-wider">No payments submitted yet for {selectedChild?.name || 'this student'}.</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-border/50">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200/50 dark:border-slate-800/50 shadow-inner">
                     <table className="w-full text-left text-xs font-semibold">
                       <thead>
-                        <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase text-[10px] tracking-wider">
+                        <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 uppercase text-[9px] tracking-widest font-black">
                           <th className="py-3 px-4">Ref Number</th>
                           <th className="py-3 px-4">Amount</th>
                           <th className="py-3 px-4">Date logged</th>
@@ -568,19 +591,19 @@ export default function ParentFees() {
                           <th className="py-3 px-4 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/50">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900/30">
                         {submissions.map((sub) => (
-                          <tr key={sub.payment_id} className="hover:bg-muted/10 transition-colors">
-                            <td className="py-3 px-4 font-mono font-bold text-foreground">{sub.transaction_number}</td>
-                            <td className="py-3 px-4 text-foreground font-black">₹{parseFloat(sub.amount).toLocaleString('en-IN')}</td>
-                            <td className="py-3 px-4">{new Date(sub.payment_date || sub.createdAt).toLocaleDateString()}</td>
+                          <tr key={sub.payment_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                            <td className="py-3 px-4 font-mono font-black text-slate-900 dark:text-white">{sub.transaction_number}</td>
+                            <td className="py-3 px-4 text-slate-900 dark:text-white font-black text-sm">₹{parseFloat(sub.amount).toLocaleString('en-IN')}</td>
+                            <td className="py-3 px-4 text-slate-500 dark:text-slate-400">{new Date(sub.payment_date || sub.createdAt).toLocaleDateString()}</td>
                             <td className="py-3 px-4">
-                              <span className={`inline-block text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                              <span className={`inline-block text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
                                 sub.status === 'APPROVED' || sub.status === 'VERIFIED'
-                                  ? 'bg-emerald-500/10 text-emerald-500'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                                   : sub.status === 'REJECTED'
-                                    ? 'bg-red-500/10 text-red-500'
-                                    : 'bg-amber-500/10 text-amber-500'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                               }`}>
                                 {sub.status}
                               </span>
@@ -590,10 +613,10 @@ export default function ParentFees() {
                                 {sub.status === 'APPROVED' && (
                                   <button
                                     onClick={() => loadReceiptDetails(sub.payment_id)}
-                                    className="btn btn-secondary text-[10px] py-1 px-2.5 flex items-center gap-1 shadow-sm"
-                                    title="View receipt metrics"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 transition-all duration-200 shadow-sm border border-slate-200/50 dark:border-slate-800/30"
+                                    title="View receipt details"
                                   >
-                                    <Receipt size={12} className="text-primary" />
+                                    <Receipt size={12} className="text-[#84cc16]" />
                                     Receipt
                                   </button>
                                 )}
@@ -611,8 +634,8 @@ export default function ParentFees() {
                                         />
                                         <label
                                           htmlFor={`replace-proof-${sub.payment_id}`}
-                                          className={`px-2 py-1 rounded text-[10px] cursor-pointer font-bold border ${
-                                            proofFileForReplace ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50 text-muted-foreground'
+                                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer border-2 border-dashed transition-all duration-300 ${
+                                            proofFileForReplace ? 'border-[#84cc16]/60 bg-[#84cc16]/5 text-[#84cc16]' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-[#84cc16]/50'
                                           }`}
                                         >
                                           {proofFileForReplace ? 'File selected' : 'Choose screenshot'}
@@ -620,7 +643,7 @@ export default function ParentFees() {
                                         <button
                                           onClick={() => handleReplaceProof(sub.payment_id)}
                                           disabled={uploadingProof || !proofFileForReplace}
-                                          className="bg-primary text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-emerald-600 disabled:opacity-50"
+                                          className="bg-[#84cc16] hover:bg-[#84cc16]/90 text-slate-950 text-[10px] px-3 py-1.5 rounded-lg font-black uppercase tracking-wider transition-all shadow-sm disabled:opacity-50"
                                         >
                                           Upload
                                         </button>
@@ -628,7 +651,7 @@ export default function ParentFees() {
                                     ) : (
                                       <button
                                         onClick={() => setReplacingPaymentId(sub.payment_id)}
-                                        className="btn btn-secondary text-[10px] py-1 px-2 text-rose-500 border-rose-500/30"
+                                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all duration-200 shadow-sm"
                                       >
                                         Replace Proof
                                       </button>
@@ -652,55 +675,57 @@ export default function ParentFees() {
       {/* SINGLE RECEIPT DETAIL POPUP */}
       <AnimatePresence>
         {modalReceipt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" onClick={() => setModalReceipt(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4" onClick={() => setModalReceipt(null)}>
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full relative shadow-2xl flex flex-col gap-4 text-xs font-semibold text-foreground"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-sm w-full relative shadow-2xl flex flex-col gap-4 text-xs font-semibold text-slate-700 dark:text-slate-300"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setModalReceipt(null)}
-                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
-                <Receipt className="w-5 h-5 text-primary" />
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800/60">
+                <div className="p-2 rounded-lg bg-[#84cc16]/10 text-[#84cc16]">
+                  <Receipt className="w-5 h-5" />
+                </div>
                 <div>
-                  <h4 className="font-bold">Payment Invoice</h4>
-                  <p className="text-[9px] text-muted-foreground">{modalReceipt.receipt_number}</p>
+                  <h4 className="font-black text-slate-900 dark:text-white">Payment Invoice</h4>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">{modalReceipt.receipt_number}</p>
                 </div>
               </div>
 
-              <div className="space-y-2.5 text-xs font-semibold">
-                <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground">Receipt Number</span>
-                  <span className="font-mono font-bold text-foreground">{modalReceipt.receipt_number}</span>
+              <div className="space-y-3 text-xs font-semibold">
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-2.5">
+                  <span className="text-slate-400 dark:text-slate-500">Receipt Number</span>
+                  <span className="font-mono font-black text-slate-900 dark:text-white">{modalReceipt.receipt_number}</span>
                 </div>
-                <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground">Log Date</span>
-                  <span className="font-bold">{new Date(modalReceipt.payment_date).toLocaleDateString()}</span>
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-2.5">
+                  <span className="text-slate-400 dark:text-slate-500">Log Date</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{new Date(modalReceipt.payment_date).toLocaleDateString()}</span>
                 </div>
-                <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground">Transaction Reference</span>
-                  <span className="font-mono font-bold text-foreground truncate max-w-[150px]">{modalReceipt.transaction_number}</span>
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-2.5">
+                  <span className="text-slate-400 dark:text-slate-500">Transaction Reference</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white truncate max-w-[150px]">{modalReceipt.transaction_number}</span>
                 </div>
-                <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground">Verification status</span>
-                  <span className="font-black text-emerald-500 uppercase">{modalReceipt.status}</span>
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-2.5">
+                  <span className="text-slate-400 dark:text-slate-500">Verification Status</span>
+                  <span className="font-black text-emerald-500 uppercase tracking-wider">Verified</span>
                 </div>
                 <div className="flex justify-between pb-1">
-                  <span className="text-muted-foreground">Invoice Amount</span>
-                  <span className="font-black text-foreground text-sm">₹{parseFloat(modalReceipt.amount).toLocaleString('en-IN')}</span>
+                  <span className="text-slate-400 dark:text-slate-500">Invoice Amount</span>
+                  <span className="font-black text-slate-900 dark:text-white text-base">₹{parseFloat(modalReceipt.amount).toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
               <button
                 onClick={handlePrintReceipt}
-                className="w-full btn btn-primary flex items-center justify-center gap-1.5 py-2.5 text-xs"
+                className="w-full py-2.5 bg-slate-950 dark:bg-lime-400 hover:bg-slate-800 dark:hover:bg-lime-500 text-white dark:text-slate-950 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
               >
                 <Printer size={14} />
                 Print PDF Receipt

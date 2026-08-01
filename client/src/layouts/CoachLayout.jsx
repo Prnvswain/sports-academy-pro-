@@ -5,8 +5,9 @@ import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BrandingLogo from '../components/BrandingLogo';
 import GlobalBackground from '../components/GlobalBackground';
-import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken } from '../api/client';
+import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken, coachGet } from '../api/client';
 import { CoachBatchesProvider, useCoachBatches } from '../context/CoachBatchesContext';
+import { useTheme } from '../context/ThemeContext';
 import { CoachDailyNotes } from '../pages/coach/CoachExtras';
 import { NotebookPen, X } from 'lucide-react';
 
@@ -68,15 +69,67 @@ function CoachLayoutShell() {
   );
   const [coachUser, setCoachUser] = useState(null);
   const [showDailyNotes, setShowDailyNotes] = useState(false);
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  // Track screen width for layout modes
+  useEffect(() => {
+    const handleResize = () => setScreenWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isDrawerMode = screenWidth < 1024;
+  const collapsedForNav = sidebarCollapsed && !isDrawerMode;
+
+  // Disable body scrolling when mobile drawer is open
+  useEffect(() => {
+    if (sidebarOpen && isDrawerMode) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen, isDrawerMode]);
+
+  // Close sidebar drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const { updateThemeColors } = useTheme();
+
   useEffect(() => {
     const token = getCoachToken();
     setCoachUser(decodeJwtPayload(token));
   }, []);
+
+  // Load theme colors from backend dynamically
+  useEffect(() => {
+    const loadThemeColors = async () => {
+      try {
+        const response = await coachGet('/super-admin/theme');
+        const themeData = response?.data || response;
+        if (themeData) {
+          updateThemeColors(themeData);
+        }
+      } catch (error) {
+        console.error('Failed to load theme colors:', error);
+      }
+    };
+    loadThemeColors();
+  }, [updateThemeColors]);
 
   const handleLogout = () => {
     clearCoachToken();
@@ -94,8 +147,8 @@ function CoachLayoutShell() {
 
       {/* Sidebar Layout */}
       <motion.aside
-        initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
-        animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
+        initial={{ width: collapsedForNav ? '5rem' : '15.5rem' }}
+        animate={{ width: collapsedForNav ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
         whileHover={{ scale: 1.0005 }}
         className={`bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-xl border-r border-slate-800/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 transition-all duration-300 ${
@@ -110,8 +163,8 @@ function CoachLayoutShell() {
         >
           <BrandingLogo
             to="/coach/dashboard"
-            collapsed={sidebarCollapsed}
-            onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
+            collapsed={collapsedForNav}
+            onLogoClick={() => !collapsedForNav && setSidebarCollapsed(true)}
             className="rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--theme-primary,#84cc16)] transition-transform duration-250 hover:scale-105"
           />
           <motion.button
@@ -138,12 +191,12 @@ function CoachLayoutShell() {
                 key={item.path}
                 to={`/coach/${item.path}`}
                 end
-                title={sidebarCollapsed ? item.label : undefined}
+                title={collapsedForNav ? item.label : undefined}
                 data-nav={item.path}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
                   `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
-                    sidebarCollapsed ? 'justify-center px-0' : 'px-4'
+                    collapsedForNav ? 'justify-center px-0' : 'px-4'
                   } ${
                     isActive
                       ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
@@ -154,7 +207,7 @@ function CoachLayoutShell() {
                 {({ isActive }) => (
                   <>
                     <motion.span
-                      className={`flex items-center justify-center ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
+                      className={`flex items-center justify-center ${collapsedForNav ? '' : 'min-w-[20px]'}`}
                       whileHover={{ scale: 1.15, rotate: 5 }}
                       transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
                       aria-hidden="true"
@@ -163,7 +216,7 @@ function CoachLayoutShell() {
                     </motion.span>
                     <motion.span
                       initial={{ opacity: 1 }}
-                      animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
+                      animate={{ opacity: collapsedForNav ? 0 : 1, display: collapsedForNav ? 'none' : 'block' }}
                       transition={{ duration: 0.2 }}
                       className="relative z-10 whitespace-nowrap tracking-wide"
                     >
@@ -182,7 +235,7 @@ function CoachLayoutShell() {
           transition={{ duration: 0.25 }}
           className="p-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-800/50 shadow-lg shadow-black/10 space-y-2"
         >
-          {!sidebarCollapsed && (
+          {!collapsedForNav && (
             <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2 px-2 truncate font-bold">
               Coach Profile: <br />
               <span className="text-white font-black text-sm capitalize">{coachUser?.name || 'Loading...'}</span>
@@ -191,34 +244,34 @@ function CoachLayoutShell() {
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
-              sidebarCollapsed
+              collapsedForNav
                 ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
                 : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
             }`}
             whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
-            title={sidebarCollapsed ? 'Back to Home' : undefined}
+            title={collapsedForNav ? 'Back to Home' : undefined}
           >
             <Link to="/" className="text-inherit no-underline flex items-center justify-center gap-2 w-full">
               <Home size={16} strokeWidth={2.5} />
-              {!sidebarCollapsed && <span>Back to Home</span>}
+              {!collapsedForNav && <span>Back to Home</span>}
             </Link>
           </motion.button>
 
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
-              sidebarCollapsed
+              collapsedForNav
                 ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
                 : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
             }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
-            title={sidebarCollapsed ? 'Sign Out' : undefined}
+            title={collapsedForNav ? 'Sign Out' : undefined}
           >
             <LogOut size={16} strokeWidth={2.5} />
-            {!sidebarCollapsed && <span>Sign Out</span>}
+            {!collapsedForNav && <span>Sign Out</span>}
           </motion.button>
         </motion.div>
       </motion.aside>
@@ -243,7 +296,7 @@ function CoachLayoutShell() {
       <motion.div 
         whileHover={{ scale: 1.002 }}
         transition={{ duration: 0.3 }}
-        className="flex min-w-0 flex-1 flex-col overflow-y-auto"
+        className={`flex min-w-0 flex-1 flex-col ${sidebarOpen && isDrawerMode ? 'overflow-hidden' : 'overflow-y-auto'}`}
       >
         
         {/* Top Header - Vibrant Lime Green (Color untouched, styling aligned) */}
@@ -309,13 +362,13 @@ function CoachLayoutShell() {
         </motion.header>
 
         {/* Route Content wrapped in premium glassmorphic container layout */}
-        <main className="flex-1 min-w-0 p-5 lg:p-8 relative">
+        <main className="flex-1 min-w-0 p-3 md:p-6 lg:p-8 relative">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="w-full min-w-0 relative z-10 rounded-2xl shadow-xl shadow-black/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm p-6 lg:p-8 border border-slate-200/50 dark:border-slate-800/50"
+            className="w-full min-w-0 relative z-10 rounded-2xl shadow-xl shadow-black/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm p-4 md:p-6 lg:p-8"
           >
             <Outlet />
           </motion.div>

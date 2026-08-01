@@ -45,10 +45,44 @@ export default function SuperAdminLayout() {
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
   const [unreadCount, setUnreadCount] = useState(0);
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Track screen width for layout modes
+  useEffect(() => {
+    const handleResize = () => setScreenWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isDrawerMode = screenWidth < 1024;
+  const collapsedForNav = sidebarCollapsed && !isDrawerMode;
+
+  // Disable body scrolling when mobile drawer is open
+  useEffect(() => {
+    if (sidebarOpen && isDrawerMode) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen, isDrawerMode]);
+
+  // Close sidebar drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
@@ -81,11 +115,11 @@ export default function SuperAdminLayout() {
       
       {/* Sidebar - Dark Gradient (Slate to Emerald) */}
       <motion.aside
-        initial={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
-        animate={{ width: sidebarCollapsed ? '5rem' : '15.5rem' }}
+        initial={{ width: collapsedForNav ? '5rem' : '15.5rem' }}
+        animate={{ width: collapsedForNav ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
         whileHover={{ scale: 1.0005 }}
-        className={`bg-gradient-to-b from-slate-950/95 via-slate-900/95 to-emerald-950/60 backdrop-blur-xl border-r border-emerald-900/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 ${sidebarOpen ? '!translate-x-0' : ''}`}
+        className={`bg-gradient-to-b from-slate-950/95 via-slate-900/95 to-emerald-950/60 backdrop-blur-xl border-r border-emerald-900/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 transition-all duration-300 ${sidebarOpen ? '!translate-x-0' : ''}`}
       >
         {/* Sidebar Header / Logo */}
         <motion.div 
@@ -95,8 +129,8 @@ export default function SuperAdminLayout() {
         >
           <BrandingLogo
             to="/super-admin/dashboard"
-            collapsed={sidebarCollapsed}
-            onLogoClick={() => !sidebarCollapsed && setSidebarCollapsed(true)}
+            collapsed={collapsedForNav}
+            onLogoClick={() => !collapsedForNav && setSidebarCollapsed(true)}
             className="rounded-lg focus-visible:ring-2 focus-visible:ring-lime-500 transition-transform duration-250 hover:scale-105"
           />
           <motion.button
@@ -120,12 +154,12 @@ export default function SuperAdminLayout() {
                 key={item.path}
                 to={`/super-admin/${item.path}`}
                 end
-                title={sidebarCollapsed ? item.label : undefined}
+                title={collapsedForNav ? item.label : undefined}
                 data-nav={item.path}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
                   `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
-                    sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+                    collapsedForNav ? 'justify-center px-0' : 'px-3.5'
                   } ${
                     isActive
                       // Premium Dark Contrast: Lime Green Background with Dark Text + Glow
@@ -137,13 +171,13 @@ export default function SuperAdminLayout() {
                 {({ isActive }) => (
                   <>
                     <motion.span
-                      className={`flex items-center justify-center relative ${sidebarCollapsed ? '' : 'min-w-[20px]'}`}
+                      className={`flex items-center justify-center relative ${collapsedForNav ? '' : 'min-w-[20px]'}`}
                       whileHover={{ scale: 1.15, rotate: isActive ? 0 : 5 }}
                       transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
                       aria-hidden="true"
                     >
                       <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                      {sidebarCollapsed && item.path === 'notifications' && unreadCount > 0 && (
+                      {collapsedForNav && item.path === 'notifications' && unreadCount > 0 && (
                         <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full text-[10px] w-4 h-4 flex items-center justify-center font-bold">
                           {unreadCount}
                         </span>
@@ -151,12 +185,12 @@ export default function SuperAdminLayout() {
                     </motion.span>
                     <motion.span
                       initial={{ opacity: 1 }}
-                      animate={{ opacity: sidebarCollapsed ? 0 : 1, display: sidebarCollapsed ? 'none' : 'block' }}
+                      animate={{ opacity: collapsedForNav ? 0 : 1, display: collapsedForNav ? 'none' : 'block' }}
                       transition={{ duration: 0.2 }}
                       className="relative z-10 whitespace-nowrap tracking-wide flex items-center justify-between w-full"
                     >
                       <span>{item.label}</span>
-                      {!sidebarCollapsed && item.path === 'notifications' && unreadCount > 0 && (
+                      {!collapsedForNav && item.path === 'notifications' && unreadCount > 0 && (
                         <span className="bg-red-500 text-white rounded-full text-[10px] px-2 py-0.5 font-bold">
                           {unreadCount}
                         </span>
@@ -183,23 +217,23 @@ export default function SuperAdminLayout() {
           >
             <Link to="/" className="text-inherit no-underline flex items-center justify-center gap-2 w-full">
               <Home size={16} strokeWidth={2.5} />
-              {!sidebarCollapsed && <span>Back to Home</span>}
+              {!collapsedForNav && <span>Back to Home</span>}
             </Link>
           </motion.button>
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
-              sidebarCollapsed 
+              collapsedForNav 
               ? 'text-slate-500 hover:bg-red-500/20 hover:text-red-400 hover:shadow-lg hover:shadow-black/20'
               : 'bg-white/5 text-slate-300 hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:shadow-lg hover:shadow-black/20'
             }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
-            title={sidebarCollapsed ? "Sign Out" : undefined}
+            title={collapsedForNav ? "Sign Out" : undefined}
           >
             <LogOut size={16} strokeWidth={2.5} />
-            {!sidebarCollapsed && <span>Sign Out</span>}
+            {!collapsedForNav && <span>Sign Out</span>}
           </motion.button>
         </motion.div>
       </motion.aside>
@@ -224,7 +258,7 @@ export default function SuperAdminLayout() {
       <motion.div 
         whileHover={{ scale: 1.002 }}
         transition={{ duration: 0.3 }}
-        className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background/50"
+        className={`flex min-w-0 flex-1 flex-col ${sidebarOpen && isDrawerMode ? 'overflow-hidden' : 'overflow-y-auto'} bg-background/50`}
       >
         
         {/* Top Header */}
@@ -264,7 +298,7 @@ export default function SuperAdminLayout() {
         </motion.header>
 
         {/* Route Outlet */}
-        <main className="flex-1 min-w-0 p-5 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
+        <main className="flex-1 min-w-0 p-3 md:p-6 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
           {/* Ambient Background Glow */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden flex justify-center z-0">
              <div className="w-full max-w-5xl h-full bg-[radial-gradient(ellipse_at_top,rgba(var(--color-accent-primary),0.03)_0%,transparent_70%)]"></div>
@@ -275,7 +309,7 @@ export default function SuperAdminLayout() {
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="w-full min-w-0 relative z-10 rounded-2xl shadow-xl shadow-black/5 bg-background/50 backdrop-blur-sm p-6 lg:p-8"
+            className="w-full min-w-0 relative z-10 rounded-2xl shadow-xl shadow-black/5 bg-background/50 backdrop-blur-sm p-4 md:p-6 lg:p-8"
           >
             <Outlet />
           </motion.div>

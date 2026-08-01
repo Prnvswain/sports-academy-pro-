@@ -531,7 +531,7 @@ export default function ParentReceipts() {
                     </div>
 
                     {/* Details Grid */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Date</span>
                         <span className="text-xs font-semibold text-foreground flex items-center gap-1">
@@ -687,7 +687,7 @@ export default function ParentReceipts() {
                 {/* Student Details */}
                 <div className="mb-6">
                   <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Student Details</h4>
-                  <div className="grid grid-cols-2 gap-4 bg-surface p-4 rounded-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface p-4 rounded-xl">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Student Name</p>
                       <p className="text-sm font-semibold text-foreground">{modalReceipt.student?.name || '—'}</p>
@@ -710,7 +710,7 @@ export default function ParentReceipts() {
                 {/* Payment Details */}
                 <div className="mb-6">
                   <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Payment Details</h4>
-                  <div className="grid grid-cols-2 gap-4 bg-surface p-4 rounded-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface p-4 rounded-xl">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Payment Date</p>
                       <p className="text-sm font-semibold text-foreground">{formatDate(modalReceipt.payment_date)}</p>
