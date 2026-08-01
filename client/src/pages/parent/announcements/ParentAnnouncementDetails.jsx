@@ -2,25 +2,27 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parentGet, parentPatch } from '../../../api/client';
+import { ChevronLeft, Calendar, User, Clock, AlertCircle, FileText, Download } from 'lucide-react';
+import Loader from '../../../components/Loader';
 
 const CATEGORY_COLORS = {
-  ANNOUNCEMENT: 'bg-blue-100 text-blue-800',
-  URGENT: 'bg-red-100 text-red-800',
-  HOLIDAY: 'bg-green-100 text-green-800',
-  FEE: 'bg-yellow-100 text-yellow-800',
-  COMPETITION: 'bg-purple-100 text-purple-800',
-  TRAINING: 'bg-indigo-100 text-indigo-800',
-  MAINTENANCE: 'bg-orange-100 text-orange-800',
-  GENERAL: 'bg-gray-100 text-gray-800',
-  SPORTS_EVENT: 'bg-pink-100 text-pink-800',
-  EMERGENCY: 'bg-red-200 text-red-900'
+  ANNOUNCEMENT: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  URGENT: 'bg-red-500/10 text-red-500 border-red-500/20',
+  HOLIDAY: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+  FEE: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  COMPETITION: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  TRAINING: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+  MAINTENANCE: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+  GENERAL: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+  SPORTS_EVENT: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
+  EMERGENCY: 'bg-rose-500/20 text-rose-600 border-rose-500/30'
 };
 
 const PRIORITY_COLORS = {
-  LOW: 'bg-gray-100 text-gray-600',
-  NORMAL: 'bg-blue-100 text-blue-600',
-  HIGH: 'bg-orange-100 text-orange-600',
-  CRITICAL: 'bg-red-100 text-red-600'
+  LOW: 'bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400',
+  NORMAL: 'bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-400',
+  HIGH: 'bg-amber-50 text-amber-600 dark:bg-amber-900/10 dark:text-amber-400',
+  CRITICAL: 'bg-rose-100 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200 dark:border-rose-900/30'
 };
 
 export default function ParentAnnouncementDetails() {
@@ -55,7 +57,7 @@ export default function ParentAnnouncementDetails() {
   if (loading) {
     return (
       <div className="p-8 max-w-4xl mx-auto flex items-center justify-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+        <Loader />
       </div>
     );
   }
@@ -63,7 +65,8 @@ export default function ParentAnnouncementDetails() {
   if (error || !announcement) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 p-4 rounded-xl flex items-center gap-2">
+          <AlertCircle size={16} />
           {error || 'Announcement not found'}
         </div>
       </div>
@@ -71,57 +74,56 @@ export default function ParentAnnouncementDetails() {
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="space-y-6 w-full max-w-3xl mx-auto font-sans p-4 lg:p-8">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        className="space-y-5"
       >
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/parent/announcements')}
-            className="text-emerald-600 hover:text-emerald-700 mb-4 inline-flex items-center"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-            </svg>
-            Back to Announcements
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">{announcement.title}</h1>
-        </div>
+        {/* Back Link */}
+        <button
+          onClick={() => navigate('/parent/announcements')}
+          className="text-xs font-black uppercase text-primary hover:text-emerald-600 transition-colors inline-flex items-center gap-1"
+        >
+          <ChevronLeft size={16} />
+          Back to Announcements
+        </button>
 
-        {/* Badges */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${CATEGORY_COLORS[announcement.category]}`}>
-            {announcement.category}
-          </span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${PRIORITY_COLORS[announcement.priority]}`}>
-            {announcement.priority}
-          </span>
-        </div>
+        {/* Header Title Card */}
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/50">
+            <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight leading-tight">
+              {announcement.title}
+            </h1>
+            
+            <div className="flex gap-1.5 shrink-0 self-start sm:self-center">
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${CATEGORY_COLORS[announcement.category] || CATEGORY_COLORS.GENERAL}`}>
+                {announcement.category}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${PRIORITY_COLORS[announcement.priority] || PRIORITY_COLORS.NORMAL}`}>
+                {announcement.priority}
+              </span>
+            </div>
+          </div>
 
-        {/* Main Content */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="prose max-w-none">
-            <p className="text-gray-700 whitespace-pre-wrap">{announcement.message}</p>
+          <div className="prose max-w-none text-xs font-medium text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            {announcement.message}
           </div>
         </div>
 
-        {/* Attachments */}
+        {/* Attachments Card */}
         {announcement.attachments && announcement.attachments.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Attachments</h3>
-            <div className="space-y-3">
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-foreground">Uploaded Attachments</h3>
+            <div className="grid grid-cols-1 gap-2.5">
               {announcement.attachments.map((attachment, index) => (
-                <div key={index} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
-                    </svg>
-                    <div>
-                      <p className="font-medium text-gray-900">{attachment.file_name}</p>
-                      <p className="text-sm text-gray-500">
+                <div key={index} className="flex items-center justify-between bg-muted/30 border border-border/50 p-3.5 rounded-xl text-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="w-5 h-5 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground truncate">{attachment.file_name}</p>
+                      <p className="text-[10px] text-muted-foreground font-semibold">
                         {(attachment.file_size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
@@ -130,9 +132,10 @@ export default function ParentAnnouncementDetails() {
                     href={attachment.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
+                    className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 shadow-sm"
                   >
-                    Download
+                    <Download size={12} className="text-primary" />
+                    Download File
                   </a>
                 </div>
               ))}
@@ -140,46 +143,52 @@ export default function ParentAnnouncementDetails() {
           </div>
         )}
 
-        {/* Metadata */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Details</h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Sender</span>
-              <span className="font-medium text-gray-900">{announcement.sender_type}</span>
+        {/* Metadata Details Card */}
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-3.5 text-xs font-semibold">
+          <h3 className="text-xs font-black uppercase tracking-wider text-foreground pb-2 border-b border-border/40">Bulletin Information</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-foreground">
+            <div className="flex gap-2.5 items-center">
+              <User className="w-4 h-4 text-primary shrink-0" />
+              <div>
+                <span className="text-[9px] text-muted-foreground block uppercase">Sender Authority</span>
+                <span className="block mt-0.5">{announcement.sender_type || 'Academy Administrator'}</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Created At</span>
-              <span className="font-medium text-gray-900">
-                {new Date(announcement.created_at).toLocaleString()}
-              </span>
+            <div className="flex gap-2.5 items-center">
+              <Calendar className="w-4 h-4 text-primary shrink-0" />
+              <div>
+                <span className="text-[9px] text-muted-foreground block uppercase">Created Date</span>
+                <span className="block mt-0.5">{new Date(announcement.created_at).toLocaleString()}</span>
+              </div>
             </div>
             {announcement.published_at && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Published At</span>
-                <span className="font-medium text-gray-900">
-                  {new Date(announcement.published_at).toLocaleString()}
-                </span>
+              <div className="flex gap-2.5 items-center">
+                <Clock className="w-4 h-4 text-primary shrink-0" />
+                <div>
+                  <span className="text-[9px] text-muted-foreground block uppercase">Published Date</span>
+                  <span className="block mt-0.5">{new Date(announcement.published_at).toLocaleString()}</span>
+                </div>
               </div>
             )}
             {announcement.expires_at && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Expires At</span>
-                <span className="font-medium text-gray-900">
-                  {new Date(announcement.expires_at).toLocaleString()}
-                </span>
+              <div className="flex gap-2.5 items-center border-t sm:border-t-0 pt-2.5 sm:pt-0">
+                <Clock className="w-4 h-4 text-rose-500 shrink-0" />
+                <div>
+                  <span className="text-[9px] text-muted-foreground block uppercase text-rose-500">Expires Date</span>
+                  <span className="block mt-0.5 text-rose-600">{new Date(announcement.expires_at).toLocaleString()}</span>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-6">
+        {/* Quick Back Trigger */}
+        <div className="pt-2">
           <button
             onClick={() => navigate('/parent/announcements')}
-            className="w-full px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            className="w-full btn btn-secondary text-xs py-3"
           >
-            Back to Announcements
+            Back to Bulletins
           </button>
         </div>
       </motion.div>

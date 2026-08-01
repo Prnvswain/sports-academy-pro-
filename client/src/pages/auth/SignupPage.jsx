@@ -232,13 +232,6 @@ export default function SignupPage() {
       setSignupMessage({ text: 'State is required', type: 'error' });
       return;
     }
-    if (!signupForm.latitude || !signupForm.longitude) {
-      setSignupMessage({
-        text: 'Please capture academy location using the Set Academy Location button',
-        type: 'error',
-      });
-      return;
-    }
 
     // Attendance radius validation
     if (!signupForm.attendance_radius_meters || signupForm.attendance_radius_meters === '') {
@@ -498,7 +491,7 @@ export default function SignupPage() {
               {/* Academy Details Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelStyles} htmlFor="signupAcademy">Academy Corporate Name</label>
+                  <label className={labelStyles} htmlFor="signupAcademy">Academy Corporate Name <span className="text-lime-600">*</span></label>
                   <input
                     className={inputThemeStyles}
                     id="signupAcademy"
@@ -600,7 +593,7 @@ export default function SignupPage() {
                       <MapPin className="w-5 h-5 text-lime-600" />
                       <label className="text-sm font-black uppercase tracking-wide">GPS Coordinate Lock</label>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Required for geofenced attendance tracking</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Optional — Configure later from Admin → Settings for attendance tracking</p>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -633,30 +626,6 @@ export default function SignupPage() {
                 )}
               </div>
 
-              {/* Subscription Plan */}
-              <div>
-                <label className={labelStyles} htmlFor="signupPlan">
-                  Core Subscribed Workspace Tier
-                </label>
-                <select
-                  className={`${inputThemeStyles} cursor-pointer py-3.5 bg-white dark:bg-slate-800 font-bold tracking-wide`}
-                  id="signupPlan"
-                  name="subscription_plan"
-                  value={signupForm.subscription_plan || 'free'}
-                  onChange={handleSignupChange}
-                  required
-                >
-                  <option value="free" className="font-medium text-slate-900">
-                    Free Starter Tier — Max 3 Coaches / 30 Student Matrix
-                  </option>
-                  <option value="pro" className="font-medium text-slate-900">
-                    Pro Academy Tier — Max 6 Coaches / 80 Student Matrix
-                  </option>
-                  <option value="plus" className="font-medium text-slate-900">
-                    Plus Enterprise Tier — Complete Unrestricted Pipelines
-                  </option>
-                </select>
-              </div>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-100 dark:border-slate-700 mt-6">

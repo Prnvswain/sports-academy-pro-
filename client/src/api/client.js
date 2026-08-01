@@ -352,6 +352,18 @@ export async function parentPatch(path, body) {
 
   return api.patch(path, body, { headers }).then(unwrap);
 }
+
+export async function parentPut(path, body) {
+  const headers = {
+    Authorization: `Bearer ${getParentToken()}`
+  };
+
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return api.put(path, body, { headers }).then(unwrap);
+}
 /* ==========================================
    🎯 STATIC DESIGN CONSTANTS
    ========================================== */

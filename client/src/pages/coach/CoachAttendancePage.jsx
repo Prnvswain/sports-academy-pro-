@@ -729,7 +729,7 @@ export default function CoachAttendancePage() {
   const step3Complete = isAttendanceLocked || hasCompletedSession;
 
   return (
-    <div className="relative min-h-screen w-full bg-slate-50 dark:bg-slate-950 pb-20 p-4 sm:p-6 lg:p-8 transition-colors">
+    <div className="w-full bg-transparent font-sans p-2 pb-24 space-y-6">
 
       {/* Toast Notification */}
       <AnimatePresence>
@@ -760,22 +760,26 @@ export default function CoachAttendancePage() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="space-y-8 max-w-6xl mx-auto"
+            className="space-y-6 max-w-6xl mx-auto"
           >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  Coach Attendance Registers
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">
-                  Select an active batch card below to capture your coordinates, check-in, and start trainee rolls.
-                </p>
+            {/* Top Bar Header Card */}
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-foreground tracking-tight">Coach Attendance</h2>
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                    Today: {new Date().toDateString()} • Verify coordinates, check-in, and start trainee roll calls
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 px-4 rounded-2xl shadow-sm text-sm font-bold text-slate-655">
-                <Calendar className="w-4 h-4 text-emerald-600" />
-                <span>Today: {new Date().toDateString()}</span>
-              </div>
-            </div>
+            </motion.div>
 
             {/* Batch Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -785,10 +789,9 @@ export default function CoachAttendancePage() {
                   const isCompletedSession = activeSessions.some((s) => s.batch_id === batch.batch_id && s.status === 'COMPLETED');
 
                   return (
-                    <motion.button
+                    <motion.div
                       key={batch.batch_id}
-                      whileHover={{ y: -4 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={{ y: -3, scale: 1.01 }}
                       onClick={() => {
                         setSelectedBatchId(batch.batch_id);
                         setCoachAttendanceMarked(false);
@@ -797,36 +800,36 @@ export default function CoachAttendancePage() {
                         setAttendanceMap({});
                         setRemarksMap({});
                       }}
-                      className="bg-white dark:bg-slate-900 border border-slate-250 hover:border-emerald-500 dark:border-slate-800 dark:hover:border-emerald-500 rounded-2xl p-5 text-left transition shadow-sm hover:shadow-md flex flex-col justify-between h-48 relative overflow-hidden group"
+                      className="card cursor-pointer border border-border bg-card p-5 rounded-2xl flex flex-col justify-between h-44 hover:shadow-md transition-all group relative overflow-hidden text-left"
                     >
                       {/* Status bar */}
                       <span className={`absolute top-0 left-0 w-full h-1.5 ${isLiveSession ? 'bg-red-500 animate-pulse' :
-                          isCompletedSession ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-850'
+                          isCompletedSession ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800'
                         }`}></span>
 
                       <div className="w-full">
                         <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-lg text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition truncate max-w-[70%]">
+                          <h4 className="font-extrabold text-lg text-slate-900 dark:text-white group-hover:text-primary transition truncate max-w-[70%]">
                             {batch.name}
                           </h4>
 
                           {/* Status Badge */}
                           <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-extrabold shadow-sm ${isLiveSession ? 'bg-red-150 text-red-700 animate-pulse border border-red-200' :
-                              isCompletedSession ? 'bg-emerald-100 text-emerald-805 border border-emerald-200' :
-                                'bg-slate-100 text-slate-500 border border-slate-200/60 dark:bg-slate-800 dark:text-slate-450 dark:border-slate-700'
+                              isCompletedSession ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-250/50' :
+                                'bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400'
                             }`}>
                             {isLiveSession ? '● Live Now' : isCompletedSession ? 'Completed' : 'Upcoming'}
                           </span>
                         </div>
 
                         {batch.sport?.name && (
-                          <span className="inline-block bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs px-2 py-0.5 rounded-lg mt-1 font-semibold">
+                          <span className="inline-block bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs px-2 py-0.5 rounded-lg mt-2 font-bold">
                             🏆 {batch.sport.name}
                           </span>
                         )}
                       </div>
 
-                      <div className="w-full flex items-center justify-between text-xs text-slate-450 font-semibold border-t border-slate-100 dark:border-slate-800 pt-3 mt-4">
+                      <div className="w-full flex items-center justify-between text-xs text-muted-foreground font-bold border-t border-slate-100 dark:border-slate-800 pt-3 mt-4">
                         <div className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           <span>{batch.timing || 'Timings N/A'}</span>
@@ -836,20 +839,20 @@ export default function CoachAttendancePage() {
                           <span>{batch.students_count || batch.students?.length || 0} Trainees</span>
                         </div>
                       </div>
-                    </motion.button>
+                    </motion.div>
                   );
                 })
               ) : (
-                <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 shadow-inner">
-                  <p className="text-slate-400 text-sm font-bold">No active training batches assigned to you.</p>
+                <div className="col-span-full py-16 text-center card border border-dashed border-border bg-card shadow-inner">
+                  <p className="text-muted-foreground text-sm font-bold">No active training batches assigned to you.</p>
                 </div>
               )}
             </div>
 
             {/* Steps guidelines panel */}
-            <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm relative overflow-hidden">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-6">
-                <Sparkles className="w-5 h-5 text-amber-500" /> How Attendance Capture Works
+            <div className="card p-6 border border-border bg-card shadow-sm relative overflow-hidden text-left">
+              <h3 className="text-lg font-black text-foreground flex items-center gap-2 mb-6">
+                <Sparkles className="w-5 h-5 text-yellow-500" /> How Attendance Capture Works
               </h3>
               <div className="grid md:grid-cols-4 gap-6">
                 {[
@@ -859,11 +862,11 @@ export default function CoachAttendancePage() {
                   { step: '4', title: 'Trainee Roll Call', body: 'Submit and end session to lock and notify parents automatically.' }
                 ].map((item, idx) => (
                   <div key={idx} className="space-y-2 relative">
-                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-sm">
                       {item.step}
                     </span>
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">{item.title}</h4>
-                    <p className="text-xs text-slate-450 leading-relaxed font-semibold">{item.body}</p>
+                    <h4 className="font-extrabold text-foreground text-sm">{item.title}</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed font-bold">{item.body}</p>
                   </div>
                 ))}
               </div>
@@ -882,10 +885,10 @@ export default function CoachAttendancePage() {
             className="max-w-4xl mx-auto space-y-6"
           >
             {/* Header section with back triggers */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+            <div className="bg-card border border-border p-4 rounded-2xl shadow-sm flex items-center gap-4 text-left">
               <button
                 onClick={() => setSelectedBatchId('')}
-                className="w-10 h-10 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-750 dark:text-white rounded-xl flex items-center justify-center transition shadow-sm"
+                className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center transition shadow-sm"
                 title="Back to grid"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -893,12 +896,12 @@ export default function CoachAttendancePage() {
 
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedBatch.name}</h2>
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500">
+                  <h2 className="text-xl font-black text-foreground">{selectedBatch.name}</h2>
+                  <span className="text-xs font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-500">
                     🏆 {selectedBatch.sport?.name}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs text-slate-450 mt-1 font-semibold">
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1 font-bold">
                   <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Timings: {selectedBatch.timing}</span>
                   <span>•</span>
                   <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Total: {selectedBatch.students?.length || 0} enrolled</span>
@@ -907,22 +910,22 @@ export default function CoachAttendancePage() {
             </div>
 
             {/* STEP PROGRESSION BAR */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm grid grid-cols-3 gap-2 text-center text-xs font-bold text-slate-450 select-none">
-              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step1Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
+            <div className="bg-card border border-border p-4 rounded-2xl shadow-sm grid grid-cols-3 gap-2 text-center text-xs font-black text-muted-foreground select-none">
+              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step1Complete ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-surface text-slate-500'
                 }`}>
-                <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-bold">1</span>
+                <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-black">1</span>
                 <span>Self Check-in</span>
               </div>
-              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step2Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' :
-                  step1Complete ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400 animate-pulse' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
+              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step2Complete ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                  step1Complete ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' : 'bg-surface text-slate-500'
                 }`}>
-                <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-bold">2</span>
+                <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-black">2</span>
                 <span>Session Active</span>
               </div>
-              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step3Complete ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400' :
-                  step2Complete ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400 animate-pulse' : 'bg-slate-50 text-slate-500 dark:bg-slate-950'
+              <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 ${step3Complete ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                  step2Complete ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' : 'bg-surface text-slate-500'
                 }`}>
-                <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-bold">3</span>
+                <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-black">3</span>
                 <span>Trainee Roll</span>
               </div>
             </div>
@@ -931,16 +934,16 @@ export default function CoachAttendancePage() {
             {!coachAttendanceMarked && (
               <div className="space-y-6">
                 {!attendanceWindow.active && (
-                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-250 dark:bg-amber-955/20 dark:border-amber-900/50 rounded-xl text-amber-800 dark:text-amber-400 text-xs font-semibold shadow-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-605" />
+                  <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-400 text-xs font-bold shadow-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <p>Attendance window is currently closed. You can only mark yourself as Absent today.</p>
                   </div>
                 )}
 
                 {/* Mark Coach Attendance Card wrapper */}
-                <div id="section-gps-verify" className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden relative">
-                  <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
-                  <div className="p-4">
+                <div id="section-gps-verify" className="card border border-border bg-card overflow-hidden relative p-4">
+                  <span className="absolute top-0 left-0 w-full h-1 bg-primary"></span>
+                  <div className="p-1">
                     <CoachAttendanceCard
                       onMarkAttendance={handleCoachAttendance}
                       disabled={coachAttendanceLoading}
@@ -954,14 +957,14 @@ export default function CoachAttendancePage() {
 
                 {/* GPS Capture panel */}
                 {selectedCoachStatus === 'PRESENT' && attendanceWindow.active && (
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden relative">
-                    <span className="absolute top-0 left-0 w-full h-1 bg-amber-500"></span>
+                  <div className="card border border-border bg-card overflow-hidden relative p-2">
+                    <span className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></span>
                     <div className="p-1">
                       {gpsVerified ? (
-                        <div className="p-6 text-center space-y-3">
-                          <div className="w-12 h-12 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto text-xl shadow-inner">✓</div>
-                          <h4 className="font-bold text-slate-900 dark:text-white">GPS Coordinates Verified</h4>
-                          <p className="text-xs text-slate-500 max-w-sm mx-auto">You are verified inside the sports center area bounds.</p>
+                        <div className="p-6 text-center space-y-3 font-sans">
+                          <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-xl shadow-inner">✓</div>
+                          <h4 className="font-extrabold text-foreground">GPS Coordinates Verified</h4>
+                          <p className="text-xs text-muted-foreground max-w-sm mx-auto font-bold">You are verified inside the sports center area bounds.</p>
                           {distanceFromCenter !== null && (
                             <span className="inline-block px-3 py-1 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold rounded-lg">
                               Distance from center: {distanceFromCenter.toFixed(1)}m (Allowed: {attendanceRadius}m)
@@ -986,30 +989,29 @@ export default function CoachAttendancePage() {
                     </div>
                   </div>
                 )}
-
-                {/* 4-Step Workflow */}
+                      {/* 4-Step Workflow */}
                 <div className="space-y-4">
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step1GpsVerified
-                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
-                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${step1GpsVerified
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
+                        : 'border-border bg-card'
                       }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step1GpsVerified ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step1GpsVerified ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                       {step1GpsVerified ? '✓' : '1'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 1: GPS Verification</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step 1: GPS Verification</h4>
                       {step1GpsVerified && (
-                        <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <div className="mt-2 space-y-1 text-xs text-muted-foreground font-bold">
                           <p>📍 Capture your current GPS location</p>
                           <p>Latitude: {gpsCoords.latitude?.toFixed(6)}</p>
                           <p>Longitude: {gpsCoords.longitude?.toFixed(6)}</p>
                           <p>Accuracy: {gpsCoords.accuracy}m</p>
-                          <p className="text-emerald-600 dark:text-emerald-400 font-bold">✅ GPS Verified Successfully</p>
+                          <p className="text-emerald-600 dark:text-emerald-450 font-black">✅ GPS Verified Successfully</p>
                         </div>
                       )}
                     </div>
@@ -1017,12 +1019,12 @@ export default function CoachAttendancePage() {
                       <button
                         onClick={handleStep1GpsVerify}
                         disabled={step1GpsLoading || !gpsVerified}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                        className="btn btn-primary text-xs flex-shrink-0"
                       >
                         {step1GpsLoading ? 'Verifying...' : 'Verify GPS'}
                       </button>
                     ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                      <span className="text-emerald-600 dark:text-emerald-450 font-black text-xs flex-shrink-0">Completed</span>
                     )}
                   </motion.div>
 
@@ -1030,36 +1032,36 @@ export default function CoachAttendancePage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: step1GpsVerified ? 1 : 0.5, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step2AttendanceMarked
-                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${step2AttendanceMarked
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
                         : step1GpsVerified
-                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
-                          : 'border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 opacity-50'
+                          ? 'border-border bg-card'
+                          : 'border-border bg-card/50 opacity-50'
                       }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step2AttendanceMarked ? 'bg-emerald-500 text-white' :
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step2AttendanceMarked ? 'bg-emerald-500 text-white' :
                         step1GpsVerified ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                       {step2AttendanceMarked ? '✓' : '2'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 2: Mark Your Attendance</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step 2: Mark Your Attendance</h4>
                       {step2AttendanceMarked && (
-                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">✅ Attendance Marked Successfully</p>
+                        <p className="mt-2 text-xs text-emerald-605 dark:text-emerald-455 font-black">✅ Attendance Marked Successfully</p>
                       )}
                     </div>
                     {!step2AttendanceMarked && step1GpsVerified ? (
                       <button
                         onClick={handleStep2MarkAttendance}
                         disabled={step2AttendanceLoading}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                        className="btn btn-primary text-xs flex-shrink-0"
                       >
                         {step2AttendanceLoading ? 'Marking...' : 'Mark Attendance'}
                       </button>
                     ) : step2AttendanceMarked ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                      <span className="text-emerald-600 dark:text-emerald-455 font-black text-xs flex-shrink-0">Completed</span>
                     ) : (
-                      <span className="text-slate-400 text-xs flex-shrink-0">Locked</span>
+                      <span className="text-muted-foreground text-xs flex-shrink-0 font-bold">Locked</span>
                     )}
                   </motion.div>
 
@@ -1067,36 +1069,36 @@ export default function CoachAttendancePage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: step2AttendanceMarked ? 1 : 0.5, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step3BatchStarted
-                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${step3BatchStarted
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
                         : step2AttendanceMarked
-                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
-                          : 'border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 opacity-50'
+                          ? 'border-border bg-card'
+                          : 'border-border bg-card/50 opacity-50'
                       }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step3BatchStarted ? 'bg-emerald-500 text-white' :
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step3BatchStarted ? 'bg-emerald-500 text-white' :
                         step2AttendanceMarked ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                       {step3BatchStarted ? '✓' : '3'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 3: Batch Check-in</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step 3: Batch Check-in</h4>
                       {step3BatchStarted && (
-                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">✅ Batch Started Successfully</p>
+                        <p className="mt-2 text-xs text-emerald-605 dark:text-emerald-455 font-black">✅ Batch Started Successfully</p>
                       )}
                     </div>
                     {!step3BatchStarted && step2AttendanceMarked ? (
                       <button
                         onClick={handleStep3BatchCheckIn}
                         disabled={sessionLoading}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                        className="btn btn-primary text-xs flex-shrink-0"
                       >
                         {sessionLoading ? 'Starting...' : 'Start Batch'}
                       </button>
                     ) : step3BatchStarted ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                      <span className="text-emerald-600 dark:text-emerald-455 font-black text-xs flex-shrink-0">Completed</span>
                     ) : (
-                      <span className="text-slate-400 text-xs flex-shrink-0">Locked</span>
+                      <span className="text-muted-foreground text-xs flex-shrink-0 font-bold">Locked</span>
                     )}
                   </motion.div>
 
@@ -1104,36 +1106,36 @@ export default function CoachAttendancePage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: step3BatchStarted ? 1 : 0.5, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${step4BatchEnded
-                        ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40'
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${step4BatchEnded
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
                         : step3BatchStarted
-                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
-                          : 'border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/30 opacity-50'
+                          ? 'border-border bg-card'
+                          : 'border-border bg-card/50 opacity-50'
                       }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step4BatchEnded ? 'bg-emerald-500 text-white' :
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step4BatchEnded ? 'bg-emerald-500 text-white' :
                         step3BatchStarted ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                       {step4BatchEnded ? '✓' : '4'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Step 4: Batch Check-out</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step 4: Batch Check-out</h4>
                       {step4BatchEnded && (
-                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">✅ Batch Ended Successfully</p>
+                        <p className="mt-2 text-xs text-emerald-605 dark:text-emerald-455 font-black">✅ Batch Ended Successfully</p>
                       )}
                     </div>
                     {!step4BatchEnded && step3BatchStarted ? (
                       <button
                         onClick={handleStep4BatchCheckOut}
                         disabled={sessionLoading}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition flex-shrink-0"
+                        className="btn btn-primary text-xs flex-shrink-0"
                       >
                         {sessionLoading ? 'Ending...' : 'End Batch'}
                       </button>
                     ) : step4BatchEnded ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex-shrink-0">Completed</span>
+                      <span className="text-emerald-600 dark:text-emerald-455 font-black text-xs flex-shrink-0">Completed</span>
                     ) : (
-                      <span className="text-slate-400 text-xs flex-shrink-0">Locked</span>
+                      <span className="text-muted-foreground text-xs flex-shrink-0 font-bold">Locked</span>
                     )}
                   </motion.div>
                 </div>
@@ -1142,21 +1144,21 @@ export default function CoachAttendancePage() {
 
             {/* STEP 2: Live training session manager */}
             {coachAttendanceMarked && !isAttendanceLocked && !hasCompletedSession && (
-              <div id="section-mark-attendance" className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden relative">
-                <span className={`absolute top-0 left-0 w-full h-1 ${hasActiveSession ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+              <div id="section-mark-attendance" className="card border border-border bg-card shadow-sm rounded-2xl overflow-hidden relative text-left">
+                <span className={`absolute top-0 left-0 w-full h-1 ${hasActiveSession ? 'bg-rose-500' : 'bg-primary'}`}></span>
                 <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <h3 className="font-extrabold text-foreground flex items-center gap-2">
                       {hasActiveSession ? (
                         <>
-                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
                           <span>LIVE Training Session Active</span>
                         </>
                       ) : (
                         <span>Start Batch Session</span>
                       )}
                     </h3>
-                    <p className="text-xs text-slate-450 mt-1">
+                    <p className="text-xs text-muted-foreground font-bold mt-1">
                       {hasActiveSession
                         ? `Timer started. Trainee attendance list is active below. • Elapsed: ${formatTime(elapsedTime)}`
                         : 'Your check-in is complete. GPS location is locked. Click below to start timer.'
@@ -1166,14 +1168,14 @@ export default function CoachAttendancePage() {
 
                   <div className="flex gap-2">
                     {hasActiveSession ? (
-                      <span className="px-4 py-2 bg-emerald-50 border border-emerald-250 text-emerald-700 text-xs font-bold rounded-xl flex items-center gap-1.5">
+                      <span className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold rounded-xl flex items-center gap-1.5">
                         <Play className="w-3.5 h-3.5 fill-current animate-pulse text-emerald-500" /> Active Session
                       </span>
                     ) : (
                       <button
                         onClick={handleStartBatch}
                         disabled={sessionLoading || !gpsVerified || coachAttendanceStatus?.status === 'ABSENT'}
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 transition active:scale-95"
+                        className="btn btn-primary text-xs flex items-center gap-1.5"
                       >
                         <Play className="w-4 h-4 fill-current" /> Start Training Session
                       </button>
@@ -1303,7 +1305,7 @@ export default function CoachAttendancePage() {
             )}
 
             {/* Selected batch summary details card */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden">
+            <div className="card border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
               <SessionCard
                 batch={selectedBatch}
                 academy={selectedBatch.academy}
@@ -1313,20 +1315,20 @@ export default function CoachAttendancePage() {
 
             {/* Verified state summary display */}
             {coachAttendanceMarked && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden relative">
+              <div className="card border border-border bg-card shadow-sm rounded-2xl overflow-hidden relative text-left">
                 <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
                 <div className="p-4 flex justify-between items-center text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Your Status</span>
-                    <strong className="text-slate-850 dark:text-white">{coachAttendanceStatus?.status}</strong>
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase block">Your Status</span>
+                    <strong className="text-foreground">{coachAttendanceStatus?.status}</strong>
                   </div>
                   {gpsCoords.latitude && (
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Capture Location</span>
-                      <span className="font-mono font-bold text-slate-655">{gpsCoords.latitude.toFixed(4)}, {gpsCoords.longitude.toFixed(4)}</span>
+                      <span className="text-[10px] text-muted-foreground font-bold uppercase block">Capture Location</span>
+                      <span className="font-mono font-bold text-muted-foreground">{gpsCoords.latitude.toFixed(4)}, {gpsCoords.longitude.toFixed(4)}</span>
                     </div>
                   )}
-                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-805 font-bold uppercase tracking-wider rounded text-[9px] shadow-sm">
+                  <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold uppercase tracking-wider rounded text-[9px] shadow-sm">
                     Verified Check-in
                   </span>
                 </div>
@@ -1338,15 +1340,15 @@ export default function CoachAttendancePage() {
               <div id="section-batch-checkin" className="space-y-6">
                 {selectedBatch.students?.length > 0 ? (
                   <>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden">
+                    <div className="card border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
                       <AttendanceSummaryCard
                         attendanceMap={attendanceMap}
                         students={selectedBatch.students}
                       />
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden relative">
-                      <span className="absolute top-0 left-0 w-full h-1 bg-purple-500"></span>
+                    <div className="card border border-border bg-card shadow-sm rounded-2xl overflow-hidden relative text-left">
+                      <span className="absolute top-0 left-0 w-full h-1 bg-purple-550"></span>
                       <StudentAttendanceCard
                         students={selectedBatch.students}
                         attendanceMap={attendanceMap}
@@ -1360,20 +1362,20 @@ export default function CoachAttendancePage() {
                     </div>
                   </>
                 ) : (
-                  <div className="bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-12 text-center">
+                  <div className="card border border-dashed border-border bg-card shadow-sm rounded-2xl p-12 text-center">
                     <span className="text-4xl opacity-50 block mb-4">👥</span>
-                    <h4 className="text-lg font-bold text-slate-850 dark:text-white mb-1">No Trainees Registered</h4>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">Trainee accounts need to be enrolled in this batch by admins.</p>
+                    <h4 className="text-lg font-bold text-foreground mb-1">No Trainees Registered</h4>
+                    <p className="text-muted-foreground text-xs font-semibold">Trainee accounts need to be enrolled in this batch by admins.</p>
                   </div>
                 )}
 
                 {/* Finalize submit actions card */}
-                <div id="section-batch-checkout" className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 shadow-sm rounded-2xl p-6 relative overflow-hidden">
+                <div id="section-batch-checkout" className="card border border-border bg-card shadow-sm rounded-2xl p-6 relative overflow-hidden text-left">
                   <span className="absolute top-0 left-0 w-full h-1.5 bg-red-500"></span>
-                  <h3 className="text-lg font-extrabold tracking-tight mb-2 text-slate-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-lg font-extrabold tracking-tight mb-2 text-foreground flex items-center gap-2">
                     🛡 Finish Session & Finalize Attendance
                   </h3>
-                  <p className="text-xs text-slate-450 mb-4 font-semibold">
+                  <p className="text-xs text-muted-foreground mb-4 font-bold">
                     Submit the training roster to notify parents and close the timer logs. This will lock records permanently.
                   </p>
 
@@ -1381,7 +1383,7 @@ export default function CoachAttendancePage() {
                     <button
                       onClick={handleEndBatch}
                       disabled={sessionLoading}
-                      className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-extrabold rounded-xl text-sm transition shadow flex items-center justify-center gap-1.5"
+                      className="btn btn-danger w-full flex items-center justify-center gap-1.5"
                     >
                       <Square className="w-4 h-4 fill-current" />
                       {sessionLoading ? 'Submitting...' : 'End Batch & Submit Attendance'}

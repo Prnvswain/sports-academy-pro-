@@ -2,25 +2,27 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parentGet, parentPatch } from '../../../api/client';
+import { Megaphone, Search, AlertCircle, FileText, CheckCheck, ArrowRight, ShieldAlert, Tag, Bell } from 'lucide-react';
+import Loader from '../../../components/Loader';
 
 const CATEGORY_COLORS = {
-  ANNOUNCEMENT: 'bg-blue-100 text-blue-800',
-  URGENT: 'bg-red-100 text-red-800',
-  HOLIDAY: 'bg-green-100 text-green-800',
-  FEE: 'bg-yellow-100 text-yellow-800',
-  COMPETITION: 'bg-purple-100 text-purple-800',
-  TRAINING: 'bg-indigo-100 text-indigo-800',
-  MAINTENANCE: 'bg-orange-100 text-orange-800',
-  GENERAL: 'bg-gray-100 text-gray-800',
-  SPORTS_EVENT: 'bg-pink-100 text-pink-800',
-  EMERGENCY: 'bg-red-200 text-red-900'
+  ANNOUNCEMENT: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  URGENT: 'bg-red-500/10 text-red-500 border-red-500/20',
+  HOLIDAY: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+  FEE: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  COMPETITION: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  TRAINING: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+  MAINTENANCE: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+  GENERAL: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+  SPORTS_EVENT: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
+  EMERGENCY: 'bg-rose-500/20 text-rose-600 border-rose-500/30'
 };
 
 const PRIORITY_COLORS = {
-  LOW: 'bg-gray-100 text-gray-600',
-  NORMAL: 'bg-blue-100 text-blue-600',
-  HIGH: 'bg-orange-100 text-orange-600',
-  CRITICAL: 'bg-red-100 text-red-600'
+  LOW: 'bg-slate-100 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400',
+  NORMAL: 'bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-400',
+  HIGH: 'bg-amber-50 text-amber-600 dark:bg-amber-900/10 dark:text-amber-400',
+  CRITICAL: 'bg-rose-100 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200 dark:border-rose-900/30'
 };
 
 export default function ParentAnnouncements() {
@@ -103,89 +105,82 @@ export default function ParentAnnouncements() {
     : announcements;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="space-y-6 w-full max-w-4xl mx-auto font-sans p-4 lg:p-8">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        className="space-y-6"
       >
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Announcements</h1>
-            <p className="text-gray-600 mt-1">View announcements from your academy</p>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-md">
+              <Megaphone className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Announcements</h1>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mt-0.5">View broadcast bulletins from your academy</p>
+            </div>
           </div>
           <button
             onClick={handleMarkAllAsRead}
-            className="text-emerald-600 hover:text-emerald-700 font-medium"
+            className="text-xs font-black uppercase text-primary hover:text-emerald-600 transition-colors flex items-center gap-1 self-start sm:self-center"
           >
+            <CheckCheck className="w-4 h-4" />
             Mark all as read
           </button>
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
           </div>
         )}
 
-        {/* Filter Tabs */}
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'all' 
-                ? 'bg-emerald-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilter('unread')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'unread' 
-                ? 'bg-emerald-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Unread
-          </button>
-          <button
-            onClick={() => setFilter('read')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === 'read' 
-                ? 'bg-emerald-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Read
-          </button>
-        </div>
+        {/* Filter controls and Search Bar in single row */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          {/* Filter Tabs */}
+          <div className="flex bg-muted/40 p-1 rounded-xl border border-border/50 w-full md:w-auto">
+            {['all', 'unread', 'read'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                  filter === tab 
+                    ? 'bg-card text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <form onSubmit={handleSearchSubmit}>
+          {/* Search Input Box */}
+          <form onSubmit={handleSearchSubmit} className="relative w-full md:w-72">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={handleSearch}
               placeholder="Search announcements..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="pl-9 pr-4 py-2 w-full input-field text-xs"
             />
           </form>
         </div>
 
-        {/* Announcements List */}
+        {/* Announcements list */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+          <div className="py-12 flex justify-center">
+            <Loader />
           </div>
         ) : filteredAnnouncements.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-            </svg>
-            <p className="text-gray-500">No announcements found</p>
+          <div className="bg-card border border-dashed border-border rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+            <Bell className="w-10 h-10 text-muted-foreground/30 mb-2 animate-bounce" />
+            <p className="text-sm font-bold text-foreground">No announcements found</p>
+            <p className="text-xs text-muted-foreground mt-0.5">We couldn't find any notifications matching the filter.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -196,39 +191,54 @@ export default function ParentAnnouncements() {
                   key={announcement.announcement_id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -2, scale: 1.005 }}
                   onClick={() => handleViewDetails(announcement.announcement_id, announcement)}
-                  className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer ${!isRead ? 'border-l-4 border-l-blue-500' : ''}`}
+                  className={`bg-card rounded-2xl border border-border/80 p-5 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden flex flex-col gap-3 ${
+                    !isRead ? 'border-l-4 border-l-primary' : ''
+                  }`}
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{announcement.title}</h3>
-                        {!isRead && (
-                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                        )}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${CATEGORY_COLORS[announcement.category]}`}>
-                          {announcement.category}
-                        </span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${PRIORITY_COLORS[announcement.priority]}`}>
-                          {announcement.priority}
-                        </span>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-extrabold text-foreground tracking-tight flex items-center gap-1.5">
+                          {announcement.title}
+                          {!isRead && <span className="w-2 h-2 bg-primary rounded-full shrink-0" />}
+                        </h3>
                       </div>
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{announcement.message}</p>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
-                        {announcement.attachments && announcement.attachments.length > 0 && (
-                          <span className="flex items-center">
-                            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
-                            </svg>
-                            {announcement.attachments.length} attachment{announcement.attachments.length > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-[10px] text-muted-foreground font-semibold">
+                        Published: {new Date(announcement.created_at).toLocaleDateString()}
+                      </p>
                     </div>
-                    <svg className="w-5 h-5 text-gray-400 mt-1" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
+                    
+                    <div className="flex gap-1.5 items-center">
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${CATEGORY_COLORS[announcement.category] || CATEGORY_COLORS.GENERAL}`}>
+                        {announcement.category}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${PRIORITY_COLORS[announcement.priority] || PRIORITY_COLORS.NORMAL}`}>
+                        {announcement.priority}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground font-medium line-clamp-2 leading-relaxed">
+                    {announcement.message}
+                  </p>
+
+                  <div className="flex items-center justify-between border-t border-border/40 pt-3 text-[10px] text-muted-foreground font-semibold">
+                    <div className="flex items-center gap-3">
+                      <span>Sender: <strong className="text-foreground">{announcement.sender_type || 'Admin'}</strong></span>
+                      {announcement.attachments && announcement.attachments.length > 0 && (
+                        <span className="flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded border border-border/50 text-[9px]">
+                          <FileText size={10} />
+                          {announcement.attachments.length} attachment{announcement.attachments.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <span className="text-primary hover:text-emerald-600 transition-colors flex items-center gap-1 font-bold">
+                      Read Bulletin
+                      <ArrowRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </motion.div>
               );

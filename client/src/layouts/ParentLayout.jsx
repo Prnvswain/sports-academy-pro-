@@ -360,20 +360,13 @@ function ParentLayoutShell() {
           </div>
         </motion.header>
 
-        {/* 🌟 YAHAN LIGHT GRADIENT WAPAS LAGA DIYA GAYA HAI 🌟 */}
-        <main className="flex-1 min-w-0 overflow-x-hidden relative flex flex-col">
-          {/* Subtle Sports-Themed Background Decorative Elements */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--theme-primary,#84cc16)]/3 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#22c55e]/3 rounded-full blur-3xl" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#a3e635]/2 rounded-full blur-3xl" />
-          </div>
+        <main className="flex-1 min-w-0 p-5 lg:p-8 relative">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full h-full min-w-0 flex flex-col rounded-2xl shadow-xl shadow-black/5 bg-white/50 backdrop-blur-sm p-6 lg:p-8 m-5 lg:m-8 relative z-10"
+            className="w-full h-full min-w-0"
           >
             <Outlet />
           </motion.div>

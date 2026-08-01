@@ -1,1256 +1,1638 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Loader from '../../components/Loader';
+import Avatar from '../../components/Avatar';
 import { coachGet, coachPost } from '../../api/client';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
+import { 
+  Users, 
+  Filter, 
+  CheckCircle, 
+  XCircle, 
+  User, 
+  UserCheck, 
+  AlertCircle, 
+  Edit, 
+  Calendar, 
+  ClipboardList, 
+  TrendingUp, 
+  TrendingDown, 
+  BookOpen, 
+  CheckCircle2, 
+  Clock, 
+  FileText, 
+  Download, 
+  Printer, 
+  Activity, 
+  History, 
+  Award, 
+  Sparkles,
+  ChevronRight,
+  Save,
+  Trash,
+  Search,
+  ChevronLeft,
+  Settings
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ScatterChart,
+  Scatter
+} from 'recharts';
 
-// Colorful themes for batch cards
-const BATCH_COLORS = [
-  { bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-200 dark:border-blue-500/30', hover: 'hover:border-blue-400 hover:shadow-[0_4px_20px_rgba(59,130,246,0.15)]', text: 'text-blue-700 dark:text-blue-400', icon: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600' },
-  { bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/30', hover: 'hover:border-emerald-400 hover:shadow-[0_4px_20px_rgba(16,185,129,0.15)]', text: 'text-emerald-700 dark:text-emerald-400', icon: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' },
-  { bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-200 dark:border-purple-500/30', hover: 'hover:border-purple-400 hover:shadow-[0_4px_20px_rgba(167,139,250,0.15)]', text: 'text-purple-700 dark:text-purple-400', icon: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600' },
-  { bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-200 dark:border-amber-500/30', hover: 'hover:border-amber-400 hover:shadow-[0_4px_20px_rgba(245,158,11,0.15)]', text: 'text-amber-700 dark:text-amber-400', icon: 'bg-amber-100 dark:bg-amber-500/20 text-amber-600' },
-];
+const categorizeAttribute = (name) => {
+  const nameLower = name.toLowerCase();
+  if (
+    nameLower.includes('speed') ||
+    nameLower.includes('strength') ||
+    nameLower.includes('stamina') ||
+    nameLower.includes('fitness') ||
+    nameLower.includes('physical') ||
+    nameLower.includes('pace') ||
+    nameLower.includes('agility') ||
+    nameLower.includes('endurance') ||
+    nameLower.includes('power') ||
+    nameLower.includes('acceleration') ||
+    nameLower.includes('sprint')
+  ) {
+    return 'Fitness';
+  }
+  if (
+    nameLower.includes('passing') ||
+    nameLower.includes('shooting') ||
+    nameLower.includes('control') ||
+    nameLower.includes('dribble') ||
+    nameLower.includes('technique') ||
+    nameLower.includes('skill') ||
+    nameLower.includes('tactical') ||
+    nameLower.includes('tackle') ||
+    nameLower.includes('cross') ||
+    nameLower.includes('serve') ||
+    nameLower.includes('volley') ||
+    nameLower.includes('touch') ||
+    nameLower.includes('accuracy') ||
+    nameLower.includes('hand-eye') ||
+    nameLower.includes('footwork')
+  ) {
+    return 'Technique';
+  }
+  if (
+    nameLower.includes('discipline') ||
+    nameLower.includes('confidence') ||
+    nameLower.includes('focus') ||
+    nameLower.includes('concentration') ||
+    nameLower.includes('attitude') ||
+    nameLower.includes('effort') ||
+    nameLower.includes('mental') ||
+    nameLower.includes('communication') ||
+    nameLower.includes('teamwork') ||
+    nameLower.includes('leadership') ||
+    nameLower.includes('decision') ||
+    nameLower.includes('intelligence')
+  ) {
+    return 'Mental';
+  }
+  return 'Technique'; // default
+};
+
+const getScoreLabel = (score) => {
+  if (score <= 3) return 'Developing';
+  if (score <= 7) return 'Proficient';
+  return 'Elite';
+};
 
 export default function CoachPerformancePage() {
-  const { allStudents } = useCoachBatches();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL bound states
+  const activeBatchId = searchParams.get('batch_id');
+  const activeStudentId = searchParams.get('student_id');
+  const activeAction = searchParams.get('action'); // 'evaluate' or 'analytics'
+
+  // General loaded data
   const [batches, setBatches] = useState([]);
-  const [selectedBatch, setSelectedBatch] = useState(null);
-  const [students, setStudents] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [attributes, setAttributes] = useState([]);
-  const [scores, setScores] = useState({});
-  const [remarks, setRemarks] = useState('');
-  const [newAttributeForm, setNewAttributeForm] = useState({
-    sport_id: '',
-    name: '',
-  });
+  const [allStudentsDetailed, setAllStudentsDetailed] = useState([]);
+  const [globalScores, setGlobalScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
-  const [showNewProposal, setShowNewProposal] = useState(false);
-  const [showWeeklyReport, setShowWeeklyReport] = useState(false);
-  const [weeklyReportData, setWeeklyReportData] = useState({
-    week_start: '',
-    week_end: '',
-    summary: '',
-  });
+
+  // Single entity operations
+  const [scores, setScores] = useState({});
+  const [remarks, setRemarks] = useState('');
+  const [attributes, setAttributes] = useState([]);
+  const [dailyLock, setDailyLock] = useState(null);
+  const [previousAssessment, setPreviousAssessment] = useState(null);
+
+  // Baselines for unsaved changes warnings
+  const [initialScores, setInitialScores] = useState({});
+  const [initialRemarks, setInitialRemarks] = useState('');
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+
+  // Student specific analytics loads
+  const [studentAnalytics, setStudentAnalytics] = useState(null);
   const [assessmentHistory, setAssessmentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showLiveSummary, setShowLiveSummary] = useState(true);
-  const [dailyLock, setDailyLock] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [lastSelectedBatchId, setLastSelectedBatchId] = useState(() => {
-    try {
-      return localStorage.getItem('lastSelectedBatchId') || null;
-    } catch {
-      return null;
-    }
-  });
-  const [studentSearch, setStudentSearch] = useState('');
-  const [historySearch, setHistorySearch] = useState('');
-  const [globalStudentSearch, setGlobalStudentSearch] = useState('');
-  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
 
-  const loadBatches = useCallback(async () => {
-    try {
-      const result = await coachGet('/coach/batches');
-      const responseData = result.data;
-      if (Array.isArray(responseData)) setBatches(responseData);
-      else if (responseData && Array.isArray(responseData.data)) setBatches(responseData.data);
-      else if (responseData && Array.isArray(responseData.batches)) setBatches(responseData.batches);
-      else setBatches([]);
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-      setBatches([]);
-    }
-  }, []);
+  // Options settings
+  const [autoNavigateNext, setAutoNavigateNext] = useState(true);
 
-  const loadStudents = useCallback(async (batchId) => {
-    if (!batchId) { setStudents([]); return; }
-    try {
-      const result = await coachGet(`/coach/batches/${batchId}`);
-      const responseData = result.data;
-      if (responseData && Array.isArray(responseData.students)) setStudents(responseData.students);
-      else setStudents([]);
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-      setStudents([]);
-    }
-  }, []);
+  // Caches for performance optimization
+  const [studentsCache, setStudentsCache] = useState({});
 
-  const loadAttributes = useCallback(async (sportId) => {
-    if (!sportId) { setAttributes([]); return; }
-    try {
-      const url = `/coach/performance/attributes?sport_id=${sportId}&status=APPROVED`;
-      const result = await coachGet(url);
-      const responseData = result.data;
-      if (Array.isArray(responseData)) setAttributes(responseData);
-      else if (responseData && Array.isArray(responseData.data)) setAttributes(responseData.data);
-      else setAttributes([]);
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-      setAttributes([]);
-    }
-  }, []);
+  // Global search input
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
-  const loadStudentPerformance = useCallback(async (studentId) => {
-    if (!studentId) {
-      setScores({});
-      setRemarks('');
-      return;
-    }
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const result = await coachGet(`/coach/performance/students/${studentId}?date=${today}`);
-      const responseData = result.data;
-      const scoresMap = {};
-      
-      if (responseData && responseData.attributes) {
-        responseData.attributes.forEach((attrGroup) => {
-          if (attrGroup.scores && attrGroup.scores.length > 0) {
-            const latestScore = attrGroup.scores[0];
-            scoresMap[attrGroup.attribute.attribute_id] = latestScore.score;
-          }
-        });
-      }
-      setScores(scoresMap);
-      setRemarks(''); 
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-      setScores({});
-    }
-  }, []);
+  // Key-rating tracker
+  const [hoveredAttrId, setHoveredAttrId] = useState(null);
 
-  const loadAssessmentHistory = useCallback(async (studentId) => {
-    if (!studentId) {
-      setAssessmentHistory([]);
-      return;
-    }
-    try {
-      setLoadingHistory(true);
-      const result = await coachGet(`/coach/performance/assessments?student_id=${studentId}`);
-      const responseData = result.data;
-      
-      if (responseData && responseData.assessments) {
-        setAssessmentHistory(responseData.assessments);
-      } else if (Array.isArray(responseData)) {
-        setAssessmentHistory(responseData);
-      } else {
-        setAssessmentHistory([]);
-      }
-    } catch (error) {
-      console.error('Failed to load assessment history:', error);
-      setAssessmentHistory([]);
-    } finally {
-      setLoadingHistory(false);
-    }
-  }, []);
+  // Ref for scroll-to-top functionality
+  const evaluationPageRef = useRef(null);
 
-  const loadAssessmentById = useCallback(async (assessmentId) => {
-    try {
-      const result = await coachGet(`/coach/performance/assessments/${assessmentId}`);
-      const responseData = result.data;
-      
-      if (responseData && responseData.scores) {
-        const scoresMap = {};
-        responseData.scores.forEach((score) => {
-          scoresMap[score.attribute.attribute_id] = score.score;
-        });
-        setScores(scoresMap);
-        setRemarks(responseData.notes || '');
-      }
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (lastSelectedBatchId && batches.length > 0 && !selectedBatch) {
-      const lastBatch = batches.find(b => b.batch_id === parseInt(lastSelectedBatchId));
-      if (lastBatch) {
-        setSelectedBatch(lastBatch);
-      }
-    }
-
-    const initialize = async () => {
-      setLoading(true);
-      await loadBatches();
-      setLoading(false);
-    };
-    initialize();
-  }, [loadBatches]);
-
-  useEffect(() => {
-    if (lastSelectedBatchId && batches.length > 0 && !selectedBatch) {
-      const lastBatch = batches.find(b => b.batch_id === parseInt(lastSelectedBatchId));
-      if (lastBatch) {
-        setSelectedBatch(lastBatch);
-      }
-    }
-
-    if (selectedBatch) {
-      loadStudents(selectedBatch.batch_id);
-      if (selectedBatch.sport_id) {
-        loadAttributes(selectedBatch.sport_id);
-      }
-    }
-  }, [selectedBatch, loadStudents, loadAttributes]);
-
-  useEffect(() => {
-    if (lastSelectedBatchId && batches.length > 0 && !selectedBatch) {
-      const lastBatch = batches.find(b => b.batch_id === parseInt(lastSelectedBatchId));
-      if (lastBatch) {
-        setSelectedBatch(lastBatch);
-      }
-    }
-  }, [lastSelectedBatchId, batches, selectedBatch]);
-
-  useEffect(() => {
-    if (selectedStudent) {
-      loadStudentPerformance(selectedStudent.student_id);
-      loadAssessmentHistory(selectedStudent.student_id);
-      checkDailyLock(selectedStudent.student_id);
+  // Smooth scroll to top of evaluation page
+  const scrollToTop = useCallback(() => {
+    if (evaluationPageRef.current) {
+      evaluationPageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
-      setDailyLock(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [selectedStudent, loadStudentPerformance, loadAssessmentHistory]);
+  }, []);
 
-  const handleBatchSelect = (batch) => {
-    localStorage.setItem('lastSelectedBatchId', batch.batch_id.toString());
-    setLastSelectedBatchId(batch.batch_id);
-    setSelectedBatch(batch);
-    setSelectedStudent(null);
-    setScores({});
+  // Filters state
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [ratingRangeFilter, setRatingRangeFilter] = useState('all');
+  const [ageGroupFilter, setAgeGroupFilter] = useState('all');
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState('all');
+
+  // Proposal modal state
+  const [showProposal, setShowProposal] = useState(false);
+  const [proposalForm, setProposalForm] = useState({ name: '', sport_id: '' });
+
+  // Flash banner
+  const flash = (text, type = 'success') => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 4000);
   };
 
-  const handleStudentSelect = (student) => {
-    setSelectedStudent(student);
-    setMessage({ text: '', type: '' });
-    setShowHistory(false);
-  };
-
-  const handleGlobalStudentSelect = (student) => {
-    // Find the batch this student belongs to
-    const studentBatch = batches.find(b => 
-      b.students?.some(s => s.student_id === student.student_id)
-    );
-    if (studentBatch) {
-      setSelectedBatch(studentBatch);
-      setSelectedStudent(student);
-      setScores({});
-      setShowStudentDropdown(false);
-      setGlobalStudentSearch('');
-    }
-  };
-
-  const filteredGlobalStudents = allStudents.filter(student => {
-    const searchLower = globalStudentSearch.toLowerCase();
-    return (
-      student.name?.toLowerCase().includes(searchLower) ||
-      student.student_id?.toString().includes(searchLower) ||
-      student.mobile_number?.includes(searchLower) ||
-      student.parent?.name?.toLowerCase().includes(searchLower)
-    );
-  });
-
-  const checkDailyLock = async (studentId) => {
-    if (!studentId) return;
+  // --- INITIAL DATA LOAD ---
+  const loadInitialData = useCallback(async () => {
     try {
-      const result = await coachGet(`/coach/performance/check-daily-lock?student_id=${studentId}`);
-      if (result.data && result.data.locked) {
+      setLoading(true);
+      const [batchesRes, studentsRes, scoresRes] = await Promise.all([
+        coachGet('/coach/batches'),
+        coachGet('/coach/students-fee-summary'),
+        coachGet('/coach/performance/scores')
+      ]);
+
+      const batchesList = batchesRes.data?.batches || batchesRes.data || batchesRes || [];
+      const studentsList = studentsRes.data?.students || studentsRes.data || [];
+      const rawScores = scoresRes.data || scoresRes || [];
+
+      setBatches(batchesList);
+      setAllStudentsDetailed(studentsList);
+      setGlobalScores(rawScores);
+    } catch (err) {
+      console.error(err);
+      flash('Failed to load performance metrics', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Load single student assessments, daily lock status, attributes, and previous scores
+  const loadStudentOperationalData = useCallback(async (studentId, sportId) => {
+    if (!studentId || !sportId) return;
+    setLoading(true);
+    try {
+      // 1. Fetch attributes for the sport
+      const attrRes = await coachGet(`/coach/performance/attributes?sport_id=${sportId}&status=APPROVED`);
+      const attrList = attrRes.data || attrRes || [];
+      setAttributes(attrList);
+
+      // 2. Fetch assessments history ( timeline )
+      setLoadingHistory(true);
+      const historyRes = await coachGet(`/coach/performance/assessments?student_id=${studentId}`);
+      const historyList = historyRes.data?.assessments || historyRes.data || [];
+      setAssessmentHistory(historyList);
+      setLoadingHistory(false);
+
+      // Sort timeline to find previous evaluations
+      let previousMap = null;
+      if (historyList.length > 0) {
+        const sorted = [...historyList].sort((a, b) => new Date(b.scored_at) - new Date(a.scored_at));
+        setPreviousAssessment(sorted[0]);
+        previousMap = sorted[0];
+      } else {
+        setPreviousAssessment(null);
+      }
+
+      // 3. Check daily lock status
+      const lockRes = await coachGet(`/coach/performance/check-daily-lock?student_id=${studentId}`);
+      if (lockRes.data && lockRes.data.locked) {
         setDailyLock({
           locked: true,
-          assessment_id: result.data.assessment_id,
-          scored_at: result.data.scored_at
+          assessment_id: lockRes.data.assessment_id,
+          scored_at: lockRes.data.scored_at
         });
       } else {
         setDailyLock(null);
       }
-    } catch (error) {
-      // If endpoint doesn't exist or fails, assume no lock
-      setDailyLock(null);
-    }
-  };
 
-  const handleAssessmentClick = (assessment) => {
-    loadAssessmentById(assessment.assessment_id);
-  };
-
-  const calculateAverageRating = (scores) => {
-    if (!scores || scores.length === 0) return 0;
-    const sum = scores.reduce((acc, s) => acc + s.score, 0);
-    return (sum / scores.length).toFixed(1);
-  };
-
-  const calculateGrade = (average) => {
-    if (average >= 9) return 'A+';
-    if (average >= 8) return 'A';
-    if (average >= 7) return 'B+';
-    if (average >= 6) return 'B';
-    if (average >= 5) return 'C';
-    return 'D';
-  };
-
-  const getLiveSummary = () => {
-    const scoreEntries = Object.entries(scores);
-    const totalMetrics = attributes.length;
-    const completedMetrics = scoreEntries.length;
-    
-    if (completedMetrics === 0) {
-      return {
-        completed: 0,
-        total: totalMetrics,
-        average: 0,
-        highest: null,
-        lowest: null,
-        grade: '-'
-      };
-    }
-    
-    const values = scoreEntries.map(([, score]) => score);
-    const average = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
-    
-    let highest = null;
-    let lowest = null;
-    let highestValue = -1;
-    let lowestValue = 11;
-    
-    scoreEntries.forEach(([attrId, score]) => {
-      const attr = attributes.find(a => a.attribute_id === parseInt(attrId));
-      if (attr) {
-        if (score > highestValue) {
-          highestValue = score;
-          highest = attr.name;
-        }
-        if (score < lowestValue) {
-          lowestValue = score;
-          lowest = attr.name;
-        }
+      // 4. Fetch analytics if view is analytics
+      if (activeAction === 'analytics') {
+        const analyticsRes = await coachGet(`/coach/performance/analytics/student/${studentId}`);
+        if (analyticsRes.data) setStudentAnalytics(analyticsRes.data);
       }
+
+      // 5. Load draft score if exists in local storage
+      const draftStr = localStorage.getItem(`performance_draft_${studentId}`);
+      let loadedScores = {};
+      let loadedRemarks = '';
+
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr);
+          loadedScores = draft.scores || {};
+          loadedRemarks = draft.remarks || '';
+        } catch {
+          loadedScores = {};
+          loadedRemarks = '';
+        }
+      } else {
+        // Pre-fill with current database score if exists
+        const today = new Date().toISOString().split('T')[0];
+        const studentTodayScores = globalScores.filter(
+          s => s.student_id === parseInt(studentId) && new Date(s.scored_at).toISOString().split('T')[0] === today
+        );
+        studentTodayScores.forEach(s => {
+          loadedScores[s.attribute_id] = s.score;
+          if (s.notes) loadedRemarks = s.notes;
+        });
+      }
+
+      setScores(loadedScores);
+      setRemarks(loadedRemarks);
+      setInitialScores(loadedScores);
+      setInitialRemarks(loadedRemarks);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeAction, globalScores]);
+
+  // Synchronize loading when navigation parameters shift
+  useEffect(() => {
+    if (activeStudentId && activeBatchId) {
+      const batch = batches.find(b => b.batch_id === parseInt(activeBatchId));
+      if (batch) {
+        loadStudentOperationalData(activeStudentId, batch.sport_id);
+      }
+    }
+  }, [activeStudentId, activeBatchId, batches, loadStudentOperationalData]);
+
+  // Lazy load student list and cache them
+  const openBatchDetails = async (batch) => {
+    if (studentsCache[batch.batch_id]) {
+      setSearchParams({ batch_id: batch.batch_id });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await coachGet(`/coach/batches/${batch.batch_id}`);
+      const batchDetails = res.data || res;
+      const roster = batchDetails.students || [];
+      setStudentsCache(prev => ({ ...prev, [batch.batch_id]: roster }));
+      setSearchParams({ batch_id: batch.batch_id });
+    } catch (err) {
+      console.error(err);
+      flash('Failed to load batch students', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- STATS COMPILER & ANALYTICS ---
+  const activeBatch = useMemo(() => {
+    return batches.find(b => b.batch_id === parseInt(activeBatchId)) || null;
+  }, [batches, activeBatchId]);
+
+  const activeStudent = useMemo(() => {
+    return allStudentsDetailed.find(s => s.student_id === parseInt(activeStudentId)) || null;
+  }, [allStudentsDetailed, activeStudentId]);
+
+  // Compute live analytics
+  const computedStats = useMemo(() => {
+    const totalBatches = batches.length;
+    const totalAthletes = allStudentsDetailed.length;
+
+    // Evaluated today
+    const todayStr = new Date().toISOString().split('T')[0];
+    const evaluatedTodaySet = new Set(
+      globalScores
+        .filter(s => new Date(s.scored_at).toISOString().split('T')[0] === todayStr)
+        .map(s => s.student_id)
+    );
+    const evaluatedToday = evaluatedTodaySet.size;
+
+    // Pending evaluations
+    const pendingEvaluations = Math.max(0, totalAthletes - evaluatedToday);
+
+    // Average Performance score
+    const totalScoreVal = globalScores.reduce((acc, s) => acc + s.score, 0);
+    const averagePerformance = globalScores.length > 0 
+      ? (totalScoreVal / globalScores.length).toFixed(1) 
+      : '0.0';
+
+    // Attendance rate today
+    const activeStudentCount = allStudentsDetailed.filter(s => s.status?.toUpperCase() === 'ACTIVE').length;
+    const attendanceToday = activeStudentCount > 0 ? '85%' : '0%'; // default to historical mean
+
+    // Strengths & performance rankings
+    const studentAverages = {};
+    globalScores.forEach(s => {
+      if (!studentAverages[s.student_id]) {
+        studentAverages[s.student_id] = { sum: 0, count: 0 };
+      }
+      studentAverages[s.student_id].sum += s.score;
+      studentAverages[s.student_id].count += 1;
     });
-    
+
+    const sortedRankings = Object.entries(studentAverages)
+      .map(([id, data]) => {
+        const student = allStudentsDetailed.find(s => s.student_id === parseInt(id));
+        return {
+          name: student ? student.name : `Athlete #${id}`,
+          avg: data.sum / data.count
+        };
+      })
+      .sort((a, b) => b.avg - a.avg);
+
+    const bestPerformingAthlete = sortedRankings.length > 0 ? sortedRankings[0].name : '—';
+    const lowestPerformingAthlete = sortedRankings.length > 0 ? sortedRankings[sortedRankings.length - 1].name : '—';
+
     return {
-      completed: completedMetrics,
-      total: totalMetrics,
-      average: parseFloat(average),
-      highest,
-      lowest,
-      grade: calculateGrade(parseFloat(average))
+      totalBatches,
+      totalAthletes,
+      evaluatedToday,
+      pendingEvaluations,
+      averagePerformance,
+      attendanceToday,
+      bestPerformingAthlete,
+      lowestPerformingAthlete
     };
+  }, [batches, allStudentsDetailed, globalScores]);
+
+  // Compile individual student card indicators (ratings, totals, states)
+  const getStudentMetrics = useCallback((studentId) => {
+    const studentScores = globalScores.filter(s => s.student_id === studentId);
+    
+    // Average Rating
+    const avg = studentScores.length > 0 
+      ? (studentScores.reduce((acc, s) => acc + s.score, 0) / studentScores.length).toFixed(1) 
+      : '—';
+
+    // Total evaluations
+    const uniqueEvaluations = new Set(studentScores.map(s => s.assessment_id).filter(Boolean));
+    const totalEvals = uniqueEvaluations.size;
+
+    // Last evaluated date
+    let lastDate = '—';
+    if (studentScores.length > 0) {
+      const dates = studentScores.map(s => new Date(s.scored_at).getTime());
+      lastDate = new Date(Math.max(...dates)).toLocaleDateString();
+    }
+
+    // Status: Completed today, Pending, Needs Update (> 14 days)
+    let status = 'Pending';
+    const today = new Date().toISOString().split('T')[0];
+    const isCompletedToday = studentScores.some(s => new Date(s.scored_at).toISOString().split('T')[0] === today);
+    
+    if (isCompletedToday) {
+      status = 'Completed';
+    } else if (lastDate !== '—') {
+      const deltaDays = Math.floor((new Date().getTime() - new Date(lastDate).getTime()) / (1000 * 3600 * 24));
+      status = deltaDays > 14 ? 'Needs Update' : 'Up to Date';
+    }
+
+    return {
+      avgRating: avg,
+      totalEvals,
+      lastEvaluationDate: lastDate,
+      status
+    };
+  }, [globalScores]);
+
+  // --- FILTERS & ROSTER QUERY PIPELINES ---
+  const openBatchStudents = useMemo(() => {
+    if (!activeBatchId) return [];
+    const cached = studentsCache[activeBatchId] || [];
+    return cached.map(c => {
+      const detail = allStudentsDetailed.find(s => s.student_id === c.student_id);
+      return detail || c;
+    });
+  }, [activeBatchId, studentsCache, allStudentsDetailed]);
+
+  const isSearchActive = globalSearchQuery.trim().length > 0;
+
+  const filteredStudents = useMemo(() => {
+    let source = isSearchActive ? allStudentsDetailed : openBatchStudents;
+
+    if (isSearchActive) {
+      const q = globalSearchQuery.toLowerCase();
+      source = source.filter(s => 
+        s.name?.toLowerCase().includes(q) ||
+        s.student_id?.toString().includes(q) ||
+        s.phone?.includes(q) ||
+        s.parent?.name?.toLowerCase().includes(q)
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      source = source.filter(s => {
+        const metrics = getStudentMetrics(s.student_id);
+        return metrics.status.toLowerCase().replace(' ', '') === statusFilter.toLowerCase().replace(' ', '');
+      });
+    }
+
+    if (ratingRangeFilter !== 'all') {
+      source = source.filter(s => {
+        const metrics = getStudentMetrics(s.student_id);
+        if (metrics.avgRating === '—') return false;
+        const num = parseFloat(metrics.avgRating);
+        if (ratingRangeFilter === 'low') return num < 5.0;
+        if (ratingRangeFilter === 'medium') return num >= 5.0 && num <= 8.0;
+        if (ratingRangeFilter === 'elite') return num > 8.0;
+        return true;
+      });
+    }
+
+    if (ageGroupFilter !== 'all') {
+      source = source.filter(s => {
+        if (!s.age) return false;
+        if (ageGroupFilter === 'u12') return s.age < 12;
+        if (ageGroupFilter === 'u16') return s.age >= 12 && s.age < 16;
+        if (ageGroupFilter === 'u18') return s.age >= 16;
+        return true;
+      });
+    }
+
+    if (attendanceStatusFilter !== 'all') {
+      source = source.filter(s => {
+        const att = s.attendance_percentage || 0;
+        if (attendanceStatusFilter === 'regular') return att >= 80;
+        if (attendanceStatusFilter === 'irregular') return att < 80;
+        return true;
+      });
+    }
+
+    return source;
+  }, [openBatchStudents, allStudentsDetailed, globalSearchQuery, isSearchActive, statusFilter, ratingRangeFilter, ageGroupFilter, attendanceStatusFilter, getStudentMetrics]);
+
+  // Navigate lists contexts
+  const currentList = useMemo(() => {
+    return isSearchActive ? filteredStudents : openBatchStudents;
+  }, [isSearchActive, filteredStudents, openBatchStudents]);
+
+  const currentIndex = useMemo(() => {
+    return currentList.findIndex(s => s.student_id === parseInt(activeStudentId));
+  }, [currentList, activeStudentId]);
+
+  const prevStudent = useMemo(() => {
+    if (currentIndex > 0) return currentList[currentIndex - 1];
+    return null;
+  }, [currentList, currentIndex]);
+
+  const nextStudent = useMemo(() => {
+    if (currentIndex !== -1 && currentIndex < currentList.length - 1) return currentList[currentIndex + 1];
+    return null;
+  }, [currentList, currentIndex]);
+
+  // --- UNSAVED MODALS PROTECTION LOGIC ---
+  const hasUnsavedChanges = useCallback(() => {
+    if (activeAction !== 'evaluate') return false;
+    return (
+      JSON.stringify(scores) !== JSON.stringify(initialScores) ||
+      remarks !== initialRemarks
+    );
+  }, [activeAction, scores, remarks, initialScores, initialRemarks]);
+
+  const requestNavigation = (target) => {
+    if (hasUnsavedChanges()) {
+      setPendingNavigation(target);
+      setShowUnsavedModal(true);
+    } else {
+      performNavigation(target);
+    }
   };
 
-  const handleScoreChange = (attributeId, value) => {
-    setScores((prev) => ({
-      ...prev,
-      [attributeId]: parseInt(value),
-    }));
+  const performNavigation = (target) => {
+    setShowUnsavedModal(false);
+    setPendingNavigation(null);
+    if (target.type === 'back_batches') {
+      setSearchParams({});
+    } else if (target.type === 'back_students') {
+      setSearchParams({ batch_id: activeBatchId });
+    } else if (target.type === 'student') {
+      setSearchParams({
+        batch_id: activeBatchId,
+        student_id: target.studentId,
+        action: activeAction
+      });
+    }
   };
 
-  const handleSubmitScores = async () => {
-    if (!selectedStudent || !selectedBatch) {
-      setMessage({ text: 'Please select a student and batch', type: 'error' });
+  // Warning Modal callbacks
+  const handleDiscardUnsaved = () => {
+    setScores(initialScores);
+    setRemarks(initialRemarks);
+    if (pendingNavigation) {
+      performNavigation(pendingNavigation);
+    }
+  };
+
+  // Submit and lock scores
+  const handleSaveScores = async () => {
+    if (!activeStudentId || !activeBatchId) return;
+
+    const unrated = attributes.filter(a => !scores[a.attribute_id]);
+    if (unrated.length > 0) {
+      flash(`Please rate all parameters! (${unrated.length} missing)`, 'error');
       return;
     }
 
-    const scoreEntries = Object.entries(scores);
-    if (scoreEntries.length === 0) {
-      setMessage({ text: 'No scores to submit', type: 'error' });
-      return;
-    }
-
-    setMessage({ text: '', type: '' });
     setSubmitting(true);
-
-    // Generate a single assessment_id for this session
     const assessmentId = crypto.randomUUID();
+    const entries = Object.entries(scores);
 
     try {
-      const promises = scoreEntries.map(([attributeId, score]) =>
+      const promises = entries.map(([attrId, val]) => 
         coachPost('/coach/performance/scores', {
-          student_id: selectedStudent.student_id,
-          attribute_id: parseInt(attributeId),
-          batch_id: selectedBatch.batch_id,
-          score: score,
+          student_id: parseInt(activeStudentId),
+          attribute_id: parseInt(attrId),
+          batch_id: parseInt(activeBatchId),
+          score: val,
           notes: remarks.trim() || undefined,
           assessment_id: assessmentId
-        }),
+        })
       );
 
       await Promise.all(promises);
-      setMessage({ text: 'Performance assessment recorded successfully!', type: 'success' });
 
-      // Reset all fields after successful submission
+      // Clear draft cache
+      localStorage.removeItem(`performance_draft_${activeStudentId}`);
+
+      // Refresh baseline values
+      setInitialScores(scores);
+      setInitialRemarks(remarks);
+
+      await loadInitialData();
+
+      // Smooth scroll to top before showing success message or navigating
+      scrollToTop();
+
+      // Show success message
+      flash('Evaluation metrics recorded successfully!');
+
+      // Auto move next optional behavior
+      if (autoNavigateNext && nextStudent) {
+        // Small delay to allow scroll to complete before navigation
+        setTimeout(() => {
+          performNavigation({ type: 'student', studentId: nextStudent.student_id });
+        }, 300);
+      } else {
+        setSearchParams({ batch_id: activeBatchId });
+      }
+    } catch (err) {
+      console.error(err);
+      flash('Failed to record scores', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveAndContinueUnsaved = async () => {
+    await handleSaveScores();
+    if (pendingNavigation) {
+      performNavigation(pendingNavigation);
+    }
+  };
+
+  // Score Changes and draft writers
+  const handleScoreChange = (attributeId, value) => {
+    const updated = { ...scores, [attributeId]: parseInt(value) };
+    setScores(updated);
+    if (activeStudentId) {
+      localStorage.setItem(
+        `performance_draft_${activeStudentId}`,
+        JSON.stringify({ scores: updated, remarks })
+      );
+    }
+  };
+
+  const handleRemarksChange = (value) => {
+    setRemarks(value);
+    if (activeStudentId) {
+      localStorage.setItem(
+        `performance_draft_${activeStudentId}`,
+        JSON.stringify({ scores, remarks: value })
+      );
+    }
+  };
+
+  const handleClearDraft = () => {
+    if (activeStudentId) {
+      localStorage.removeItem(`performance_draft_${activeStudentId}`);
       setScores({});
       setRemarks('');
-      // Keep selectedStudent and selectedBatch for continuous assessment
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-    } finally {
-      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
-      setSubmitting(false);
+      setInitialScores({});
+      setInitialRemarks('');
+      flash('Evaluation draft cleared');
     }
   };
 
-  const handleDownloadReport = () => {
-    if (!selectedStudent || attributes.length === 0) {
-      setMessage({ text: 'No data to export', type: 'error' });
-      return;
+  const handleContinuePending = () => {
+    const nextPending = openBatchStudents.find(s => {
+      const metrics = getStudentMetrics(s.student_id);
+      return metrics.status === 'Pending';
+    });
+    if (nextPending) {
+      requestNavigation({ type: 'student', studentId: nextPending.student_id });
+    } else {
+      flash('All trainee evaluations in this batch have been completed!');
     }
-
-    // For now, generate a simple text-based report (PDF generation would require a library like jsPDF)
-    const reportContent = `
-PERFORMANCE ASSESSMENT REPORT
-=============================
-Student: ${selectedStudent.name}
-Date: ${new Date().toLocaleDateString()}
-Batch: ${selectedBatch?.name || 'N/A'}
-Sport: ${selectedBatch?.sport?.name || 'N/A'}
-
-METRICS SCORES
---------------
-${attributes.map(attr => 
-  `${attr.name}: ${scores[attr.attribute_id] || 'Not rated'}/10`
-).join('\n')}
-
-AVERAGE RATING: ${getLiveSummary().average}
-GRADE: ${getLiveSummary().grade}
-
-COACH NOTES
------------
-${remarks || 'No notes provided'}
-    `.trim();
-
-    const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Report_${selectedStudent.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    
-    setMessage({ text: 'Report downloaded successfully', type: 'success' });
   };
 
-  const handleProposeAttribute = async (event) => {
-    event.preventDefault();
-    setMessage({ text: '', type: '' });
-    try {
-      const result = await coachPost('/coach/performance/attributes', {
-        sport_id: newAttributeForm.sport_id,
-        name: newAttributeForm.name.trim(),
-      });
-      setMessage({ text: result.message || 'Attribute proposed successfully!', type: 'success' });
-      setNewAttributeForm({ sport_id: '', name: '' });
-      setShowNewProposal(false);
-      if (selectedBatch && selectedBatch.sport_id) {
-        loadAttributes(selectedBatch.sport_id);
+  const handleViewTodayPending = () => {
+    setStatusFilter('pending');
+    setGlobalSearchQuery('');
+  };
+
+  const handlePrintBatchReport = () => {
+    window.print();
+  };
+
+  const handlePrintStudentReport = () => {
+    window.print();
+  };
+
+  const getRadarData = () => {
+    if (!studentAnalytics?.attributeProgress) return [];
+    return studentAnalytics.attributeProgress.map(p => ({
+      subject: p.attribute,
+      A: parseFloat(p.average),
+      fullMark: 10
+    }));
+  };
+
+  const getScatterData = () => {
+    return openBatchStudents.map(s => {
+      const metrics = getStudentMetrics(s.student_id);
+      return {
+        name: s.name,
+        attendance: s.attendance_percentage || 0,
+        rating: metrics.avgRating !== '—' ? parseFloat(metrics.avgRating) : 0
+      };
+    });
+  };
+
+  const getAttributeBreakdownData = () => {
+    if (!studentAnalytics?.attributeProgress) return [];
+    return studentAnalytics.attributeProgress.map(p => ({
+      name: p.attribute,
+      score: parseFloat(p.average)
+    }));
+  };
+
+  // Keyboard Navigation & Rating shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Avoid firing shortcuts when typing
+      if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT') {
+        if (e.ctrlKey && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          handleSaveScores();
+        }
+        return;
       }
-    } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
-    }
-    setTimeout(() => setMessage({ text: '', type: '' }), 4000);
+
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        if (prevStudent) {
+          requestNavigation({ type: 'student', studentId: prevStudent.student_id });
+        }
+      } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault();
+        if (nextStudent) {
+          requestNavigation({ type: 'student', studentId: nextStudent.student_id });
+        }
+      } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveScores();
+      } else if (hoveredAttrId) {
+        if (e.key >= '1' && e.key <= '9') {
+          handleScoreChange(hoveredAttrId, parseInt(e.key));
+        } else if (e.key === '0') {
+          handleScoreChange(hoveredAttrId, 10);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hoveredAttrId, scores, remarks, activeStudentId, activeBatchId, prevStudent, nextStudent]);
+
+  // Form completion progress helpers
+  const getFormCompletionProgress = () => {
+    const total = attributes.length;
+    if (total === 0) return 0;
+    const completed = Object.keys(scores).filter(id => attributes.some(a => a.attribute_id.toString() === id)).length;
+    return Math.round((completed / total) * 100);
   };
 
-  const handleSubmitWeeklyReport = async (event) => {
-    event.preventDefault();
-    setMessage({ text: '', type: '' });
-    setSubmitting(true);
+  // proposal handlers
+  const handleProposeFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!proposalForm.name.trim() || !proposalForm.sport_id) return;
     try {
-      const result = await coachPost('/coach/performance/weekly-performance', {
-        batch_id: selectedBatch?.batch_id,
-        week_start: weeklyReportData.week_start,
-        week_end: weeklyReportData.week_end,
-        summary: weeklyReportData.summary,
-        student_scores: Object.entries(scores).map(([attributeId, score]) => ({
-          attribute_id: parseInt(attributeId),
-          score,
-        })),
+      await coachPost('/coach/performance/attributes', {
+        sport_id: parseInt(proposalForm.sport_id),
+        name: proposalForm.name.trim()
       });
-      setMessage({ text: result.message || 'Weekly performance report submitted successfully!', type: 'success' });
-      setWeeklyReportData({ week_start: '', week_end: '', summary: '' });
-      setShowWeeklyReport(false);
-    } catch (error) {
-      // Weekly report submission is now optional - don't block the main workflow
-      setMessage({ text: 'Weekly report optional - main assessment recorded successfully', type: 'success' });
-    } finally {
-      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
-      setSubmitting(false);
+      flash('Proposed successfully!');
+      setShowProposal(false);
+      setProposalForm({ name: '', sport_id: '' });
+    } catch {
+      flash('Failed proposal', 'error');
     }
   };
 
-  const filteredBatches = batches.filter(b => b.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(studentSearch.toLowerCase()));
-  const filteredHistory = assessmentHistory.filter(a => {
-    const date = new Date(a.scored_at).toLocaleDateString();
-    return date.includes(historySearch) || (a.coach?.name || '').toLowerCase().includes(historySearch.toLowerCase());
-  });
-
-  // Animation variants
-  const viewVariants = {
-    hidden: { opacity: 0, x: -20 },
-    show: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 25, staggerChildren: 0.1 } },
-    exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15, scale: 0.98 },
-    show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
-  };
-
-  if (loading) {
-    return (
-      <div className="relative min-h-screen w-full bg-background p-4 sm:p-6 lg:p-8">
-        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background">
-          <div className="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full bg-emerald-100/40 dark:bg-emerald-900/10 blur-3xl"></div>
-          <div className="absolute bottom-[-10%] right-[-5%] w-[50vw] h-[50vw] rounded-full bg-amber-100/30 dark:bg-amber-900/10 blur-3xl"></div>
-        </div>
-        <div className="relative z-10 w-full max-w-7xl mx-auto space-y-6">
-          <div className="h-8 bg-surface rounded-xl animate-pulse"></div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1,2,3,4].map((i) => (
-              <div key={i} className="bg-card border border-border/80 p-5 rounded-2xl animate-pulse">
-                <div className="h-6 bg-surface rounded mb-2"></div>
-                <div className="h-8 bg-surface rounded"></div>
-              </div>
-            ))}
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[1,2,3,4,5,6,7,8].map((i) => (
-              <div key={i} className="bg-surface border border-border rounded-2xl p-6 animate-pulse">
-                <div className="w-10 h-10 bg-border rounded-full mb-4"></div>
-                <div className="h-6 bg-border rounded mb-2"></div>
-                <div className="h-4 bg-border rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const filteredBatches = useMemo(() => {
+    return batches;
+  }, [batches]);
 
   return (
-    <div className="relative min-h-screen w-full bg-background p-4 sm:p-6 lg:p-8">
+    <div className="w-full bg-transparent font-sans p-2 space-y-6 text-left print:bg-white print:p-0">
       
-      {/* BACKGROUND: Faded Colorful Shapes */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background">
-        <div className="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full bg-emerald-100/40 dark:bg-emerald-900/10 blur-3xl"></div>
-        <div className="absolute bottom-[-10%] right-[-5%] w-[50vw] h-[50vw] rounded-full bg-amber-100/30 dark:bg-amber-900/10 blur-3xl"></div>
+      {/* 1. Print output layout */}
+      <div className="hidden print:block text-slate-900 bg-white p-6 space-y-6">
+        <div className="border-b-2 border-slate-900 pb-4 text-center">
+          <h1 className="text-2xl font-black uppercase">SAMS SPORTS ACADEMY</h1>
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Athlete Performance Evaluation</h2>
+        </div>
+        {activeStudent && (
+          <div className="space-y-4 text-xs font-semibold">
+            <div className="grid grid-cols-2 gap-4 border border-slate-200 p-4 rounded-xl">
+              <div>Athlete Name: {activeStudent.name}</div>
+              <div>ID: #{activeStudent.student_id}</div>
+              <div>Batch: {activeBatch?.name || '—'}</div>
+              <div>Sport: {activeBatch?.sport?.name || '—'}</div>
+              <div>Rating average: {getStudentMetrics(activeStudent.student_id).avgRating}/10</div>
+            </div>
+            <table className="w-full border-collapse mt-4 text-left">
+              <thead>
+                <tr className="border-b border-slate-300 text-[10px] uppercase text-slate-500">
+                  <th className="py-2">Attribute</th>
+                  <th className="py-2">Category</th>
+                  <th className="py-2">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attributes.map(a => (
+                  <tr key={a.attribute_id} className="border-b border-slate-100">
+                    <td className="py-2">{a.name}</td>
+                    <td className="py-2">{categorizeAttribute(a.name)}</td>
+                    <td className="py-2 font-black">{scores[a.attribute_id] || 'Not Rated'}/10</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto space-y-6">
-        
-        {/* Global Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-6 text-left">
-          <div>
-            <h2 className="text-3xl font-black tracking-tight text-foreground">
-              Performance Analytics
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1 font-medium">
-              {selectedStudent 
-                ? `Evaluating ${selectedStudent.name} / ${selectedBatch.name}` 
-                : selectedBatch 
-                  ? `Select an athlete in ${selectedBatch.name} to track progress` 
-                  : "Track and manage athletic parameters and training statistics"}
-            </p>
+      {/* Regular client layouts */}
+      <div className="space-y-6 print:hidden">
+
+        {/* 2. Top Header Card with breadcrumb and details */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4"
+        >
+          {/* Breadcrumb row */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+              <button onClick={() => requestNavigation({ type: 'back_batches' })} className="hover:text-primary transition-colors">
+                Batches
+              </button>
+              {activeBatch && (
+                <>
+                  <ChevronRight className="w-3 h-3 text-slate-400" />
+                  <button onClick={() => requestNavigation({ type: 'back_students' })} className="hover:text-primary transition-colors">
+                    {activeBatch.name}
+                  </button>
+                </>
+              )}
+              {activeStudent && (
+                <>
+                  <ChevronRight className="w-3 h-3 text-slate-400" />
+                  <span className="text-foreground">{activeStudent.name}</span>
+                </>
+              )}
+              {activeAction && (
+                <>
+                  <ChevronRight className="w-3 h-3 text-slate-400" />
+                  <span className="text-primary font-black">{activeAction}</span>
+                </>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              {(activeBatchId || activeStudentId) && (
+                <button
+                  onClick={() => {
+                    if (activeAction) {
+                      requestNavigation({ type: 'back_students' });
+                    } else if (activeBatchId) {
+                      requestNavigation({ type: 'back_batches' });
+                    }
+                  }}
+                  className="btn btn-secondary text-xs flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Back
+                </button>
+              )}
+              <button onClick={() => setShowProposal(true)} className="btn btn-primary text-xs">
+                Propose Parameter
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Global Student Search */}
-            <div className="relative w-full md:w-96">
+
+          {/* Athlete Profile row details if evaluate / analytics is active */}
+          {activeStudent && (
+            <div className="flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/10 border border-border/80 rounded-xl p-3">
+              <Avatar src={activeStudent.profile_photo} name={activeStudent.name} size="lg" className="shrink-0" />
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-x-6 gap-y-1.5 flex-1 min-w-0 font-bold text-xs">
+                <div className="col-span-2">
+                  <h3 className="font-extrabold text-sm text-foreground truncate">{activeStudent.name}</h3>
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 block">Athlete ID: #{activeStudent.student_id}</span>
+                </div>
+                <div>
+                  <span className="text-slate-450 block text-[9px] uppercase">Sport</span>
+                  <span className="text-foreground">{activeBatch?.sport?.name || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-450 block text-[9px] uppercase">Batch</span>
+                  <span className="text-foreground">{activeBatch?.name || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-450 block text-[9px] uppercase">Age</span>
+                  <span className="text-foreground">{activeStudent.age || '—'} Yrs</span>
+                </div>
+                <div>
+                  <span className="text-slate-450 block text-[9px] uppercase">Gender</span>
+                  <span className="text-foreground">{activeStudent.gender || 'Male'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Top KPI Summary Dashboard */}
+        {!activeAction && (
+          <div className="grid grid-cols-2 lg:grid-cols-8 gap-3 text-left">
+            {[
+              { label: 'Total Batches', val: computedStats.totalBatches, icon: '📂' },
+              { label: 'Total Athletes', val: computedStats.totalAthletes, icon: '👥' },
+              { label: 'Evaluated Today', val: computedStats.evaluatedToday, icon: '✅', color: 'text-emerald-500' },
+              { label: 'Pending Evals', val: computedStats.pendingEvaluations, icon: '⏳', color: 'text-amber-500' },
+              { label: 'Avg Rating', val: computedStats.averagePerformance, icon: '⭐' },
+              { label: 'Attendance Today', val: computedStats.attendanceToday, icon: '📅' },
+              { label: 'Top Performer', val: computedStats.bestPerformingAthlete, icon: '🏆', color: 'text-emerald-505' },
+              { label: 'Needs Attention', val: computedStats.lowestPerformingAthlete, icon: '⚠️', color: 'text-rose-505' }
+            ].map((s, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.01 }}
+                className="bg-card border border-border p-3 rounded-2xl shadow-sm flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between text-[9px] font-black uppercase text-muted-foreground tracking-wider gap-1">
+                  <span>{s.label}</span>
+                  <span>{s.icon}</span>
+                </div>
+                <h3 className={`text-xs font-black mt-2.5 truncate ${s.color || 'text-foreground'}`}>{s.val}</h3>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {/* Global Search row */}
+        {!activeAction && (
+          <div className="bg-card border border-border rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm text-left">
+            <div className="flex-1 max-w-lg relative">
               <input
                 type="text"
-                placeholder="Search by name, ID, mobile, parent..."
-                value={globalStudentSearch}
-                onChange={(e) => {
-                  setGlobalStudentSearch(e.target.value);
-                  setShowStudentDropdown(e.target.value.length > 0);
-                }}
-                onFocus={() => setShowStudentDropdown(globalStudentSearch.length > 0)}
-                onBlur={() => setTimeout(() => setShowStudentDropdown(false), 200)}
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-sm"
+                placeholder="Global Student Search (Name, ID, Mobile, Parent Name)..."
+                value={globalSearchQuery}
+                onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                className="input-field text-xs py-2 pl-9 pr-4 bg-card w-full"
               />
-              {showStudentDropdown && filteredGlobalStudents.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
-                  {filteredGlobalStudents.slice(0, 10).map((student) => {
-                    const studentBatch = batches.find(b => b.students?.some(s => s.student_id === student.student_id));
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Filters:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input-field text-xs py-1.5 px-3 bg-card"
+              >
+                <option value="all">All Status</option>
+                <option value="completed">Completed Today</option>
+                <option value="pending">Pending Today</option>
+                <option value="needsupdate">Needs Update</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Search Results matching display */}
+        {isSearchActive && !activeAction && (
+          <div className="space-y-4 text-left">
+            <div className="flex justify-between items-center text-xs font-bold text-muted-foreground">
+              <span>Matching search results across all batches:</span>
+              <button onClick={() => setGlobalSearchQuery('')} className="text-primary underline">Clear Search</button>
+            </div>
+            {filteredStudents.length === 0 ? (
+              <div className="bg-card border border-border p-12 rounded-2xl text-center text-muted-foreground font-semibold text-xs">
+                No matching students found on current query.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {filteredStudents.map(student => {
+                  const m = getStudentMetrics(student.student_id);
+                  return (
+                    <div key={student.student_id} className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={student.profile_photo} name={student.name} size="md" />
+                        <div>
+                          <h4 className="font-extrabold text-sm text-foreground">{student.name}</h4>
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground block mt-0.5">ID: #{student.student_id}</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-4 text-[10px] font-bold text-muted-foreground">
+                        <div>Age: <span className="text-foreground">{student.age || '—'} Yrs</span></div>
+                        <div>Sport: <span className="text-foreground">{student.sport?.name || '—'}</span></div>
+                        <div>Attendance: <span className="text-foreground">{student.attendance_percentage || '0'}%</span></div>
+                        <div>Rating: <span className="text-foreground font-black text-emerald-600">{m.avgRating}/10</span></div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          onClick={() => {
+                            const b = batches.find(x => x.batch_id === student.batch_id || x.students?.some(s => s.student_id === student.student_id));
+                            if (b) {
+                              setSearchParams({ batch_id: b.batch_id, student_id: student.student_id, action: 'evaluate' });
+                            }
+                          }}
+                          className="btn btn-primary text-[10px] font-black uppercase flex-1 py-1.5"
+                        >
+                          Evaluate
+                        </button>
+                        <button
+                          onClick={() => {
+                            const b = batches.find(x => x.batch_id === student.batch_id || x.students?.some(s => s.student_id === student.student_id));
+                            if (b) {
+                              setSearchParams({ batch_id: b.batch_id, student_id: student.student_id, action: 'analytics' });
+                            }
+                          }}
+                          className="btn btn-secondary text-[10px] font-bold uppercase flex-1 py-1.5"
+                        >
+                          Analytics
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* BATCH GRID DISPLAY */}
+        {!activeBatchId && !isSearchActive && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {filteredBatches.map(batch => (
+              <motion.div
+                key={batch.batch_id}
+                whileHover={{ y: -3 }}
+                className="bg-card border border-border hover:border-emerald-450 transition-all rounded-2xl p-5 shadow-sm flex flex-col justify-between text-left"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="badge bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase px-2.5 py-0.5">
+                      {batch.sport?.name}
+                    </span>
+                    <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> {batch.timing}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-foreground tracking-tight mt-3">{batch.name}</h3>
+                  <div className="mt-3.5 space-y-2 text-[10px] font-semibold text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>Instructor:</span>
+                      <span className="text-foreground font-bold">Coach Hub</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Active Students:</span>
+                      <span className="text-foreground font-bold">{batch.students?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Completed Evals Today:</span>
+                      <span className="text-emerald-600 font-black">{batch.completedPercent || 0}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <button
+                    onClick={() => openBatchDetails(batch)}
+                    className="btn btn-primary w-full py-2 text-xs font-black uppercase"
+                  >
+                    Open Batch
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {/* SINGLE BATCH STUDENTS LIST DISPLAY */}
+        {activeBatchId && !activeStudentId && !isSearchActive && (
+          <div className="grid gap-6 lg:grid-cols-4 items-start">
+            <div className="lg:col-span-3 space-y-4">
+              <div className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-wrap gap-4 items-center justify-between text-left">
+                <div className="flex gap-2">
+                  <select
+                    value={ratingRangeFilter}
+                    onChange={(e) => setRatingRangeFilter(e.target.value)}
+                    className="input-field text-xs py-1.5 px-3 bg-card"
+                  >
+                    <option value="all">All ratings</option>
+                    <option value="low">Developing (&lt; 5.0)</option>
+                    <option value="medium">Proficient (5.0 - 8.0)</option>
+                    <option value="elite">Elite (&gt; 8.0)</option>
+                  </select>
+                  <select
+                    value={ageGroupFilter}
+                    onChange={(e) => setAgeGroupFilter(e.target.value)}
+                    className="input-field text-xs py-1.5 px-3 bg-card"
+                  >
+                    <option value="all">All Ages</option>
+                    <option value="u12">Under-12</option>
+                    <option value="u16">Under-16</option>
+                    <option value="u18">Under-18</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={handleContinuePending} className="btn btn-secondary text-xs">⚡ Continue Pending</button>
+                  <button onClick={handlePrintBatchReport} className="btn btn-secondary text-xs flex items-center gap-1">
+                    <Printer className="w-3.5 h-3.5" /> Print Roster
+                  </button>
+                </div>
+              </div>
+
+              {filteredStudents.length === 0 ? (
+                <div className="bg-card border border-border p-12 rounded-2xl text-center text-muted-foreground font-semibold text-xs">
+                  No matching student records found.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredStudents.map(student => {
+                    const m = getStudentMetrics(student.student_id);
                     return (
-                      <button
-                        key={student.student_id}
-                        onClick={() => handleGlobalStudentSelect(student)}
-                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors text-left border-b border-border/50 last:border-0"
-                      >
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md uppercase shrink-0">
-                          {student.name?.charAt(0) || '?'}
+                      <div key={student.student_id} className="bg-card border border-border rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-3 text-left">
+                            <Avatar src={student.profile_photo} name={student.name} size="md" />
+                            <div>
+                              <h4 className="font-extrabold text-sm text-foreground">{student.name}</h4>
+                              <p className="text-[9px] text-muted-foreground uppercase font-black tracking-wider mt-0.5">ID: #{student.student_id}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 mt-4 text-center text-[10px] font-black uppercase text-muted-foreground">
+                            <div className="bg-slate-50 dark:bg-slate-900/10 p-2.5 rounded-xl border border-border/80">
+                              <span>Attendance</span>
+                              <span className="text-foreground block mt-0.5">{student.attendance_percentage || '0'}%</span>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-900/10 p-2.5 rounded-xl border border-border/80">
+                              <span>Avg Rating</span>
+                              <span className="text-foreground block mt-0.5">{m.avgRating}</span>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-900/10 p-2.5 rounded-xl border border-border/80">
+                              <span>Assessments</span>
+                              <span className="text-foreground block mt-0.5">{m.totalEvals}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-foreground text-sm truncate">{student.name}</div>
-                          <div className="text-xs text-muted-foreground">ID: {student.student_id} • {studentBatch?.sport?.name || 'Unknown Sport'}</div>
-                          <div className="text-xs text-muted-foreground">Batch: {studentBatch?.name || 'Unknown'}</div>
+
+                        <div className="grid grid-cols-2 gap-2 mt-4">
+                          <button
+                            onClick={() => setSearchParams({ batch_id: activeBatchId, student_id: student.student_id, action: 'evaluate' })}
+                            className="btn btn-primary text-xs py-2 font-black uppercase"
+                          >
+                            Evaluate
+                          </button>
+                          <button
+                            onClick={() => setSearchParams({ batch_id: activeBatchId, student_id: student.student_id, action: 'analytics' })}
+                            className="btn btn-secondary text-xs py-2 font-bold uppercase"
+                          >
+                            Analytics
+                          </button>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
               )}
             </div>
-            {selectedBatch && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  if (selectedStudent) {
-                    setSelectedStudent(null);
-                  } else {
-                    setSelectedBatch(null);
-                  }
-                }}
-                className="px-4 py-2.5 text-xs font-bold bg-surface hover:bg-surface-secondary border border-border rounded-xl text-foreground flex items-center gap-2 shadow-sm shrink-0"
-              >
-                ← Back to {selectedStudent ? 'Athletes' : 'Batches'}
-              </motion.button>
-            )}
-          </div>
-        </div>
-        {/* Global Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-left">
-          {/* Total Athletes Card */}
-          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Athletes</span>
-              <span className="text-xl">👥</span>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-foreground">
-                {selectedBatch ? students.length : batches.reduce((acc, b) => acc + (b.students?.length || 0), 0)}
+
+            <div className="space-y-4">
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm text-left space-y-4">
+                <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2">Roster Quick Actions</h3>
+                <div className="space-y-2 text-xs font-bold">
+                  <button onClick={handleContinuePending} className="btn btn-secondary w-full justify-start py-2.5 px-3 flex gap-2">⏳ Continue Pending</button>
+                  <button onClick={handleViewTodayPending} className="btn btn-secondary w-full justify-start py-2.5 px-3 flex gap-2">📅 View Today's Pending</button>
+                  <button onClick={handlePrintBatchReport} className="btn btn-secondary w-full justify-start py-2.5 px-3 flex gap-2">📄 Export Batch Report</button>
+                </div>
               </div>
-              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
-                {selectedBatch ? `Active: ${selectedBatch.name}` : "Across all assigned batches"}
-              </span>
             </div>
           </div>
+        )}
 
-          {/* Completed Evaluations Card */}
-          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Scored Today</span>
-              <span className="text-xl">🟢</span>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-foreground">
-                {selectedBatch ? (dailyLock?.locked ? 1 : 0) : 0}
+        {/* VIEW 3: REDESIGNED EVALUATION PAGE (SCORING LEDGER + TEXTAREA + STICKY BAR) */}
+        {activeStudent && activeAction === 'evaluate' && (
+          <div ref={evaluationPageRef} className="max-w-4xl mx-auto space-y-6 text-left">
+            
+            {/* Real Progress indicator bar */}
+            <div className="bg-card border border-border rounded-2xl p-4.5 shadow-sm space-y-2">
+              <div className="flex justify-between items-center text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
+                <span>Evaluation Completeness</span>
+                <span className="text-primary font-black">{Object.keys(scores).length} / {attributes.length} Parameters Rated</span>
               </div>
-              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
-                {selectedBatch ? `Active student: ${selectedStudent ? selectedStudent.name : 'None selected'}` : 'Select a batch to evaluate'}
-              </span>
-            </div>
-          </div>
-
-          {/* Metrics Card */}
-          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sport Metrics</span>
-              <span className="text-xl">📊</span>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-foreground">
-                {selectedBatch ? attributes.length : 0}
-              </div>
-              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
-                {selectedBatch ? `For: ${selectedBatch.sport?.name || 'Assigned Sport'}` : 'No batch selected'}
-              </span>
-            </div>
-          </div>
-
-          {/* Average Rating Card */}
-          <div className="bg-card border border-border/80 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Average Rating</span>
-              <span className="text-xl">⭐</span>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-foreground">
-                {selectedStudent ? getLiveSummary().average : '0.0'}
-              </div>
-              <span className="text-[10px] text-muted-foreground font-bold block mt-1">
-                {selectedStudent ? `Estimated Grade: ${getLiveSummary().grade}` : 'Select student to view score'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Global Alert */}
-        <AnimatePresence>
-          {message.text && (
-            <motion.div 
-              initial={{ opacity: 0, y: -20, scale: 0.95 }} 
-              animate={{ opacity: 1, y: 0, scale: 1 }} 
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              className={`fixed top-6 right-6 z-50 rounded-xl px-6 py-4 shadow-xl border flex items-center gap-3 font-bold ${
-                message.type === 'success' 
-                  ? 'bg-white dark:bg-card border-l-4 border-l-emerald-500 text-emerald-600 dark:text-emerald-400 border-y-border border-r-border' 
-                  : 'bg-white dark:bg-card border-l-4 border-l-red-500 text-red-600 dark:text-red-400 border-y-border border-r-border'
-              }`}
-            >
-              <span className="text-xl">{message.type === 'success' ? '🎯' : '⚠️'}</span>
-              {message.text}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Dynamic Drill-down Views */}
-        <AnimatePresence mode="wait">
-          
-          {/* VIEW 1: BATCH SELECTION */}
-          {!selectedBatch && (
-            <motion.div key="view-batches" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
-              
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border/80 p-4 rounded-2xl shadow-sm text-left">
-                <span className="text-sm font-bold text-foreground">Filter Batches</span>
-                <input
-                  type="text"
-                  placeholder="Search batches by name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full md:max-w-xs"
+              <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  style={{ width: `${getFormCompletionProgress()}%` }}
+                  className="h-full bg-emerald-500 transition-all duration-300"
                 />
               </div>
+            </div>
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredBatches.length > 0 ? (
-                  filteredBatches.map((batch, idx) => {
-                    const theme = BATCH_COLORS[idx % BATCH_COLORS.length];
-                    return (
-                      <motion.button
-                        key={batch.batch_id}
-                        variants={itemVariants}
-                        whileHover={{ y: -4, scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleBatchSelect(batch)}
-                        className={`text-left rounded-2xl p-6 border shadow-sm transition-all duration-300 relative overflow-hidden group ${theme.bg} ${theme.border} ${theme.hover}`}
-                      >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-4 ${theme.icon}`}>
-                          <span className="text-lg font-black">{(batch.name).charAt(0).toUpperCase()}</span>
-                        </div>
-                        <h3 className={`text-xl font-black tracking-tight mb-2 ${theme.text}`}>
-                          {batch.name}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-4 text-xs font-bold text-muted-foreground">
-                          <span className="bg-background/80 px-2.5 py-1 rounded shadow-sm border border-border/50">
-                            👥 {batch.students?.length || 0} Trainees</span>
-                        </div>
-                        <div className="flex gap-2 mt-4">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) => { e.stopPropagation(); handleBatchSelect(batch); }}
-                            className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-background/80 hover:bg-background border border-border/50 rounded-lg transition-colors"
-                          >
-                            View Students
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) => { e.stopPropagation(); handleBatchSelect(batch); }}
-                            className="flex-1 px-3 py-1.5 text-[10px] font-bold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors"
-                          >
-                            Continue
-                          </motion.button>
-                        </div>
-                      </motion.button>
-                    )
-                  })
-                ) : (
-                  <div className="col-span-full py-16 text-center bg-surface border border-dashed border-border rounded-2xl">
-                    <span className="text-4xl opacity-50 block mb-3">🏟️</span>
-                    <p className="text-foreground font-bold">No assigned batches matching search criteria</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* VIEW 2: STUDENT SELECTION IN BATCH */}
-          {selectedBatch && !selectedStudent && (
-            <motion.div key="view-students" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-6">
+            {/* Compact Parameters list */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm relative">
+              <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
               
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border border-border/80 p-4 rounded-2xl shadow-sm text-left">
-                <span className="text-sm font-bold text-foreground">Filter Athletes</span>
-                <input
-                  type="text"
-                  placeholder="Search athletes by name..."
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full md:max-w-xs"
-                />
+              <div className="p-4 border-b border-border bg-slate-50/50 dark:bg-slate-900/10 flex items-center justify-between">
+                <h3 className="text-xs font-black text-foreground uppercase tracking-widest">Grading Ledger Matrix</h3>
+                <span className="text-[9px] font-black bg-primary/10 text-primary border border-primary/20 rounded px-2.5 py-0.5 uppercase">
+                  Keyboard rating: Hover + [1-9, 0]
+                </span>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredStudents.length > 0 ? (
-                  filteredStudents.map((student) => (
-                    <motion.button
-                      key={student.student_id}
-                      variants={itemVariants}
-                      whileHover={{ y: -4, scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleStudentSelect(student)}
-                      className="group relative rounded-2xl border border-border bg-surface hover:border-emerald-400 p-5 text-left transition-all duration-300 shadow-sm hover:shadow-[0_8px_20px_rgba(16,185,129,0.1)] flex items-center gap-4"
-                    >
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-black bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md uppercase shrink-0 transition-all duration-300">
-                        {student.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-extrabold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors text-base tracking-tight truncate">
-                          {student.name}
-                        </div>
-                        <div className="text-muted-foreground mt-0.5 text-[10px] font-bold uppercase tracking-wider truncate">
-                          {student.sport?.name || selectedBatch.sport?.name}
-                        </div>
-                        <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                          Active Athlete
-                        </span>
-                      </div>
-                    </motion.button>
-                  ))
-                ) : (
-                  <div className="col-span-full py-16 text-center bg-surface border border-dashed border-border rounded-2xl">
-                    <span className="text-4xl opacity-50 block mb-3">🚷</span>
-                    <p className="text-foreground font-bold">No athletes found matching search criteria</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
+              <div className="p-4 space-y-5 bg-card">
+                {['Fitness', 'Technique', 'Mental'].map((category) => {
+                  const catAttrs = attributes.filter(a => categorizeAttribute(a.name) === category);
+                  if (catAttrs.length === 0) return null;
 
-          {/* VIEW 3: METRICS SCORING LEDGER */}
-          {selectedBatch && selectedStudent && (
-            <motion.div key="view-scoring" variants={viewVariants} initial="hidden" animate="show" exit="exit" className="space-y-4 text-left">
-              
-              <div className="flex items-center justify-between gap-3 bg-card border border-border/80 p-4 rounded-2xl shadow-sm">
-                <span className="text-sm font-bold text-foreground">Action Console</span>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowHistory(!showHistory)}
-                  className="bg-primary hover:bg-primary/95 text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2"
-                >
-                  📋 {showHistory ? 'Hide Assessment History' : 'View Assessment History'}
-                </motion.button>
-              </div>
+                  return (
+                    <div key={category} className="space-y-2.5">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-border/80 pb-1">{category} Focus Parameters</h4>
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {catAttrs.map(attr => {
+                          const val = scores[attr.attribute_id] || 0;
+                          const isFilled = val > 0;
+                          const prevScoreObj = previousAssessment?.scores?.find(s => s.attribute.attribute_id === attr.attribute_id);
+                          const prevValue = prevScoreObj ? prevScoreObj.score : null;
 
-              {/* Assessment History */}
-              <AnimatePresence>
-                {showHistory && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm"
-                  >
-                    <div className="p-4 border-b border-border/50 bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-sm font-black tracking-tight text-foreground">
-                          Assessment History
-                        </h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Click on any record below to load details
-                        </p>
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Search Date or Evaluator..."
-                        value={historySearch}
-                        onChange={(e) => setHistorySearch(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full md:max-w-xs animate-none"
-                      />
-                    </div>
-                    <div className="p-4">
-                      {loadingHistory ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                        </div>
-                      ) : filteredHistory.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p className="text-sm font-bold">No historical assessments found matching search</p>
-                        </div>
-                      ) : (
-                        <div className="max-h-[300px] overflow-y-auto relative rounded-xl border border-border">
-                          <table className="w-full text-left border-collapse text-xs">
-                            <thead className="bg-surface sticky top-0 z-20 border-b border-border">
-                              <tr>
-                                <th className="p-3 font-bold text-muted-foreground">Grade</th>
-                                <th className="p-3 font-bold text-muted-foreground">Date</th>
-                                <th className="p-3 font-bold text-muted-foreground">Evaluator</th>
-                                <th className="p-3 font-bold text-muted-foreground text-center">Score</th>
-                                <th className="p-3 font-bold text-muted-foreground text-center">Metrics Rated</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/50">
-                              {filteredHistory.map((assessment) => {
-                                const avgRating = calculateAverageRating(assessment.scores);
-                                const grade = calculateGrade(parseFloat(avgRating));
-                                const date = new Date(assessment.scored_at).toLocaleDateString();
-                                
-                                return (
-                                  <tr
-                                    key={assessment.assessment_id}
-                                    onClick={() => handleAssessmentClick(assessment)}
-                                    className="hover:bg-surface-secondary/55 cursor-pointer transition-colors"
-                                  >
-                                    <td className="p-3">
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
-                                        grade.startsWith('A') ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-250 dark:border-emerald-900/30' :
-                                        grade.startsWith('B') ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-250 dark:border-blue-900/30' :
-                                        'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-border'
-                                      }`}>
-                                        {grade}
-                                      </span>
-                                    </td>
-                                    <td className="p-3 font-semibold text-foreground">{date}</td>
-                                    <td className="p-3 text-muted-foreground">{assessment.coach?.name || 'Coach'}</td>
-                                    <td className="p-3 text-center font-extrabold text-foreground">{avgRating} / 10</td>
-                                    <td className="p-3 text-center text-muted-foreground font-medium">{assessment.scores?.length || 0}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                          return (
+                            <div
+                              key={attr.attribute_id}
+                              onMouseEnter={() => setHoveredAttrId(attr.attribute_id)}
+                              onMouseLeave={() => setHoveredAttrId(null)}
+                              className={`p-3 rounded-xl border transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                                isFilled ? 'bg-slate-50/50 dark:bg-slate-900/10 border-border' : 'bg-card border-dashed border-border/60 hover:border-amber-450'
+                              }`}
+                            >
+                              <div className="min-w-[150px]">
+                                <span className="text-xs font-extrabold text-foreground">{attr.name}</span>
+                                <div className="flex gap-2.5 mt-0.5 text-[9px] font-semibold text-slate-400 uppercase">
+                                  <span>Prev: {prevValue !== null ? `${prevValue}/10` : '—'}</span>
+                                  {isFilled && (
+                                    <>
+                                      <span>|</span>
+                                      <span className="text-primary font-bold">Level: {getScoreLabel(val)}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
 
-              {/* Live Assessment Summary */}
-              <AnimatePresence>
-                {showLiveSummary && selectedStudent && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-border rounded-2xl p-5"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-black text-foreground">Live Assessment Summary</h3>
-                      <button
-                        onClick={() => setShowLiveSummary(false)}
-                        className="text-muted-foreground hover:text-foreground text-xs font-bold"
-                      >
-                        Hide Panel
-                      </button>
-                    </div>
-                    <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
-                        <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                          {getLiveSummary().completed}/{getLiveSummary().total}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-wider">Metrics Scored</div>
-                      </div>
-                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
-                        <div className="text-xl font-black text-blue-600 dark:text-blue-400">
-                          {getLiveSummary().average}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground mt-1 font-bold uppercase tracking-wider">Average Rating</div>
-                      </div>
-                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
-                        <div className="text-xs font-black text-purple-600 dark:text-purple-400 truncate">
-                          {getLiveSummary().highest || '-'}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground mt-1.5 font-bold uppercase tracking-wider">Highest Metric</div>
-                      </div>
-                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
-                        <div className="text-xs font-black text-amber-600 dark:text-amber-400 truncate">
-                          {getLiveSummary().lowest || '-'}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground mt-1.5 font-bold uppercase tracking-wider">Lowest Metric</div>
-                      </div>
-                      <div className="bg-surface rounded-xl p-4 text-center border border-border/50">
-                        <div className="text-2xl font-black text-emerald-600 dark:text-emerald-455">
-                          {getLiveSummary().grade}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">Est. Grade</div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div className="grid gap-6 lg:grid-cols-3 items-start">
-                
-                {/* Core Scoring Ledger */}
-                <div className="bg-card shadow-sm rounded-2xl border border-border lg:col-span-2 overflow-hidden flex flex-col relative">
-                  <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
-                  
-                  <div className="p-5 border-b border-border/50 bg-surface/30">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-black tracking-tight text-foreground">
-                          Metrics Scoring Ledger
-                        </h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">Rate parameters from 1 (developing) to 10 (elite)</p>
-                      </div>
-                      {dailyLock && dailyLock.locked && (
-                        <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-955/50 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-900/50">
-                          <span className="text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-wider">
-                            🔒 Daily Lock Active
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {dailyLock && dailyLock.locked && (
-                      <p className="text-xs text-muted-foreground mt-2 font-medium">
-                        Evaluation finalized at: {new Date(dailyLock.scored_at).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="p-5 space-y-5 bg-background/30 flex-1">
-                    {attributes.length > 0 ? attributes.map((attr) => {
-                      const currentScore = scores[attr.attribute_id] || 0;
-                      const fillWidth = currentScore === 0 ? 0 : ((currentScore - 1) / 9) * 100;
-
-                      return (
-                        <motion.div
-                          variants={itemVariants}
-                          key={attr.attribute_id}
-                          className="bg-card border border-border hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors duration-300 rounded-2xl p-5 shadow-sm"
-                        >
-                          <div className="flex justify-between items-end mb-4">
-                            <div>
-                              <label className="text-base font-extrabold tracking-tight text-foreground">{attr.name}</label>
-                              <div className="text-muted-foreground mt-0.5 text-[10px] font-bold uppercase tracking-wider">
-                                {attr.sport?.name || selectedBatch.sport?.name} Score Node
+                              <div className="flex items-center gap-1.5">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
+                                  const isActive = val >= num;
+                                  const isSelected = val === num;
+                                  return (
+                                    <button
+                                      key={num}
+                                      type="button"
+                                      disabled={submitting || dailyLock?.locked}
+                                      onClick={() => handleScoreChange(attr.attribute_id, num)}
+                                      className={`w-6 h-6 rounded-full border text-[9px] font-black flex items-center justify-center transition-all ${
+                                        isSelected
+                                          ? 'bg-amber-450 border-amber-450 text-slate-950 scale-110 shadow-[0_0_10px_rgba(245,158,11,0.6)] font-extrabold'
+                                          : isActive
+                                            ? 'bg-amber-450/30 border-amber-400/25 text-foreground'
+                                            : 'bg-card text-muted-foreground border-border'
+                                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                      {num}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
-                            <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                              {currentScore ? `${currentScore}` : '-'} <span className="text-xs text-muted-foreground font-semibold">/ 10</span>
-                            </span>
-                          </div>
-
-                          {/* Linear Node Scorer */}
-                          <div className="relative w-full pt-3 pb-1.5 px-2.5">
-                            {/* Track Line */}
-                            <div className="absolute top-1/2 left-[3%] right-[3%] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full -translate-y-1/2 z-0"></div>
-                            
-                            {/* Active Line */}
-                            <motion.div
-                              className="absolute top-1/2 left-[3%] h-1.5 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full -translate-y-1/2 z-0 origin-left"
-                              initial={{ width: 0 }}
-                              animate={{ width: `${fillWidth * 0.94}%` }}
-                              transition={{ type: "spring", stiffness: 200, damping: 25 }}
-                            ></motion.div>
-
-                            {/* Nodes */}
-                            <div className="relative z-10 flex justify-between">
-                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => {
-                                const isSelected = currentScore >= val;
-                                const isExactlySelected = currentScore === val;
-                                return (
-                                  <motion.button
-                                    key={val}
-                                    type="button"
-                                    disabled={submitting || (dailyLock && dailyLock.locked)}
-                                    whileHover={{ scale: 1.25 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => handleScoreChange(attr.attribute_id, val)}
-                                    className={`relative w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-black transition-all duration-300 outline-none ${
-                                      isSelected
-                                        ? 'bg-amber-400 border-amber-400 text-amber-950 shadow-[0_0_12px_rgba(251,191,36,0.6)]'
-                                        : 'bg-surface border-border text-muted-foreground hover:border-amber-300 dark:bg-slate-900'
-                                    } ${isExactlySelected ? 'ring-4 ring-amber-400/30' : ''} ${(dailyLock && dailyLock.locked) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  >
-                                    {val}
-                                  </motion.button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between mt-2.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider px-2">
-                            <span>Developing (1-3)</span>
-                            <span>Proficient (4-7)</span>
-                            <span>Elite (8-10)</span>
-                          </div>
-                        </motion.div>
-                      );
-                    }) : (
-                      <div className="py-12 text-center border border-dashed border-border rounded-xl">
-                        <p className="text-muted-foreground text-sm font-bold">No active performance attributes assigned to this sport.</p>
+                          );
+                        })}
                       </div>
-                    )}
-                  </div>
-                  
-                  {/* Save Button */}
-                  <div className="p-4 border-t border-border/50 bg-surface/30">
-                    <motion.button
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      type="button"
-                      onClick={handleSubmitScores}
-                      disabled={submitting || (dailyLock && dailyLock.locked)}
-                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 rounded-xl py-3.5 text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
-                    >
-                      {dailyLock && dailyLock.locked ? '🔒 Assessment Locked' : submitting ? 'Saving Evaluated Scores...' : '💾 Save Athlete Evaluation'}
-                    </motion.button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tactical remarks textarea moved below all parameters full width */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-3">
+              <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2 flex justify-between items-center">
+                <span>📝 Tactical Observations & remarks</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Sent to Parent Inbox</span>
+              </h3>
+              <textarea
+                value={remarks}
+                onChange={(e) => handleRemarksChange(e.target.value)}
+                disabled={submitting || dailyLock?.locked}
+                placeholder="Detail trainee progress, tactical recommendations, notes, etc..."
+                rows={3}
+                className="input-field text-xs p-3.5 bg-card w-full font-bold focus:ring-2 focus:ring-primary/20 outline-none resize-y"
+              />
+              <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground mt-1">
+                <input
+                  type="checkbox"
+                  id="autoNav"
+                  checked={autoNavigateNext}
+                  onChange={(e) => setAutoNavigateNext(e.target.checked)}
+                  className="rounded border-border text-primary focus:ring-primary/20 w-3.5 h-3.5 cursor-pointer"
+                />
+                <label htmlFor="autoNav" className="cursor-pointer">Automatically navigate to next athlete after saving score</label>
+              </div>
+            </div>
+
+            {/* 3. STICKY BOTTOM NAVIGATION BAR */}
+            <div className="sticky bottom-0 z-40 bg-card/90 backdrop-blur border border-border p-4 shadow-2xl flex items-center justify-between rounded-2xl">
+              <button
+                onClick={() => requestNavigation({ type: 'student', studentId: prevStudent.student_id })}
+                disabled={!prevStudent}
+                className="btn btn-secondary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Previous Student
+              </button>
+              <div className="text-xs font-black text-muted-foreground uppercase tracking-widest">
+                Student {currentIndex + 1} of {currentList.length}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveScores}
+                  disabled={submitting || dailyLock?.locked}
+                  className="btn btn-primary text-xs py-2 px-6 uppercase font-black tracking-wider flex items-center gap-1"
+                >
+                  <Save className="w-3.5 h-3.5" /> Save Score
+                </button>
+                <button
+                  onClick={() => requestNavigation({ type: 'student', studentId: nextStudent.student_id })}
+                  disabled={!nextStudent}
+                  className="btn btn-secondary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next Student →
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* VIEW 4: VIEW ANALYTICS FLOW */}
+        {activeStudent && activeAction === 'analytics' && (
+          <div className="grid gap-6 lg:grid-cols-3 items-start text-left">
+            <div className="lg:col-span-2 space-y-6">
+              
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5">
+                <h3 className="text-sm font-black uppercase text-foreground border-b border-border pb-2 flex items-center justify-between">
+                  <span>Athlete Overview Analytics</span>
+                  <button onClick={handlePrintStudentReport} className="btn btn-secondary text-xs py-1 px-3 flex gap-1 items-center">
+                    <Printer className="w-3.5 h-3.5" /> Print Report
+                  </button>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {getRadarData().length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground block text-center">Attribute Radar breakdown</span>
+                      <div className="h-48 w-full flex justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="70%" data={getRadarData()}>
+                            <PolarGrid stroke="#444" />
+                            <PolarAngleAxis dataKey="subject" stroke="#888" fontSize={8} />
+                            <PolarRadiusAxis angle={30} domain={[0, 10]} stroke="#444" fontSize={8} />
+                            <Radar name="Athlete" dataKey="A" stroke="#84cc16" fill="#84cc16" fillOpacity={0.4} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {studentAnalytics?.graphData?.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground block text-center">Rating Trend Over Time</span>
+                      <div className="h-44 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={studentAnalytics.graphData} margin={{ top: 10, right: 10, bottom: 5, left: -25 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" stroke="#888" fontSize={8} />
+                            <YAxis domain={[0, 10]} stroke="#888" fontSize={9} />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="overall" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border/60">
+                  {getAttributeBreakdownData().length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground block text-center">Average ratings per metric</span>
+                      <div className="h-44 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={getAttributeBreakdownData()} margin={{ top: 10, right: 10, bottom: 5, left: -25 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="name" stroke="#888" fontSize={8} tickFormatter={(v) => v.slice(0, 8)} />
+                            <YAxis domain={[0, 10]} stroke="#888" fontSize={9} />
+                            <Tooltip />
+                            <Bar dataKey="score" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground block text-center">Attendance vs Performance correlation</span>
+                    <div className="h-44 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart margin={{ top: 10, right: 10, bottom: 5, left: -25 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis type="number" dataKey="attendance" name="Attendance" unit="%" stroke="#888" fontSize={9} />
+                          <YAxis type="number" dataKey="rating" name="Rating" unit="/10" domain={[0, 10]} stroke="#888" fontSize={9} />
+                          <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                          <Scatter name="Roster Athletes" data={getScatterData()} fill="#84cc16" />
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Column Action Panels */}
-                <div className="space-y-4">
-                  
-                  {/* Feedback Panel */}
-                  <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
-                    <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
-                    <div className="p-4 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                        📝 Session Feedback & Remarks
-                      </h3>
-                    </div>
-                    <div className="p-4 space-y-4">
-                      <textarea
-                        id="coachRemarks"
-                        rows={4}
-                        className="w-full text-xs p-3.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none resize-none transition-all placeholder:text-muted-foreground/50 font-medium"
-                        placeholder="Add tactical progress notes, recommendations, or private feedback..."
-                        value={remarks}
-                        disabled={submitting || (dailyLock && dailyLock.locked)}
-                        onChange={(e) => setRemarks(e.target.value)}
-                      />
+              </div>
 
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        type="button"
-                        onClick={handleDownloadReport}
-                        disabled={submitting}
-                        className="w-full border border-border bg-surface hover:bg-surface-secondary text-foreground rounded-xl py-3 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
-                      >
-                        📄 Download Text Performance Report
-                      </motion.button>
-                    </div>
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+                <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2">Coach Evaluation Timeline Remarks</h3>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {assessmentHistory.filter(h => h.notes).length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic font-semibold">No remarks logs recorded.</p>
+                  ) : (
+                    assessmentHistory.filter(h => h.notes).map((item, idx) => (
+                      <div key={idx} className="p-3.5 bg-slate-50/50 dark:bg-slate-900/10 rounded-xl border border-border text-xs font-semibold">
+                        <div className="flex justify-between items-center mb-1 text-[10px] text-muted-foreground font-black uppercase">
+                          <span>Evaluated on: {new Date(item.scored_at).toLocaleDateString()}</span>
+                          <span>Coach: {item.coach?.name || 'Assigned Coach'}</span>
+                        </div>
+                        <p className="italic text-foreground">"{item.notes}"</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm text-left space-y-4">
+                <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2">Trainee Strengths & weaknesses</h3>
+                <div className="space-y-3 font-semibold text-xs">
+                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                    <span className="text-[9px] uppercase tracking-wider font-black text-emerald-600 block mb-0.5">Primary Strength Area</span>
+                    <span className="text-foreground">
+                      {studentAnalytics?.attributeProgress?.sort((a,b)=>b.average-a.average)[0]?.attribute || 'None'}
+                    </span>
                   </div>
-
-                  {/* Tools Panel */}
-                  <div className="bg-card shadow-sm rounded-2xl border border-border overflow-hidden relative">
-                    <span className="absolute top-0 left-0 w-full h-1 bg-purple-500"></span>
-                    <div className="p-4 border-b border-border/50 bg-surface/30">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                        Coach Administration Tools
-                      </h3>
-                    </div>
-                    
-                    <div className="divide-y divide-border/50 text-left">
-                      {/* Propose Metric */}
-                      <div className="p-4">
-                        <button
-                          type="button"
-                          onClick={() => setShowNewProposal(!showNewProposal)}
-                          className="flex items-center justify-between w-full text-left"
-                        >
-                          <span className="text-xs font-extrabold text-foreground">Propose New Parameter</span>
-                          <span className="text-[10px] text-muted-foreground font-black">{showNewProposal ? '▲' : '▼'}</span>
-                        </button>
-                        <AnimatePresence>
-                          {showNewProposal && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <form className="pt-4 space-y-4" onSubmit={handleProposeAttribute}>
-                                <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Sport Scope</label>
-                                  <select
-                                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/75 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
-                                    value={newAttributeForm.sport_id}
-                                    onChange={(e) => setNewAttributeForm({ ...newAttributeForm, sport_id: e.target.value })}
-                                    required
-                                  >
-                                    <option value="">Select Sport Scope</option>
-                                    {selectedBatch.sport && <option value={selectedBatch.sport_id}>{selectedBatch.sport?.name}</option>}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Proposed Parameter Name</label>
-                                  <input
-                                    type="text"
-                                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/75 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
-                                    placeholder="e.g. Backhand Spin, Reaction Time"
-                                    value={newAttributeForm.name}
-                                    onChange={(e) => setNewAttributeForm({ ...newAttributeForm, name: e.target.value })}
-                                    required
-                                  />
-                                </div>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full bg-purple-500 hover:bg-purple-600 text-white font-black text-xs py-2.5 rounded-xl transition-all shadow-sm uppercase tracking-wider">
-                                  Submit Proposal Request
-                                </motion.button>
-                              </form>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Weekly Report */}
-                      <div className="p-4">
-                        <button
-                          type="button"
-                          onClick={() => setShowWeeklyReport(!showWeeklyReport)}
-                          className="flex items-center justify-between w-full text-left"
-                        >
-                          <span className="text-xs font-extrabold text-foreground">Weekly Summary Report</span>
-                          <span className="text-[10px] text-muted-foreground font-black">{showWeeklyReport ? '▲' : '▼'}</span>
-                        </button>
-                        <AnimatePresence>
-                          {showWeeklyReport && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <form className="pt-4 space-y-4" onSubmit={handleSubmitWeeklyReport}>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Start Date</label>
-                                    <input
-                                      type="date"
-                                      className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
-                                      value={weeklyReportData.week_start}
-                                      onChange={(e) => setWeeklyReportData({ ...weeklyReportData, week_start: e.target.value })}
-                                      required
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">End Date</label>
-                                    <input
-                                      type="date"
-                                      className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold"
-                                      value={weeklyReportData.week_end}
-                                      onChange={(e) => setWeeklyReportData({ ...weeklyReportData, week_end: e.target.value })}
-                                      required
-                                    />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Weekly Summary</label>
-                                  <textarea
-                                    rows={3}
-                                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/75 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-semibold resize-none"
-                                    placeholder="Detail overall progress and key session observations..."
-                                    value={weeklyReportData.summary}
-                                    onChange={(e) => setWeeklyReportData({ ...weeklyReportData, summary: e.target.value })}
-                                    required
-                                  />
-                                </div>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={submitting} className="w-full bg-purple-500 hover:bg-purple-600 text-white font-black text-xs py-2.5 rounded-xl transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider">
-                                  {submitting ? 'Submitting Report...' : 'Publish Weekly Report'}
-                                </motion.button>
-                              </form>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
+                  <div className="p-3 bg-rose-500/5 border border-rose-500/20 rounded-xl">
+                    <span className="text-[9px] uppercase tracking-wider font-black text-rose-600 block mb-0.5">Development Need Area</span>
+                    <span className="text-foreground">
+                      {studentAnalytics?.attributeProgress?.sort((a,b)=>a.average-b.average)[0]?.attribute || 'None'}
+                    </span>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
 
-        </AnimatePresence>
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm text-left space-y-4">
+                <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2">Recent Evaluations List</h3>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {loadingHistory ? (
+                    <div className="py-4 text-center text-xs text-muted-foreground font-semibold">Loading history logs...</div>
+                  ) : assessmentHistory.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic font-semibold">No assessments recorded.</p>
+                  ) : (
+                    assessmentHistory.slice(0, 10).map((item, idx) => {
+                      const avg = item.scores && item.scores.length > 0
+                        ? (item.scores.reduce((acc, s) => acc + s.score, 0) / item.scores.length).toFixed(1)
+                        : '0.0';
+                      return (
+                        <div key={idx} className="p-2.5 bg-slate-50/50 dark:bg-slate-900/10 rounded-xl border border-border flex justify-between items-center text-xs font-bold">
+                          <div>
+                            <span className="text-[9px] text-muted-foreground block font-bold uppercase">{new Date(item.scored_at).toLocaleDateString()}</span>
+                            <span className="text-foreground">{item.scores?.length || 0} attributes evaluated</span>
+                          </div>
+                          <span className="text-xs font-black text-primary">★ {avg}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
+
+      {/* 4. UNSAVED CHANGES GUARD WARNING MODAL */}
+      <AnimatePresence>
+        {showUnsavedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border border-border rounded-3xl max-w-sm w-full shadow-2xl p-6 relative space-y-4 text-left font-sans"
+            >
+              <h3 className="text-base font-black text-foreground">You have unsaved changes</h3>
+              <p className="text-xs text-muted-foreground font-semibold">
+                You have modified the ratings or tactical remarks. Navigating away now will discard these adjustments.
+              </p>
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  onClick={handleSaveAndContinueUnsaved}
+                  className="btn btn-primary text-xs py-2 w-full uppercase font-black"
+                >
+                  Save & Continue
+                </button>
+                <button
+                  onClick={handleDiscardUnsaved}
+                  className="btn btn-secondary text-xs py-2 w-full uppercase font-bold text-rose-650"
+                >
+                  Discard Changes
+                </button>
+                <button
+                  onClick={() => setShowUnsavedModal(false)}
+                  className="btn btn-secondary text-xs py-2 w-full uppercase font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PROPOSAL MODAL */}
+      <AnimatePresence>
+        {showProposal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border border-border rounded-3xl max-w-md w-full shadow-2xl p-6 relative space-y-4 text-left font-sans"
+            >
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <h3 className="text-base font-black text-foreground">Propose Performance Parameter</h3>
+                <button
+                  onClick={() => setShowProposal(false)}
+                  className="p-1 text-slate-400 hover:text-foreground rounded-full"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleProposeFormSubmit} className="space-y-4 text-xs font-bold">
+                <div>
+                  <label className="block text-xs text-muted-foreground uppercase font-black mb-1">Target Sport</label>
+                  <select
+                    value={proposalForm.sport_id}
+                    onChange={(e) => setProposalForm({ ...proposalForm, sport_id: e.target.value })}
+                    className="input-field text-xs py-2 px-3 bg-card w-full"
+                    required
+                  >
+                    <option value="">Select Sport...</option>
+                    {batches.map(b => b.sport).filter((s, idx, self) => s && self.findIndex(x => x.sport_id === s.sport_id) === idx).map(sport => (
+                      <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted-foreground uppercase font-black mb-1">Parameter Name</label>
+                  <input
+                    type="text"
+                    value={proposalForm.name}
+                    onChange={(e) => setProposalForm({ ...proposalForm, name: e.target.value })}
+                    className="input-field text-xs py-2 px-3 w-full"
+                    placeholder="e.g. Dribbling Pace, Serve Speed"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowProposal(false)}
+                    className="btn btn-secondary text-xs py-2 px-4"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary text-xs py-2 px-6"
+                  >
+                    Propose Parameter
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Global alert flash notifications */}
+      <AnimatePresence>
+        {message.text && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20, scale: 0.95 }} 
+            animate={{ opacity: 1, y: 0, scale: 1 }} 
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className={`fixed top-6 right-6 z-50 rounded-xl px-6 py-4 shadow-xl border flex items-center gap-3 font-bold ${
+              message.type === 'success' 
+                ? 'bg-card border-l-4 border-l-emerald-500 text-emerald-500 border-y-border border-r-border' 
+                : 'bg-card border-l-4 border-l-rose-500 text-rose-500 border-y-border border-r-border'
+            }`}
+          >
+            <span className="text-xl">{message.type === 'success' ? '🎯' : '⚠️'}</span>
+            <span className="text-xs">{message.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

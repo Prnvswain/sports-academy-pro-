@@ -22,6 +22,7 @@ router.use(authenticate);
 
 // GET /sports is accessible by both SUPER_ADMIN and ADMIN
 router.get('/sports', authorize(['SUPER_ADMIN', 'ADMIN']), superAdminController.getSports);
+router.get('/theme', authorize(['SUPER_ADMIN', 'ADMIN', 'COACH', 'PARENT']), superAdminController.getThemeSettings);
 
 // All other routes require SUPER_ADMIN
 router.use(authorize('SUPER_ADMIN'));
@@ -90,7 +91,6 @@ router.put(
 );
 
 /* ─── THEME SETTINGS ───────────────────────────────────────────────────────── */
-router.get('/theme', superAdminController.getThemeSettings);
 router.put('/theme', superAdminController.updateThemeSettings);
 
 // ─── ANNOUNCEMENTS ───────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { coachPost, coachGet } from '../../../api/client';
+import { Megaphone, ArrowLeft, Send, Upload, FileText, X } from 'lucide-react';
 
 const CATEGORIES = [
   'ANNOUNCEMENT',
@@ -143,209 +144,219 @@ export default function CoachCreateAnnouncement() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+    <div className="w-full bg-transparent font-sans p-2 space-y-6 text-left">
+      
+      {/* Top Bar Header Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
       >
-        <div className="mb-8">
-          <button
-            onClick={() => navigate('/coach/announcements')}
-            className="text-emerald-600 hover:text-emerald-700 mb-4 inline-flex items-center"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-            </svg>
-            Back to Announcements
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create Announcement</h1>
-          <p className="text-gray-600 mt-1">Send announcements to parents of your students</p>
+        <div className="flex items-center gap-3 text-left">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+            <Megaphone className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-foreground tracking-tight">Create Announcement</h2>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+              Publish high priority updates or training schedule changes to parents.
+            </p>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => navigate('/coach/announcements')}
+          className="btn btn-secondary text-xs flex items-center gap-1.5 self-end sm:self-auto"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Announcements
+        </button>
+      </motion.div>
+
+      {error && (
+        <div className="alert alert-error">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="alert alert-success bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-xl px-4 py-3 text-xs font-bold">
+          {success}
+        </div>
+      )}
+
+      {/* Form Container Card */}
+      <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-5 text-left">
+        <div>
+          <label className="block text-xs font-bold text-muted-foreground mb-1">Announcement Title</label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="input-field text-xs py-2 px-3 w-full animate-none"
+            placeholder="Enter announcement title..."
+            required
+          />
         </div>
 
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
+        <div>
+          <label className="block text-xs font-bold text-muted-foreground mb-1">Message Content</label>
+          <textarea
+            value={formData.message}
+            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+            rows={5}
+            className="input-field text-xs p-3 bg-card w-full resize-none font-semibold"
+            placeholder="Write your announcement details..."
+            required
+          />
+        </div>
 
-        {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-            {success}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="Enter announcement title"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-            <textarea
-              value={formData.message}
-              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-              rows={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="Enter announcement message"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-              <select
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                {PRIORITIES.map(pri => (
-                  <option key={pri} value={pri}>{pri}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Category</label>
             <select
-              value={formData.target_type}
-              onChange={(e) => setFormData({ ...formData, target_type: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="input-field text-xs py-2 px-3 bg-card w-full"
             >
-              {Object.entries(TARGET_TYPES).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
           </div>
 
-          {formData.target_type === 'BY_BATCH' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Batch</label>
-              <select
-                value={formData.batch_id}
-                onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                required
-              >
-                <option value="">Select a batch</option>
-                {batches.map(batch => (
-                  <option key={batch.batch_id} value={batch.batch_id}>{batch.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Priority Scope</label>
+            <select
+              value={formData.priority}
+              onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+              className="input-field text-xs py-2 px-3 bg-card w-full"
+            >
+              {PRIORITIES.map(pri => (
+                <option key={pri} value={pri}>{pri}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          {formData.target_type === 'BY_SPORT' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Sport</label>
-              <select
-                value={formData.sport_id}
-                onChange={(e) => setFormData({ ...formData, sport_id: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                required
-              >
-                <option value="">Select a sport</option>
-                {sports.map(sport => (
-                  <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+        <div>
+          <label className="block text-xs font-bold text-muted-foreground mb-1">Target Audience</label>
+          <select
+            value={formData.target_type}
+            onChange={(e) => setFormData({ ...formData, target_type: e.target.value })}
+            className="input-field text-xs py-2 px-3 bg-card w-full"
+          >
+            {Object.entries(TARGET_TYPES).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Schedule For (Optional)</label>
-              <input
-                type="datetime-local"
-                value={formData.scheduled_for}
-                onChange={(e) => setFormData({ ...formData, scheduled_for: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
+        {formData.target_type === 'BY_BATCH' && (
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Select Batch</label>
+            <select
+              value={formData.batch_id}
+              onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+              className="input-field text-xs py-2 px-3 bg-card w-full"
+              required
+            >
+              <option value="">Select a batch</option>
+              {batches.map(batch => (
+                <option key={batch.batch_id} value={batch.batch_id}>{batch.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Expires At (Optional)</label>
-              <input
-                type="datetime-local"
-                value={formData.expires_at}
-                onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
+        {formData.target_type === 'BY_SPORT' && (
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Select Sport</label>
+            <select
+              value={formData.sport_id}
+              onChange={(e) => setFormData({ ...formData, sport_id: e.target.value })}
+              className="input-field text-xs py-2 px-3 bg-card w-full"
+              required
+            >
+              <option value="">Select a sport</option>
+              {sports.map(sport => (
+                <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Schedule Publish (Optional)</label>
+            <input
+              type="datetime-local"
+              value={formData.scheduled_for}
+              onChange={(e) => setFormData({ ...formData, scheduled_for: e.target.value })}
+              className="input-field text-xs py-2 px-3 bg-card w-full"
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Attachments (Max 10MB)</label>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Expiry Date (Optional)</label>
+            <input
+              type="datetime-local"
+              value={formData.expires_at}
+              onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+              className="input-field text-xs py-2 px-3 bg-card w-full"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-muted-foreground mb-1">Attachments (Max 10MB)</label>
+          <div className="relative border border-dashed border-border hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-900/10 rounded-xl p-4 text-center cursor-pointer">
             <input
               type="file"
               onChange={handleFileUpload}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
               disabled={uploadingFile}
             />
-            {uploadingFile && <p className="text-sm text-gray-500 mt-1">Uploading...</p>}
+            <span className="text-[11px] text-muted-foreground block font-bold">
+              {uploadingFile ? 'Uploading file attachment...' : '📂 Choose file to attach'}
+            </span>
           </div>
+        </div>
 
-          {formData.attachments.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Uploaded Files</label>
-              <div className="space-y-2">
-                {formData.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 px-4 py-2 rounded-lg">
-                    <span className="text-sm">{attachment.fileName || attachment.url}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(index)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+        {formData.attachments.length > 0 && (
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-wider">Uploaded Attachments</label>
+            {formData.attachments.map((attachment, index) => (
+              <div key={index} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 border border-border px-3 py-2 rounded-xl text-xs font-bold text-foreground">
+                <span className="truncate">{attachment.fileName || attachment.url}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(index)}
+                  className="text-rose-500 hover:text-rose-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={() => navigate('/coach/announcements')}
-              className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {loading ? 'Creating...' : 'Create Announcement'}
-            </button>
+            ))}
           </div>
-        </form>
-      </motion.div>
+        )}
+
+        <div className="flex justify-end gap-2.5 pt-4 border-t border-border/60">
+          <button
+            type="button"
+            onClick={() => navigate('/coach/announcements')}
+            className="btn btn-secondary text-xs py-2 px-4"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn-primary text-xs py-2 px-6"
+          >
+            {loading ? 'Creating...' : 'Create Announcement'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

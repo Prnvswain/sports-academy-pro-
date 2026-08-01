@@ -2,21 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { coachGet } from '../../../api/client';
+import { Megaphone, ArrowLeft, BarChart2, Calendar, Users, Eye, FileText, CheckCircle2 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
-  ANNOUNCEMENT: 'bg-blue-100 text-blue-800',
-  URGENT: 'bg-red-100 text-red-800',
-  HOLIDAY: 'bg-green-100 text-green-800',
-  TRAINING: 'bg-indigo-100 text-indigo-800',
-  COMPETITION: 'bg-purple-100 text-purple-800',
-  GENERAL: 'bg-gray-100 text-gray-800'
+  ANNOUNCEMENT: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
+  URGENT: 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
+  HOLIDAY: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
+  TRAINING: 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20',
+  COMPETITION: 'bg-purple-500/10 text-purple-500 border border-purple-500/20',
+  GENERAL: 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
 };
 
 const PRIORITY_COLORS = {
-  LOW: 'bg-gray-100 text-gray-600',
-  NORMAL: 'bg-blue-100 text-blue-600',
-  HIGH: 'bg-orange-100 text-orange-600',
-  CRITICAL: 'bg-red-100 text-red-600'
+  LOW: 'bg-slate-500/10 text-slate-500 border border-slate-500/20',
+  NORMAL: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
+  HIGH: 'bg-amber-500/10 text-amber-605 border border-amber-500/20',
+  CRITICAL: 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
 };
 
 export default function CoachAnnouncementDetails() {
@@ -46,16 +47,24 @@ export default function CoachAnnouncementDetails() {
 
   if (loading) {
     return (
-      <div className="p-8 max-w-4xl mx-auto flex items-center justify-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      <div className="p-2 space-y-6">
+        <div className="bg-card border border-border rounded-2xl p-4 flex justify-between items-center shadow-sm animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-xl bg-muted" />
+            <div className="space-y-2">
+              <div className="h-5 w-40 bg-muted rounded" />
+              <div className="h-3 w-28 bg-muted rounded" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !announcement) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+      <div className="p-2 text-left">
+        <div className="alert alert-error">
           {error || 'Announcement not found'}
         </div>
       </div>
@@ -63,108 +72,123 @@ export default function CoachAnnouncementDetails() {
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+    <div className="w-full bg-transparent font-sans p-2 space-y-6 text-left">
+      
+      {/* Top Bar Header Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
       >
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/coach/announcements')}
-            className="text-emerald-600 hover:text-emerald-700 mb-4 inline-flex items-center"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-            </svg>
-            Back to History
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">{announcement.title}</h1>
-        </div>
-
-        {/* Badges */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${CATEGORY_COLORS[announcement.category]}`}>
-            {announcement.category}
-          </span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${PRIORITY_COLORS[announcement.priority]}`}>
-            {announcement.priority}
-          </span>
-          <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-            {announcement.status}
-          </span>
-        </div>
-
-        {/* Message */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="font-semibold text-gray-900 mb-2">Message</h2>
-          <p className="text-gray-700 whitespace-pre-wrap">{announcement.message}</p>
-        </div>
-
-        {/* Details */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Target Audience</h3>
-            <p className="text-gray-600">{announcement.target_type}</p>
+        <div className="flex items-center gap-3 text-left">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+            <Megaphone className="h-5 w-5" />
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Total Recipients</h3>
-            <p className="text-gray-600">{announcement.total_recipients}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Delivered</h3>
-            <p className="text-gray-600">{announcement.delivered_count}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Read</h3>
-            <p className="text-gray-600">{announcement.read_count}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Created At</h3>
-            <p className="text-gray-600">{new Date(announcement.created_at).toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Published At</h3>
-            <p className="text-gray-600">
-              {announcement.published_at ? new Date(announcement.published_at).toLocaleString() : 'Not published'}
+          <div>
+            <h2 className="text-xl font-black text-foreground tracking-tight">{announcement.title}</h2>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+              Detailed breakdown of broadcast analytics and target metrics.
             </p>
           </div>
         </div>
+        
+        <button
+          onClick={() => navigate('/coach/announcements')}
+          className="btn btn-secondary text-xs flex items-center gap-1.5 self-end sm:self-auto"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to History
+        </button>
+      </motion.div>
 
-        {/* Attachments */}
-        {announcement.attachments && announcement.attachments.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Attachments</h2>
-            <div className="space-y-2">
-              {announcement.attachments.map((attachment) => (
-                <a
-                  key={attachment.attachment_id}
-                  href={attachment.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-                >
-                  <span className="text-sm text-gray-700">{attachment.file_name}</span>
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 12.75l-4.5-4.5M12 12.75l4.5-4.5M12 12.75v9" />
-                  </svg>
-                </a>
-              ))}
+      {/* Badges details bar */}
+      <div className="flex flex-wrap gap-2">
+        <span className={`px-3 py-1 rounded-xl text-xs font-bold ${CATEGORY_COLORS[announcement.category]}`}>
+          {announcement.category}
+        </span>
+        <span className={`px-3 py-1 rounded-xl text-xs font-bold ${PRIORITY_COLORS[announcement.priority]}`}>
+          {announcement.priority}
+        </span>
+        <span className="px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 border border-border">
+          {announcement.status}
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
+        {/* Left main block */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Message Content */}
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4 border-b border-border/60 pb-2">Announcement Message</h3>
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed font-semibold">{announcement.message}</p>
+          </div>
+
+          {/* Attachments Section */}
+          {announcement.attachments && announcement.attachments.length > 0 && (
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-wider mb-4 border-b border-border/60 pb-2">File Attachments</h3>
+              <div className="space-y-2">
+                {announcement.attachments.map((attachment) => (
+                  <a
+                    key={attachment.attachment_id}
+                    href={attachment.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 border border-border rounded-xl hover:bg-slate-100/50 transition-colors text-xs font-bold text-foreground"
+                  >
+                    <span>{attachment.file_name}</span>
+                    <span className="text-[10px] text-primary uppercase font-black">Download File</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right metrics panel */}
+        <div className="space-y-6">
+          {/* Target details card */}
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider border-b border-border/60 pb-2">Delivery Metrics</h3>
+            <div className="space-y-3 font-bold text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Target Audience</span>
+                <span className="text-foreground uppercase">{announcement.target_type}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Recipients</span>
+                <span className="text-foreground">{announcement.total_recipients}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Delivered Alerts</span>
+                <span className="text-foreground">{announcement.delivered_count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Read Count</span>
+                <span className="text-foreground">{announcement.read_count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Created At</span>
+                <span className="text-foreground">{new Date(announcement.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Published At</span>
+                <span className="text-foreground">
+                  {announcement.published_at ? new Date(announcement.published_at).toLocaleDateString() : 'Not published'}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => navigate(`/coach/announcements/${id}/stats`)}
+                className="btn btn-primary w-full py-2.5 text-xs flex items-center justify-center gap-1.5"
+              >
+                <BarChart2 className="w-4 h-4" /> View Detailed Statistics
+              </button>
             </div>
           </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate(`/coach/announcements/${id}/stats`)}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
-          >
-            View Statistics
-          </button>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

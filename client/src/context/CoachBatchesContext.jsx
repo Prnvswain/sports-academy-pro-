@@ -26,6 +26,7 @@ export function CoachBatchesProvider({ children }) {
       
       // Ensure dashboard has all required fields with default values
       setDashboard({
+        ...dashData,
         coach_name: dashData.coach_name || 'Coach',
         academy_name: dashData.academy_name || 'Academy',
         todays_students: dashData.todays_students ?? 0,

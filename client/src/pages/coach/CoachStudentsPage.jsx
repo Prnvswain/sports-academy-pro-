@@ -151,7 +151,7 @@ export default function CoachStudentsPage() {
       
       // Attendance % filter
       const attendancePercent = student.attendance_summary 
-        ? (student.attendance_summary.present_count / (student.attendance_summary.present_count + student.attendance_summary.absent_count)) * 100 
+        ? (student.attendance_summary.present_count / (student.attendance_summary.present_count + student.attendance_summary.absent_count || 1)) * 100 
         : 0;
       if (filters.attendance_min && attendancePercent < parseFloat(filters.attendance_min)) return false;
       if (filters.attendance_max && attendancePercent > parseFloat(filters.attendance_max)) return false;
@@ -315,25 +315,22 @@ export default function CoachStudentsPage() {
   
   if (loading) {
     return (
-      <div className="p-6 space-y-8">
-        {/* Dashboard Cards Skeleton */}
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="card p-5 space-y-3">
-              <div className="h-4 bg-surface-secondary rounded w-20 animate-pulse"></div>
-              <div className="h-8 bg-surface-secondary rounded w-16 animate-pulse"></div>
+      <div className="p-2 space-y-6">
+        <div className="bg-card border border-border rounded-2xl p-4 flex justify-between items-center shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-xl bg-muted animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-5 w-40 bg-muted rounded animate-pulse" />
+              <div className="h-3 w-28 bg-muted rounded animate-pulse" />
             </div>
-          ))}
+          </div>
         </div>
-        
-        {/* Filters Skeleton */}
-        <div className="h-16 bg-surface-secondary rounded animate-pulse"></div>
-        
-        {/* Table Skeleton */}
-        <div className="card p-5 space-y-4">
-          <div className="h-6 bg-surface-secondary rounded w-3/4 animate-pulse"></div>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-12 bg-surface-secondary rounded animate-pulse"></div>
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-6 shadow-sm">
+          {Array(6).fill(0).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-2xl p-4 space-y-2">
+              <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+              <div className="h-7 w-12 bg-muted rounded animate-pulse" />
+            </div>
           ))}
         </div>
       </div>
@@ -342,8 +339,8 @@ export default function CoachStudentsPage() {
   
   if (error) {
     return (
-      <div className="p-6">
-        <div className="alert-error border-danger/30 bg-danger/10 text-danger rounded-xl p-4 shadow-sm">
+      <div className="p-2">
+        <div className="alert alert-error">
           {error}
         </div>
       </div>
@@ -351,451 +348,483 @@ export default function CoachStudentsPage() {
   }
   
   return (
-    <div className="relative min-h-full w-full">
-      <motion.div
-        className="relative z-10 space-y-6 p-6 w-full overflow-x-hidden bg-transparent"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
+    <div className="w-full bg-transparent font-sans p-2 space-y-6">
+      
+      {/* Top Bar Header Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
       >
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/50 pb-6">
+        <div className="flex items-center gap-3 text-left">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+            <GraduationCap className="h-5 w-5" />
+          </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
-              <GraduationCap className="w-8 h-8 text-primary" />
-              Students
-            </h1>
-            <p className="text-sm font-medium text-muted-foreground mt-2">
-              Manage students from your assigned batches
+            <h2 className="text-xl font-black text-foreground tracking-tight">Students Directory</h2>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+              Manage and view student rosters from your assigned training batches.
             </p>
           </div>
         </div>
-        
-        {/* Dashboard Cards */}
-        <motion.section 
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+      </motion.div>
+      
+      {/* KPI Stats Cards */}
+      <motion.section 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid gap-4 grid-cols-2 lg:grid-cols-6"
+      >
+        {/* Total Students */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm text-left"
         >
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -6, scale: 1.02 }}
-            className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-primary bg-gradient-to-br from-surface to-primary/5 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary">Total Students</span>
-              <Users className="w-5 h-5 text-primary opacity-80" />
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Total Students</span>
+            <div className="p-1.5 bg-blue-500/10 rounded-lg text-blue-500">
+              <Users className="w-4 h-4" />
             </div>
-            <span className="text-3xl font-black text-foreground">{stats.total_students}</span>
-          </motion.div>
-          
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -6, scale: 1.02 }}
-            className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-emerald bg-gradient-to-br from-surface to-emerald/5 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald">Present Today</span>
-              <CheckCircle className="w-5 h-5 text-emerald opacity-80" />
-            </div>
-            <span className="text-3xl font-black text-emerald">{stats.present_today}</span>
-          </motion.div>
-          
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -6, scale: 1.02 }}
-            className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-rose bg-gradient-to-br from-surface to-rose/5 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose">Absent Today</span>
-              <XCircle className="w-5 h-5 text-rose opacity-80" />
-            </div>
-            <span className="text-3xl font-black text-rose">{stats.absent_today}</span>
-          </motion.div>
-          
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -6, scale: 1.02 }}
-            className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-warning bg-gradient-to-br from-surface to-warning/5 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-warning">Pending Fees</span>
-              <Wallet className="w-5 h-5 text-warning opacity-80" />
-            </div>
-            <span className="text-3xl font-black text-warning">{stats.pending_fees}</span>
-          </motion.div>
-          
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -6, scale: 1.02 }}
-            className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-blue bg-gradient-to-br from-surface to-blue/5 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue">Boys</span>
-              <User className="w-5 h-5 text-blue opacity-80" />
-            </div>
-            <span className="text-3xl font-black text-blue">{stats.boys}</span>
-          </motion.div>
-          
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -6, scale: 1.02 }}
-            className="card p-5 flex flex-col justify-center gap-2 border-t-4 border-t-purple bg-gradient-to-br from-surface to-purple/5 shadow-sm hover:shadow-md transition-all"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple">Girls</span>
-              <UserCheck className="w-5 h-5 text-purple opacity-80" />
-            </div>
-            <span className="text-3xl font-black text-purple">{stats.girls}</span>
-          </motion.div>
-        </motion.section>
-        
-        {/* Filters Section */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="card p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-primary" />
-              <h3 className="font-bold text-foreground">Filters</h3>
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="text-sm text-primary hover:text-primary/80 font-semibold"
-            >
-              {showFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
           </div>
-          
-          <AnimatePresence>
-            {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-4"
-              >
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search students..."
-                      value={filters.search}
-                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-surface text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                  </div>
-                  
-                  {/* Batch */}
-                  <select
-                    value={filters.batch_id}
-                    onChange={(e) => setFilters({ ...filters, batch_id: e.target.value })}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">All Batches</option>
-                    {Array.isArray(batches) && batches.map(batch => (
-                      <option key={batch.batch_id} value={batch.batch_id}>{batch.name}</option>
-                    ))}
-                  </select>
-                  
-                  {/* Sport */}
-                  <select
-                    value={filters.sport_id}
-                    onChange={(e) => setFilters({ ...filters, sport_id: e.target.value })}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">All Sports</option>
-                    {Array.isArray(sports) && sports.map(sport => (
-                      <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
-                    ))}
-                  </select>
-                  
-                  {/* Gender */}
-                  <select
-                    value={filters.gender}
-                    onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">All Genders</option>
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                </div>
-                
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {/* Category */}
-                  <select
-                    value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">All Categories</option>
-                    <option value="U8">U8</option>
-                    <option value="U10">U10</option>
-                    <option value="U12">U12</option>
-                    <option value="U14">U14</option>
-                    <option value="U16">U16</option>
-                    <option value="U18">U18</option>
-                    <option value="Senior">Senior</option>
-                  </select>
-                  
-                  {/* Fee Status */}
-                  <select
-                    value={filters.fee_status}
-                    onChange={(e) => setFilters({ ...filters, fee_status: e.target.value })}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">All Fee Status</option>
-                    <option value="paid">Paid</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="partial">Partial</option>
-                  </select>
-                  
-                  {/* Student Status */}
-                  <select
-                    value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">All Status</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                  </select>
-                  
-                  {/* Clear Filters */}
-                  <button
-                    onClick={clearFilters}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface-secondary text-foreground text-sm hover:bg-surface transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                    Clear Filters
-                  </button>
-                </div>
-                
-                {/* Height & Weight Range */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-muted-foreground whitespace-nowrap">Height (cm):</label>
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={filters.height_min}
-                      onChange={(e) => setFilters({ ...filters, height_min: e.target.value })}
-                      className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                    <span className="text-muted-foreground">-</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={filters.height_max}
-                      onChange={(e) => setFilters({ ...filters, height_max: e.target.value })}
-                      className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-muted-foreground whitespace-nowrap">Weight (kg):</label>
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={filters.weight_min}
-                      onChange={(e) => setFilters({ ...filters, weight_min: e.target.value })}
-                      className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                    <span className="text-muted-foreground">-</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={filters.weight_max}
-                      onChange={(e) => setFilters({ ...filters, weight_max: e.target.value })}
-                      className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-muted-foreground whitespace-nowrap">Attendance %:</label>
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={filters.attendance_min}
-                      onChange={(e) => setFilters({ ...filters, attendance_min: e.target.value })}
-                      className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                    <span className="text-muted-foreground">-</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={filters.attendance_max}
-                      onChange={(e) => setFilters({ ...filters, attendance_max: e.target.value })}
-                      className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.section>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight text-foreground">{stats.total_students}</h3>
+            <div className="text-[10px] text-muted-foreground font-bold mt-1">Roster total</div>
+          </div>
+        </motion.div>
         
-        {/* Students Table */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="card overflow-hidden"
+        {/* Present Today */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm text-left"
         >
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="sticky top-0 bg-surface z-10 border-b border-border">
-                <tr className="border-border text-muted text-xs font-bold uppercase tracking-wider">
-                  <th className="px-6 py-4">Student</th>
-                  <th className="px-4 py-4">Age</th>
-                  <th className="px-4 py-4">Sport</th>
-                  <th className="px-4 py-4">Batch</th>
-                  <th className="px-4 py-4">Attendance</th>
-                  <th className="px-4 py-4">Fee Status</th>
-                  <th className="px-4 py-4">Status</th>
-                  <th className="px-4 py-4">Actions</th>
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Present Today</span>
+            <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-500">
+              <CheckCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight text-emerald-600">{stats.present_today}</h3>
+            <div className="text-[10px] text-emerald-500 font-bold mt-1">Marked present</div>
+          </div>
+        </motion.div>
+        
+        {/* Absent Today */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm text-left"
+        >
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Absent Today</span>
+            <div className="p-1.5 bg-rose-500/10 rounded-lg text-rose-550">
+              <XCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight text-rose-600">{stats.absent_today}</h3>
+            <div className="text-[10px] text-rose-500 font-bold mt-1">Marked absent</div>
+          </div>
+        </motion.div>
+        
+        {/* Pending Fees */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm text-left"
+        >
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Pending Fees</span>
+            <div className="p-1.5 bg-rose-500/10 rounded-lg text-rose-600">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight text-rose-600">{stats.pending_fees}</h3>
+            <div className="text-[10px] text-muted-foreground font-bold mt-1">Unpaid dues</div>
+          </div>
+        </motion.div>
+        
+        {/* Boys */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm text-left"
+        >
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Boys</span>
+            <div className="p-1.5 bg-blue-500/10 rounded-lg text-blue-500">
+              <User className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight text-foreground">{stats.boys}</h3>
+            <div className="text-[10px] text-muted-foreground font-bold mt-1">Male trainees</div>
+          </div>
+        </motion.div>
+        
+        {/* Girls */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          className="bg-card border border-border rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden transition-all shadow-sm text-left"
+        >
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Girls</span>
+            <div className="p-1.5 bg-purple-500/10 rounded-lg text-purple-500">
+              <UserCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-2xl font-black tracking-tight text-foreground">{stats.girls}</h3>
+            <div className="text-[10px] text-muted-foreground font-bold mt-1">Female trainees</div>
+          </div>
+        </motion.div>
+      </motion.section>
+      
+      {/* Filters Section */}
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-card border border-border rounded-2xl p-5 shadow-sm text-left"
+      >
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-primary" />
+            <h3 className="font-extrabold text-foreground text-sm">Directory Filters</h3>
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="text-xs text-primary hover:text-primary/80 font-bold"
+          >
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </button>
+        </div>
+        
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-4"
+            >
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search students..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="input-field pl-10 text-sm py-2"
+                  />
+                </div>
+                
+                {/* Batch */}
+                <select
+                  value={filters.batch_id}
+                  onChange={(e) => setFilters({ ...filters, batch_id: e.target.value })}
+                  className="input-field text-sm py-2 bg-card"
+                >
+                  <option value="">All Batches</option>
+                  {Array.isArray(batches) && batches.map(batch => (
+                    <option key={batch.batch_id} value={batch.batch_id}>{batch.name}</option>
+                  ))}
+                </select>
+                
+                {/* Sport */}
+                <select
+                  value={filters.sport_id}
+                  onChange={(e) => setFilters({ ...filters, sport_id: e.target.value })}
+                  className="input-field text-sm py-2 bg-card"
+                >
+                  <option value="">All Sports</option>
+                  {Array.isArray(sports) && sports.map(sport => (
+                    <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
+                  ))}
+                </select>
+                
+                {/* Gender */}
+                <select
+                  value={filters.gender}
+                  onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
+                  className="input-field text-sm py-2 bg-card"
+                >
+                  <option value="">All Genders</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+              
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {/* Category */}
+                <select
+                  value={filters.category}
+                  onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                  className="input-field text-sm py-2 bg-card"
+                >
+                  <option value="">All Categories</option>
+                  <option value="U8">U8</option>
+                  <option value="U10">U10</option>
+                  <option value="U12">U12</option>
+                  <option value="U14">U14</option>
+                  <option value="U16">U16</option>
+                  <option value="U18">U18</option>
+                  <option value="Senior">Senior</option>
+                </select>
+                
+                {/* Fee Status */}
+                <select
+                  value={filters.fee_status}
+                  onChange={(e) => setFilters({ ...filters, fee_status: e.target.value })}
+                  className="input-field text-sm py-2 bg-card"
+                >
+                  <option value="">All Fee Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="unpaid">Unpaid</option>
+                  <option value="partial">Partial</option>
+                </select>
+                
+                {/* Student Status */}
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                  className="input-field text-sm py-2 bg-card"
+                >
+                  <option value="">All Status</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+                
+                {/* Clear Filters */}
+                <button
+                  onClick={clearFilters}
+                  className="btn btn-secondary flex items-center justify-center gap-2 py-2 text-sm"
+                >
+                  <X className="w-4 h-4" />
+                  Clear Filters
+                </button>
+              </div>
+              
+              {/* Height & Weight Range */}
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap font-bold">Height (cm):</label>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.height_min}
+                    onChange={(e) => setFilters({ ...filters, height_min: e.target.value })}
+                    className="input-field text-xs py-1.5 px-2.5"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.height_max}
+                    onChange={(e) => setFilters({ ...filters, height_max: e.target.value })}
+                    className="input-field text-xs py-1.5 px-2.5"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap font-bold">Weight (kg):</label>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.weight_min}
+                    onChange={(e) => setFilters({ ...filters, weight_min: e.target.value })}
+                    className="input-field text-xs py-1.5 px-2.5"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.weight_max}
+                    onChange={(e) => setFilters({ ...filters, weight_max: e.target.value })}
+                    className="input-field text-xs py-1.5 px-2.5"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap font-bold">Attendance %:</label>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.attendance_min}
+                    onChange={(e) => setFilters({ ...filters, attendance_min: e.target.value })}
+                    className="input-field text-xs py-1.5 px-2.5"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.attendance_max}
+                    onChange={(e) => setFilters({ ...filters, attendance_max: e.target.value })}
+                    className="input-field text-xs py-1.5 px-2.5"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.section>
+      
+      {/* Students Table */}
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden text-left"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead>
+              <tr className="border-b border-border/60 text-muted-foreground text-[10px] uppercase tracking-wider font-extrabold">
+                <th className="px-6 py-4">Student</th>
+                <th className="px-4 py-4">Age</th>
+                <th className="px-4 py-4">Sport</th>
+                <th className="px-4 py-4">Batch</th>
+                <th className="px-4 py-4">Attendance</th>
+                <th className="px-4 py-4">Fee Status</th>
+                <th className="px-4 py-4">Status</th>
+                <th className="px-4 py-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/40">
+              {paginatedStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-12 text-muted-foreground font-bold">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle className="w-8 h-8 text-muted-foreground/60" />
+                      <p>No students found matching your filters</p>
+                      <button
+                        onClick={clearFilters}
+                        className="text-primary hover:text-primary/80 font-bold"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-border divide-y">
-                {paginatedStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-12 text-muted-foreground">
-                      <div className="flex flex-col items-center gap-4">
-                        <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
-                        <p>No students found matching your filters</p>
+              ) : (
+                paginatedStudents.map((student, index) => (
+                  <tr
+                    key={student.student_id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedStudent(student);
+                      setShowProfileModal(true);
+                    }}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={student.profile_photo} name={student.name} size="sm" />
+                        <div>
+                          <p className="font-bold text-xs text-foreground">{student.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-semibold">ID: {student.student_id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-xs font-bold text-muted-foreground">{student.age ? `${student.age} yrs` : '—'}</td>
+                    <td className="px-4 py-4 text-xs font-bold text-foreground">
+                      {student.sport?.name || student.enrollments?.[0]?.sport?.name || '—'}
+                    </td>
+                    <td className="px-4 py-4 text-xs font-bold text-muted-foreground">
+                      {student.batch?.name || student.enrollments?.[0]?.batch?.name || '—'}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2 text-xs font-black">
+                        <span className="text-emerald-600">
+                          {student.attendance_summary?.present_count || 0}
+                        </span>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-rose-650">
+                          {student.attendance_summary?.absent_count || 0}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      {student.fee_status === 'paid' ? (
+                        <span className="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold uppercase">Paid</span>
+                      ) : student.fee_status === 'partial' ? (
+                        <span className="badge bg-warning/10 text-warning border border-warning/20 text-[9px] font-bold uppercase">Partial</span>
+                      ) : (
+                        <span className="badge bg-rose-500/10 text-rose-550 border border-rose-500/20 text-[9px] font-bold uppercase">Unpaid</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      {student.status?.toUpperCase() === 'ACTIVE' ? (
+                        <span className="badge bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold uppercase">Active</span>
+                      ) : (
+                        <span className="badge bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-bold uppercase">Inactive</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={clearFilters}
-                          className="text-primary hover:text-primary/80 font-semibold"
+                          type="button"
+                          className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-foreground transition-colors"
+                          onClick={() => {
+                            setSelectedStudent(student);
+                            setShowProfileModal(true);
+                          }}
+                          title="View Profile"
                         >
-                          Clear Filters
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-foreground transition-colors"
+                          onClick={() => handleEditStudent(student)}
+                          title="Edit Student"
+                        >
+                          <Edit className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ) : (
-                  paginatedStudents.map((student, index) => (
-                    <motion.tr
-                      key={student.student_id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                      className="text-foreground cursor-pointer"
-                      onClick={() => {
-                        setSelectedStudent(student);
-                        setShowProfileModal(true);
-                      }}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar src={student.profile_photo} name={student.name} size="sm" />
-                          <div>
-                            <p className="font-semibold">{student.name}</p>
-                            <p className="text-muted text-xs">ID: {student.student_id}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-muted">{student.age || '—'}</td>
-                      <td className="px-4 py-4">
-                        {student.sport?.name || student.enrollments?.[0]?.sport?.name || '—'}
-                      </td>
-                      <td className="px-4 py-4 text-muted">
-                        {student.batch?.name || student.enrollments?.[0]?.batch?.name || '—'}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold">
-                          <span className="text-emerald-600">
-                            {student.attendance_summary?.present_count || 0}
-                          </span>
-                          <span className="text-muted-foreground">|</span>
-                          <span className="text-rose-600">
-                            {student.attendance_summary?.absent_count || 0}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        {student.fee_status === 'paid' ? (
-                          <span className="badge-active">Paid</span>
-                        ) : student.fee_status === 'partial' ? (
-                          <span className="badge bg-warning/10 text-warning border-warning/20">Partial</span>
-                        ) : (
-                          <span className="badge-inactive">Unpaid</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        {student.status?.toUpperCase() === 'ACTIVE' ? (
-                          <span className="badge-active">Active</span>
-                        ) : (
-                          <span className="badge-inactive">Inactive</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                            onClick={() => {
-                              setSelectedStudent(student);
-                              setShowProfileModal(true);
-                            }}
-                            title="View Profile"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className="p-2 rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
-                            onClick={() => handleEditStudent(student)}
-                            title="Edit Student"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border">
-              <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded-lg border border-border bg-surface text-foreground text-sm hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 rounded-lg border border-border bg-surface text-foreground text-sm hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border/60">
+            <div className="text-xs text-muted-foreground font-bold">
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students
             </div>
-          )}
-        </motion.section>
-      </motion.div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="btn btn-secondary px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-foreground font-bold">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="btn btn-secondary px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.section>
       
       {/* View Profile Modal */}
       <AnimatePresence>
@@ -804,49 +833,49 @@ export default function CoachStudentsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowProfileModal(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowProfileModal(false);
+              setModalTab('profile');
+            }}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-background rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-border/50"
+              className="bg-card border border-border rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-hidden"
             >
-              <div className="p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-accent/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar src={selectedStudent.profile_photo} name={selectedStudent.name} size="lg" />
-                    <div>
-                      <h2 className="text-2xl font-black text-foreground">{selectedStudent.name}</h2>
-                      <p className="text-sm text-muted-foreground">Student ID: {selectedStudent.student_id}</p>
-                    </div>
+              <div className="p-6 border-b border-border/60 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-left">
+                  <Avatar src={selectedStudent.profile_photo} name={selectedStudent.name} size="lg" />
+                  <div>
+                    <h3 className="text-xl font-black text-foreground">{selectedStudent.name}</h3>
+                    <p className="text-xs text-muted-foreground font-bold mt-0.5">Student ID: {selectedStudent.student_id}</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowProfileModal(false);
-                      setModalTab('profile');
-                    }}
-                    className="p-2 rounded-lg hover:bg-surface-secondary transition-colors text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
                 </div>
+                <button
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    setModalTab('profile');
+                  }}
+                  className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-foreground transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
               
               {/* Tabs */}
-              <div className="px-6 pt-4 border-b border-border/50">
+              <div className="px-6 pt-3 pb-1 border-b border-border/40 text-left">
                 <div className="flex gap-2">
                   {['profile', 'attendance', 'performance', 'notes'].map((tab) => (
                     <button
                       key={tab}
                       type="button"
-                      className={`px-4 py-2 capitalize transition-all duration-300 ${
+                      className={`px-3 py-1.5 capitalize transition-all text-xs font-bold ${
                         modalTab === tab 
-                          ? 'border-primary text-primary bg-primary/10 rounded-t-lg border-b-2 font-semibold' 
-                          : 'hover:text-primary text-muted-foreground hover:bg-surface-secondary'
+                          ? 'bg-primary/10 text-primary rounded-xl border border-primary/20' 
+                          : 'text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl'
                       }`}
                       onClick={() => setModalTab(tab)}
                     >
@@ -856,120 +885,100 @@ export default function CoachStudentsPage() {
                 </div>
               </div>
               
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] text-left">
                 {modalTab === 'profile' && (
                   <div className="space-y-6">
-                    {/* Profile Photo Section */}
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
-                        {selectedStudent.profile_photo ? (
-                          <img
-                            src={selectedStudent.profile_photo}
-                            alt={selectedStudent.name}
-                            className="h-24 w-24 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-2xl font-semibold text-white">
-                            {selectedStudent.name?.charAt(0)?.toUpperCase() || 'S'}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Profile photo</p>
-                      </div>
-                    </div>
-                    
                     <div className="grid gap-6 md:grid-cols-2">
                       {/* Personal Info */}
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Personal Information</h3>
-                        <div className="space-y-3">
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2 border-b border-border pb-1">Personal Info</h4>
+                        <div className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Age</span>
-                            <span className="font-semibold">{selectedStudent.age || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.age || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Gender</span>
-                            <span className="font-semibold">{selectedStudent.gender || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.gender || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Date of Birth</span>
-                            <span className="font-semibold">{selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : '—'}</span>
+                            <span className="text-foreground">{selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Height</span>
-                            <span className="font-semibold">{selectedStudent.height ? `${selectedStudent.height} cm` : '—'}</span>
+                            <span className="text-foreground">{selectedStudent.height ? `${selectedStudent.height} cm` : '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Weight</span>
-                            <span className="font-semibold">{selectedStudent.weight ? `${selectedStudent.weight} kg` : '—'}</span>
+                            <span className="text-foreground">{selectedStudent.weight ? `${selectedStudent.weight} kg` : '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Blood Group</span>
-                            <span className="font-semibold">{selectedStudent.blood_group || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.blood_group || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Category</span>
-                            <span className="font-semibold">{selectedStudent.category || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.category || '—'}</span>
                           </div>
                         </div>
                       </div>
                       
                       {/* Parent Info */}
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Parent Information</h3>
-                        <div className="space-y-3">
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2 border-b border-border pb-1">Parent Info</h4>
+                        <div className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Parent Name</span>
-                            <span className="font-semibold">{selectedStudent.parent_name || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.parent_name || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Parent Phone</span>
-                            <span className="font-semibold">{selectedStudent.parent_phone || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.parent_phone || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Parent Email</span>
-                            <span className="font-semibold">{selectedStudent.parent_email || '—'}</span>
+                            <span className="text-foreground break-all">{selectedStudent.parent_email || '—'}</span>
                           </div>
                         </div>
                       </div>
                       
                       {/* Academy Info */}
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Academy Information</h3>
-                        <div className="space-y-3">
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2 border-b border-border pb-1">Academy Info</h4>
+                        <div className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Sport</span>
-                            <span className="font-semibold">{selectedStudent.sport?.name || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.sport?.name || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Batch</span>
-                            <span className="font-semibold">{selectedStudent.batch?.name || '—'}</span>
+                            <span className="text-foreground">{selectedStudent.batch?.name || '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Joining Date</span>
-                            <span className="font-semibold">{selectedStudent.joining_date ? new Date(selectedStudent.joining_date).toLocaleDateString() : '—'}</span>
+                            <span className="text-foreground">{selectedStudent.joining_date ? new Date(selectedStudent.joining_date).toLocaleDateString() : '—'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Fee Status</span>
-                            <span className="font-semibold">{selectedStudent.fee_status || '—'}</span>
+                            <span className="text-foreground uppercase">{selectedStudent.fee_status || '—'}</span>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Performance */}
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Performance</h3>
-                        <div className="space-y-3">
+                      {/* Performance Summary */}
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2 border-b border-border pb-1">Performance Details</h4>
+                        <div className="space-y-2 text-xs font-bold">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Attendance</span>
-                            <span className="font-semibold">
+                            <span className="text-muted-foreground">Attendance (P | A)</span>
+                            <span className="text-foreground">
                               {selectedStudent.attendance_summary?.present_count || 0} | {selectedStudent.attendance_summary?.absent_count || 0}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Attendance %</span>
-                            <span className="font-semibold">
+                            <span className="text-foreground">
                               {selectedStudent.attendance_summary 
                                 ? Math.round((selectedStudent.attendance_summary.present_count / (selectedStudent.attendance_summary.present_count + selectedStudent.attendance_summary.absent_count || 1)) * 100)
                                 : 0}%
@@ -982,20 +991,20 @@ export default function CoachStudentsPage() {
                 )}
                 
                 {modalTab === 'attendance' && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Attendance tab - Coming soon</p>
+                  <div className="text-center py-12 text-xs text-muted-foreground font-bold">
+                    Attendance history details are managed in the attendance portals.
                   </div>
                 )}
                 
                 {modalTab === 'performance' && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Performance tab - Coming soon</p>
+                  <div className="text-center py-12 text-xs text-muted-foreground font-bold">
+                    Performance feedback records are available under tracker dashboards.
                   </div>
                 )}
                 
                 {modalTab === 'notes' && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Notes tab - Coming soon</p>
+                  <div className="text-center py-12 text-xs text-muted-foreground font-bold">
+                    Notes logs and reports can be logged on the notes view.
                   </div>
                 )}
               </div>
@@ -1011,42 +1020,39 @@ export default function CoachStudentsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowEditModal(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowEditModal(false);
+              setEditPhotoPreview(null);
+              setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
+            }}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-background rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-border/50"
+              className="bg-card border border-border rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto"
             >
-              <div className="p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-accent/10">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-black text-foreground">Edit Student Profile</h2>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setEditPhotoPreview(null);
-                      setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
-                    }}
-                    className="p-2 rounded-lg hover:bg-surface-secondary transition-colors text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
+              <div className="p-6 border-b border-border/60 flex items-center justify-between">
+                <h3 className="text-lg font-black text-foreground">Edit Student Profile</h3>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditPhotoPreview(null);
+                    setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
+                  }}
+                  className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-foreground transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
               
-              <form onSubmit={handleEditStudentSubmit} className="p-6 space-y-4">
+              <form onSubmit={handleEditStudentSubmit} className="p-6 space-y-4 text-left">
                 {/* Profile Photo Section */}
                 <div className="flex flex-col items-center mb-6">
-                  <motion.div 
-                    className="relative group"
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  >
-                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-slate-200 shadow-lg bg-gradient-to-br from-slate-100 to-slate-200">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border shadow bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center">
                       {editPhotoPreview ? (
                         <img 
                           src={editPhotoPreview} 
@@ -1054,10 +1060,8 @@ export default function CoachStudentsPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600">
-                          <span className="text-4xl font-bold text-white">
-                            {editStudentForm.name?.charAt(0)?.toUpperCase() || 'S'}
-                          </span>
+                        <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-xl font-bold">
+                          {editStudentForm.name?.charAt(0)?.toUpperCase() || 'S'}
                         </div>
                       )}
                     </div>
@@ -1065,7 +1069,7 @@ export default function CoachStudentsPage() {
                     {/* Camera Overlay */}
                     <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
                       <label htmlFor="editPhotoInput" className="cursor-pointer">
-                        <Camera className="w-8 h-8 text-white" />
+                        <Camera className="w-6 h-6 text-white" />
                       </label>
                       <input
                         id="editPhotoInput"
@@ -1075,90 +1079,67 @@ export default function CoachStudentsPage() {
                         className="hidden"
                       />
                     </div>
-                  </motion.div>
-                  
-                  {/* Photo Action Buttons */}
-                  <div className="flex gap-2 mt-4">
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => document.getElementById('editPhotoInput').click()}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors shadow-md"
-                    >
-                      <Camera className="w-4 h-4" />
-                      Change Photo
-                    </motion.button>
-                    
-                    {editPhotoPreview && (
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowRemovePhotoConfirm(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors shadow-md"
-                      >
-                        <X className="w-4 h-4" />
-                        Remove Photo
-                      </motion.button>
-                    )}
                   </div>
                   
-                  {/* File Validation Hint */}
-                  <p className="text-xs text-slate-500 mt-2">
-                    Supported formats: JPG, PNG, WEBP (max 5MB)
-                  </p>
+                  {/* Photo Action Buttons */}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('editPhotoInput').click()}
+                      className="btn btn-secondary py-1 px-3 text-xs"
+                    >
+                      Change Photo
+                    </button>
+                    
+                    {editPhotoPreview && (
+                      <button
+                        type="button"
+                        onClick={() => setShowRemovePhotoConfirm(true)}
+                        className="btn btn-danger py-1 px-3 text-xs"
+                      >
+                        Remove Photo
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Remove Photo Confirmation Modal */}
                 {showRemovePhotoConfirm && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-                  >
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl"
-                    >
-                      <h4 className="text-lg font-bold text-slate-800 mb-2">Remove Photo?</h4>
-                      <p className="text-sm text-slate-600 mb-4">
-                        This action will remove the student's profile photo. This cannot be undone.
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+                    <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                      <h4 className="text-base font-black text-foreground mb-1">Remove Photo?</h4>
+                      <p className="text-xs text-muted-foreground font-bold mb-4">
+                        This action will remove the student's profile photo.
                       </p>
-                      <div className="flex gap-3 justify-end">
-                        <motion.button
+                      <div className="flex gap-2 justify-end">
+                        <button
                           type="button"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
                           onClick={() => setShowRemovePhotoConfirm(false)}
-                          className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                          className="btn btn-secondary py-1 px-3 text-xs"
                         >
                           Cancel
-                        </motion.button>
-                        <motion.button
+                        </button>
+                        <button
                           type="button"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
                           onClick={handleRemovePhoto}
-                          className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                          className="btn btn-danger py-1 px-3 text-xs"
                         >
                           Remove Photo
-                        </motion.button>
+                        </button>
                       </div>
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
                 )}
                 
                 {/* Student Name */}
                 <div>
-                  <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editName">
+                  <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editName">
                     Student Name
                   </label>
                   <input
                     id="editName"
                     type="text"
-                    className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                    className="input-field w-full text-xs py-2 px-3"
                     value={editStudentForm.name || ''}
                     onChange={(e) =>
                       setEditStudentForm({ ...editStudentForm, name: e.target.value })
@@ -1170,13 +1151,13 @@ export default function CoachStudentsPage() {
                 {/* Parent Details */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editParentName">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editParentName">
                       Parent Name
                     </label>
                     <input
                       id="editParentName"
                       type="text"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.parent_name || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, parent_name: e.target.value })
@@ -1184,13 +1165,13 @@ export default function CoachStudentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editParentEmail">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editParentEmail">
                       Parent Email
                     </label>
                     <input
                       id="editParentEmail"
                       type="email"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.parent_email || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, parent_email: e.target.value })
@@ -1202,13 +1183,13 @@ export default function CoachStudentsPage() {
                 {/* Contact Details */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editParentPhone">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editParentPhone">
                       Parent Phone
                     </label>
                     <input
                       id="editParentPhone"
                       type="tel"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.parent_phone || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, parent_phone: e.target.value })
@@ -1216,13 +1197,13 @@ export default function CoachStudentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editPhone">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editPhone">
                       Student Phone
                     </label>
                     <input
                       id="editPhone"
                       type="tel"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.phone || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, phone: e.target.value })
@@ -1234,13 +1215,13 @@ export default function CoachStudentsPage() {
                 {/* Demographics Row */}
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editAge">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editAge">
                       Age
                     </label>
                     <input
                       id="editAge"
                       type="number"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.age || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, age: e.target.value })
@@ -1250,12 +1231,12 @@ export default function CoachStudentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editGender">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editGender">
                       Gender
                     </label>
                     <select
                       id="editGender"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3 bg-card"
                       value={editStudentForm.gender || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, gender: e.target.value })
@@ -1268,12 +1249,12 @@ export default function CoachStudentsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editBloodGroup">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editBloodGroup">
                       Blood Group
                     </label>
                     <select
                       id="editBloodGroup"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3 bg-card"
                       value={editStudentForm.blood_group || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, blood_group: e.target.value })
@@ -1295,13 +1276,13 @@ export default function CoachStudentsPage() {
                 {/* Physical Attributes */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editHeight">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editHeight">
                       Height (cm)
                     </label>
                     <input
                       id="editHeight"
                       type="number"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.height || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, height: e.target.value })
@@ -1312,13 +1293,13 @@ export default function CoachStudentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="label block text-sm font-medium text-foreground mb-1" htmlFor="editWeight">
+                    <label className="block text-xs font-bold text-muted-foreground mb-1" htmlFor="editWeight">
                       Weight (kg)
                     </label>
                     <input
                       id="editWeight"
                       type="number"
-                      className="input-field w-full p-2 border rounded-md bg-surface text-foreground"
+                      className="input-field w-full text-xs py-2 px-3"
                       value={editStudentForm.weight || ''}
                       onChange={(e) =>
                         setEditStudentForm({ ...editStudentForm, weight: e.target.value })
@@ -1332,17 +1313,17 @@ export default function CoachStudentsPage() {
                 
                 {/* Save Message */}
                 {saveMessage.text && (
-                  <div className={`p-3 rounded-lg text-sm ${
-                    saveMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' :
-                    saveMessage.type === 'error' ? 'bg-red-500/10 text-red-600' :
-                    'bg-blue-500/10 text-blue-600'
+                  <div className={`p-2.5 rounded-lg text-xs font-bold ${
+                    saveMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' :
+                    saveMessage.type === 'error' ? 'bg-rose-500/10 text-rose-600' :
+                    'bg-blue-500/10 text-blue-605'
                   }`}>
                     {saveMessage.text}
                   </div>
                 )}
                 
                 {/* Submit Button */}
-                <div className="flex gap-3 justify-end pt-4">
+                <div className="flex gap-2.5 justify-end pt-4 border-t border-border/60">
                   <button
                     type="button"
                     onClick={() => {
@@ -1350,14 +1331,14 @@ export default function CoachStudentsPage() {
                       setEditPhotoPreview(null);
                       setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
                     }}
-                    className="px-4 py-2 rounded-lg border border-border bg-surface text-foreground text-sm hover:bg-surface-secondary transition-colors"
+                    className="btn btn-secondary text-xs py-2 px-4"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="px-6 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn btn-primary text-xs py-2 px-6"
                   >
                     {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
