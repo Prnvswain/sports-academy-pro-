@@ -464,7 +464,8 @@ model Academy {
 
   inventory_history      InventoryHistory[]
 
-
+  sports_kits            SportsKit[]
+  sports_kit_assignments SportsKitAssignment[]
 
   @@map("academies")
 
@@ -757,8 +758,7 @@ model Sport {
   attendanceAuditLogs AttendanceAuditLog[]
 
   inventory_items     InventoryItem[]
-
-
+  sports_kits         SportsKit[]
 
   @@unique([name, academy_id])
 
@@ -1073,6 +1073,8 @@ model Student {
   weekly_reports        WeeklyPerformanceReport[]
 
   attendance_audit_logs AttendanceAuditLog[]
+
+  sports_kit_assignments SportsKitAssignment[]
 
 
 
@@ -2373,5 +2375,57 @@ model GlobalTheme {
   updated_at              DateTime @updatedAt
 
   @@map("global_theme")
+}
+
+model SportsKit {
+  kit_id         Int                   @id @default(autoincrement())
+  academy_id     Int
+  sport_id       Int
+  name           String
+  description    String?               @db.Text
+  status         RecordStatus          @default(ACTIVE)
+  total_qty      Int                   @default(0)
+  available_qty  Int                   @default(0)
+  assigned_qty   Int                   @default(0)
+  base_price     Decimal               @db.Decimal(10, 2)
+  selling_price  Decimal               @db.Decimal(10, 2)
+  items          String                @db.Text // JSON string representing items
+  created_at     DateTime              @default(now())
+  updated_at     DateTime              @updatedAt
+
+  academy        Academy               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_kits_academy_id_fk")
+  sport          Sport                 @relation(fields: [sport_id], references: [sport_id], onDelete: Cascade, map: "sports_kits_sport_id_fk")
+  assignments    SportsKitAssignment[]
+
+  @@unique([sport_id, name, academy_id], map: "sports_kits_unique_name")
+  @@index([academy_id])
+  @@index([sport_id])
+  @@map("sports_kits")
+}
+
+model SportsKitAssignment {
+  assignment_id        Int       @id @default(autoincrement())
+  academy_id           Int
+  kit_id               Int
+  student_id           Int
+  issue_date           DateTime  @default(now())
+  expected_return_date DateTime?
+  return_date          DateTime?
+  status               String    @default("ACTIVE") // ACTIVE, RETURNED
+  payment_status       String    @default("UNPAID") // PAID, UNPAID
+  payment_mode         String?   // FEE, CASH, CARD, etc.
+  remarks              String?   @db.Text
+  fee_id               Int?      // optional reference to Fee entry
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  academy              Academy   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_kit_assignments_academy_id_fk")
+  kit                  SportsKit @relation(fields: [kit_id], references: [kit_id], onDelete: Cascade, map: "sports_kit_assignments_kit_id_fk")
+  student              Student   @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "sports_kit_assignments_student_id_fk")
+
+  @@index([academy_id])
+  @@index([kit_id])
+  @@index([student_id])
+  @@map("sports_kit_assignments")
 }
 

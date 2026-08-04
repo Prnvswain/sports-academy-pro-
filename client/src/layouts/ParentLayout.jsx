@@ -20,7 +20,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Menu,
-  Activity
+  Activity,
+  Package
 } from 'lucide-react';
 
 const PRODUCT_NAME = 'Sports Academy Pro';
@@ -31,6 +32,7 @@ const PARENT_NAV_ITEMS = [
   { path: 'attendance', label: 'Attendance', icon: CalendarDays },
   { path: 'performance', label: 'Performance', icon: Trophy },
   { path: 'fees', label: 'Fees', icon: Ticket },
+  { path: 'sports-kits', label: 'Sports Kits', icon: Package },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },
   { path: 'settings', label: 'Settings', icon: Dumbbell },
 ];
@@ -116,7 +118,12 @@ function ParentLayoutShell() {
           updateThemeColors(themeData);
         }
       } catch (error) {
-        console.error('Failed to load theme colors:', error);
+        // If 403 Forbidden (Parent accessing Super Admin endpoint), gracefully use default theme
+        if (error.response?.status === 403) {
+          console.log('Theme endpoint not accessible for Parent role, using default theme');
+        } else {
+          console.error('Failed to load theme colors:', error);
+        }
       }
     };
     loadThemeColors();

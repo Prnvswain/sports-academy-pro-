@@ -443,6 +443,31 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     throw error;
   }
 
+  let finalCoachId = parseInt(coachId, 10);
+  const normalizedRole = userRole ? userRole.toUpperCase() : '';
+  if (normalizedRole && normalizedRole !== 'COACH') {
+    // Admin or other role. Let's find or create a Coach record for this admin
+    const adminUser = await prisma.user.findFirst({
+      where: { user_id: parseInt(coachId, 10) }
+    });
+    if (adminUser) {
+      let adminCoach = await prisma.coach.findFirst({
+        where: { email: adminUser.email, academy_id: academyId, is_deleted: false }
+      });
+      if (!adminCoach) {
+        adminCoach = await prisma.coach.create({
+          data: {
+            academy_id: academyId,
+            name: adminUser.name || 'Admin',
+            email: adminUser.email,
+            status: 'ACTIVE'
+          }
+        });
+      }
+      finalCoachId = adminCoach.coach_id;
+    }
+  }
+
   // Daily lock check: Verify coach hasn't already scored this student today
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -451,7 +476,7 @@ export const createScore = async (academyId, coachId, userRole, data) => {
   const existingScore = await prisma.performanceScore.findFirst({
     where: {
       student_id: parseInt(student_id, 10),
-      coach_id: parseInt(coachId, 10),
+      coach_id: finalCoachId,
       academy_id: academyId,
       scored_at: {
         gte: startOfDay,
@@ -460,7 +485,7 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     }
   });
 
-  if (existingScore && userRole === 'coach') {
+  if (existingScore && normalizedRole === 'COACH') {
     const error = new Error('Assessment already submitted today. You can only score a student once per calendar day.');
     error.statusCode = 409; // Conflict
     error.isDailyLock = true;
@@ -475,9 +500,9 @@ export const createScore = async (academyId, coachId, userRole, data) => {
     academy_id: academyId,
     student_id: parseInt(student_id, 10),
     attribute_id: parseInt(attribute_id, 10),
-    coach_id: parseInt(coachId, 10),
+    coach_id: finalCoachId,
     score: parseInt(score, 10),
-    scored_at: new Date(),
+    scored_at: data.scored_at ? new Date(data.scored_at) : new Date(),
     assessment_id: assessment_id || generateUUID()
   };
 
@@ -490,60 +515,62 @@ export const createScore = async (academyId, coachId, userRole, data) => {
   }
 
   try {
-    // Always create a new record (continuous assessment)
-    const newScore = await prisma.performanceScore.create({
-      data: scoreData,
-      include: {
-        student: {
-          select: {
-            student_id: true,
-            name: true
-          }
-        },
-        attribute: {
-          include: {
-            sport: {
-              select: {
-                sport_id: true,
-                name: true
-              }
-            }
-          }
-        },
-        coach: {
-          select: {
-            coach_id: true,
-            name: true
-          }
-        },
-        batch: {
-          select: {
-            batch_id: true,
-            name: true
-          }
+    let savedScore;
+    if (assessment_id) {
+      const existing = await prisma.performanceScore.findFirst({
+        where: {
+          assessment_id: assessment_id,
+          attribute_id: parseInt(attribute_id, 10)
         }
+      });
+      if (existing) {
+        savedScore = await prisma.performanceScore.update({
+          where: { score_id: existing.score_id },
+          data: {
+            score: parseInt(score, 10),
+            notes: notes ? notes.trim() : undefined,
+            scored_at: data.scored_at ? new Date(data.scored_at) : existing.scored_at
+          },
+          include: {
+            student: { select: { student_id: true, name: true } },
+            attribute: { include: { sport: { select: { sport_id: true, name: true } } } },
+            coach: { select: { coach_id: true, name: true } },
+            batch: { select: { batch_id: true, name: true } }
+          }
+        });
       }
-    });
+    }
+
+    if (!savedScore) {
+      savedScore = await prisma.performanceScore.create({
+        data: scoreData,
+        include: {
+          student: { select: { student_id: true, name: true } },
+          attribute: { include: { sport: { select: { sport_id: true, name: true } } } },
+          coach: { select: { coach_id: true, name: true } },
+          batch: { select: { batch_id: true, name: true } }
+        }
+      });
+    }
 
     logger.info('PERFORMANCE: Score recorded successfully', {
-      score_id: newScore.score_id,
+      score_id: savedScore.score_id,
       academy_id: academyId,
-      student_id: newScore.student_id,
-      attribute_id: newScore.attribute_id,
-      score: newScore.score,
-      coach_id: coachId,
-      assessment_id: newScore.assessment_id
+      student_id: savedScore.student_id,
+      attribute_id: savedScore.attribute_id,
+      score: savedScore.score,
+      coach_id: finalCoachId,
+      assessment_id: savedScore.assessment_id
     });
 
     // Notify parent about new assessment
     try {
-      await notifyParentAboutAssessment(academyId, parseInt(student_id, 10), parseInt(coachId, 10), newScore.assessment_id);
+      await notifyParentAboutAssessment(academyId, parseInt(student_id, 10), finalCoachId, savedScore.assessment_id);
     } catch (error) {
-      // Log error but don't fail the score submission
       logger.error('PERFORMANCE: Failed to notify parent about assessment', { error: error.message, student_id, attribute_id });
     }
 
-    return newScore;
+    return savedScore;
   } catch (error) {
     logger.error('PERFORMANCE: Failed to create performance score', error);
     throw error;
@@ -1630,5 +1657,113 @@ export const rateStudent = async (academyId, coachId, userRole, data) => {
     sport_id: sportIdInt,
     scores: results,
     total_ratings: results.length
+  };
+};
+
+export const manualScore = async (academyId, userId, data) => {
+  const { student_id, batch_id, date, scores, notes } = data;
+
+  if (!student_id || !scores || scores.length === 0) {
+    const error = new Error('student_id and scores are required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Verify student exists
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: parseInt(student_id, 10),
+      academy_id: academyId,
+      is_deleted: false
+    }
+  });
+
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Get or create admin coach record
+  const adminUser = await prisma.user.findFirst({
+    where: { user_id: parseInt(userId, 10) }
+  });
+
+  if (!adminUser) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  let adminCoach = await prisma.coach.findFirst({
+    where: { email: adminUser.email, academy_id: academyId, is_deleted: false }
+  });
+
+  if (!adminCoach) {
+    adminCoach = await prisma.coach.create({
+      data: {
+        academy_id: academyId,
+        name: adminUser.name || 'Admin',
+        email: adminUser.email,
+        status: 'ACTIVE'
+      }
+    });
+  }
+
+  // Generate assessment ID for this batch of scores
+  const assessmentId = generateUUID();
+
+  const scoredDate = date ? new Date(date) : new Date();
+
+  // Create all scores in a transaction
+  const createdScores = await prisma.$transaction(
+    scores.map((scoreItem) => {
+      const { attribute_id, score } = scoreItem;
+
+      if (!attribute_id || score === undefined) {
+        const error = new Error('Each score must have attribute_id and score');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (score < 1 || score > 10) {
+        const error = new Error('Score must be between 1 and 10');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      return prisma.performanceScore.create({
+        data: {
+          academy_id: academyId,
+          student_id: parseInt(student_id, 10),
+          attribute_id: parseInt(attribute_id, 10),
+          coach_id: adminCoach.coach_id,
+          batch_id: batch_id ? parseInt(batch_id, 10) : null,
+          score: parseInt(score, 10),
+          scored_at: scoredDate,
+          assessment_id: assessmentId,
+          notes: notes ? notes.trim() : null
+        },
+        include: {
+          student: { select: { student_id: true, name: true } },
+          attribute: { include: { sport: { select: { sport_id: true, name: true } } } },
+          coach: { select: { coach_id: true, name: true } },
+          batch: { select: { batch_id: true, name: true } }
+        }
+      });
+    })
+  );
+
+  logger.info('Manual scores saved successfully', {
+    academy_id: academyId,
+    student_id: parseInt(student_id, 10),
+    assessment_id: assessmentId,
+    scores_count: createdScores.length
+  });
+
+  return {
+    assessment_id: assessmentId,
+    scores: createdScores,
+    total_scores: createdScores.length
   };
 };

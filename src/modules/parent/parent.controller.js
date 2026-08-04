@@ -514,3 +514,13 @@ export const getActiveBatchSessions = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getSportsKits = async (req, res, next) => {
+  try {
+    const parent_id = req.user.id;
+    const kits = await parentService.getParentSportsKits(parent_id, req.user.academy_id);
+    res.json(successResponse('Parent sports kits retrieved successfully', kits));
+  } catch (error) {
+    next(error);
+  }
+};

@@ -287,3 +287,16 @@ export const rateStudent = async (req, res, next) => {
     next(err);
   }
 };
+
+export const manualScore = async (req, res, next) => {
+  try {
+    const result = await performanceService.manualScore(
+      req.user.academy_id,
+      req.user.user_id,
+      req.body
+    );
+    res.json(successResponse('Manual score saved successfully', result));
+  } catch (err) {
+    next(err);
+  }
+};

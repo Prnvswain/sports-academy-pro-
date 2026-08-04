@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users, History } from 'lucide-react';
+import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users, History, CheckSquare, XCircle, CheckCircle, Power, PowerOff } from 'lucide-react';
 
 import Loader from '../../components/Loader';
 
@@ -3976,83 +3976,132 @@ export default function StudentsPanel() {
 
           <div>
 
-            <div className="mb-4 flex items-center justify-between">
+            {/* Sticky Action Bar */}
+            <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-border mb-4 shadow-sm">
+              <div className="flex items-center justify-between py-3 px-4">
+                <h3 className="font-bold text-foreground">Active Students</h3>
 
-              <h3 className="font-bold">Active Students</h3>
+                <div className="flex items-center gap-2">
+                  {/* Select All Button */}
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={toggleBulkEditMode}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                      isBulkEditMode
+                        ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-emerald-500/30'
+                        : 'bg-slate-100 dark:bg-slate-800 text-foreground hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {isBulkEditMode ? (
+                      <>
+                        <XCircle className="w-4 h-4" />
+                        <span>Exit Select Mode</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare className="w-4 h-4" />
+                        <span>Select All</span>
+                      </>
+                    )}
+                  </motion.button>
 
-              <div className="flex items-center gap-3">
-
-                <button
-
-                  type="button"
-
-                  className={`btn-sm ${isBulkEditMode ? 'btn-primary' : 'btn-secondary'}`}
-
-                  onClick={toggleBulkEditMode}
-
-                >
-
-                  {isBulkEditMode ? 'Exit Bulk Mode' : 'Bulk Actions'}
-
-                </button>
-
+                  {/* Selected Count Badge */}
+                  {isBulkEditMode && selectedIds.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20"
+                    >
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                        {selectedIds.length} Selected
+                      </span>
+                    </motion.div>
+                  )}
+                </div>
               </div>
 
+              {/* Bulk Action Buttons - Only show when selections exist */}
+              <AnimatePresence>
+                {isBulkEditMode && selectedIds.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="px-4 pb-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Activate Button - Green */}
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBulkActivate}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-500/30"
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                        <span>Activate</span>
+                        <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px]">{selectedIds.length}</span>
+                      </motion.button>
+
+                      {/* Deactivate Button - Orange */}
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBulkDeactivate}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-lg shadow-orange-500/30"
+                      >
+                        <PowerOff className="w-3.5 h-3.5" />
+                        <span>Deactivate</span>
+                        <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px]">{selectedIds.length}</span>
+                      </motion.button>
+
+                      {/* Delete Button - Red */}
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBulkDelete}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all shadow-lg shadow-red-500/30"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                        <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px]">{selectedIds.length}</span>
+                      </motion.button>
+
+                      {/* Pause Button - Yellow/Amber */}
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBulkPause}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-lg shadow-amber-500/30"
+                      >
+                        <Pause className="w-3.5 h-3.5" />
+                        <span>Pause</span>
+                        <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px]">{selectedIds.length}</span>
+                      </motion.button>
+
+                      {/* Resume Button - Blue */}
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleBulkResume}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-lg shadow-blue-500/30"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        <span>Resume</span>
+                        <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-[10px]">{selectedIds.length}</span>
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-
-            {isBulkEditMode && selectedIds.length > 0 && (
-
-              <motion.div
-
-                initial={{ opacity: 0, y: -10 }}
-
-                animate={{ opacity: 1, y: 0 }}
-
-                className="mb-4 flex gap-2"
-
-              >
-
-                <button type="button" className="btn-secondary btn-sm" onClick={handleBulkActivate}>
-
-                  Bulk Activate ({selectedIds.length})
-
-                </button>
-
-                <button
-
-                  type="button"
-
-                  className="btn-secondary btn-sm"
-
-                  onClick={handleBulkDeactivate}
-
-                >
-
-                  Bulk Deactivate ({selectedIds.length})
-
-                </button>
-
-                <button type="button" className="btn-danger btn-sm" onClick={handleBulkDelete}>
-
-                  Bulk Delete ({selectedIds.length})
-
-                </button>
-
-                <button type="button" className="btn-secondary btn-sm" onClick={handleBulkPause}>
-
-                  Bulk Pause ({selectedIds.length})
-
-                </button>
-
-                <button type="button" className="btn-secondary btn-sm" onClick={handleBulkResume}>
-
-                  Bulk Resume ({selectedIds.length})
-
-                </button>
-
-              </motion.div>
-
-            )}
 
             {loading ? (
 
@@ -6174,7 +6223,7 @@ export default function StudentsPanel() {
 
             <div className="mb-4 flex gap-2 border-b">
 
-              {['profile', 'accounts', 'attendance', 'performance', 'notes'].map((tab) => (
+              {['profile', 'accounts', 'attendance', 'performance', 'notes', 'sports kits'].map((tab) => (
 
                 <button
 
@@ -6182,7 +6231,7 @@ export default function StudentsPanel() {
 
                   type="button"
 
-                  className={`px-4 py-2 capitalize transition-all duration-300 ${modalTab === tab ? 'border-success text-success bg-success/10 rounded-t-lg border-b-2 font-semibold' : 'hover:text-success text-slate-600 hover:bg-slate-100'}`}
+                  className={`px-4 py-2 capitalize transition-all duration-350 ${modalTab === tab ? 'border-success text-success bg-success/10 rounded-t-lg border-b-2 font-semibold' : 'hover:text-success text-slate-600 hover:bg-slate-100'}`}
 
                   onClick={() => setModalTab(tab)}
 
@@ -8215,7 +8264,66 @@ export default function StudentsPanel() {
                     )}
 
                   </div>
+                )}
 
+                {modalTab === 'sports kits' && (
+                  <div>
+                    <h4 className="mb-4 font-extrabold text-sm">Assigned Sports Kits</h4>
+                    
+                    {/* Active Kits */}
+                    <div className="mb-6">
+                      <h5 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider mb-2">Current Kit (Active)</h5>
+                      {(!studentDetails.sports_kits || studentDetails.sports_kits.filter(k => k.status === 'ACTIVE').length === 0) ? (
+                        <p className="text-slate-500 text-[11px] italic p-4 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-850">No active kits currently assigned.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {studentDetails.sports_kits.filter(k => k.status === 'ACTIVE').map(a => (
+                            <div key={a.assignment_id} className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex justify-between items-center text-xs bg-white dark:bg-slate-900 shadow-sm">
+                              <div>
+                                <h6 className="font-bold text-sm text-slate-950 dark:text-white">{a.kit?.name}</h6>
+                                <p className="text-slate-500 text-[11px] mt-0.5">{a.kit?.description || 'No description listed'}</p>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[10px] font-semibold text-slate-500">
+                                  <span>📅 Issued: {new Date(a.issue_date).toLocaleDateString()}</span>
+                                  <span>Payment Mode: {a.payment_mode === 'FEE' ? 'Dues' : 'Direct'}</span>
+                                  <span>Payment Status: {a.payment_status}</span>
+                                </div>
+                                {a.remarks && <p className="text-[10px] italic mt-1.5 text-slate-500">Remarks: {a.remarks}</p>}
+                              </div>
+                              <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400 shrink-0 ml-4">
+                                ₹{Number(a.kit?.selling_price)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Returned Kits */}
+                    <div>
+                      <h5 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider mb-2">Previous Kits (History)</h5>
+                      {(!studentDetails.sports_kits || studentDetails.sports_kits.filter(k => k.status === 'RETURNED').length === 0) ? (
+                        <p className="text-slate-500 text-[11px] italic p-4 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-850">No previous return history.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {studentDetails.sports_kits.filter(k => k.status === 'RETURNED').map(a => (
+                            <div key={a.assignment_id} className="border border-slate-150 dark:border-slate-855 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-4 flex justify-between items-center text-xs">
+                              <div>
+                                <h6 className="font-bold text-slate-950 dark:text-white">{a.kit?.name}</h6>
+                                <div className="flex gap-4 mt-2 text-[10px] text-slate-500">
+                                  <span>📅 Issued: {new Date(a.issue_date).toLocaleDateString()}</span>
+                                  <span>📅 Returned: {new Date(a.return_date).toLocaleDateString()}</span>
+                                  <span>Payment Status: {a.payment_status}</span>
+                                </div>
+                              </div>
+                              <span className="font-bold text-slate-600 dark:text-slate-400">
+                                ₹{Number(a.kit?.selling_price)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
 
               </div>

@@ -105,8 +105,8 @@ export default function ReportsPanel() {
     const recent = localStorage.getItem('recentReports');
     if (recent) setRecentReports(JSON.parse(recent));
     
-    // Fetch filter options from API (force refresh to get relations data)
-    fetchFilterOptions(true);
+    // Fetch filter options from API (use cache if available to prevent duplicate calls)
+    fetchFilterOptions(false);
   }, []);
 
   // Keyboard accessibility listeners (ESC to close drawers)

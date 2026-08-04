@@ -57,4 +57,7 @@ router.get('/sport-attributes/:sportId', performanceController.getSportAttribute
 router.post('/rate-student', performanceController.rateStudent);
 router.post('/sync-global-attributes/:sportId', performanceController.syncGlobalSportAttributes);
 
+// Admin manual scoring endpoint
+router.patch('/manual-score', performanceController.manualScore);
+
 export default router;

@@ -167,6 +167,16 @@ export default function AdminLayout() {
   const { updateThemeColors } = useTheme();
   useEffect(() => {
     const loadThemeColors = async () => {
+      // Only call Super Admin theme endpoint if user is actually a Super Admin
+      const token = getAdminToken();
+      const user = decodeJwtPayload(token);
+      const userRole = user?.role || user?.userType;
+
+      if (userRole !== 'super_admin' && userRole !== 'SuperAdmin') {
+        // Admin users should not call Super Admin endpoint - use default theme
+        return;
+      }
+
       try {
         const response = await adminGet('/super-admin/theme');
         const themeData = response?.data || response;

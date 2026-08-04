@@ -68,6 +68,7 @@ router.get('/children/:child_id/performance/history', parentController.getChildP
 router.get('/children/:child_id/performance/analytics', parentController.getChildPerformanceAnalytics);
 router.get('/children/:child_id/performance/dashboard', parentController.getChildPerformanceDashboard);
 router.get('/batch-sessions/active', parentController.getActiveBatchSessions);
+router.get('/sports-kits', parentController.getSportsKits);
 
 // ─── ANNOUNCEMENT ROUTES ─────────────────────────────────────────────────────
 

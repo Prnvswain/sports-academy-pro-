@@ -726,7 +726,7 @@ export const getStudentDetails = async (academy_id, student_id) => {
 
 
 
-  const [receipts, attendance, performanceScores, enrollments, dailyNotes] = await Promise.all([
+  const [receipts, attendance, performanceScores, enrollments, dailyNotes, sportsKits] = await Promise.all([
 
     prisma.receipt.findMany({
 
@@ -840,19 +840,29 @@ export const getStudentDetails = async (academy_id, student_id) => {
       })
 
       .catch((error) => {
-
         console.error(
-
           'Warning: Could not fetch student notes, falling back to empty array:',
-
           error.message,
-
         );
-
         return [];
-
       }),
-
+    prisma.sportsKitAssignment.findMany({
+      where: {
+        student_id: student.student_id,
+        academy_id: parseInt(academy_id, 10),
+      },
+      include: {
+        kit: {
+          include: {
+            sport: true
+          }
+        }
+      },
+      orderBy: { issue_date: 'desc' }
+    }).catch((error) => {
+      console.error('Warning: Could not fetch sports kits assignments:', error.message);
+      return [];
+    })
   ]);
 
 
@@ -886,6 +896,8 @@ export const getStudentDetails = async (academy_id, student_id) => {
     enrollments,
 
     daily_notes: dailyNotes,
+
+    sports_kits: sportsKits || [],
 
   };
 

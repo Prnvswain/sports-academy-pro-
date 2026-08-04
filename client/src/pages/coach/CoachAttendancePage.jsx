@@ -990,7 +990,7 @@ export default function CoachAttendancePage() {
                   </div>
                 )}
                       {/* 4-Step Workflow */}
-                <div className="space-y-4">
+                <div className="sticky top-4 z-40 space-y-4 bg-card/95 backdrop-blur-sm p-4 rounded-2xl border border-border shadow-sm">
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

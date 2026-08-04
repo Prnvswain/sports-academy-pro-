@@ -50,6 +50,7 @@ import ParentPerformance from './pages/parent/ParentPerformance';
 import ParentFees from './pages/parent/ParentFees';
 import ParentProfile from './pages/parent/ParentProfile';
 import ParentSettings from './pages/parent/ParentSettings';
+import ParentSportsKits from './pages/parent/ParentSportsKits';
 import ParentAnnouncements from './pages/parent/announcements/ParentAnnouncements';
 import ParentAnnouncementDetails from './pages/parent/announcements/ParentAnnouncementDetails';
 import CreateAnnouncement from './pages/admin/announcements/CreateAnnouncement';
@@ -176,6 +177,7 @@ export default function App() {
             <Route path="attendance" element={<ParentAttendance />} />
             <Route path="performance" element={<ParentPerformance />} />
             <Route path="fees" element={<ParentFees />} />
+            <Route path="sports-kits" element={<ParentSportsKits />} />
             <Route path="profile" element={<ParentProfile />} />
             <Route path="settings" element={<ParentSettings />} />
             <Route path="announcements" element={<ParentAnnouncements />} />

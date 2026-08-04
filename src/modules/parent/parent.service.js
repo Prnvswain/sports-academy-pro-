@@ -750,3 +750,30 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
     },
   };
 };
+
+export const getParentSportsKits = async (parent_id, academy_id) => {
+  const parentId = parseInt(parent_id, 10);
+  const academyId = parseInt(academy_id, 10);
+
+  return await prisma.sportsKitAssignment.findMany({
+    where: {
+      academy_id: academyId,
+      student: {
+        parent_id: parentId,
+        is_deleted: false,
+        status: 'ACTIVE'
+      }
+    },
+    include: {
+      kit: {
+        include: {
+          sport: true
+        }
+      },
+      student: true
+    },
+    orderBy: {
+      issue_date: 'desc'
+    }
+  });
+};

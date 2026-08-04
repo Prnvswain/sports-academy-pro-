@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { adminGet, adminPost, adminPut, adminPatch } from '../../api/client';
+import SportsKitsPanel from './SportsKitsPanel';
 
 const CATEGORIES = ['Ball', 'Bat', 'Racket', 'Net', 'Cone', 'Jersey', 'Gloves', 'Mat', 'Stumps', 'Others'];
 const CONDITIONS = ['New', 'Good', 'Fair', 'Damaged'];
@@ -551,6 +552,7 @@ export default function InventoryPage() {
       <div className="border-b border-slate-200 dark:border-slate-800 flex gap-4 overflow-x-auto">
         {[
           { id: 'catalog', label: 'Stock Catalog', count: filteredItems.length },
+          { id: 'kits', label: 'Sports Kits' },
           { id: 'assignments', label: 'Coach Assignments', count: assignments.length },
           { id: 'requests', label: 'Incoming Requests', count: requests.filter(r => r.status === 'Pending').length, alert: true },
           { id: 'reports', label: 'Reports & Ledger' }
@@ -575,6 +577,11 @@ export default function InventoryPage() {
           </button>
         ))}
       </div>
+
+      {/* Sports Kits Tab Content */}
+      {activeTab === 'kits' && (
+        <SportsKitsPanel />
+      )}
 
       {/* Catalog Tab Content */}
       {activeTab === 'catalog' && (
