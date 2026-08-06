@@ -13,10 +13,12 @@ export const getSportsList = async (req, res, next) => {
 export const getKits = async (req, res, next) => {
   try {
     const { sport_id } = req.query;
-    if (!sport_id) {
-      return res.status(400).json({ success: false, message: 'sport_id is required' });
+    let kits;
+    if (sport_id && sport_id !== 'undefined' && sport_id !== 'null') {
+      kits = await kitsService.getKitsBySport(req.user.academy_id, sport_id);
+    } else {
+      kits = await kitsService.getAllKits(req.user.academy_id);
     }
-    const kits = await kitsService.getKitsBySport(req.user.academy_id, sport_id);
     res.json(successResponse('Kits retrieved successfully', kits));
   } catch (err) {
     next(err);
@@ -56,7 +58,11 @@ export const assignKit = async (req, res, next) => {
   try {
     const { kit_id } = req.params;
     const assignment = await kitsService.assignKit(req.user.academy_id, kit_id, req.body);
-    res.status(201).json(successResponse('Sports kit assigned successfully', assignment));
+    const response = successResponse('Sports kit assigned successfully', assignment);
+    if (assignment && assignment.warning) {
+      response.warning = assignment.warning;
+    }
+    res.status(201).json(response);
   } catch (err) {
     next(err);
   }
@@ -108,3 +114,98 @@ export const getReports = async (req, res, next) => {
     next(err);
   }
 };
+
+// ─── COACH KIT ASSIGNMENT CONTROLLERS ────────────────────────────────────────
+
+export const assignKitToCoach = async (req, res, next) => {
+  try {
+    const assignment = await kitsService.assignKitToCoach(req.user.academy_id, req.body);
+    res.status(201).json(successResponse('Kit assigned to coach successfully', assignment));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCoachKitAssignments = async (req, res, next) => {
+  try {
+    const assignments = await kitsService.getCoachKitAssignments(req.user.academy_id, req.query);
+    res.json(successResponse('Coach kit assignments retrieved successfully', assignments));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const editCoachKitAssignment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const assignment = await kitsService.editCoachKitAssignment(req.user.academy_id, id, req.body);
+    res.json(successResponse('Coach kit assignment updated successfully', assignment));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const revokeCoachKitAssignment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const assignment = await kitsService.revokeCoachKitAssignment(req.user.academy_id, id);
+    res.json(successResponse('Coach kit assignment revoked successfully', assignment));
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Coach-facing controllers
+export const getMyCoachKitAssignments = async (req, res, next) => {
+  try {
+    const assignments = await kitsService.getMyCoachKitAssignments(req.user.academy_id, req.user.coach_id);
+    res.json(successResponse('Your kit assignments retrieved successfully', assignments));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const assignKitFromCoach = async (req, res, next) => {
+  try {
+    const { kit_id } = req.params;
+    const assignment = await kitsService.assignKitFromCoach(
+      req.user.academy_id,
+      req.user.coach_id,
+      kit_id,
+      req.body
+    );
+    const response = successResponse('Kit assigned to student successfully', assignment);
+    if (assignment && assignment.warning) {
+      response.warning = assignment.warning;
+    }
+    res.status(201).json(response);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getMyCoachStudentAssignments = async (req, res, next) => {
+  try {
+    const assignments = await kitsService.getMyCoachStudentAssignments(req.user.academy_id, req.user.coach_id);
+    res.json(successResponse('Student kit assignments retrieved successfully', assignments));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateCoachStudentPaymentStatus = async (req, res, next) => {
+  try {
+    const { assignment_id } = req.params;
+    const assignment = await kitsService.updateCoachStudentPaymentStatus(
+      req.user.academy_id,
+      req.user.coach_id,
+      assignment_id,
+      req.body
+    );
+    res.json(successResponse('Student kit assignment payment updated successfully', assignment));
+  } catch (err) {
+    next(err);
+  }
+};
+
+

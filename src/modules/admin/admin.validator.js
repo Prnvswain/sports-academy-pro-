@@ -15,6 +15,7 @@ export const validate = (method) => {
           .withMessage('Base fee must be a valid number'),
         body('sport_center').optional().isString().withMessage('Sport center must be a string'),
         body('status').optional().isIn(['ACTIVE', 'INACTIVE']).withMessage('Invalid status'),
+        body('require_gps').optional().isBoolean().withMessage('Require GPS must be a boolean'),
       ];
 
     case 'bulkSportAction':

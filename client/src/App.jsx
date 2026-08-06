@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { ActiveStudentProvider } from './context/ActiveStudentContext';
 import { AdminRoute, CoachRoute, SuperAdminRoute, ParentRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import AdminLayout from './layouts/AdminLayout';
@@ -33,7 +34,10 @@ import AdminSubscriptionPanel from './pages/admin/SubscriptionPanel';
 import AdminNotificationsPanel from './pages/admin/NotificationsPanel';
 import SettingsPanel from './pages/admin/SettingsPanel';
 import InventoryPage from './pages/admin/InventoryPage';
+import InventoryStock from './pages/admin/inventory/InventoryStock';
+import InventorySportsKits from './pages/admin/inventory/InventorySportsKits';
 import CoachInventoryPage from './pages/coach/CoachInventoryPage';
+import CoachSportsKitsPage from './pages/coach/CoachSportsKitsPage';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
@@ -129,7 +133,12 @@ export default function App() {
             <Route path="enquiries" element={<EnquiriesPanel />} />
             <Route path="gps-settings" element={<GpsSettingsPanel />} />
             <Route path="settings" element={<SettingsPanel />} />
-            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="inventory" element={<Navigate to="/admin/inventory/stock" replace />} />
+            <Route path="inventory/stock" element={<InventoryStock />} />
+            <Route path="inventory/sports-kits" element={<InventorySportsKits />} />
+            <Route path="inventory/coach-assignments" element={<Navigate to="/admin/inventory/stock" replace />} />
+            <Route path="inventory/incoming-requests" element={<Navigate to="/admin/inventory/stock" replace />} />
+            <Route path="inventory/reports" element={<Navigate to="/admin/inventory/stock" replace />} />
             <Route path="import" element={<Navigate to="/admin/students" replace />} />
             <Route path="analytics" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="announcements" element={<AnnouncementHistory />} />
@@ -155,7 +164,9 @@ export default function App() {
             <Route path="notes" element={<CoachNotesPage />} />
             <Route path="fees" element={<CoachFeesPage />} />
             <Route path="performance" element={<CoachPerformancePage />} />
-            <Route path="inventory" element={<CoachInventoryPage />} />
+            <Route path="inventory" element={<Navigate to="/coach/inventory/equipment" replace />} />
+            <Route path="inventory/equipment" element={<CoachInventoryPage />} />
+            <Route path="inventory/sports-kits" element={<CoachSportsKitsPage />} />
             <Route path="announcements" element={<CoachAnnouncementHistory />} />
             <Route path="announcements/create" element={<CoachCreateAnnouncement />} />
             <Route path="announcements/:id" element={<CoachAnnouncementDetails />} />
@@ -168,7 +179,9 @@ export default function App() {
             path="/parent"
             element={
               <ParentRoute>
-                <ParentLayout />
+                <ActiveStudentProvider>
+                  <ParentLayout />
+                </ActiveStudentProvider>
               </ParentRoute>
             }
           >

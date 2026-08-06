@@ -413,13 +413,14 @@ export default function CoachAttendancePage() {
 
   // Reset workflow when batch changes
   useEffect(() => {
-    setStep1GpsVerified(false);
+    const gpsRequired = selectedBatch?.sport?.require_gps !== false;
+    setStep1GpsVerified(!gpsRequired);
     setStep1GpsLoading(false);
     setStep2AttendanceMarked(false);
     setStep2AttendanceLoading(false);
     setStep3BatchStarted(false);
     setStep4BatchEnded(false);
-  }, [selectedBatchId]);
+  }, [selectedBatchId, selectedBatch]);
 
   const handleCoachAttendance = async ({ status, remarks }) => {
     if (status === 'PRESENT' && !attendanceWindow.active) {
@@ -427,7 +428,8 @@ export default function CoachAttendancePage() {
       return;
     }
 
-    if (status === 'PRESENT' && !gpsVerified) {
+    const gpsRequired = selectedBatch?.sport?.require_gps !== false;
+    if (status === 'PRESENT' && gpsRequired && !gpsVerified) {
       setMessage({ text: 'Please verify your location before marking attendance as Present.', type: 'error' });
       return;
     }
@@ -723,8 +725,9 @@ export default function CoachAttendancePage() {
     return <Loader message="Loading batches..." />;
   }
 
+  const gpsRequired = selectedBatch?.sport?.require_gps !== false;
   // Helper variables for step progression state
-  const step1Complete = coachAttendanceMarked && (selectedCoachStatus === 'ABSENT' || gpsVerified);
+  const step1Complete = coachAttendanceMarked && (selectedCoachStatus === 'ABSENT' || !gpsRequired || gpsVerified);
   const step2Complete = hasActiveSession || hasCompletedSession;
   const step3Complete = isAttendanceLocked || hasCompletedSession;
 
@@ -991,42 +994,44 @@ export default function CoachAttendancePage() {
                 )}
                       {/* 4-Step Workflow */}
                 <div className="sticky top-4 z-40 space-y-4 bg-card/95 backdrop-blur-sm p-4 rounded-2xl border border-border shadow-sm">
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${step1GpsVerified
-                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
-                        : 'border-border bg-card'
-                      }`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step1GpsVerified ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}>
-                      {step1GpsVerified ? '✓' : '1'}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-extrabold text-foreground text-sm">Step 1: GPS Verification</h4>
-                      {step1GpsVerified && (
-                        <div className="mt-2 space-y-1 text-xs text-muted-foreground font-bold">
-                          <p>📍 Capture your current GPS location</p>
-                          <p>Latitude: {gpsCoords.latitude?.toFixed(6)}</p>
-                          <p>Longitude: {gpsCoords.longitude?.toFixed(6)}</p>
-                          <p>Accuracy: {gpsCoords.accuracy}m</p>
-                          <p className="text-emerald-600 dark:text-emerald-450 font-black">✅ GPS Verified Successfully</p>
-                        </div>
+                  {gpsRequired && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${step1GpsVerified
+                          ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
+                          : 'border-border bg-card'
+                        }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step1GpsVerified ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}>
+                        {step1GpsVerified ? '✓' : '1'}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-extrabold text-foreground text-sm">Step 1: GPS Verification</h4>
+                        {step1GpsVerified && (
+                          <div className="mt-2 space-y-1 text-xs text-muted-foreground font-bold">
+                            <p>📍 Capture your current GPS location</p>
+                            <p>Latitude: {gpsCoords.latitude?.toFixed(6)}</p>
+                            <p>Longitude: {gpsCoords.longitude?.toFixed(6)}</p>
+                            <p>Accuracy: {gpsCoords.accuracy}m</p>
+                            <p className="text-emerald-600 dark:text-emerald-450 font-black">✅ GPS Verified Successfully</p>
+                          </div>
+                        )}
+                      </div>
+                      {!step1GpsVerified ? (
+                        <button
+                          onClick={handleStep1GpsVerify}
+                          disabled={step1GpsLoading || !gpsVerified}
+                          className="btn btn-primary text-xs flex-shrink-0"
+                        >
+                          {step1GpsLoading ? 'Verifying...' : 'Verify GPS'}
+                        </button>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-450 font-black text-xs flex-shrink-0">Completed</span>
                       )}
-                    </div>
-                    {!step1GpsVerified ? (
-                      <button
-                        onClick={handleStep1GpsVerify}
-                        disabled={step1GpsLoading || !gpsVerified}
-                        className="btn btn-primary text-xs flex-shrink-0"
-                      >
-                        {step1GpsLoading ? 'Verifying...' : 'Verify GPS'}
-                      </button>
-                    ) : (
-                      <span className="text-emerald-600 dark:text-emerald-450 font-black text-xs flex-shrink-0">Completed</span>
-                    )}
-                  </motion.div>
+                    </motion.div>
+                  )}
 
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -1042,10 +1047,10 @@ export default function CoachAttendancePage() {
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step2AttendanceMarked ? 'bg-emerald-500 text-white' :
                         step1GpsVerified ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
-                      {step2AttendanceMarked ? '✓' : '2'}
+                      {step2AttendanceMarked ? '✓' : gpsRequired ? '2' : '1'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-extrabold text-foreground text-sm">Step 2: Mark Your Attendance</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step {gpsRequired ? '2' : '1'}: Mark Your Attendance</h4>
                       {step2AttendanceMarked && (
                         <p className="mt-2 text-xs text-emerald-605 dark:text-emerald-455 font-black">✅ Attendance Marked Successfully</p>
                       )}
@@ -1079,10 +1084,10 @@ export default function CoachAttendancePage() {
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step3BatchStarted ? 'bg-emerald-500 text-white' :
                         step2AttendanceMarked ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
-                      {step3BatchStarted ? '✓' : '3'}
+                      {step3BatchStarted ? '✓' : gpsRequired ? '3' : '2'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-extrabold text-foreground text-sm">Step 3: Batch Check-in</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step {gpsRequired ? '3' : '2'}: Batch Check-in</h4>
                       {step3BatchStarted && (
                         <p className="mt-2 text-xs text-emerald-605 dark:text-emerald-455 font-black">✅ Batch Started Successfully</p>
                       )}
@@ -1116,10 +1121,10 @@ export default function CoachAttendancePage() {
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${step4BatchEnded ? 'bg-emerald-500 text-white' :
                         step3BatchStarted ? 'bg-blue-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
-                      {step4BatchEnded ? '✓' : '4'}
+                      {step4BatchEnded ? '✓' : gpsRequired ? '4' : '3'}
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-extrabold text-foreground text-sm">Step 4: Batch Check-out</h4>
+                      <h4 className="font-extrabold text-foreground text-sm">Step {gpsRequired ? '4' : '3'}: Batch Check-out</h4>
                       {step4BatchEnded && (
                         <p className="mt-2 text-xs text-emerald-605 dark:text-emerald-455 font-black">✅ Batch Ended Successfully</p>
                       )}

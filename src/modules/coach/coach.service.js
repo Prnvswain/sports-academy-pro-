@@ -2469,7 +2469,9 @@ export const getCoachBatches = async (coach_id, academy_id) => {
 
           longitude: true,
 
-          use_custom_location: true
+          use_custom_location: true,
+
+          require_gps: true
 
         }
 

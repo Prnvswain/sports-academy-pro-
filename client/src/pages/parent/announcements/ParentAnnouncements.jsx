@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { parentGet, parentPatch } from '../../../api/client';
+import { useActiveStudent } from '../../../context/ActiveStudentContext';
 import { Megaphone, Search, AlertCircle, FileText, CheckCheck, ArrowRight, ShieldAlert, Tag, Bell } from 'lucide-react';
 import Loader from '../../../components/Loader';
 
@@ -27,6 +28,7 @@ const PRIORITY_COLORS = {
 
 export default function ParentAnnouncements() {
   const navigate = useNavigate();
+  const { activeStudent, loading: studentLoading } = useActiveStudent();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,7 +37,7 @@ export default function ParentAnnouncements() {
 
   useEffect(() => {
     fetchAnnouncements();
-  }, [filter]);
+  }, [filter, activeStudent]);
 
   const fetchAnnouncements = async () => {
     setLoading(true);
@@ -43,6 +45,7 @@ export default function ParentAnnouncements() {
       const params = new URLSearchParams();
       if (filter === 'unread') params.append('unread_only', 'true');
       if (search) params.append('search', search);
+      if (activeStudent) params.append('student_id', activeStudent.student_id);
 
       const response = await parentGet(`/parent/announcements?${params.toString()}`);
       

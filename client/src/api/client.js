@@ -4,6 +4,9 @@ export const ADMIN_TOKEN_KEY = 'sams_admin_token';
 export const COACH_TOKEN_KEY = 'sams_coach_token';
 export const SUPER_ADMIN_TOKEN_KEY = 'sams_super_admin_token';
 export const SIDEBAR_COLLAPSED_KEY = 'sams_sidebar_collapsed';
+export const IMPERSONATION_ADMIN_TOKEN_KEY = 'sams_impersonation_admin_token';
+export const IMPERSONATION_COACH_ID_KEY = 'sams_impersonation_coach_id';
+export const IS_IMPERSONATING_KEY = 'sams_is_impersonating';
 
 const api = axios.create({
   baseURL: '/api/v1'
@@ -63,6 +66,38 @@ export function setSuperAdminToken(token) {
 
 export function clearSuperAdminToken() {
   localStorage.removeItem(SUPER_ADMIN_TOKEN_KEY);
+}
+
+/* ==========================================
+   🎯 IMPERSONATION FUNCTIONS
+   ========================================== */
+export function startImpersonation(coachToken, adminToken, coachId) {
+  localStorage.setItem(IMPERSONATION_ADMIN_TOKEN_KEY, adminToken);
+  localStorage.setItem(IMPERSONATION_COACH_ID_KEY, coachId);
+  localStorage.setItem(IS_IMPERSONATING_KEY, 'true');
+  setCoachToken(coachToken);
+}
+
+export function endImpersonation() {
+  const adminToken = localStorage.getItem(IMPERSONATION_ADMIN_TOKEN_KEY);
+  localStorage.removeItem(IMPERSONATION_ADMIN_TOKEN_KEY);
+  localStorage.removeItem(IMPERSONATION_COACH_ID_KEY);
+  localStorage.removeItem(IS_IMPERSONATING_KEY);
+  clearCoachToken();
+  setAdminToken(adminToken);
+  return adminToken;
+}
+
+export function isImpersonating() {
+  return localStorage.getItem(IS_IMPERSONATING_KEY) === 'true';
+}
+
+export function getImpersonationCoachId() {
+  return localStorage.getItem(IMPERSONATION_COACH_ID_KEY);
+}
+
+export function getImpersonationAdminToken() {
+  return localStorage.getItem(IMPERSONATION_ADMIN_TOKEN_KEY);
 }
 
 /* ==========================================

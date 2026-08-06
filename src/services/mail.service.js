@@ -53,7 +53,7 @@ export const verifySmtpConnection = async () => {
   }
 };
 
-const sendMail = async ({ to, subject, html, text }) => {
+export const sendMail = async ({ to, subject, html, text }) => {
   if (!isSmtpConfigured()) {
     const error = new Error('SMTP credentials are not configured');
     error.code = 'SMTP_NOT_CONFIGURED';

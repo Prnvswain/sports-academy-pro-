@@ -10,6 +10,13 @@ router.get('/kits/sports', kitsController.getSportsList);
 router.get('/kits/dashboard', kitsController.getDashboard);
 router.get('/kits/reports', kitsController.getReports);
 router.get('/kits/assignments', kitsController.getAssignments);
+
+// Coach Assignment Routes (admin manages)
+router.get('/kits/coach-assignments', kitsController.getCoachKitAssignments);
+router.post('/kits/coach-assignments', kitsController.assignKitToCoach);
+router.put('/kits/coach-assignments/:id', kitsController.editCoachKitAssignment);
+router.delete('/kits/coach-assignments/:id', kitsController.revokeCoachKitAssignment);
+
 router.get('/kits', kitsController.getKits);
 router.post('/kits', kitsController.createKit);
 router.put('/kits/:kit_id', kitsController.updateKit);
@@ -32,3 +39,4 @@ router.get('/dashboard', inventoryController.getDashboard);
 router.get('/reports', inventoryController.getReports);
 
 export default router;
+

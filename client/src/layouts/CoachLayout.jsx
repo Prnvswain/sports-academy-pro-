@@ -5,7 +5,8 @@ import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BrandingLogo from '../components/BrandingLogo';
 import GlobalBackground from '../components/GlobalBackground';
-import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken, coachGet } from '../api/client';
+import Avatar from '../components/Avatar';
+import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken, coachGet, isImpersonating, endImpersonation } from '../api/client';
 import { CoachBatchesProvider, useCoachBatches } from '../context/CoachBatchesContext';
 import { useTheme } from '../context/ThemeContext';
 import { CoachDailyNotes } from '../pages/coach/CoachExtras';
@@ -24,7 +25,8 @@ import {
   ChevronRight,
   Menu,
   Home,
-  Package
+  Package,
+  ChevronDown
 } from 'lucide-react';
 
 const decodeJwtPayload = (token) => {
@@ -56,7 +58,15 @@ const COACH_NAV_ITEMS = [
   { path: 'performance', label: 'Performance Tracker', icon: TrendingUp },
   { path: 'fees', label: 'Fees', icon: Wallet },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },
-  { path: 'inventory', label: 'Inventory', icon: Package },
+  {
+    path: 'inventory',
+    label: 'Inventory',
+    icon: Package,
+    submenu: [
+      { path: 'inventory/equipment', label: 'Equipment' },
+      { path: 'inventory/sports-kits', label: 'Sports Kits' }
+    ]
+  },
 ];
 
 function CoachLayoutShell() {
@@ -67,6 +77,7 @@ function CoachLayoutShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
+  const [expandedMenus, setExpandedMenus] = useState({});
   const [coachUser, setCoachUser] = useState(null);
   const [showDailyNotes, setShowDailyNotes] = useState(false);
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
@@ -74,6 +85,17 @@ function CoachLayoutShell() {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Auto-expand inventory menu if on any inventory route
+  useEffect(() => {
+    if (location.pathname.startsWith('/coach/inventory')) {
+      setExpandedMenus(prev => ({ ...prev, inventory: true }));
+    }
+  }, [location.pathname]);
+
+  const toggleMenu = (menuKey) => {
+    setExpandedMenus(prev => ({ ...prev, [menuKey]: !prev[menuKey] }));
+  };
 
   // Track screen width for layout modes
   useEffect(() => {
@@ -138,9 +160,31 @@ function CoachLayoutShell() {
 
   const closeMobileSidebar = () => setSidebarOpen(false);
 
+  const impersonating = isImpersonating();
+
+  const handleReturnToAdmin = () => {
+    endImpersonation();
+    window.location.href = '/admin/coaches';
+  };
+
   return (
-    /* Main App Background supporting Light and Dark Mode */
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative z-0">
+    <div className="flex flex-col h-screen w-screen overflow-hidden">
+      {impersonating && (
+        <div className="bg-[#fbbf24] dark:bg-amber-600 text-slate-950 dark:text-white px-4 py-2 flex items-center justify-between text-xs font-bold shrink-0 border-b border-amber-300 dark:border-amber-700 shadow-sm z-50">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+            <span>Viewing as Coach (Admin Session)</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleReturnToAdmin}
+            className="bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-3 py-1 rounded-lg text-[10px] font-black uppercase hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Return to Admin Portal
+          </button>
+        </div>
+      )}
+      <div className="flex flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative z-0">
       
       {/* Universal Fixed Background */}
       <GlobalBackground />
@@ -186,6 +230,82 @@ function CoachLayoutShell() {
         >
           {COACH_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+            const hasSubmenu = item.submenu && item.submenu.length > 0;
+            const isExpanded = expandedMenus[item.path];
+            const menuKey = item.path;
+
+            if (hasSubmenu) {
+              return (
+                <div key={item.path} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleMenu(menuKey)}
+                    title={collapsedForNav ? item.label : undefined}
+                    className={`flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
+                      collapsedForNav ? 'justify-center px-0' : 'px-4'
+                    } ${
+                      location.pathname.startsWith(`/coach/${item.path}`)
+                        ? 'bg-slate-800/80 text-white'
+                        : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                    }`}
+                  >
+                    <motion.span
+                      className={`flex items-center justify-center ${collapsedForNav ? '' : 'min-w-[20px]'}`}
+                      whileHover={{ scale: 1.15, rotate: 5 }}
+                      transition={{ duration: 0.25, type: 'spring', stiffness: 300 }}
+                      aria-hidden="true"
+                    >
+                      <Icon size={18} strokeWidth={2} />
+                    </motion.span>
+                    <motion.span
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: collapsedForNav ? 0 : 1, display: collapsedForNav ? 'none' : 'block' }}
+                      transition={{ duration: 0.2 }}
+                      className="relative z-10 whitespace-nowrap tracking-wide flex-1 text-left"
+                    >
+                      {item.label}
+                    </motion.span>
+                    {!collapsedForNav && (
+                      <motion.div
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown size={14} strokeWidth={2.5} />
+                      </motion.div>
+                    )}
+                  </button>
+                  <AnimatePresence>
+                    {isExpanded && !collapsedForNav && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="pl-12 space-y-1"
+                      >
+                        {item.submenu.map((subItem) => (
+                          <NavLink
+                            key={subItem.path}
+                            to={`/coach/${subItem.path}`}
+                            onClick={closeMobileSidebar}
+                            className={({ isActive }) =>
+                              `flex items-center gap-2 py-2 text-xs font-bold transition-all duration-200 rounded-xl outline-none ${
+                                isActive
+                                  ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-md shadow-lime-500/20'
+                                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+                              }`
+                            }
+                          >
+                            {subItem.label}
+                          </NavLink>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            }
+
             return (
               <NavLink
                 key={item.path}
@@ -236,9 +356,12 @@ function CoachLayoutShell() {
           className="p-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-800/50 shadow-lg shadow-black/10 space-y-2"
         >
           {!collapsedForNav && (
-            <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2 px-2 truncate font-bold">
-              Coach Profile: <br />
-              <span className="text-white font-black text-sm capitalize">{coachUser?.name || 'Loading...'}</span>
+            <div className="flex items-center gap-3 mb-2 px-2">
+              <Avatar src={coachUser?.photo_url || coachUser?.profile_photo} name={coachUser?.name} size="sm" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold leading-none">Coach Profile</span>
+                <span className="text-white font-black text-sm capitalize truncate mt-1">{coachUser?.name || 'Loading...'}</span>
+              </div>
             </div>
           )}
           <motion.button
@@ -426,6 +549,7 @@ function CoachLayoutShell() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
     </div>
   );
 }

@@ -3,39 +3,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Package, Calendar, DollarSign, List, FileText, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { parentGet } from '../../api/client';
+import { useActiveStudent } from '../../context/ActiveStudentContext';
 
 export default function ParentSportsKits() {
+  const { activeStudent, loading: studentLoading } = useActiveStudent();
   const [loading, setLoading] = useState(true);
   const [kits, setKits] = useState([]);
-  const [children, setChildren] = useState([]);
-  const [selectedChildId, setSelectedChildId] = useState('all');
   const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
+    if (!activeStudent) return;
     setLoading(true);
     setError('');
     try {
-      const [kitsRes, childrenRes] = await Promise.all([
-        parentGet('/parent/sports-kits'),
-        parentGet('/parent/children')
-      ]);
-      setKits(kitsRes.data || []);
-      setChildren(childrenRes.data || []);
+      const response = await parentGet(`/parent/sports-kits?student_id=${activeStudent.student_id}`);
+      setKits(response.data || []);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to fetch sports kits details.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeStudent]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const filteredKits = selectedChildId === 'all'
-    ? kits
-    : kits.filter(k => k.student_id === parseInt(selectedChildId, 10));
 
   const handleDownloadReceipt = (a) => {
     window.alert(`Receipt for "${a.kit?.name}" is being processed. Direct download link will be available once payment is cleared by accounts.`);
@@ -69,25 +62,8 @@ export default function ParentSportsKits() {
         </div>
       )}
 
-      {/* Filter by Child */}
-      {children.length > 1 && (
-        <div className="bg-card border border-border p-4 rounded-2xl shadow-sm flex items-center gap-3">
-          <label className="text-xs font-bold text-muted-foreground uppercase">Filter Child:</label>
-          <select
-            value={selectedChildId}
-            onChange={(e) => setSelectedChildId(e.target.value)}
-            className="border border-border bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none text-slate-900 dark:text-white"
-          >
-            <option value="all">All Children</option>
-            {children.map(c => (
-              <option key={c.student_id} value={c.student_id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
       {/* Kits Catalog List */}
-      {filteredKits.length === 0 ? (
+      {kits.length === 0 ? (
         <div className="p-12 text-center bg-card border border-border rounded-2xl shadow-sm">
           <Package className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto stroke-1" />
           <h3 className="mt-4 text-base font-bold text-foreground">No kits assigned</h3>
@@ -97,7 +73,7 @@ export default function ParentSportsKits() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredKits.map((a) => {
+          {kits.map((a) => {
             const items = JSON.parse(a.kit?.items || '[]');
             const isUnpaid = a.payment_status === 'UNPAID';
             const isActive = a.status === 'ACTIVE';
@@ -117,9 +93,22 @@ export default function ParentSportsKits() {
                       </span>
                       <h3 className="text-lg font-black text-foreground mt-1.5">{a.kit?.name}</h3>
                       <p className="text-xs text-muted-foreground">{a.kit?.sport?.name || 'Sports Program'}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded font-semibold">
+                          Qty: {a.quantity || 1}
+                        </span>
+                        <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded font-semibold">
+                          Unit: ₹{Number(a.unit_price || a.kit?.selling_price || 0).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-lg font-black text-foreground">₹{Number(a.kit?.selling_price)}</span>
+                      <span className="text-lg font-black text-foreground">₹{Number(a.total_amount || a.kit?.selling_price || 0).toFixed(2)}</span>
+                      {a.discount > 0 && (
+                        <div className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
+                          Discount: -₹{a.discount.toFixed(2)}
+                        </div>
+                      )}
                       <div className={`text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full inline-block ${
                         isUnpaid 
                           ? 'bg-amber-500/10 text-amber-600 animate-pulse' 

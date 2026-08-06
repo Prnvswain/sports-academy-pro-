@@ -4,11 +4,11 @@ import { useLocation } from 'react-router-dom';
 import { IndianRupee, UploadCloud, CheckCircle2, AlertCircle, XCircle, CreditCard, Receipt, Check, Clock, Download, Share2, Printer, X, Search, DollarSign } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { parentGet, parentPatch, parentPost } from '../../api/client';
+import { useActiveStudent } from '../../context/ActiveStudentContext';
 
 export default function ParentFees() {
   const location = useLocation();
-  const [children, setChildren] = useState([]);
-  const [selectedChildId, setSelectedChildId] = useState('');
+  const { activeStudent, loading: studentLoading } = useActiveStudent();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -38,45 +38,28 @@ export default function ParentFees() {
     window.setTimeout(() => setMessage({ text: '', type: '' }), 4000);
   };
 
-  const fetchChildren = useCallback(async () => {
-    try {
-      const response = await parentGet('/parent/children');
-      const childData = response?.data || response || [];
-      const childrenList = Array.isArray(childData) ? childData : [];
-      setChildren(childrenList);
-      if (childrenList.length > 0 && !selectedChildId) {
-        setSelectedChildId(String(childrenList[0].student_id));
-      }
-    } catch (error) {
-      console.error('Failed to fetch children:', error);
-      showBanner('Unable to load your children right now.', 'error');
-    }
-  }, [selectedChildId]);
-
   const fetchSubmissions = useCallback(async () => {
+    if (!activeStudent) return;
+    console.log('[ParentFees] Fetching submissions for student:', activeStudent.student_id);
     setLoading(true);
     try {
-      const params = selectedChildId ? `?student_id=${selectedChildId}` : '';
-      const response = await parentGet(`/parent/payments${params}`);
+      const response = await parentGet(`/parent/payments?student_id=${activeStudent.student_id}`);
       const paymentData = response?.data || response || [];
+      console.log('[ParentFees] Payments data:', paymentData);
       setSubmissions(Array.isArray(paymentData) ? paymentData : []);
     } catch (error) {
-      console.error('Failed to fetch payments:', error);
+      console.error('[ParentFees] Failed to fetch payments:', error);
       showBanner('Unable to load fee history right now.', 'error');
     } finally {
+      console.log('[ParentFees] Setting loading to false');
       setLoading(false);
     }
-  }, [selectedChildId]);
+  }, [activeStudent]);
 
   useEffect(() => {
-    fetchChildren();
-  }, [fetchChildren]);
-
-  useEffect(() => {
-    if (selectedChildId) {
-      fetchSubmissions();
-    }
-  }, [selectedChildId, fetchSubmissions]);
+    console.log('[ParentFees] activeStudent changed:', activeStudent);
+    fetchSubmissions();
+  }, [activeStudent]);
 
   // Keyboard accessibility listeners (ESC to close modals)
   useEffect(() => {
@@ -93,8 +76,8 @@ export default function ParentFees() {
   const handleSubmitPayment = async (e) => {
     e.preventDefault();
 
-    if (!selectedChildId) {
-      showBanner('Please select a child.', 'error');
+    if (!activeStudent) {
+      showBanner('No student selected.', 'error');
       return;
     }
 
@@ -104,9 +87,8 @@ export default function ParentFees() {
       return;
     }
 
-    const selectedChild = children.find(c => String(c.student_id) === selectedChildId);
-    const totalFeesAssigned = selectedChild?.total_fees_assigned || 0;
-    const totalFeesPaid = selectedChild?.total_fees_paid || 0;
+    const totalFeesAssigned = activeStudent?.total_fees_assigned || 0;
+    const totalFeesPaid = activeStudent?.total_fees_paid || 0;
     const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
     
     if (parsedAmount > remainingFee) {
@@ -127,7 +109,7 @@ export default function ParentFees() {
     try {
       setSubmitting(true);
       const formData = new FormData();
-      formData.append('student_id', selectedChildId);
+      formData.append('student_id', activeStudent.student_id);
       formData.append('amount', amount);
       formData.append('payment_date', new Date().toISOString());
       formData.append('method', paymentMethod);
@@ -256,7 +238,7 @@ export default function ParentFees() {
             </div>
           </div>
           <div class="grid">
-            <div class="item"><label>Student Name</label><span>${children.find(c => String(c.student_id) === selectedChildId)?.name || 'Student'}</span></div>
+            <div class="item"><label>Student Name</label><span>${activeStudent?.name || 'Student'}</span></div>
             <div class="item"><label>Payment Date</label><span>${formatDate(modalReceipt.payment_date)}</span></div>
             <div class="item"><label>Payment Method</label><span>${(modalReceipt.method || 'UPI').toUpperCase()}</span></div>
             <div class="item"><label>Transaction No.</label><span>${modalReceipt.transaction_number || 'N/A'}</span></div>
@@ -284,12 +266,11 @@ export default function ParentFees() {
     }
   };
 
-  const selectedChild = children.find(c => String(c.student_id) === selectedChildId);
-  const totalFeesAssigned = selectedChild?.total_fees_assigned || 0;
-  const totalFeesPaid = selectedChild?.total_fees_paid || 0;
+  const totalFeesAssigned = activeStudent?.total_fees_assigned || 0;
+  const totalFeesPaid = activeStudent?.total_fees_paid || 0;
   const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
 
-  if (loading && children.length === 0) return <Loader />;
+  if (studentLoading) return <Loader />;
 
   return (
     <div className="space-y-6 w-full max-w-7xl mx-auto font-sans p-4 lg:p-8">
@@ -310,24 +291,6 @@ export default function ParentFees() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {children.length > 1 && (
-            <div className="bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-inner flex items-center gap-1">
-              {children.map(child => (
-                <button
-                  key={child.student_id}
-                  onClick={() => setSelectedChildId(String(child.student_id))}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all duration-200 ${
-                    selectedChildId === String(child.student_id)
-                      ? 'bg-white dark:bg-slate-900 text-slate-950 dark:text-lime-400 shadow-sm border border-slate-200/50 dark:border-slate-800/50'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {child.name}
-                </button>
-              ))}
-            </div>
-          )}
-
           <motion.button
             whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.98 }}
@@ -508,15 +471,15 @@ export default function ParentFees() {
             </div>
           </div>
 
-          {selectedChild ? (
+          {activeStudent ? (
             <div className="space-y-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
               <div className="bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800/40">
                 <span className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest">Active Batch</span>
                 <p className="text-sm font-black text-slate-900 dark:text-white mt-1">
-                  {selectedChild.batch?.name || 'Assigning Batch'}
+                  {activeStudent.batch?.name || 'Assigning Batch'}
                 </p>
                 <div className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-lime-400/10 text-lime-600 dark:text-lime-400 border border-lime-500/20">
-                  {selectedChild.sport?.name || 'General Sport'}
+                  {activeStudent.sport?.name || 'General Sport'}
                 </div>
               </div>
 
@@ -578,7 +541,7 @@ export default function ParentFees() {
               {/* Scrollable grid of submissions */}
               <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                 {submissions.length === 0 ? (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-12 font-bold uppercase tracking-wider">No payments submitted yet for {selectedChild?.name || 'this student'}.</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-12 font-bold uppercase tracking-wider">No payments submitted yet for {activeStudent?.name || 'this student'}.</p>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border border-slate-200/50 dark:border-slate-800/50 shadow-inner">
                     <table className="w-full text-left text-xs font-semibold">

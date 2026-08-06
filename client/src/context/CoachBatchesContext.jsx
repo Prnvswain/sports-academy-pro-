@@ -30,7 +30,8 @@ export function CoachBatchesProvider({ children }) {
         coach_name: dashData.coach_name || 'Coach',
         academy_name: dashData.academy_name || 'Academy',
         todays_students: dashData.todays_students ?? 0,
-        pending_fees_count: dashData.pending_fees_count ?? 0
+        pending_fees_count: dashData.pending_fees_count ?? 0,
+        profile_photo: dashData.profile_photo || null
       });
     } catch (err) {
       setError(err.message);

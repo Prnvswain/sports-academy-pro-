@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import Loader from '../../components/Loader';
 import { parentGet } from '../../api/client';
+import { useActiveStudent } from '../../context/ActiveStudentContext';
 import { Activity, Target, Brain, CalendarCheck, TrendingUp, Trophy, Medal, MessageSquare, Flame, Zap, Award, User, Clock, ChevronDown, BookOpen, AlertCircle } from 'lucide-react';
 
 export default function ParentPerformance() {
   const navigate = useNavigate();
-  const [children, setChildren] = useState([]);
-  const [selectedChild, setSelectedChild] = useState(null);
+  const { activeStudent, loading: studentLoading } = useActiveStudent();
   const [studentDashboardData, setStudentDashboardData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [availableAttributes, setAvailableAttributes] = useState([]);
@@ -18,18 +18,6 @@ export default function ParentPerformance() {
   const [dateRangeFilter, setDateRangeFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
-
-  const loadChildren = useCallback(async () => {
-    try {
-      const result = await parentGet('/parent/children');
-      setChildren(result.data || []);
-      if (result.data && result.data.length > 0) {
-        setSelectedChild(result.data[0]);
-      }
-    } catch (error) {
-      setMessage({ text: error.message || 'Failed to load children', type: 'error' });
-    }
-  }, []);
 
   const loadStudentDashboard = async (childId) => {
     if (!childId) return;
@@ -66,20 +54,13 @@ export default function ParentPerformance() {
   };
 
   useEffect(() => {
-    const initialize = async () => {
-      setLoading(true);
-      await loadChildren();
-      setLoading(false);
-    };
-    initialize();
-  }, [loadChildren]);
-
-  useEffect(() => {
-    if (selectedChild) {
-      loadStudentDashboard(selectedChild.student_id);
+    console.log('[ParentPerformance] activeStudent changed:', activeStudent);
+    if (activeStudent) {
+      console.log('[ParentPerformance] Loading dashboard for student:', activeStudent.student_id);
+      loadStudentDashboard(activeStudent.student_id);
       setSelectedAssessment(null);
     }
-  }, [selectedChild]);
+  }, [activeStudent]);
 
   const calculateAverageRating = (scores) => {
     if (!scores || scores.length === 0) return 0;

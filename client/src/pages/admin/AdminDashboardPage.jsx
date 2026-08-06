@@ -73,7 +73,7 @@ export default function AnalyticsPanel() {
   const [logoError, setLogoError] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedAcademyName, setImpersonatedAcademyName] = useState('');
-  
+
   // Tab states
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -104,7 +104,7 @@ export default function AnalyticsPanel() {
     localStorage.removeItem('original_super_admin_token');
     localStorage.removeItem('impersonated_academy_id');
     localStorage.removeItem('impersonated_academy_name');
-    
+
     if (originalToken) {
       localStorage.setItem('super_admin_token', originalToken);
       window.location.href = '/super-admin/dashboard';
@@ -166,13 +166,13 @@ export default function AnalyticsPanel() {
       setStudents(studentsData);
       setCoaches(coachesData);
       setBatches(batchesData);
-      
+
       // Sport catalog is sometimes nested or simple array
       const parsedSports = sportsData?.data || sportsData?.available_sports || sportsData || [];
       setSports(parsedSports);
 
       setAttendance(attendanceData);
-      
+
       // Performance assessments nested under data.assessments
       const parsedAssessments = assessmentsData?.assessments || [];
       setAssessments(parsedAssessments);
@@ -182,7 +182,7 @@ export default function AnalyticsPanel() {
       setInventoryAssignments(invAssignmentsData);
       setCoachLocationLogs(coachLogsData);
       setBatchSessions(sessionsData);
-      
+
       if (academyRes) {
         setAcademy(academyRes);
         setLogoError(false);
@@ -397,14 +397,14 @@ export default function AnalyticsPanel() {
 
     // --- FINANCIAL METRICS ---
     const collectionThisMonth = rawMetrics.monthly_collection_chart?.slice(-1)[0]?.amount || 0;
-    
+
     // Sparkline history arrays
     const collectionSparkline = dates30.slice(-7).map(dateStr => {
       // Find payments on this day
       const dayPayments = rawMetrics.recent_payments?.filter(p => new Date(p.payment_date).toISOString().split('T')[0] === dateStr) || [];
       return { value: dayPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0) };
     });
-    
+
     const admissionsSparkline = dates30.slice(-7).map(dateStr => {
       const count = students.filter(s => {
         const j = s.joining_date || s.created_at;
@@ -509,7 +509,7 @@ export default function AnalyticsPanel() {
       studentsBySportData,
       studentsByBatchData,
       genderDistributionData,
-      
+
       todayAttendancePercent,
       todayMarked,
       totalPresentCount,
@@ -519,7 +519,7 @@ export default function AnalyticsPanel() {
       monthlyAttendanceData,
       batchWiseAttendance,
       coachWiseAttendance,
-      
+
       collectionThisMonth,
       collectionSparkline,
       admissionsSparkline,
@@ -679,7 +679,7 @@ export default function AnalyticsPanel() {
 
   return (
     <div className="w-full bg-transparent font-sans p-2 space-y-6">
-      
+
       {/* Impersonation Banner */}
       {isImpersonating && (
         <motion.div
@@ -703,21 +703,21 @@ export default function AnalyticsPanel() {
           </button>
         </motion.div>
       )}
-      
+
       {/* Top Bar Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
         className="bg-card border border-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
       >
         <div className="flex items-center gap-3">
           {academy?.logo_url && !logoError ? (
-            <img 
-              key={academy.logo_url} 
-              src={`${academy.logo_url}?t=${Date.now()}`} 
-              alt="Logo" 
-              className="h-11 w-11 rounded-xl border border-border object-cover" 
-              onError={() => setLogoError(true)} 
+            <img
+              key={academy.logo_url}
+              src={`${academy.logo_url}?t=${Date.now()}`}
+              alt="Logo"
+              className="h-11 w-11 rounded-xl border border-border object-cover"
+              onError={() => setLogoError(true)}
             />
           ) : (
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
@@ -729,13 +729,13 @@ export default function AnalyticsPanel() {
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Comprehensive Academy Operations Panel</p>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
-          <motion.button 
-            whileHover={{ scale: 1.02 }} 
-            whileTap={{ scale: 0.98 }} 
-            type="button" 
-            onClick={() => loadAllData(true)} 
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="button"
+            onClick={() => loadAllData(true)}
             disabled={syncing}
             className="bg-surface border border-border text-foreground hover:bg-surface-secondary px-4 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-2"
           >
@@ -746,9 +746,9 @@ export default function AnalyticsPanel() {
       </motion.div>
 
       {/* KPI Cards: Responsive Grid */}
-      <motion.div 
-        initial="hidden" 
-        animate="show" 
+      <motion.div
+        initial="hidden"
+        animate="show"
         variants={{ show: { transition: { staggerChildren: 0.03 } } }}
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
       >
@@ -998,78 +998,78 @@ export default function AnalyticsPanel() {
 
       {/* Main Panel Content & Sidebar Section */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        
+
         {/* Left Side: Charts and Layout Tabs */}
         <div className="xl:col-span-3 space-y-6">
-          
+
           {/* Alerts Panel (Conditionally Shown) */}
-          {(computedMetrics.overdueStudentsCount > 0 || 
-            computedMetrics.expiringPlansList.length > 0 || 
-            computedMetrics.lowStockAlerts > 0 || 
+          {(computedMetrics.overdueStudentsCount > 0 ||
+            computedMetrics.expiringPlansList.length > 0 ||
+            computedMetrics.lowStockAlerts > 0 ||
             computedMetrics.coachAttendanceMissing) && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-card border border-border rounded-2xl p-4 space-y-3 shadow-sm"
-            >
-              <h3 className="text-xs font-black uppercase tracking-wider text-rose-500 flex items-center gap-1.5 font-bold">
-                <AlertCircle className="w-4 h-4" /> Urgent Notifications
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {computedMetrics.overdueStudentsCount > 0 && (
-                  <div 
-                    onClick={() => navigate('/admin/accounts')}
-                    className="flex items-center gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl cursor-pointer transition-all"
-                  >
-                    <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
-                    <div>
-                      <p className="text-xs font-black text-foreground">{computedMetrics.overdueStudentsCount} Students Overdue</p>
-                      <p className="text-[10px] text-muted-foreground font-bold">Fee plans expired and unpaid. Send reminders.</p>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-card border border-border rounded-2xl p-4 space-y-3 shadow-sm"
+              >
+                <h3 className="text-xs font-black uppercase tracking-wider text-rose-500 flex items-center gap-1.5 font-bold">
+                  <AlertCircle className="w-4 h-4" /> Urgent Notifications
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {computedMetrics.overdueStudentsCount > 0 && (
+                    <div
+                      onClick={() => navigate('/admin/accounts')}
+                      className="flex items-center gap-3 p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 rounded-xl cursor-pointer transition-all"
+                    >
+                      <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                      <div>
+                        <p className="text-xs font-black text-foreground">{computedMetrics.overdueStudentsCount} Students Overdue</p>
+                        <p className="text-[10px] text-muted-foreground font-bold">Fee plans expired and unpaid. Send reminders.</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                {computedMetrics.expiringPlansList.length > 0 && (
-                  <div 
-                    onClick={() => navigate('/admin/students')}
-                    className="flex items-center gap-3 p-3 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/10 rounded-xl cursor-pointer transition-all"
-                  >
-                    <Clock className="w-5 h-5 text-amber-500 shrink-0" />
-                    <div>
-                      <p className="text-xs font-black text-foreground">{computedMetrics.expiringPlansList.length} Plans Expiring Soon</p>
-                      <p className="text-[10px] text-muted-foreground font-bold">Renewal deadline within next 7 days.</p>
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {computedMetrics.lowStockAlerts > 0 && (
-                  <div 
-                    onClick={() => navigate('/admin/inventory')}
-                    className="flex items-center gap-3 p-3 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 rounded-xl cursor-pointer transition-all"
-                  >
-                    <Package className="w-5 h-5 text-yellow-500 shrink-0" />
-                    <div>
-                      <p className="text-xs font-black text-foreground">{computedMetrics.lowStockAlerts} Low Stock Items</p>
-                      <p className="text-[10px] text-muted-foreground font-bold">Some items are below alert thresholds.</p>
+                  {computedMetrics.expiringPlansList.length > 0 && (
+                    <div
+                      onClick={() => navigate('/admin/students')}
+                      className="flex items-center gap-3 p-3 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/10 rounded-xl cursor-pointer transition-all"
+                    >
+                      <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+                      <div>
+                        <p className="text-xs font-black text-foreground">{computedMetrics.expiringPlansList.length} Plans Expiring Soon</p>
+                        <p className="text-[10px] text-muted-foreground font-bold">Renewal deadline within next 7 days.</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {computedMetrics.coachAttendanceMissing && (
-                  <div 
-                    onClick={() => navigate('/admin/coaches')}
-                    className="flex items-center gap-3 p-3 bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/10 rounded-xl cursor-pointer transition-all"
-                  >
-                    <ShieldAlert className="w-5 h-5 text-indigo-500 shrink-0" />
-                    <div>
-                      <p className="text-xs font-black text-foreground">Coach Attendance Missing</p>
-                      <p className="text-[10px] text-muted-foreground font-bold">No coaches checked in today. Confirm status.</p>
+                  {computedMetrics.lowStockAlerts > 0 && (
+                    <div
+                      onClick={() => navigate('/admin/inventory')}
+                      className="flex items-center gap-3 p-3 bg-yellow-500/5 hover:bg-yellow-500/10 border border-yellow-500/10 rounded-xl cursor-pointer transition-all"
+                    >
+                      <Package className="w-5 h-5 text-yellow-500 shrink-0" />
+                      <div>
+                        <p className="text-xs font-black text-foreground">{computedMetrics.lowStockAlerts} Low Stock Items</p>
+                        <p className="text-[10px] text-muted-foreground font-bold">Some items are below alert thresholds.</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
+                  )}
+
+                  {computedMetrics.coachAttendanceMissing && (
+                    <div
+                      onClick={() => navigate('/admin/coaches')}
+                      className="flex items-center gap-3 p-3 bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/10 rounded-xl cursor-pointer transition-all"
+                    >
+                      <ShieldAlert className="w-5 h-5 text-indigo-500 shrink-0" />
+                      <div>
+                        <p className="text-xs font-black text-foreground">Coach Attendance Missing</p>
+                        <p className="text-[10px] text-muted-foreground font-bold">No coaches checked in today. Confirm status.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
 
           {/* Sub-Layout Tabs Control */}
           <div className="bg-card border border-border rounded-2xl p-1.5 flex gap-1 overflow-x-auto">
@@ -1086,11 +1086,10 @@ export default function AnalyticsPanel() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 text-xs font-black rounded-xl transition-all whitespace-nowrap ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-2 px-4 py-2 text-xs font-black rounded-xl transition-all whitespace-nowrap ${activeTab === tab.id
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
+                    }`}
                 >
                   <TabIcon className="w-3.5 h-3.5" />
                   {tab.label}
@@ -1108,11 +1107,11 @@ export default function AnalyticsPanel() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
             >
-              
+
               {/* TAB 1: OVERVIEW */}
               {activeTab === 'overview' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
+
                   {/* Daily Attendance Trend */}
                   <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
                     <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-4">Daily Attendance Trend (30 Days)</h3>
@@ -1121,14 +1120,14 @@ export default function AnalyticsPanel() {
                         <AreaChart data={computedMetrics.dailyAttendanceTrend}>
                           <defs>
                             <linearGradient id="attendanceGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                           <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
                           <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} domain={[0, 100]} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }}
                             labelStyle={{ fontWeight: 'bold' }}
                           />
@@ -1146,14 +1145,14 @@ export default function AnalyticsPanel() {
                         <AreaChart data={rawMetrics.monthly_collection_chart || []}>
                           <defs>
                             <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                           <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
                           <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }}
                             labelStyle={{ fontWeight: 'bold' }}
                           />
@@ -1216,7 +1215,7 @@ export default function AnalyticsPanel() {
                         </div>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => navigate('/admin/reports')}
                       className="mt-6 w-full text-center text-xs font-black bg-muted text-foreground py-2.5 rounded-xl hover:bg-muted-secondary transition-colors"
                     >
@@ -1419,7 +1418,7 @@ export default function AnalyticsPanel() {
                           </div>
                         )}
                       </div>
-                      <button 
+                      <button
                         onClick={() => navigate('/admin/students')}
                         className="mt-4 w-full text-center text-[10px] font-black uppercase bg-muted py-2 rounded-lg hover:bg-muted-secondary transition-colors"
                       >
@@ -1449,7 +1448,7 @@ export default function AnalyticsPanel() {
               {/* TAB 4: FEES */}
               {activeTab === 'fees' && (
                 <div className="space-y-6">
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Collection Dues Lists */}
                     <div className="bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
@@ -1518,8 +1517,8 @@ export default function AnalyticsPanel() {
                     <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-4">Receipt Settlement History</h3>
                     <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                       {rawMetrics.recent_payments?.map((payment, index) => (
-                        <div 
-                          key={index} 
+                        <div
+                          key={index}
                           onClick={() => navigate('/admin/accounts')}
                           className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl hover:bg-muted/40 transition-colors cursor-pointer"
                         >
@@ -1543,7 +1542,7 @@ export default function AnalyticsPanel() {
               {/* TAB 5: PERFORMANCE */}
               {activeTab === 'performance' && (
                 <div className="space-y-6">
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Overall performance counts */}
                     <div className="bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col justify-center text-center">
@@ -1635,7 +1634,7 @@ export default function AnalyticsPanel() {
               {/* TAB 6: COACHES & INVENTORY */}
               {activeTab === 'coaches' && (
                 <div className="space-y-6">
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Coach Student Counts */}
                     <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
@@ -1665,7 +1664,7 @@ export default function AnalyticsPanel() {
                             </div>
                             <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1 font-bold">
                               <span>Coach: {session.coach?.name || 'Unassigned'}</span>
-                              <span>{session.start_time ? new Date(session.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                              <span>{session.start_time ? new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                             </div>
                           </div>
                         ))}
@@ -1699,7 +1698,7 @@ export default function AnalyticsPanel() {
                           </div>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => navigate('/admin/inventory')}
                         className="mt-6 w-full text-center text-xs font-black bg-muted py-2.5 rounded-xl hover:bg-muted-secondary transition-colors"
                       >
@@ -1755,11 +1754,11 @@ export default function AnalyticsPanel() {
 
         {/* Right Side: Quick Action and Recent Timeline */}
         <div className="space-y-6">
-          
+
           {/* Quick Action Panel */}
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
             className="bg-card border border-border rounded-2xl p-5 shadow-sm"
           >
@@ -1791,9 +1790,9 @@ export default function AnalyticsPanel() {
           </motion.div>
 
           {/* Unified Activity Feed Timeline */}
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col h-[520px]"
           >
@@ -1807,7 +1806,7 @@ export default function AnalyticsPanel() {
                     {index < timelineEvents.length - 1 && (
                       <div className="absolute left-[15px] top-6 bottom-[-20px] w-0.5 bg-border group-hover:bg-muted-foreground/30 transition-colors" />
                     )}
-                    
+
                     <div className={`p-1.5 rounded-xl shrink-0 ${event.color}`}>
                       <EventIcon className="w-3.5 h-3.5" />
                     </div>

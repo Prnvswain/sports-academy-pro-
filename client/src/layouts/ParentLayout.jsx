@@ -5,8 +5,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import BrandingLogo from '../components/BrandingLogo';
 import GlobalBackground from '../components/GlobalBackground';
+import StudentSwitcher from '../components/StudentSwitcher';
 import { SIDEBAR_COLLAPSED_KEY, parentGet } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
+import { useActiveStudent } from '../context/ActiveStudentContext';
 
 // Energetic sports icons
 import { 
@@ -40,9 +42,8 @@ const PARENT_NAV_ITEMS = [
 function ParentLayoutShell() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { clearActiveStudent } = useActiveStudent();
   const [user, setUser] = useState(null);
-  const [studentChildren, setStudentChildren] = useState([]);
-  const [selectedChild, setSelectedChild] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -88,23 +89,29 @@ function ParentLayoutShell() {
   }, []);
 
   useEffect(() => {
+    console.log('[ParentLayout] Initializing...');
     const token = localStorage.getItem('parent_token');
     const userData = localStorage.getItem('parent_user');
 
     if (!token || !userData) {
+      console.log('[ParentLayout] No token or user data, redirecting to login');
       navigate('/parent/login');
       return;
     }
 
     try {
-      setUser(JSON.parse(userData));
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      console.log('[ParentLayout] User loaded from localStorage:', parsedUser);
     } catch (error) {
+      console.error('[ParentLayout] Failed to parse user data:', error);
       localStorage.removeItem('parent_user');
       navigate('/parent/login');
       return;
     }
 
-    fetchChildren();
+    console.log('[ParentLayout] Setting loading to false');
+    setLoading(false);
   }, [navigate]);
 
   // Load theme colors from backend
@@ -129,28 +136,8 @@ function ParentLayoutShell() {
     loadThemeColors();
   }, [updateThemeColors]);
 
-  const fetchChildren = async () => {
-    try {
-      const token = localStorage.getItem('parent_token');
-      const response = await fetch('/api/v1/parent/children', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStudentChildren(data.data || []);
-        if (data.data?.length > 0) {
-          setSelectedChild(data.data[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch children:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogout = () => {
+    clearActiveStudent();
     localStorage.removeItem('parent_token');
     localStorage.removeItem('parent_user');
     navigate('/parent/login');
@@ -388,6 +375,7 @@ function ParentLayoutShell() {
           </motion.div>
           
           <div className="flex items-center gap-4">
+            <StudentSwitcher />
             <motion.div 
               whileHover={{ scale: 1.1, y: -2 }}
               transition={{ duration: 0.25 }}

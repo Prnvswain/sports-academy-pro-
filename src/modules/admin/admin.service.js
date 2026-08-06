@@ -2,7 +2,9 @@ import prisma from '../../config/prisma.js';
 
 import bcrypt from 'bcryptjs';
 
-import { BCRYPT_SALT_ROUNDS } from '../../config/app.config.js';
+import jwt from 'jsonwebtoken';
+
+import { BCRYPT_SALT_ROUNDS, JWT_SECRET } from '../../config/app.config.js';
 
 import { NOT_DELETED, softDeletePayload } from '../../utils/softDelete.util.js';
 
@@ -1177,6 +1179,8 @@ export const createSport = async (academy_id, data) => {
 
     icon,
 
+    require_gps,
+
   } = data;
 
   const parsedFee = parseFloat(
@@ -1248,6 +1252,8 @@ export const createSport = async (academy_id, data) => {
         use_custom_location: use_custom_location || false,
 
         global_sport_id: globalSport ? globalSport.id : null,
+
+        require_gps: require_gps !== undefined ? require_gps : true,
 
       },
 
@@ -1561,6 +1567,12 @@ export const updateSport = async (academy_id, sport_id, data) => {
 
   }
 
+  if (data.require_gps !== undefined) {
+
+    updateData.require_gps = data.require_gps;
+
+  }
+
 
 
   const updatedSport = await prisma.sport.update({
@@ -1771,7 +1783,7 @@ export const getAllCoaches = async (academy_id) =>
 
 
 
-export const createCoach = async (academy_id, data) => {
+export const createCoach = async (academy_id, data, file) => {
 
   const academyId = parseInt(academy_id, 10);
   await assertSubscriptionLimits(academyId, 'coach');
@@ -1814,6 +1826,80 @@ export const createCoach = async (academy_id, data) => {
 
 
 
+  // Handle photo upload
+
+  let photo_url = null;
+
+  let photo_file_id = null;
+
+
+
+  if (file) {
+
+    const validation = validateImageFile(file);
+
+    if (!validation.isValid) {
+
+      throw new Error(validation.error);
+
+    }
+
+
+
+    const buffer = file.buffer;
+
+    const uploadResult = await uploadToImageKit(
+
+      buffer,
+
+      file.originalname || file.name,
+
+      'coach-photos'
+
+    );
+
+    photo_url = uploadResult.url;
+
+    photo_file_id = uploadResult.fileId;
+
+  } else if (data.profile_photo && typeof data.profile_photo === 'string' && data.profile_photo.startsWith('data:image')) {
+
+    const base64Data = data.profile_photo.replace(/^data:image\/\w+;base64,/, '');
+
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const mime = data.profile_photo.match(/data:(image\/\w+);base64/)?.[1] || 'image/jpeg';
+
+    const ext = mime.split('/')[1] || 'jpg';
+
+    
+
+    if (buffer.length > 5 * 1024 * 1024) {
+
+      throw new Error('File size exceeds 5MB limit.');
+
+    }
+
+
+
+    const uploadResult = await uploadToImageKit(
+
+      buffer,
+
+      `coach-photo-${Date.now()}.${ext}`,
+
+      'coach-photos'
+
+    );
+
+    photo_url = uploadResult.url;
+
+    photo_file_id = uploadResult.fileId;
+
+  }
+
+
+
   // Check for soft-deleted coach and auto-restore
 
   const deletedCoach = await prisma.coach.findFirst({
@@ -1836,6 +1922,24 @@ export const createCoach = async (academy_id, data) => {
 
   if (deletedCoach) {
 
+    // Delete old photo if it exists
+
+    if (deletedCoach.photo_file_id) {
+
+      try {
+
+        await deleteFromImageKit(deletedCoach.photo_file_id);
+
+      } catch (err) {
+
+        logger.warn('Failed to delete old coach photo from ImageKit during restore', { error: err.message });
+
+      }
+
+    }
+
+
+
     // Auto-restore soft-deleted coach
 
     coach = await prisma.coach.update({
@@ -1857,6 +1961,10 @@ export const createCoach = async (academy_id, data) => {
         password_hash,
 
         status: 'ACTIVE',
+
+        photo_url,
+
+        photo_file_id,
 
       },
 
@@ -1881,6 +1989,10 @@ export const createCoach = async (academy_id, data) => {
         email,
 
         password_hash,
+
+        photo_url,
+
+        photo_file_id,
 
       },
 
@@ -2092,7 +2204,7 @@ export const bulkImportCoaches = async (academy_id, file) => {
 
 
 
-export const updateCoach = async (academy_id, coach_id, data) => {
+export const updateCoach = async (academy_id, coach_id, data, file) => {
 
   const coach = await getCoachForAcademy(academy_id, coach_id);
 
@@ -2127,6 +2239,134 @@ export const updateCoach = async (academy_id, coach_id, data) => {
   if (data.email) {
 
     updateData.email = data.email.trim().toLowerCase();
+
+  }
+
+
+
+  // Handle photo upload
+
+  if (file) {
+
+    const validation = validateImageFile(file);
+
+    if (!validation.isValid) {
+
+      throw new Error(validation.error);
+
+    }
+
+
+
+    // Delete old photo from ImageKit if exists
+
+    if (coach.photo_file_id) {
+
+      try {
+
+        await deleteFromImageKit(coach.photo_file_id);
+
+      } catch (err) {
+
+        logger.warn('Failed to delete old coach photo from ImageKit', { error: err.message });
+
+      }
+
+    }
+
+
+
+    // Upload new photo
+
+    const buffer = file.buffer;
+
+    const uploadResult = await uploadToImageKit(
+
+      buffer,
+
+      file.originalname || file.name,
+
+      'coach-photos'
+
+    );
+
+    updateData.photo_url = uploadResult.url;
+
+    updateData.photo_file_id = uploadResult.fileId;
+
+  } else if (data.profile_photo && typeof data.profile_photo === 'string' && data.profile_photo.startsWith('data:image')) {
+
+    // Delete old photo from ImageKit if exists
+
+    if (coach.photo_file_id) {
+
+      try {
+
+        await deleteFromImageKit(coach.photo_file_id);
+
+      } catch (err) {
+
+        logger.warn('Failed to delete old coach photo from ImageKit', { error: err.message });
+
+      }
+
+    }
+
+
+
+    const base64Data = data.profile_photo.replace(/^data:image\/\w+;base64,/, '');
+
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const mime = data.profile_photo.match(/data:(image\/\w+);base64/)?.[1] || 'image/jpeg';
+
+    const ext = mime.split('/')[1] || 'jpg';
+
+    
+
+    if (buffer.length > 5 * 1024 * 1024) {
+
+      throw new Error('File size exceeds 5MB limit.');
+
+    }
+
+
+
+    const uploadResult = await uploadToImageKit(
+
+      buffer,
+
+      `coach-photo-${Date.now()}.${ext}`,
+
+      'coach-photos'
+
+    );
+
+    updateData.photo_url = uploadResult.url;
+
+    updateData.photo_file_id = uploadResult.fileId;
+
+  } else if (data.profile_photo === 'null' || data.profile_photo === null) {
+
+    // If explicitly deleted
+
+    if (coach.photo_file_id) {
+
+      try {
+
+        await deleteFromImageKit(coach.photo_file_id);
+
+      } catch (err) {
+
+        logger.warn('Failed to delete coach photo from ImageKit', { error: err.message });
+
+      }
+
+    }
+
+    updateData.photo_url = null;
+
+    updateData.photo_file_id = null;
 
   }
 
@@ -2172,9 +2412,204 @@ export const deleteCoach = async (academy_id, coach_id) => {
 
 
 
-  logger.info('Coach soft-deleted', { coach_id, academy_id });
+
+  await logAudit({
+
+    actor_type: 'ACADEMY_ADMIN',
+
+    actor_id: academy_id,
+
+    action: 'DELETE_COACH',
+
+    entity_type: 'Coach',
+
+    entity_id: coach.coach_id,
+
+    ip_address: req?.ip,
+
+  });
+
+
+
+
+  logger.info('Coach deleted', { academy_id, coach_id });
+
+
+
+
+  return { message: 'Coach deleted successfully' };
 
 };
+
+
+
+
+export const impersonateCoach = async (academy_id, coach_id, admin_user_id, ip) => {
+
+  const academyId = parseInt(academy_id, 10);
+
+  const coachId = parseInt(coach_id, 10);
+
+
+
+
+  // Get the coach
+
+  const coach = await prisma.coach.findUnique({
+
+    where: { coach_id: coachId, academy_id: academyId, is_deleted: false }
+
+  });
+
+
+
+
+  if (!coach) {
+
+    const error = new Error('Coach not found');
+
+    error.statusCode = 404;
+
+    throw error;
+
+  }
+
+
+
+
+
+
+  if (coach.status !== 'ACTIVE') {
+
+    const error = new Error('Cannot impersonate an inactive coach');
+
+    error.statusCode = 403;
+
+    throw error;
+
+  }
+
+
+
+
+
+
+  // Get the admin user for audit logging
+
+  const adminUser = await prisma.user.findUnique({
+
+    where: { user_id: admin_user_id }
+
+  });
+
+
+
+
+  if (!adminUser) {
+
+    const error = new Error('Admin user not found');
+
+    error.statusCode = 404;
+
+    throw error;
+
+  }
+
+
+
+
+
+
+  // Generate impersonation token with special flag
+
+  const impersonationToken = jwt.sign(
+
+    {
+
+      coach_id: coach.coach_id,
+
+      academy_id: coach.academy_id,
+
+      email: coach.email,
+
+      role: 'COACH',
+
+      name: coach.name,
+
+      impersonating: true,
+
+      original_admin_id: admin_user_id
+
+    },
+
+    JWT_SECRET,
+
+    { expiresIn: '2h' } // Shorter expiry for impersonation
+
+  );
+
+
+
+
+  // Log the impersonation action
+
+  await logAudit({
+
+    actor_type: 'ACADEMY_ADMIN',
+
+    actor_id: admin_user_id,
+
+    action: 'COACH_IMPERSONATION',
+
+    entity_type: 'Coach',
+
+    entity_id: coach.coach_id,
+
+    target_actor_type: 'COACH',
+
+    target_actor_id: coach.coach_id,
+
+    ip_address: ip
+
+  });
+
+
+
+
+  logger.info('Admin impersonating coach', { 
+
+    admin_id: admin_user_id, 
+
+    academy_id: academyId, 
+
+    coach_id: coachId,
+
+    ip 
+
+  });
+
+
+
+
+  return {
+
+    coach_token: impersonationToken,
+
+    coach: {
+
+      coach_id: coach.coach_id,
+
+      name: coach.name,
+
+      email: coach.email
+
+    }
+
+  };
+
+};
+
+
 
 
 

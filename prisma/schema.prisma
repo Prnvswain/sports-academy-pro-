@@ -466,6 +466,7 @@ model Academy {
 
   sports_kits            SportsKit[]
   sports_kit_assignments SportsKitAssignment[]
+  coach_kit_assignments  CoachKitAssignment[]
 
   @@map("academies")
 
@@ -673,6 +674,8 @@ model Coach {
 
   inventory_requests    InventoryRequest[]
 
+  coach_kit_assignments CoachKitAssignment[]
+
 
 
   @@unique([academy_id, email])
@@ -696,6 +699,8 @@ model GlobalSport {
   icon       String   @default("🏅")
 
   attributes String   @db.Text // JSON array of attributes
+
+  require_gps Boolean  @default(true)
 
   created_at DateTime @default(now())
 
@@ -737,6 +742,8 @@ model Sport {
 
   global_sport_id     Int?
 
+  require_gps         Boolean      @default(true)
+
   created_at          DateTime     @default(now())
 
   updated_at          DateTime     @updatedAt
@@ -758,7 +765,10 @@ model Sport {
   attendanceAuditLogs AttendanceAuditLog[]
 
   inventory_items     InventoryItem[]
+
   sports_kits         SportsKit[]
+
+
 
   @@unique([name, academy_id])
 
@@ -2393,9 +2403,10 @@ model SportsKit {
   created_at     DateTime              @default(now())
   updated_at     DateTime              @updatedAt
 
-  academy        Academy               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_kits_academy_id_fk")
-  sport          Sport                 @relation(fields: [sport_id], references: [sport_id], onDelete: Cascade, map: "sports_kits_sport_id_fk")
-  assignments    SportsKitAssignment[]
+  academy               Academy               @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_kits_academy_id_fk")
+  sport                 Sport                 @relation(fields: [sport_id], references: [sport_id], onDelete: Cascade, map: "sports_kits_sport_id_fk")
+  assignments           SportsKitAssignment[]
+  coach_assignments     CoachKitAssignment[]
 
   @@unique([sport_id, name, academy_id], map: "sports_kits_unique_name")
   @@index([academy_id])
@@ -2404,28 +2415,65 @@ model SportsKit {
 }
 
 model SportsKitAssignment {
-  assignment_id        Int       @id @default(autoincrement())
+  assignment_id        Int                 @id @default(autoincrement())
   academy_id           Int
   kit_id               Int
   student_id           Int
-  issue_date           DateTime  @default(now())
+  coach_assignment_id  Int?                // optional — set when coach assigns to student
+  issue_date           DateTime            @default(now())
   expected_return_date DateTime?
   return_date          DateTime?
-  status               String    @default("ACTIVE") // ACTIVE, RETURNED
-  payment_status       String    @default("UNPAID") // PAID, UNPAID
-  payment_mode         String?   // FEE, CASH, CARD, etc.
-  remarks              String?   @db.Text
-  fee_id               Int?      // optional reference to Fee entry
-  created_at           DateTime  @default(now())
-  updated_at           DateTime  @updatedAt
+  status               String              @default("ACTIVE") // ACTIVE, RETURNED
+  payment_status       String              @default("UNPAID") // PAID, UNPAID
+  payment_mode         String?             // FEE, PAID
+  remarks              String?             @db.Text
+  fee_id               Int?                // optional reference to Fee entry
+  quantity             Int                 @default(1)
+  discount             Decimal             @default(0) @db.Decimal(10, 2)
+  final_amount         Decimal?            @db.Decimal(10, 2)
+  unit_price           Decimal             @default(0) @db.Decimal(10, 2)
+  total_amount         Decimal?            @db.Decimal(10, 2)
+  assigned_by          String              @default("ADMIN") // ADMIN, COACH
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
 
-  academy              Academy   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_kit_assignments_academy_id_fk")
-  kit                  SportsKit @relation(fields: [kit_id], references: [kit_id], onDelete: Cascade, map: "sports_kit_assignments_kit_id_fk")
-  student              Student   @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "sports_kit_assignments_student_id_fk")
+  academy              Academy             @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "sports_kit_assignments_academy_id_fk")
+  kit                  SportsKit           @relation(fields: [kit_id], references: [kit_id], onDelete: Cascade, map: "sports_kit_assignments_kit_id_fk")
+  student              Student             @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "sports_kit_assignments_student_id_fk")
+  coach_assignment     CoachKitAssignment? @relation(fields: [coach_assignment_id], references: [id], onDelete: SetNull, map: "sports_kit_assignments_coach_assignment_id_fk")
 
   @@index([academy_id])
   @@index([kit_id])
   @@index([student_id])
+  @@index([coach_assignment_id])
   @@map("sports_kit_assignments")
+}
+
+// ─── Coach Kit Assignments ───────────────────────────────────────────────────
+// Admin assigns kits (with quantity) to coaches.
+// Coach remaining_qty decrements when they assign to students.
+
+model CoachKitAssignment {
+  id              Int       @id @default(autoincrement())
+  academy_id      Int
+  coach_id        Int
+  kit_id          Int
+  quantity        Int       @default(1)  // total assigned to coach
+  remaining_qty   Int       @default(1)  // qty coach can still give to students
+  notes           String?   @db.Text
+  assignment_date DateTime  @default(now())
+  status          String    @default("ACTIVE") // ACTIVE, REVOKED
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  academy             Academy              @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "coach_kit_assignments_academy_id_fk")
+  coach               Coach                @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "coach_kit_assignments_coach_id_fk")
+  kit                 SportsKit            @relation(fields: [kit_id], references: [kit_id], onDelete: Cascade, map: "coach_kit_assignments_kit_id_fk")
+  student_assignments SportsKitAssignment[]
+
+  @@index([academy_id])
+  @@index([coach_id])
+  @@index([kit_id])
+  @@map("coach_kit_assignments")
 }
 

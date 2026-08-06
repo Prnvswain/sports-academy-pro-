@@ -242,6 +242,11 @@ export const verifyAttendanceLocation = async (req, res, next) => {
       return next(error);
     }
 
+    // Check if the sport disables GPS verification
+    if (batch.sport && batch.sport.require_gps === false) {
+      return next();
+    }
+
     // Verify batch belongs to the user's academy
     if (batch.academy_id !== academy_id) {
       const error = new Error('Unauthorized: Batch does not belong to your academy');
@@ -384,6 +389,10 @@ export const optionalGpsVerification = async (req, res, next) => {
     });
 
     if (!batch) {
+      return next();
+    }
+
+    if (batch.sport && batch.sport.require_gps === false) {
       return next();
     }
 

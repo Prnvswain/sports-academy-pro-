@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare } from 'lucide-react';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
 import { QRCodeCanvas } from 'qrcode.react';
+import StandardModal from '../../components/StandardModal';
 
 // Status options for dropdown
 const STATUS_OPTIONS = [
@@ -1013,34 +1014,41 @@ export default function EnquiriesPanel() {
       </div>
 
       {/* Add Enquiry Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl border border-primary/20"
+      <StandardModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add New Enquiry"
+        size="lg"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-primary/5">
-                <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <span className="text-primary text-2xl">+</span> Add New Enquiry
-                </h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="add-form"
+              disabled={submitting}
+              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Adding...
+                </>
+              ) : (
+                'Save Enquiry'
+              )}
+            </button>
+          </div>
+        }
+      >
                 <form id="add-form" onSubmit={handleCreateEnquiry} className="space-y-5">
                   {/* Keep exact existing form fields, just with your global classes */}
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -1179,57 +1187,44 @@ export default function EnquiriesPanel() {
                     />
                   </div>
                 </form>
-              </div>
-              <div className="flex justify-end gap-3 border-t border-border/50 bg-surface-secondary p-6">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" form="add-form" disabled={submitting} className="btn-primary shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    {submitting ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Adding...
-                      </>
-                    ) : (
-                      'Save Enquiry'
-                    )}
-                  </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </StandardModal>
 
       {/* Edit Enquiry Modal */}
-      <AnimatePresence>
-        {showEditModal && selectedEnquiry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-               initial={{ opacity: 0, scale: 0.95, y: 20 }}
-               animate={{ opacity: 1, scale: 1, y: 0 }}
-               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card max-h-[90vh] w-full max-w-2xl flex flex-col p-0 overflow-hidden shadow-2xl"
+      <StandardModal
+        isOpen={showEditModal && selectedEnquiry}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Enquiry"
+        size="lg"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-blue/5">
-                <h3 className="text-xl font-bold text-foreground">Edit Enquiry</h3>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="edit-form"
+              disabled={submitting}
+              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                'Update Enquiry'
+              )}
+            </button>
+          </div>
+        }
+      >
                 <form id="edit-form" onSubmit={handleUpdateEnquiry} className="space-y-5">
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     <div>
@@ -1380,188 +1375,141 @@ export default function EnquiriesPanel() {
                     />
                   </div>
                 </form>
-              </div>
-              <div className="flex justify-end gap-3 border-t border-border/50 bg-surface-secondary p-6">
-                  <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" form="edit-form" disabled={submitting} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    {submitting ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Updating...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
-                  </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </StandardModal>
 
       {/* View Details Modal */}
-      <AnimatePresence>
-        {showViewModal && selectedEnquiry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card max-h-[90vh] w-full max-w-3xl flex flex-col p-0 overflow-hidden shadow-2xl border border-purple/20"
+      <StandardModal
+        isOpen={showViewModal && !!selectedEnquiry}
+        onClose={() => setShowViewModal(false)}
+        title="Enquiry Details"
+        subtitle={selectedEnquiry ? `ID: ${selectedEnquiry.id}` : ''}
+        size="2xl"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowViewModal(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              <div className="flex items-center justify-between border-b border-border/50 p-6 bg-gradient-to-r from-surface-secondary to-purple/5">
-                <div className="flex items-center gap-3">
-                  <div className="bg-purple/20 p-2.5 rounded-xl text-purple shadow-inner">👁</div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
-                      Enquiry Details
-                      {selectedEnquiry.is_deleted && (
-                        <span className="badge bg-danger/10 text-danger border border-danger/30 text-xs font-bold">
-                          DELETED
-                        </span>
-                      )}
-                      {selectedEnquiry.status === 'CONVERTED' && (
-                        <span className="badge bg-success/10 text-success border border-success/30 text-xs font-bold">
-                          CONVERTED
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">ID: {selectedEnquiry.id}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowViewModal(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface border border-transparent hover:border-border text-muted-foreground transition-all"
-                >
-                  ✕
-                </button>
+              Close
+            </button>
+          </div>
+        }
+      >
+        {selectedEnquiry && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Student Information */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Student Information</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Name</span>
+                <span className="text-sm font-semibold text-foreground">{selectedEnquiry.student_name}</span>
               </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Age</span>
+                <span className="text-sm font-semibold text-foreground">{selectedEnquiry.age || '—'}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Gender</span>
+                <span className="text-sm font-semibold text-foreground">{selectedEnquiry.gender || '—'}</span>
+              </div>
+            </div>
+          </div>
 
-              <div className="overflow-y-auto p-6 custom-scrollbar bg-surface/30">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Student Information */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Student Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Name</span>
-                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.student_name}</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Age</span>
-                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.age || '—'}</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Gender</span>
-                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.gender || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
+          {/* Parent Information */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Parent Information</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Name</span>
+                <span className="text-sm font-semibold text-foreground">{selectedEnquiry.parent_name || '—'}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Phone</span>
+                <span className="text-sm font-semibold text-foreground font-mono">{selectedEnquiry.phone}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Email</span>
+                <span className="text-sm font-semibold text-foreground max-w-[200px] overflow-hidden text-ellipsis" title={selectedEnquiry.email}>{selectedEnquiry.email || '—'}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Address</span>
+                <span className="text-sm font-semibold text-foreground max-w-[200px] overflow-hidden text-ellipsis" title={selectedEnquiry.address}>{selectedEnquiry.address || '—'}</span>
+              </div>
+            </div>
+          </div>
 
-                  {/* Parent Information */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Parent Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Name</span>
-                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.parent_name || '—'}</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Phone</span>
-                        <span className="text-sm font-semibold text-foreground font-mono">{selectedEnquiry.phone}</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Email</span>
-                        <span className="text-sm font-semibold text-foreground max-w-[200px] overflow-hidden text-ellipsis" title={selectedEnquiry.email}>{selectedEnquiry.email || '—'}</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Address</span>
-                        <span className="text-sm font-semibold text-foreground max-w-[200px] overflow-hidden text-ellipsis" title={selectedEnquiry.address}>{selectedEnquiry.address || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
+          {/* Enquiry Details */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Enquiry Details</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Status</span>
+                <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>
+                  {getStatusDot(selectedEnquiry.status)}
+                  {selectedEnquiry.status.replace('_', ' ')}
+                </span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Source</span>
+                <span className="text-sm font-semibold text-foreground">{selectedEnquiry.enquiry_source || '—'}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Created</span>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-foreground block">
+                    {selectedEnquiry.created_at ? new Date(selectedEnquiry.created_at).toLocaleString() : '—'}
+                  </span>
+                  {selectedEnquiry.created_at && (
+                    <span className="text-[10px] text-muted-foreground font-bold block mt-0.5 bg-surface/50 px-1.5 py-0.5 rounded border border-border/40 inline-block">
+                      🕒 {timeAgo(selectedEnquiry.created_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Updated</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {selectedEnquiry.updated_at ? new Date(selectedEnquiry.updated_at).toLocaleString() : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
 
-                  {/* Enquiry Details */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Enquiry Details</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Status</span>
-                        <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>
-                          {getStatusDot(selectedEnquiry.status)}
-                          {selectedEnquiry.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Source</span>
-                        <span className="text-sm font-semibold text-foreground">{selectedEnquiry.enquiry_source || '—'}</span>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Created</span>
-                        <div className="text-right">
-                          <span className="text-sm font-semibold text-foreground block">
-                            {selectedEnquiry.created_at ? new Date(selectedEnquiry.created_at).toLocaleString() : '—'}
-                          </span>
-                          {selectedEnquiry.created_at && (
-                            <span className="text-[10px] text-muted-foreground font-bold block mt-0.5 bg-surface/50 px-1.5 py-0.5 rounded border border-border/40 inline-block">
-                              🕒 {timeAgo(selectedEnquiry.created_at)}
+          {/* Sports & Assignment */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Sports & Assignment</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-sm text-muted-foreground">Interested Sports</span>
+                <div className="flex flex-wrap gap-1.5 justify-end">
+                  {selectedEnquiry.interested_sports ? (
+                    (() => {
+                      try {
+                        const sports = JSON.parse(selectedEnquiry.interested_sports);
+                        return sports.length > 0 ? (
+                          sports.map((sport, idx) => (
+                            <span key={idx} className="badge bg-surface-secondary text-foreground/80 border border-border shadow-sm text-[10px]">
+                              {sport}
                             </span>
-                          )}
+                                    ))
+                                  ) : <span className="text-sm font-semibold text-foreground">—</span>;
+                                } catch (e) {
+                                  return <span className="text-sm font-semibold text-foreground">{selectedEnquiry.sport_interested || '—'}</span>;
+                                }
+                              })()
+                            ) : (
+                              <span className="text-sm font-semibold text-foreground">{selectedEnquiry.sport_interested || '—'}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-start">
+                          <span className="text-sm text-muted-foreground">Assigned Coach</span>
+                          <span className="text-sm font-semibold text-foreground max-w-[150px] overflow-hidden text-ellipsis" title={selectedEnquiry.assigned_coach_name}>{selectedEnquiry.assigned_coach_name || '—'}</span>
                         </div>
                       </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Updated</span>
-                        <span className="text-sm font-semibold text-foreground">
-                          {selectedEnquiry.updated_at ? new Date(selectedEnquiry.updated_at).toLocaleString() : '—'}
-                        </span>
-                      </div>
                     </div>
-                  </div>
-
-                  {/* Sports & Assignment */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">Sports & Assignment</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Interested Sports</span>
-                        <div className="flex flex-wrap gap-1.5 justify-end">
-                          {selectedEnquiry.interested_sports ? (
-                            (() => {
-                              try {
-                                const sports = JSON.parse(selectedEnquiry.interested_sports);
-                                return sports.length > 0 ? (
-                                  sports.map((sport, idx) => (
-                                    <span key={idx} className="badge bg-surface-secondary text-foreground/80 border border-border shadow-sm text-[10px]">
-                                      {sport}
-                                    </span>
-                                  ))
-                                ) : <span className="text-sm font-semibold text-foreground">—</span>;
-                              } catch (e) {
-                                return <span className="text-sm font-semibold text-foreground">{selectedEnquiry.sport_interested || '—'}</span>;
-                              }
-                            })()
-                          ) : (
-                            <span className="text-sm font-semibold text-foreground">{selectedEnquiry.sport_interested || '—'}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <span className="text-sm text-muted-foreground">Assigned Coach</span>
-                        <span className="text-sm font-semibold text-foreground max-w-[150px] overflow-hidden text-ellipsis" title={selectedEnquiry.assigned_coach_name}>{selectedEnquiry.assigned_coach_name || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Follow-up Information */}
                   <div className="space-y-4 md:col-span-2">
@@ -1576,21 +1524,21 @@ export default function EnquiriesPanel() {
                         )}
                       </div>
                       <span className={`text-sm font-bold p-1 px-2.5 rounded-lg border ${
-                        isFollowUpOverdue(selectedEnquiry)
-                          ? 'bg-danger/10 text-danger border-danger/30 shadow-[0_0_10px_rgba(239,68,68,0.2)] animate-pulse'
-                          : selectedEnquiry.follow_up_date
-                            ? 'bg-blue/10 text-blue border-blue/20'
-                            : 'text-muted-foreground/60 bg-surface'
-                      }`}>
-                        {selectedEnquiry.follow_up_date ? (
-                          <div className="flex items-center gap-2">
-                            <span>📅</span>
-                            {formatDate(selectedEnquiry.follow_up_date)}
-                          </div>
-                        ) : 'Not Scheduled'}
-                      </span>
+                          isFollowUpOverdue(selectedEnquiry)
+                            ? 'bg-danger/10 text-danger border-danger/30 shadow-[0_0_10px_rgba(239,68,68,0.2)] animate-pulse'
+                            : selectedEnquiry.follow_up_date
+                              ? 'bg-blue/10 text-blue border-blue/20'
+                              : 'text-muted-foreground/60 bg-surface'
+                        }`}>
+                          {selectedEnquiry.follow_up_date ? (
+                            <div className="flex items-center gap-2">
+                              <span>📅</span>
+                              {formatDate(selectedEnquiry.follow_up_date)}
+                            </div>
+                          ) : 'Not Scheduled'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
                   {/* Notes */}
                   <div className="space-y-4 md:col-span-2">
@@ -1647,150 +1595,121 @@ export default function EnquiriesPanel() {
                   </div>
 
                   {/* Conversion History — shown only for CONVERTED enquiries */}
-                  {selectedEnquiry.status === 'CONVERTED' && (() => {
-                    const audit = parseConversionAudit(selectedEnquiry.notes);
-                    const studentId = audit?.studentId || selectedEnquiry.converted_to_student_id;
-                    return (
-                      <div className="space-y-3 md:col-span-2">
-                        <h4 className="text-sm font-bold uppercase tracking-wider text-success border-b border-success/30 pb-2 flex items-center gap-2">
-                          <span>🎓</span> Conversion History
-                        </h4>
-                        <div className="bg-success/5 border border-success/25 rounded-xl p-4 space-y-2 text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground font-semibold">Status</span>
-                            <span className="badge bg-success/15 text-success border border-success/30 font-bold">✓ CONVERTED</span>
-                          </div>
-                          {studentId && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground font-semibold">Student ID</span>
-                              <span className="font-mono font-bold text-foreground">#{studentId}</span>
-                            </div>
-                          )}
-                          {audit?.convertedAt && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground font-semibold">Converted On</span>
-                              <span className="font-semibold text-foreground">
-                                {new Date(audit.convertedAt).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {audit?.convertedBy && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground font-semibold">Converted By</span>
-                              <span className="font-semibold text-foreground">{audit.convertedBy}</span>
-                            </div>
-                          )}
-                          {studentId && (
-                            <button
-                              onClick={() => {
-                                setShowViewModal(false);
-                                navigate('/admin/students', { state: { openStudentId: studentId } });
-                              }}
-                              className="w-full mt-2 btn-success text-sm py-2 flex items-center justify-center gap-2"
-                            >
-                              👤 View Student Profile →
-                            </button>
-                          )}
+                  {selectedEnquiry.status === 'CONVERTED' && (
+                    <div className="space-y-3 md:col-span-2">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-success border-b border-success/30 pb-2 flex items-center gap-2">
+                        🎓 Conversion History
+                      </h4>
+                      <div className="bg-success/5 border border-success/25 rounded-xl p-4 space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground font-semibold">Status</span>
+                          <span className="badge bg-success/15 text-success border border-success/30 font-bold">✓ CONVERTED</span>
                         </div>
+                        {selectedEnquiry.converted_to_student_id && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground font-semibold">Student ID</span>
+                            <span className="font-mono font-bold text-foreground">#{selectedEnquiry.converted_to_student_id}</span>
+                          </div>
+                        )}
+                        {selectedEnquiry.converted_at && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground font-semibold">Converted On</span>
+                            <span className="font-semibold text-foreground">
+                              {new Date(selectedEnquiry.converted_at).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {selectedEnquiry.converted_by && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground font-semibold">Converted By</span>
+                            <span className="font-semibold text-foreground">{selectedEnquiry.converted_by}</span>
+                          </div>
+                        )}
+                        {selectedEnquiry.converted_to_student_id && (
+                          <button
+                            onClick={() => {
+                              setShowViewModal(false);
+                              navigate('/admin/students', { state: { openStudentId: selectedEnquiry.converted_to_student_id } });
+                            }}
+                            className="w-full mt-2 btn-success text-sm py-2 flex items-center justify-center gap-2"
+                          >
+                            👤 View Student Profile →
+                          </button>
+                        )}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-border/50 bg-surface-secondary p-6">
-                <button onClick={() => setShowViewModal(false)} className="btn-secondary">
-                  Close
-                </button>
-                {selectedEnquiry.status !== 'CONVERTED' && !selectedEnquiry.is_deleted && (
-                  <button
-                    onClick={() => {
-                      setShowViewModal(false);
-                      setShowConvertModal(true);
-                    }}
-                    className="btn-success"
-                  >
-                    🎓 Convert to Student
-                  </button>
-                )}
-                {!selectedEnquiry.is_deleted && (
-                  <button 
-                    onClick={() => {
-                      setShowViewModal(false);
-                      openEditModal(selectedEnquiry);
-                    }}
-                    className="btn-primary"
-                  >
-                    Edit Enquiry
-                  </button>
-                )}
-              </div>
-
-            </motion.div>
-          </motion.div>
         )}
-      </AnimatePresence>
+      </StandardModal>
 
       {/* Follow-up Modal */}
-      <AnimatePresence>
-        {showFollowUpModal && selectedEnquiry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-blue/80"
+      <StandardModal
+        isOpen={showFollowUpModal && !!selectedEnquiry}
+        onClose={() => setShowFollowUpModal(false)}
+        title="Schedule Follow-up"
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowFollowUpModal(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-xl font-bold text-foreground">Schedule Follow-up</h3>
-                <button onClick={() => setShowFollowUpModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-              </div>
-
-              <div className="bg-surface rounded-xl p-4 mb-5 border border-border/50 shadow-sm">
-                <p className="text-sm mb-2 flex justify-between items-center border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground font-semibold">Student</span>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleScheduleFollowUp}
+              disabled={submitting}
+              className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition"
+            >
+              {submitting ? 'Scheduling...' : 'Confirm Date'}
+            </button>
+          </div>
+        }
+      >
+        {selectedEnquiry && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 mb-5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <p className="text-sm mb-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-600 dark:text-slate-400 font-semibold">Student</span>
                   <span className="font-bold">{selectedEnquiry.student_name}</span>
                 </p>
                 <p className="text-sm flex justify-between items-center pt-1">
-                  <span className="text-muted-foreground font-semibold">Current Status</span>
+                  <span className="text-slate-600 dark:text-slate-400 font-semibold">Current Status</span>
                   <span className={STATUS_COLORS[selectedEnquiry.status] || 'badge'}>{selectedEnquiry.status.replace('_', ' ')}</span>
                 </p>
               </div>
 
               <div className="mb-4">
-                <label className="label text-blue">Next Follow-up Date *</label>
+                <label className="label">Next Follow-up Date *</label>
                 <input
                   type="date"
                   required
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5"
+                  className="input-field"
                 />
               </div>
 
               <div className="mb-4">
-                <label className="label text-blue">Follow-up Note / Remark *</label>
+                <label className="label">Follow-up Note / Remark *</label>
                 <textarea
                   required
                   value={followUpNote}
                   onChange={(e) => setFollowUpNote(e.target.value)}
                   placeholder="Enter notes about the conversation..."
-                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5 h-24 resize-none"
+                  className="input-field h-24 resize-none"
                 />
               </div>
 
               <div className="mb-6">
-                <label className="label text-blue">Status After Follow-up *</label>
+                <label className="label">Status After Follow-up *</label>
                 <select
                   value={statusAfterFollowUp}
                   onChange={(e) => setStatusAfterFollowUp(e.target.value)}
-                  className="input-field border-blue/20 focus:border-blue focus:ring-blue/10 bg-blue/5 text-slate-900"
+                  className="input-field"
                 >
                   {STATUS_OPTIONS.filter(opt => !['CONVERTED', 'DELETED'].includes(opt)).map((status) => (
                     <option key={status} value={status}>
@@ -1799,57 +1718,49 @@ export default function EnquiriesPanel() {
                   ))}
                 </select>
               </div>
-
-              <div className="flex justify-end gap-3">
-                <button onClick={() => setShowFollowUpModal(false)} className="btn-secondary">Cancel</button>
-                <button onClick={handleScheduleFollowUp} disabled={submitting} className="btn-primary bg-blue hover:bg-blue-hover shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-                  {submitting ? 'Scheduling...' : 'Confirm Date'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+          </>
         )}
-      </AnimatePresence>
+      </StandardModal>
 
       {/* Convert to Student Modal */}
-      <AnimatePresence>
-        {showConvertModal && selectedEnquiry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-success/80 relative overflow-hidden"
+      <StandardModal
+        isOpen={showConvertModal && !!selectedEnquiry}
+        onClose={() => setShowConvertModal(false)}
+        title="Convert to Student?"
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowConvertModal(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              {/* Glow */}
-              <div className="absolute -right-8 -top-8 w-32 h-32 bg-success/10 rounded-full blur-2xl pointer-events-none" />
-
-              <div className="flex items-center justify-between mb-5 relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="bg-success/20 p-2.5 rounded-xl text-success shadow-inner text-xl">🎓</div>
-                  <h3 className="text-xl font-bold text-foreground">Convert to Student?</h3>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConvertToStudent}
+              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-1.5"
+            >
+              Confirm & Proceed →
+            </button>
+          </div>
+        }
+      >
+        {selectedEnquiry && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800 space-y-3 rounded-xl p-4 mb-5 border border-slate-200 dark:border-slate-700 text-sm shadow-sm">
+                <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-600 dark:text-slate-400 font-semibold">Student Name</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{selectedEnquiry.student_name}</span>
                 </div>
-                <button onClick={() => setShowConvertModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-              </div>
-
-              <div className="bg-surface space-y-3 rounded-xl p-4 mb-5 border border-border/50 text-sm relative z-10 shadow-sm">
-                <div className="flex justify-between items-center border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground font-semibold">Student Name</span>
-                  <span className="font-bold text-foreground">{selectedEnquiry.student_name}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground font-semibold">Phone</span>
-                  <span className="font-mono text-foreground">{selectedEnquiry.phone}</span>
+                <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-600 dark:text-slate-400 font-semibold">Phone</span>
+                  <span className="font-mono text-slate-900 dark:text-slate-100">{selectedEnquiry.phone}</span>
                 </div>
                 <div className="flex justify-between items-center pt-1">
-                  <span className="text-muted-foreground font-semibold">Interested Sport</span>
-                  <span className="font-semibold text-foreground">
+                  <span className="text-slate-600 dark:text-slate-400 font-semibold">Interested Sport</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
                     {(() => {
                       try {
                         const sportsList = typeof selectedEnquiry.interested_sports === 'string'
@@ -1866,119 +1777,84 @@ export default function EnquiriesPanel() {
                 </div>
               </div>
 
-              <p className="text-muted-foreground text-xs leading-relaxed mb-6 bg-success/5 border border-success/25 rounded-lg p-3 text-success/90">
+              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-6 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg p-3 text-emerald-800 dark:text-emerald-400">
                 You will be redirected to the <strong>Add Student</strong> form with these details pre-filled. You can review, complete the profile, and enroll them in a batch.
               </p>
-
-              <div className="flex justify-end gap-3 relative z-10">
-                <button onClick={() => setShowConvertModal(false)} className="btn-secondary">Cancel</button>
-                <button
-                  onClick={handleConvertToStudent}
-                  className="btn-success shadow-[0_0_15px_rgba(16,185,129,0.3)] px-5 py-2 font-bold flex items-center gap-1.5"
-                >
-                  Confirm & Proceed ➔
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+          </>
         )}
-      </AnimatePresence>
+      </StandardModal>
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteModal && selectedEnquiry && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card w-full max-w-md p-6 shadow-2xl border-t-4 border-t-danger/80 relative overflow-hidden"
+      <StandardModal
+        isOpen={showDeleteModal && !!selectedEnquiry}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Record"
+        size="sm"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              <div className="absolute -right-8 -top-8 w-32 h-32 bg-danger/10 rounded-full blur-2xl"></div>
-
-              <div className="flex items-center justify-between mb-5 relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="bg-danger/20 p-2.5 rounded-xl text-danger shadow-inner">⚠️</div>
-                  <h3 className="text-xl font-bold text-foreground">Delete Record</h3>
-                </div>
-                <button onClick={() => setShowDeleteModal(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-              </div>
-
-              <p className="text-sm text-muted-foreground mb-6 leading-relaxed relative z-10 p-4 bg-surface rounded-xl border border-border/50">
-                You are about to delete the enquiry record for <strong className="text-foreground text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
+              Keep Record
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteEnquiry}
+              disabled={submitting}
+              className="flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition"
+            >
+              {submitting ? 'Deleting...' : 'Delete Record'}
+            </button>
+          </div>
+        }
+      >
+        {selectedEnquiry && (
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                You are about to delete the enquiry record for <strong className="text-slate-900 dark:text-slate-100 text-[15px] block mt-1">{selectedEnquiry.student_name}</strong>
                 <br/>This record will be moved to the "Deleted Only" view. Proceed?
               </p>
-
-              <div className="flex justify-end gap-3 relative z-10">
-                <button onClick={() => setShowDeleteModal(false)} className="btn-secondary">Keep Record</button>
-                <button onClick={handleDeleteEnquiry} disabled={submitting} className="btn-danger shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                  {submitting ? 'Deleting...' : 'Delete Record'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
         )}
-      </AnimatePresence>
+      </StandardModal>
 
       {/* QR Code Modal */}
-      <AnimatePresence>
-        {showQRModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="card w-full max-w-sm p-8 shadow-2xl flex flex-col items-center text-center bg-gradient-to-b from-surface to-surface-secondary border border-border/50"
+      <StandardModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        title="Public Intake Form"
+        subtitle="Scan to submit a new remote enquiry"
+        size="sm"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadQR}
+              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
             >
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="absolute right-5 top-5 text-muted-foreground hover:text-foreground transition-colors w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border/50 hover:bg-surface-secondary"
-              >
-                ✕
-              </button>
-              
-              <div className="bg-primary/10 p-3 rounded-full mb-4">
-                <span className="text-2xl">📱</span>
-              </div>
-              <h3 className="text-xl font-black text-foreground mb-1">Public Intake Form</h3>
-              <p className="text-sm text-muted-foreground mb-6">Scan to submit a new remote enquiry</p>
+              Download PNG Graphic
+            </button>
+          </div>
+        }
+      >
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-emerald-100 dark:bg-emerald-950/30 p-3 rounded-full mb-4">
+                  <span className="text-2xl">📱</span>
+                </div>
 
-              <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-surface ring-1 ring-border/50">
-                {typeof window !== 'undefined' && (
-                  <QRCodeCanvas
-                    value={`${window.location.origin}/enquiry-form${academyId ? `?academy_id=${academyId}` : ''}`}
-                    size={200}
-                    level="H"
-                    includeMargin={false}
-                    fgColor="#0a0f0d" 
-                  />
-                )}
+                <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-slate-200 dark:border-slate-700 ring-1 ring-slate-200 dark:ring-slate-700">
+                  {typeof window !== 'undefined' && (
+                    <QRCodeCanvas
+                      value={`${window.location.origin}/enquiry-form${academyId ? `?academy_id=${academyId}` : ''}`}
+                      size={200}
+                      level="H"
+                      includeMargin={false}
+                      fgColor="#0a0f0d" 
+                    />
+                  )}
+                </div>
               </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleDownloadQR}
-                className="btn-primary mt-8 w-full shadow-[0_0_15px_rgba(var(--color-accent-primary),0.3)]"
-              >
-                Download PNG Graphic
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </StandardModal>
     </motion.div>
   );
 }

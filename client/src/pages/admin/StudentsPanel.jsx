@@ -9,6 +9,8 @@ import Loader from '../../components/Loader';
 
 import Avatar from '../../components/Avatar';
 
+import StandardModal from '../../components/StandardModal';
+
 import { useFormDraft } from '../../hooks/useFormDraft';
 
 import { useFormValidation, validationRules } from '../../hooks/useFormValidation';
@@ -2244,9 +2246,12 @@ export default function StudentsPanel() {
 
       const studentId = student.student_id || student.id;
 
-      const detailsRes = await adminGet(`/admin/students/${studentId}/details`);
+      const [detailsRes, kitsRes] = await Promise.all([
+        adminGet(`/admin/students/${studentId}/details`),
+        adminGet(`/admin/inventory/kits/assignments?student_id=${studentId}`)
+      ]);
 
-      setStudentDetails(detailsRes.data);
+      setStudentDetails({ ...detailsRes.data, kitAssignments: kitsRes.data || [] });
 
       // Initialize edit form with student data
       setEditStudentForm({
@@ -3962,6 +3967,96 @@ export default function StudentsPanel() {
 
                 </div>
 
+                {/* Sports Kits Section */}
+                <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/30 mt-4 rounded-lg border p-4">
+
+                  <h4 className="text-indigo-700 dark:text-indigo-400 mb-3 font-bold flex items-center gap-2">
+                    <Package className="w-4 h-4" /> Sports Kits
+                  </h4>
+
+                  {studentDetails?.kitAssignments && Array.isArray(studentDetails.kitAssignments) && studentDetails.kitAssignments.length > 0 ? (
+                    <>
+                      {/* Kit Summary Stats */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Total Kits</div>
+                          <div className="text-xl font-bold text-slate-900 dark:text-white">
+                            {studentDetails.kitAssignments.length}
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Total Qty</div>
+                          <div className="text-xl font-bold text-slate-900 dark:text-white">
+                            {studentDetails.kitAssignments.reduce((sum, a) => sum + (a.quantity || 1), 0)}
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Total Amount</div>
+                          <div className="text-xl font-bold text-slate-900 dark:text-white">
+                            ₹{studentDetails.kitAssignments.reduce((sum, a) => sum + (a.total_amount || a.kit?.selling_price || 0), 0).toFixed(0)}
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase">Unpaid</div>
+                          <div className="text-xl font-bold text-rose-600 dark:text-rose-400">
+                            ₹{studentDetails.kitAssignments
+                              .filter(a => a.payment_status === 'UNPAID')
+                              .reduce((sum, a) => sum + (a.total_amount || a.kit?.selling_price || 0), 0)
+                              .toFixed(0)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Assignment History */}
+                      <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Assignment History</h5>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {studentDetails.kitAssignments.map((assignment) => (
+                          <div key={assignment.assignment_id} className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-slate-900 dark:text-white">{assignment.kit?.name || 'Unknown Kit'}</span>
+                                <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded">
+                                  Qty: {assignment.quantity || 1}
+                                </span>
+                              </div>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                assignment.status === 'ACTIVE'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                              }`}>
+                                {assignment.status}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                              <div>
+                                <span className="font-medium">Date:</span> {assignment.issue_date ? new Date(assignment.issue_date).toLocaleDateString() : '—'}
+                              </div>
+                              <div>
+                                <span className="font-medium">Amount:</span> ₹{(assignment.total_amount || assignment.kit?.selling_price || 0).toFixed(2)}
+                              </div>
+                              <div>
+                                <span className="font-medium">Payment:</span>{' '}
+                                <span className={`font-semibold ${
+                                  assignment.payment_status === 'PAID'
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-amber-600 dark:text-amber-400'
+                                }`}>
+                                  {assignment.payment_status}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium">Assigned By:</span> {assignment.coach_assignment_id ? 'Coach' : 'Admin'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-muted text-sm">No kit assignments found for this student.</p>
+                  )}
+                </div>
+
               </div>
 
             ) : (
@@ -4593,50 +4688,73 @@ export default function StudentsPanel() {
 
  {/* Add Student Modal */}
 
-{showAddStudentModal && (
-
-  <motion.div 
-
-    initial={{ opacity: 0 }}
-
-    animate={{ opacity: 1 }}
-
-    exit={{ opacity: 0 }}
-
-    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-
-  >
-
-    <div className="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto">
-
-      <div className="mb-4 flex items-center justify-between">
-
-        <h3 className="font-bold">Add New Student</h3>
-
-        <div className="flex gap-2">
-
-          {draftSavedAt && <span className="text-muted text-xs">Draft saved</span>}
-
-          <button
-
-            type="button"
-
-            className="text-muted hover:text-foreground"
-
-            onClick={() => {
-              setShowAddStudentModal(false);
-              setSelectedSports([]);
-              setSportSearchQuery('');
-              setConvertEnquiryId(null);
-              setConvertEnquiry(null);
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      
-      <form onSubmit={handleSubmit}>
+<StandardModal
+  isOpen={showAddStudentModal}
+  onClose={() => {
+    setShowAddStudentModal(false);
+    setSelectedSports([]);
+    setSportSearchQuery('');
+    setConvertEnquiryId(null);
+    setConvertEnquiry(null);
+  }}
+  title="Add New Student"
+  subtitle={draftSavedAt ? 'Draft saved' : undefined}
+  size="xl"
+  footer={
+    <div className="flex gap-3">
+      <button
+        type="button"
+        className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        onClick={() => {
+          setShowAddStudentModal(false);
+          setSelectedSports([]);
+          setSportSearchQuery('');
+          setConvertEnquiryId(null);
+          setConvertEnquiry(null);
+        }}
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        className="flex-1 py-2 px-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-900/50 rounded-xl text-sm font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/30 transition"
+        onClick={() => {
+          const draftData = {
+            ...form,
+            convertEnquiry,
+            enquiry_id: convertEnquiryId,
+            profile_photo: photoPreview
+          };
+          localStorage.setItem('sams_draft_student_form', JSON.stringify(draftData));
+          setMessage({ text: 'Student profile draft saved successfully!', type: 'success' });
+          setShowAddStudentModal(false);
+          setSelectedSports([]);
+          setSportSearchQuery('');
+        }}
+      >
+        💾 Save as Draft
+      </button>
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2"
+      >
+        {isSubmitting ? (
+          <>
+            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Saving...
+          </>
+        ) : (
+          'Save Student'
+        )}
+      </button>
+    </div>
+  }
+>
+  <form onSubmit={handleSubmit}>
         {convertEnquiry && (
           <div className="mb-6 rounded-xl border border-purple-100 bg-purple-50/40 p-4 dark:border-purple-900/40 dark:bg-purple-950/10">
             <div className="flex items-center justify-between pb-3 border-b border-purple-100 dark:border-purple-900/30">
@@ -5382,7 +5500,7 @@ export default function StudentsPanel() {
 
                 type="button"
 
-                className="absolute right-2 top-1.5 text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded hover:bg-slate-300 transition-colors"
+                className="absolute right-2 top-1.5 text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-1 rounded hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
 
                 onClick={() => {
 
@@ -5416,7 +5534,7 @@ export default function StudentsPanel() {
 
           {isSportsDropdownOpen && (
 
-            <div className="bg-surface border-border absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border p-2 shadow-lg text-black bg-white">
+            <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border p-2 shadow-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
 
               {(() => {
 
@@ -5440,10 +5558,8 @@ export default function StudentsPanel() {
 
                         key={sportId}
 
-                        className={`hover:bg-slate-100 flex w-full cursor-pointer items-center justify-between rounded-md p-2 text-sm ${
-
-                          isSelected ? 'bg-slate-50 font-semibold' : ''
-
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-md p-2 text-sm ${
+                          isSelected ? 'bg-slate-100 dark:bg-slate-800 font-semibold' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
 
                         onClick={() => {
@@ -5612,7 +5728,7 @@ export default function StudentsPanel() {
 
                       key={batchId}
 
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-medium"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-sm font-medium"
 
                     >
 
@@ -5624,7 +5740,7 @@ export default function StudentsPanel() {
 
                         onClick={() => handleRemoveBatch(batchId)}
 
-                        className="ml-1 text-emerald-600 hover:text-emerald-900 font-bold"
+                        className="ml-1 text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300 font-bold"
 
                       >
 
@@ -5760,17 +5876,17 @@ export default function StudentsPanel() {
 
         {/* Live Fee Preview Card */}
 
-        <div className="border-accent/20 bg-accent/10 mt-4 rounded-lg border-2 p-4">
+        <div className="mt-4 rounded-lg border-2 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/20 p-4">
 
-          <h4 className="text-accent mb-3 font-bold">Live Fee Preview</h4>
+          <h4 className="mb-3 font-bold text-emerald-700 dark:text-emerald-400">Live Fee Preview</h4>
 
-          <div className="text-foreground space-y-2 text-sm">
+          <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
 
             <div className="flex justify-between">
 
               <span>Sports Base Fee:</span>
 
-              <span className="font-semibold">
+              <span className="font-semibold text-slate-900 dark:text-white">
 
                 ₹{formatCurrency(calculateLiveFee().totalSportsFee)}
 
@@ -5782,7 +5898,7 @@ export default function StudentsPanel() {
 
               <span>Plan Multiplier:</span>
 
-              <span className="font-semibold">{calculateLiveFee().multiplier}x</span>
+              <span className="font-semibold text-slate-900 dark:text-white">{calculateLiveFee().multiplier}x</span>
 
             </div>
 
@@ -5790,7 +5906,7 @@ export default function StudentsPanel() {
 
               <span>Sports Fee (with multiplier):</span>
 
-              <span className="font-semibold">
+              <span className="font-semibold text-slate-900 dark:text-white">
 
                 ₹{formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}
 
@@ -5802,7 +5918,7 @@ export default function StudentsPanel() {
 
               <span>Registration Fee:</span>
 
-              <span className="font-semibold">
+              <span className="font-semibold text-slate-900 dark:text-white">
 
                 ₹{formatCurrency(calculateLiveFee().registrationFee)}
 
@@ -5814,7 +5930,7 @@ export default function StudentsPanel() {
 
               <span>Additional Charges:</span>
 
-              <span className="font-semibold">
+              <span className="font-semibold text-slate-900 dark:text-white">
 
                 ₹{formatCurrency(calculateLiveFee().additionalCharges)}
 
@@ -5826,7 +5942,7 @@ export default function StudentsPanel() {
 
               <span>Discount:</span>
 
-              <span className="text-danger font-semibold">
+              <span className="font-semibold text-rose-600 dark:text-rose-400">
 
                 -₹{formatCurrency(calculateLiveFee().discount)}
 
@@ -5834,11 +5950,11 @@ export default function StudentsPanel() {
 
             </div>
 
-            <div className="border-accent/20 mt-2 flex justify-between border-t pt-2">
+            <div className="mt-2 flex justify-between border-t border-emerald-200 dark:border-emerald-900/50 pt-2">
 
-              <span className="font-bold">Final Fee:</span>
+              <span className="font-bold text-slate-900 dark:text-white">Final Fee:</span>
 
-              <span className="text-success text-lg font-bold">
+              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
 
                 ₹{formatCurrency(calculateLiveFee().finalFee)}
 
@@ -5857,7 +5973,7 @@ export default function StudentsPanel() {
         <div className="mt-6 flex justify-end gap-3 border-t pt-4">
           <button
             type="button"
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700"
             onClick={() => {
               setShowAddStudentModal(false);
               setSelectedSports([]);
@@ -5893,7 +6009,7 @@ export default function StudentsPanel() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 dark:bg-emerald-600 rounded-md hover:bg-emerald-700 dark:hover:bg-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <>
@@ -5910,103 +6026,71 @@ export default function StudentsPanel() {
         </div>
 
       </form>
+  </StandardModal>
 
-    </div>
-
-  </motion.div>
-
-)}
-
-
-
-      {showClearConfirm && (
-
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
-
-          <div className="card animate-premiumModal max-w-md">
-
-            <h3 className="mb-2 font-bold">Clear form?</h3>
-
-            <p className="text-muted mb-4 text-sm">
-
-              This removes the saved draft and resets all fields.
-
-            </p>
-
-            <div className="flex gap-2">
-
-              <button
-
-                type="button"
-
-                className="btn-danger flex-1"
-
-                onClick={() => {
-                  clearDraft();
-                  setConvertEnquiry(null);
-                  setConvertEnquiryId(null);
-                  setPhotoPreview(null);
-                  setShowClearConfirm(false);
-                }}
-
-              >
-
-                Yes, clear
-
-              </button>
-
-              <button
-
-                type="button"
-
-                className="btn-secondary flex-1"
-
-                onClick={() => setShowClearConfirm(false)}
-
-              >
-
-                Cancel
-
-              </button>
-
-            </div>
-
+      <StandardModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        title="Clear form?"
+        size="sm"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowClearConfirm(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearDraft();
+                setConvertEnquiry(null);
+                setConvertEnquiryId(null);
+                setPhotoPreview(null);
+                setShowClearConfirm(false);
+              }}
+              className="flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition"
+            >
+              Yes, clear
+            </button>
           </div>
-
-        </div>
-
-      )}
+        }
+      >
+        <p className="text-muted mb-4 text-sm">
+          This removes the saved draft and resets all fields.
+        </p>
+      </StandardModal>
 
 
 
       {/* Bulk Upload Modal */}
 
-      {showBulkUpload && (
-
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
-
-          <div className="card animate-premiumModal w-full max-w-lg">
-
-            <div className="mb-4 flex items-center justify-between">
-
-              <h3 className="font-bold">Bulk Import Students (CSV)</h3>
-
-              <button
-
-                type="button"
-
-                className="text-muted hover:text-foreground"
-
-                onClick={() => setShowBulkUpload(false)}
-
-              >
-
-                ✕
-
-              </button>
-
-            </div>
-
+      <StandardModal
+        isOpen={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        title="Bulk Import Students (CSV)"
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowBulkUpload(false)}
+              className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              onClick={handleBulkUpload}
+              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+            >
+              Upload
+            </button>
+          </div>
+        }
+      >
             <form onSubmit={handleBulkUpload}>
 
               <div className="mb-4">
@@ -6124,115 +6208,65 @@ export default function StudentsPanel() {
               </div>
 
             </form>
-
-          </div>
-
-        </div>
-
-      )}
+      </StandardModal>
 
 
 
       {/* Student Detail Modal */}
-
-      {showStudentModal && selectedStudent && (
-
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
-
-          <div className="card animate-premiumModal max-h-[90vh] w-full max-w-4xl overflow-y-auto">
-
-            <div className="mb-4 flex items-center justify-between">
-
-              <h3 className="font-bold">Student Details</h3>
-
-              <div className="flex gap-2">
-
-                {!isEditingStudent && (
-
-                  <button
-
-                    type="button"
-
-                    className="btn-primary btn-sm"
-
-                    onClick={() => setIsEditingStudent(true)}
-
-                  >
-
-                    Edit
-
-                  </button>
-
-                )}
-
-                {!isEditingStudent && (
-
-                  <button
-
-                    type="button"
-
-                    className="btn-secondary btn-sm"
-
-                    onClick={() => {
-
-                      setShowStudentModal(false);
-
-                    }}
-
-                  >
-
-                    View Full Profile
-
-                  </button>
-
-                )}
-
-                <button
-
-                  type="button"
-
-                  className="text-muted hover:text-foreground"
-
-                  onClick={() => {
-
-                    setShowStudentModal(false);
-
-                    setSelectedStudent(null);
-
-                    setStudentDetails(null);
-
-                    setIsEditingStudent(false);
-
-                    setPhotoPreview(null);
-
-                  }}
-
-                >
-
-                  ✕
-
-                </button>
-
-              </div>
-
-            </div>
-
-
-
+      <StandardModal
+        isOpen={showStudentModal && selectedStudent}
+        onClose={() => {
+          setShowStudentModal(false);
+          setSelectedStudent(null);
+          setStudentDetails(null);
+          setIsEditingStudent(false);
+          setPhotoPreview(null);
+        }}
+        title="Student Details"
+        size="2xl"
+        footer={
+          <div className="flex gap-3">
+            {!isEditingStudent && (
+              <button
+                type="button"
+                onClick={() => setIsEditingStudent(true)}
+                className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+              >
+                Edit
+              </button>
+            )}
+            {!isEditingStudent && (
+              <button
+                type="button"
+                onClick={() => setShowStudentModal(false)}
+                className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                View Full Profile
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setShowStudentModal(false);
+                setSelectedStudent(null);
+                setStudentDetails(null);
+                setIsEditingStudent(false);
+                setPhotoPreview(null);
+              }}
+              className="flex-1 py-2 px-4 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 transition"
+            >
+              Close
+            </button>
+          </div>
+        }
+      >
             {/* Tab Navigation */}
-
             <div className="mb-4 flex gap-2 border-b">
-
               {['profile', 'accounts', 'attendance', 'performance', 'notes', 'sports kits'].map((tab) => (
-
                 <button
-
                   key={tab}
-
                   type="button"
-
                   className={`px-4 py-2 capitalize transition-all duration-350 ${modalTab === tab ? 'border-success text-success bg-success/10 rounded-t-lg border-b-2 font-semibold' : 'hover:text-success text-slate-600 hover:bg-slate-100'}`}
-
                   onClick={() => setModalTab(tab)}
 
                 >
@@ -8333,58 +8367,49 @@ export default function StudentsPanel() {
               <p className="text-muted text-center">Failed to load student details.</p>
 
             )}
-
-          </div>
-
-        </div>
-
-      )}
+      </StandardModal>
 
 
 
   {/* Edit Student Modal */}
 
-  {isEditingStudent && (
-
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md">
-
-      <div className="card animate-premiumModal max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-white p-6 rounded-lg shadow-xl relative">
-
-        <div className="mb-4 flex items-center justify-between border-b pb-3">
-
-          <h3 className="font-bold text-lg text-slate-800">Edit Student Profile</h3>
-
-          <button
-
-            type="button"
-
-            className="text-muted hover:text-foreground text-slate-400 hover:text-slate-600 transition-colors"
-
-            onClick={() => {
-
-              setIsEditingStudent(false);
-
-              setSportSearchQuery('');
-
-              setBatchSearchQuery('');
-
-              setEditPhotoPreview(null);
-
-              setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
-
-            }}
-
-          >
-
-            ✕
-
-          </button>
-
-        </div>
-
-
-
-        <form onSubmit={handleEditStudentSubmit}>
+  <StandardModal
+    isOpen={isEditingStudent}
+    onClose={() => {
+      setIsEditingStudent(false);
+      setSportSearchQuery('');
+      setBatchSearchQuery('');
+      setEditPhotoPreview(null);
+      setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
+    }}
+    title="Edit Student Profile"
+    size="2xl"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setIsEditingStudent(false);
+            setSportSearchQuery('');
+            setBatchSearchQuery('');
+            setEditPhotoPreview(null);
+            setEditStudentForm(prev => ({ ...prev, profile_photo: null }));
+          }}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          onClick={handleEditStudentSubmit}
+          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+        >
+          Save Changes
+        </button>
+      </div>
+    }
+  >
+    <form onSubmit={handleEditStudentSubmit}>
 
           <div className="space-y-4">
 
@@ -8531,82 +8556,34 @@ export default function StudentsPanel() {
 
 
             {/* Remove Photo Confirmation Modal */}
-
-            {showRemovePhotoConfirm && (
-
-              <motion.div
-
-                initial={{ opacity: 0 }}
-
-                animate={{ opacity: 1 }}
-
-                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-
-              >
-
-                <motion.div
-
-                  initial={{ scale: 0.9, opacity: 0 }}
-
-                  animate={{ scale: 1, opacity: 1 }}
-
-                  className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl"
-
-                >
-
-                  <h4 className="text-lg font-bold text-slate-800 mb-2">Remove Photo?</h4>
-
-                  <p className="text-sm text-slate-600 mb-4">
-
-                    This action will remove the student's profile photo. This cannot be undone.
-
-                  </p>
-
-                  <div className="flex gap-3 justify-end">
-
-                    <motion.button
-
-                      type="button"
-
-                      whileHover={{ scale: 1.05 }}
-
-                      whileTap={{ scale: 0.95 }}
-
-                      onClick={() => setShowRemovePhotoConfirm(false)}
-
-                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-
-                    >
-
-                      Cancel
-
-                    </motion.button>
-
-                    <motion.button
-
-                      type="button"
-
-                      whileHover={{ scale: 1.05 }}
-
-                      whileTap={{ scale: 0.95 }}
-
-                      onClick={handleRemovePhoto}
-
-                      className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
-
-                    >
-
-                      Remove Photo
-
-                    </motion.button>
-
-                  </div>
-
-                </motion.div>
-
-              </motion.div>
-
-            )}
+            <StandardModal
+              isOpen={showRemovePhotoConfirm}
+              onClose={() => setShowRemovePhotoConfirm(false)}
+              title="Remove Photo?"
+              size="sm"
+              footer={
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowRemovePhotoConfirm(false)}
+                    className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition"
+                  >
+                    Remove Photo
+                  </button>
+                </div>
+              }
+            >
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                This action will remove the student's profile photo. This cannot be undone.
+              </p>
+            </StandardModal>
 
             {/* Student Name */}
 
@@ -9469,45 +9446,40 @@ export default function StudentsPanel() {
           </div>
 
         </form>
-
-      </div>
-
-    </div>
-
-  )}
+      </StandardModal>
 
   {/* Pause Student Modal */}
-  {showPauseModal && pauseStudent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="card animate-premiumModal max-w-md w-full"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Pause Student Plan</h3>
-          <button
-            type="button"
-            onClick={() => setShowPauseModal(false)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handlePauseSubmit} className="space-y-4">
+  <StandardModal
+    isOpen={showPauseModal && pauseStudent}
+    onClose={() => setShowPauseModal(false)}
+    title="Pause Student Plan"
+    size="md"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setShowPauseModal(false)}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          onClick={handlePauseSubmit}
+          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+        >
+          Pause Plan
+        </button>
+      </div>
+    }
+  >
+    <form onSubmit={handlePauseSubmit} className="space-y-4">
           <div>
             <label className="label block text-sm font-medium text-slate-700 mb-1">
               Student
             </label>
             <div className="text-sm font-semibold text-slate-900">
-              {pauseStudent.name || `${pauseStudent.first_name || ''} ${pauseStudent.last_name || ''}`}
+              {pauseStudent?.name || `${pauseStudent?.first_name || ''} ${pauseStudent?.last_name || ''}`}
             </div>
           </div>
 
@@ -9587,193 +9559,130 @@ export default function StudentsPanel() {
               onChange={(e) => setPauseForm({ ...pauseForm, pause_reason: e.target.value })}
             />
           </div>
-
-          <div className="flex gap-3 justify-end pt-2">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowPauseModal(false)}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
-            >
-              Pause Plan
-            </motion.button>
-          </div>
         </form>
-      </motion.div>
-    </motion.div>
-  )}
+      </StandardModal>
 
   {/* Resume Student Modal */}
-  {showResumeModal && resumeStudent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="card animate-premiumModal max-w-md w-full"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Resume Student Plan</h3>
-          <button
-            type="button"
-            onClick={() => {
-              setShowResumeModal(false);
-              setResumeStudent(null);
-              setResumeEnrollmentInfo(null);
-            }}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
+  <StandardModal
+    isOpen={showResumeModal && resumeStudent}
+    onClose={() => {
+      setShowResumeModal(false);
+      setResumeStudent(null);
+      setResumeEnrollmentInfo(null);
+    }}
+    title="Resume Student Plan"
+    size="md"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setShowResumeModal(false);
+            setResumeStudent(null);
+            setResumeEnrollmentInfo(null);
+          }}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleResumeStudent}
+          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+        >
+          Resume Plan
+        </button>
+      </div>
+    }
+  >
+    <div className="space-y-4">
           <div>
             <label className="label block text-sm font-medium text-slate-700 mb-1">
               Student
             </label>
             <div className="text-sm font-semibold text-slate-900">
-              {resumeStudent.name || `${resumeStudent.first_name || ''} ${resumeStudent.last_name || ''}`}
+              {resumeStudent?.name || `${resumeStudent?.first_name || ''} ${resumeStudent?.last_name || ''}`}
             </div>
           </div>
 
           {resumeEnrollmentInfo ? (
-            <>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
-                <h4 className="text-sm font-bold text-amber-800">Pause Information</h4>
-                
-                {resumeEnrollmentInfo.pause_start_date && (
-                  <div>
-                    <span className="text-xs text-amber-700 block">Pause Start Date</span>
-                    <span className="text-sm font-semibold text-amber-900">
-                      {new Date(resumeEnrollmentInfo.pause_start_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-
-                {resumeEnrollmentInfo.pause_end_date && (
-                  <div>
-                    <span className="text-xs text-amber-700 block">Planned Resume Date</span>
-                    <span className="text-sm font-semibold text-amber-900">
-                      {new Date(resumeEnrollmentInfo.pause_end_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-
-                {resumeEnrollmentInfo.pause_duration_days && (
-                  <div>
-                    <span className="text-xs text-amber-700 block">Pause Duration</span>
-                    <span className="text-sm font-semibold text-amber-900">
-                      {resumeEnrollmentInfo.pause_duration_days} days
-                    </span>
-                  </div>
-                )}
-
-                {resumeEnrollmentInfo.pause_reason && (
-                  <div>
-                    <span className="text-xs text-amber-700 block">Pause Reason</span>
-                    <span className="text-sm font-semibold text-amber-900">
-                      {resumeEnrollmentInfo.pause_reason}
-                    </span>
-                  </div>
-                )}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
+              <div>
+                <span className="text-xs text-slate-600 block">Sport</span>
+                <span className="text-sm font-semibold text-slate-900">{resumeEnrollmentInfo.sport_name}</span>
               </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm font-medium text-blue-800">
-                  ⚠️ This will resume the student's plan immediately. All pause-related data will be cleared.
-                </p>
+              <div>
+                <span className="text-xs text-slate-600 block">Batch</span>
+                <span className="text-sm font-semibold text-slate-900">{resumeEnrollmentInfo.batch_name}</span>
               </div>
-            </>
+              <div>
+                <span className="text-xs text-slate-600 block">Plan</span>
+                <span className="text-sm font-semibold text-slate-900">{resumeEnrollmentInfo.plan_name}</span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-600 block">Paused On</span>
+                <span className="text-sm font-semibold text-slate-900">{new Date(resumeEnrollmentInfo.paused_on).toLocaleDateString()}</span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-600 block">Resume By</span>
+                <span className="text-sm font-semibold text-slate-900">{new Date(resumeEnrollmentInfo.resume_by).toLocaleDateString()}</span>
+              </div>
+            </div>
           ) : (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-              <p className="text-sm text-slate-600">
-                No pause information found. The student's plan will be resumed immediately.
-              </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm text-amber-800">No active paused enrollment found for this student.</p>
             </div>
           )}
-
-          <div className="flex gap-3 justify-end pt-2">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setShowResumeModal(false);
-                setResumeStudent(null);
-                setResumeEnrollmentInfo(null);
-              }}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={confirmResumeStudent}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors"
-            >
-              Resume Plan
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  )}
+    </div>
+  </StandardModal>
 
   {/* Password Reset Modal */}
-  {showPasswordResetModal && passwordResetStudent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="card animate-premiumModal max-w-md w-full"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Reset Parent Portal Password</h3>
-          <button
-            type="button"
-            onClick={() => setShowPasswordResetModal(false)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
+  <StandardModal
+    isOpen={showPasswordResetModal && passwordResetStudent}
+    onClose={() => setShowPasswordResetModal(false)}
+    title="Reset Parent Portal Password"
+    size="md"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setShowPasswordResetModal(false)}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => handleResetPassword(false)}
+          disabled={resettingPassword || !newPassword}
+          className="flex-1 py-2 px-4 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition"
+        >
+          {resettingPassword ? 'Resetting...' : 'Reset Password'}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleResetPassword(true)}
+          disabled={resettingPassword || !newPassword || !passwordResetStudent?.parent_email}
+          className="flex-1 py-2 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition"
+        >
+          {resettingPassword ? 'Sending...' : 'Reset & Send Email'}
+        </button>
+      </div>
+    }
+  >
+    <div className="space-y-4">
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
             <div className="space-y-2">
               <div>
                 <span className="text-xs text-slate-600 block">Parent Name</span>
                 <span className="text-sm font-semibold text-slate-900">
-                  {passwordResetStudent.parent_name || 'N/A'}
+                  {passwordResetStudent?.parent_name || 'N/A'}
                 </span>
               </div>
               <div>
                 <span className="text-xs text-slate-600 block">Parent Email</span>
                 <span className="text-sm font-semibold text-slate-900">
-                  {passwordResetStudent.parent_email || 'Not available'}
+                  {passwordResetStudent?.parent_email || 'Not available'}
                 </span>
               </div>
               <div>
@@ -9810,81 +9719,47 @@ export default function StudentsPanel() {
             </div>
           </div>
 
-          {!passwordResetStudent.parent_email && (
+          {!passwordResetStudent?.parent_email && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-sm font-medium text-amber-800">
                 ⚠️ Parent email is not available. Email cannot be sent.
               </p>
             </div>
           )}
-
-          <div className="flex gap-3 justify-end pt-2">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowPasswordResetModal(false)}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleResetPassword(false)}
-              disabled={resettingPassword || !newPassword}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {resettingPassword ? 'Resetting...' : 'Reset Password'}
-            </motion.button>
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleResetPassword(true)}
-              disabled={resettingPassword || !newPassword || !passwordResetStudent.parent_email}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {resettingPassword ? 'Sending...' : 'Reset & Send Email'}
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  )}
+    </div>
+  </StandardModal>
 
   {/* Reactivate Student Plan Modal */}
-  {showReactivateModal && selectedStudent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="card animate-premiumModal max-w-md w-full"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Reactivate Student Plan</h3>
-          <button
-            type="button"
-            onClick={() => setShowReactivateModal(false)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleReactivateSubmit} className="space-y-4">
+  <StandardModal
+    isOpen={showReactivateModal && selectedStudent}
+    onClose={() => setShowReactivateModal(false)}
+    title="Reactivate Student Plan"
+    size="md"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setShowReactivateModal(false)}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          onClick={handleReactivateSubmit}
+          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+        >
+          Reactivate
+        </button>
+      </div>
+    }
+  >
+    <form onSubmit={handleReactivateSubmit} className="space-y-4">
           <div>
             <label className="label block text-sm font-medium text-slate-700 mb-1">
               Student Name
             </label>
-            <div className="text-sm font-semibold text-slate-900">{selectedStudent.name}</div>
+            <div className="text-sm font-semibold text-slate-900">{selectedStudent?.name}</div>
           </div>
 
           <div>
@@ -10150,41 +10025,39 @@ export default function StudentsPanel() {
             </motion.button>
           </div>
         </form>
-      </motion.div>
-    </motion.div>
-  )}
+      </StandardModal>
 
   {/* Renew Student Plan Modal */}
-  {showRenewModal && selectedStudent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="card animate-premiumModal max-w-md w-full"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Renew Student Plan</h3>
-          <button
-            type="button"
-            onClick={() => setShowRenewModal(false)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleRenewSubmit} className="space-y-4">
+  <StandardModal
+    isOpen={showRenewModal && selectedStudent}
+    onClose={() => setShowRenewModal(false)}
+    title="Renew Student Plan"
+    size="md"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setShowRenewModal(false)}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          onClick={handleRenewSubmit}
+          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+        >
+          Renew Plan
+        </button>
+      </div>
+    }
+  >
+    <form onSubmit={handleRenewSubmit} className="space-y-4">
           <div>
             <label className="label block text-sm font-medium text-slate-700 mb-1">
               Student Name
             </label>
-            <div className="text-sm font-semibold text-slate-900">{selectedStudent.name}</div>
+            <div className="text-sm font-semibold text-slate-900">{selectedStudent?.name}</div>
           </div>
 
           <div>
@@ -10226,41 +10099,39 @@ export default function StudentsPanel() {
             </motion.button>
           </div>
         </form>
-      </motion.div>
-    </motion.div>
-  )}
+      </StandardModal>
 
   {/* Change Plan Modal (Upgrade/Downgrade) */}
-  {showChangePlanModal && selectedStudent && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="card animate-premiumModal max-w-md w-full"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">Upgrade/Downgrade Plan</h3>
-          <button
-            type="button"
-            onClick={() => setShowChangePlanModal(false)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleChangePlanSubmit} className="space-y-4">
+  <StandardModal
+    isOpen={showChangePlanModal && selectedStudent}
+    onClose={() => setShowChangePlanModal(false)}
+    title="Upgrade/Downgrade Plan"
+    size="md"
+    footer={
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setShowChangePlanModal(false)}
+          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          onClick={handleChangePlanSubmit}
+          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+        >
+          Change Plan
+        </button>
+      </div>
+    }
+  >
+    <form onSubmit={handleChangePlanSubmit} className="space-y-4">
           <div>
             <label className="label block text-sm font-medium text-slate-700 mb-1">
               Student Name
             </label>
-            <div className="text-sm font-semibold text-slate-900">{selectedStudent.name}</div>
+            <div className="text-sm font-semibold text-slate-900">{selectedStudent?.name}</div>
           </div>
 
           <div>
@@ -10281,30 +10152,8 @@ export default function StudentsPanel() {
               ))}
             </select>
           </div>
-
-          <div className="flex gap-3 justify-end pt-2">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowChangePlanModal(false)}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
-            >
-              Confirm Plan Change
-            </motion.button>
-          </div>
         </form>
-      </motion.div>
-    </motion.div>
-  )}
+      </StandardModal>
 
     </motion.div>
 

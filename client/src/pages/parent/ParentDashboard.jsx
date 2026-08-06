@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { parentGet, parentPost } from '../../api/client';
 import { useTheme } from '../../context/ThemeContext';
+import { useActiveStudent } from '../../context/ActiveStudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -97,13 +98,12 @@ function CircularProgressRing({ percentage, size = 120, strokeWidth = 8, primary
 
 export default function ParentDashboard() {
   const { isDark } = useTheme();
-  
+  const { activeStudent, loading: studentLoading } = useActiveStudent();
+
   const [dashboardData, setDashboardData] = useState(null);
-  const [studentsList, setStudentsList] = useState([]);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
@@ -122,15 +122,16 @@ export default function ParentDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedStudentId) {
-      fetchDashboardData(selectedStudentId);
-      fetchPerformanceDashboard(selectedStudentId);
+    console.log('[ParentDashboard] activeStudent changed:', activeStudent);
+    if (activeStudent) {
+      console.log('[ParentDashboard] Fetching data for student:', activeStudent.student_id);
+      fetchDashboardData(activeStudent.student_id);
+      fetchPerformanceDashboard(activeStudent.student_id);
+    } else {
+      console.log('[ParentDashboard] No active student, setting loading to false');
+      setLoading(false);
     }
-  }, [selectedStudentId]);
+  }, [activeStudent]);
 
   // Keyboard accessibility listeners (ESC to close modals)
   useEffect(() => {
@@ -163,35 +164,8 @@ export default function ParentDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('parent_token');
-      const response = await fetch('/api/v1/parent/dashboard', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data.data);
-        
-        if (data.data?.students && data.data.students.length > 0) {
-          setStudentsList(data.data.students);
-          setSelectedStudentId(data.data.students[0].student_id);
-        }
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to fetch dashboard data');
-      }
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchDashboardData = async (studentId) => {
+    console.log('[ParentDashboard] fetchDashboardData called for studentId:', studentId);
     try {
       const token = localStorage.getItem('parent_token');
       const response = await fetch(`/api/v1/parent/dashboard?studentId=${studentId}`, {
@@ -200,21 +174,30 @@ export default function ParentDashboard() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[ParentDashboard] Dashboard data received:', data.data);
         setDashboardData(data.data);
+      } else {
+        console.error('[ParentDashboard] Dashboard API failed:', response.status);
       }
     } catch (error) {
-      console.error('Failed to update student metrics:', error);
+      console.error('[ParentDashboard] Failed to update student metrics:', error);
+    } finally {
+      console.log('[ParentDashboard] Setting loading to false');
+      setLoading(false);
     }
   };
 
   const fetchPerformanceDashboard = async (studentId) => {
+    console.log('[ParentDashboard] fetchPerformanceDashboard called for studentId:', studentId);
     try {
       setPerfLoading(true);
       const result = await parentGet(`/parent/children/${studentId}/performance/dashboard`);
+      console.log('[ParentDashboard] Performance data received:', result.data || result);
       setPerfData(result.data || result);
     } catch (err) {
-      console.error('Failed to fetch performance dashboard details:', err);
+      console.error('[ParentDashboard] Failed to fetch performance dashboard details:', err);
     } finally {
+      console.log('[ParentDashboard] Setting perfLoading to false');
       setPerfLoading(false);
     }
   };
@@ -231,7 +214,7 @@ export default function ParentDashboard() {
 
   const parent = dashboardData?.parent || {};
   const metrics = dashboardData?.metrics || { attendanceRate: 0, avgPerformanceScore: 0, pendingFees: 0, totalStudents: 0, recentNotes: [] };
-  const currentStudent = studentsList.find(s => s.student_id === selectedStudentId) || {};
+  const currentStudent = activeStudent || {};
 
   // Check if current student has an active session
   const studentActiveSession = activeSessions.find(s => s.batch_id === currentStudent.batch_id);
@@ -426,14 +409,14 @@ export default function ParentDashboard() {
 
   const handleQuerySubmit = async (e) => {
     e.preventDefault();
-    if (!queryText.trim()) return;
+    if (!queryText.trim() || !activeStudent) return;
     
     try {
       setQuerySubmitting(true);
       await parentPost('/parent/queries', {
         subject: querySubject,
         message: queryText,
-        student_id: selectedStudentId
+        student_id: activeStudent.student_id
       });
       setQuerySuccess(true);
       setQueryText('');
@@ -536,7 +519,17 @@ export default function ParentDashboard() {
     window.print();
   };
 
+  if (studentLoading) return <Loader />;
   if (loading) return <Loader />;
+  if (!activeStudent) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+        <AlertCircle className="w-12 h-12 text-rose-500 mb-4 animate-bounce" />
+        <h3 className="text-lg font-bold">No Active Student</h3>
+        <p className="text-xs">Please ensure you have at least one child registered.</p>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
@@ -566,24 +559,6 @@ export default function ParentDashboard() {
             Track metrics and athlete developmental logs in real-time
           </p>
         </div>
-        
-        {/* Child Selector */}
-        {studentsList.length > 1 && (
-          <div className="flex items-center gap-2 bg-muted/40 p-1.5 rounded-xl border border-border shadow-inner child-selector">
-            <Users size={16} className="text-primary ml-2" />
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(Number(e.target.value))}
-              className="bg-transparent text-xs font-black uppercase border-none outline-none pr-6 pl-1 text-foreground cursor-pointer"
-            >
-              {studentsList.map((student) => (
-                <option key={student.student_id} value={student.student_id} className="text-slate-800 dark:text-slate-200 bg-card">
-                  {student.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </motion.div>
 
       {/* Live class indicator session banner */}

@@ -166,7 +166,7 @@ export const getAllCoaches = async (req, res, next) => {
 
 export const createCoach = async (req, res, next) => {
   try {
-    const coach = await adminService.createCoach(req.user.academy_id, req.body);
+    const coach = await adminService.createCoach(req.user.academy_id, req.body, req.file);
     res.status(201).json(successResponse('Coach created and onboarding email sent', coach));
   } catch (err) {
     next(err)
@@ -193,6 +193,7 @@ export const updateCoach = async (req, res, next) => {
       req.user.academy_id,
       req.params.coach_id,
       req.body,
+      req.file,
     );
     res.json(successResponse('Coach updated successfully', coach));
   } catch (err) {
@@ -204,6 +205,20 @@ export const deleteCoach = async (req, res, next) => {
   try {
     await adminService.deleteCoach(req.user.academy_id, req.params.coach_id);
     res.json(successResponse('Coach archived successfully', {}));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const impersonateCoach = async (req, res, next) => {
+  try {
+    const result = await adminService.impersonateCoach(
+      req.user.academy_id,
+      req.params.coach_id,
+      req.user.user_id,
+      req.ip
+    );
+    res.json(successResponse('Coach impersonation successful', result));
   } catch (err) {
     next(err);
   }

@@ -29,6 +29,7 @@ export default function SettingsPanel() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [sportsList, setSportsList] = useState([]);
 
   // Single form state
   const [formData, setFormData] = useState({
@@ -56,14 +57,16 @@ export default function SettingsPanel() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch academy settings and GPS settings in parallel
-      const [academyRes, gpsRes] = await Promise.all([
+      // Fetch academy settings, GPS settings, and sports catalog in parallel
+      const [academyRes, gpsRes, sportsRes] = await Promise.all([
         adminGet('/admin/settings'),
         adminGet('/admin/gps/settings'),
+        adminGet('/admin/sports'),
       ]);
 
       const academyData = academyRes?.data || academyRes;
       const gpsData = gpsRes?.data || gpsRes;
+      const sportsData = sportsRes?.data || sportsRes || [];
 
       setSettings(academyData);
 
@@ -87,6 +90,11 @@ export default function SettingsPanel() {
         require_coach_gps: gpsData?.require_coach_gps ?? DEFAULT_GPS_SETTINGS.require_coach_gps,
       });
 
+      const localSports = Array.isArray(sportsData)
+        ? sportsData.filter((s) => s.isAcademySport === true)
+        : [];
+      setSportsList(localSports);
+
       setHasUnsavedChanges(false);
     } catch (error) {
       showToast(error.message || 'Failed to load settings', 'error');
@@ -94,6 +102,13 @@ export default function SettingsPanel() {
       setLoading(false);
     }
   }, []);
+
+  const handleSportToggle = (sportId) => {
+    setSportsList((prev) =>
+      prev.map((s) => (s.sport_id === sportId ? { ...s, require_gps: !s.require_gps } : s))
+    );
+    setHasUnsavedChanges(true);
+  };
 
   useEffect(() => {
     loadData();
@@ -207,6 +222,13 @@ export default function SettingsPanel() {
       if (formData.longitude !== undefined) submitData.append('longitude', formData.longitude);
       submitData.append('auto_deactivate_default', formData.auto_deactivate_default);
 
+      // Save sport-level require_gps settings in parallel
+      const sportPromises = sportsList.map(sport =>
+        adminPatch(`/admin/sports/${sport.sport_id}`, {
+          require_gps: sport.require_gps
+        })
+      );
+
       // Save GPS / Attendance Configuration
       await Promise.all([
         adminPut('/admin/settings', submitData),
@@ -217,6 +239,7 @@ export default function SettingsPanel() {
           require_student_gps: formData.require_student_gps,
           require_coach_gps: formData.require_coach_gps,
         }),
+        ...sportPromises,
       ]);
 
       showToast('Settings saved successfully', 'success');
@@ -233,17 +256,25 @@ export default function SettingsPanel() {
   const handleResetToDefaults = async () => {
     setResetting(true);
     try {
-      // Reset all attendance config settings in DB to defaults
-      await adminPatch('/admin/gps/settings', { ...DEFAULT_GPS_SETTINGS });
+      // Reset all sport-level require_gps settings to true in parallel
+      const resetPromises = sportsList.map(sport =>
+        adminPatch(`/admin/sports/${sport.sport_id}`, {
+          require_gps: true
+        })
+      );
 
-      // Also reset location to null
-      await adminPut('/admin/settings', {
-        latitude: null,
-        longitude: null,
-        address: null,
-        city: null,
-        state: null,
-      });
+      // Reset all attendance config settings in DB to defaults
+      await Promise.all([
+        adminPatch('/admin/gps/settings', { ...DEFAULT_GPS_SETTINGS }),
+        adminPut('/admin/settings', {
+          latitude: null,
+          longitude: null,
+          address: null,
+          city: null,
+          state: null,
+        }),
+        ...resetPromises,
+      ]);
 
       showToast('All settings reset to defaults successfully', 'success');
       setShowResetConfirm(false);
@@ -544,75 +575,65 @@ export default function SettingsPanel() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">GPS Verification</h3>
               <ToggleRow
                 icon={Radio}
-                label="Enable GPS Verification"
-                description="Require GPS location for all attendance marking"
+                label="Enable GPS Verification (Global)"
+                description="Require GPS location for attendance marking."
                 field="gps_verification_enabled"
                 iconColor="text-primary"
               />
-              <ToggleRow
-                icon={UserCheck}
-                label="Require Student GPS"
-                description="Students must be within the academy radius to mark attendance"
-                field="require_student_gps"
-                iconColor="text-blue-500"
-              />
-              <ToggleRow
-                icon={Users}
-                label="Require Coach GPS"
-                description="Coaches must be within the academy radius to start a batch"
-                field="require_coach_gps"
-                iconColor="text-purple-500"
-              />
-              <ToggleRow
-                icon={Shield}
-                label="Admin Override"
-                description="Allow admins to manually override attendance regardless of GPS"
-                field="admin_override_enabled"
-                iconColor="text-amber-500"
-              />
             </div>
 
-            {/* Radius Slider */}
-            <div className="pt-2 border-t border-border">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Attendance Radius</h3>
-              <div className="max-w-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">
-                    GPS Attendance Radius
-                  </label>
-                  <span className="text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-lg">
-                    {formData.attendance_radius_meters} m
-                  </span>
+            {/* Sport-wise GPS Override List */}
+            {sportsList.length > 0 && (
+              <div className="pt-4 border-t border-border space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Sport-wise GPS Override</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {sportsList.map((sport) => {
+                    const isSportGpsActive = formData.gps_verification_enabled && sport.require_gps;
+                    const isDisabled = !formData.gps_verification_enabled;
+                    return (
+                      <div
+                        key={sport.sport_id}
+                        className={`flex items-center justify-between p-4 bg-surface-secondary/30 rounded-xl border border-border hover:bg-surface-secondary/50 transition-colors ${
+                          isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{sport.icon || '🏅'}</span>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{sport.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                              {isDisabled
+                                ? 'Disabled (Global GPS is OFF)'
+                                : sport.require_gps
+                                  ? 'GPS Capture required'
+                                  : 'Skip GPS Capture'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => handleSportToggle(sport.sport_id)}
+                          className={`relative focus:outline-none ${isDisabled ? 'cursor-not-allowed' : ''}`}
+                          aria-label={`Toggle GPS for ${sport.name}`}
+                        >
+                          <div
+                            className={`w-12 h-6 rounded-full transition-colors duration-300 ${
+                              isSportGpsActive ? 'bg-primary' : 'bg-border'
+                            }`}
+                          />
+                          <div
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ${
+                              isSportGpsActive ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="100"
-                    max="5000"
-                    step="50"
-                    value={formData.attendance_radius_meters}
-                    onChange={(e) => handleFieldChange('attendance_radius_meters', e.target.value)}
-                    className="flex-1 h-2 bg-surface-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <input
-                    type="number"
-                    min="100"
-                    max="5000"
-                    value={formData.attendance_radius_meters}
-                    onChange={(e) => handleFieldChange('attendance_radius_meters', e.target.value)}
-                    className="input-field w-24 text-center"
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>100 m (tight)</span>
-                  <span>2,500 m</span>
-                  <span>5,000 m (wide)</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Students and coaches must be within this radius from the academy to mark GPS-verified attendance.
-                </p>
               </div>
-            </div>
+            )}
           </div>
         </motion.div>
 

@@ -928,7 +928,7 @@ export default function BatchesPanel() {
                     layout
                     key={batch?.batch_id}
                     variants={itemVariants}
-                    className={`bg-white dark:bg-gray-900 rounded-3xl border transition-all duration-300 p-5 shadow-sm relative overflow-hidden group flex flex-col justify-between ${editingBatchId === batch.batch_id ? 'border-blue-500 bg-blue-50/20 dark:bg-blue-900/10 shadow-blue-500/20 shadow-xl z-10' : 'border-gray-100 dark:border-gray-800 hover:border-yellow-400 hover:shadow-xl'}`}
+                    className={`bg-white dark:bg-gray-900 rounded-3xl border transition-all duration-300 p-5 shadow-xl relative overflow-hidden group flex flex-col justify-between hover:-translate-y-1 ${editingBatchId === batch.batch_id ? 'border-blue-500 bg-blue-50/20 dark:bg-blue-900/10 shadow-blue-500/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] z-10' : 'border-gray-100 dark:border-gray-800 hover:border-yellow-400 hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]'}`}
                   >
                     <div>
                       {/* Top line: Status and Sport badges */}

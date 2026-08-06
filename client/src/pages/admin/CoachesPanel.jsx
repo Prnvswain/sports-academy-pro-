@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, Lock, Unlock, Key, Trash2, Edit, Plus, Upload, Search, X, Mail, Phone, FileSpreadsheet, AlertCircle, CheckCircle, Copy, Users, Trophy } from 'lucide-react';
+import { Eye, Lock, Unlock, Key, Trash2, Edit, Plus, Upload, Search, X, Mail, Phone, FileSpreadsheet, AlertCircle, CheckCircle, Copy, Users, Trophy, ExternalLink } from 'lucide-react';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import ModalWrapper from '../../components/ModalWrapper';
-import { adminDelete, adminGet, adminPost, adminPut } from '../../api/client';
+import { adminDelete, adminGet, adminPost, adminPut, getAdminToken, startImpersonation } from '../../api/client';
 
 const emptyForm = {
   name: '',
   email: '',
   phone_number: '',
   specialization: '',
+  profile_photo: null,
 };
 
 export default function CoachesPanel() {
@@ -25,6 +26,7 @@ export default function CoachesPanel() {
   const [bulkImportUploading, setBulkImportUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState({});
@@ -102,14 +104,45 @@ export default function CoachesPanel() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setFieldError('profile_photo', 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setFieldError('profile_photo', 'File size exceeds 5MB limit.');
+      return;
+    }
+
+    clearFieldError('profile_photo');
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoPreview(reader.result);
+      setForm((prev) => ({ ...prev, profile_photo: file }));
+    };
+    reader.onerror = () => {
+      setFieldError('profile_photo', 'Failed to read file. Please try again.');
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    
+
     // Prevent duplicate submissions
     if (submitting) {
       return;
     }
-    
+
     setSubmitting(true);
     setMessage({ text: '', type: '' });
     setFieldErrors({});
@@ -127,17 +160,32 @@ export default function CoachesPanel() {
     }
 
     try {
+      // Handle profile photo - convert to base64 if file is selected
+      let profilePhotoData = null;
+      if (form.profile_photo instanceof File) {
+        profilePhotoData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(form.profile_photo);
+        });
+      } else if (typeof form.profile_photo === 'string') {
+        profilePhotoData = form.profile_photo;
+      }
+
       const result = await adminPost('/admin/coaches', {
         name: form.name.trim(),
         email: form.email.trim(),
         phone_number: form.phone_number.trim(),
         specialization: form.specialization.trim(),
+        profile_photo: profilePhotoData,
       });
       setMessage({
         text: `${result.message} Login credentials have been emailed to the coach.`,
         type: 'success',
       });
       setForm(emptyForm);
+      setPhotoPreview(null);
       setFieldErrors({});
       setShowModal(false);
       loadCoaches();
@@ -155,16 +203,33 @@ export default function CoachesPanel() {
   };
 
   const handleRemove = async (coachId) => {
-    if (!window.confirm('Archive this coach? Record will be soft-deleted (is_deleted: true).')) {
-      return;
-    }
+    if (!window.confirm("Are you sure you want to delete this coach?")) return;
     try {
       await adminDelete(`/admin/coaches/${coachId}`);
-      setMessage({ text: 'Coach archived successfully.', type: 'success' });
+      setMessage({ text: "Coach deleted successfully", type: "success" });
+      setCoaches((prevCoaches) => prevCoaches.filter((c) => c.coach_id !== coachId));
       loadCoaches();
     } catch (error) {
-      setMessage({ text: error.message, type: 'error' });
+      setMessage({ text: error.message, type: "error" });
     }
+    setTimeout(() => setMessage({ text: '', type: '' }), 4000);
+  };
+
+  const handleOpenCoachPortal = async (coachId) => {
+    try {
+      const adminToken = getAdminToken();
+      const result = await adminPost(`/admin/coaches/${coachId}/impersonate`, { admin_token: adminToken });
+      
+      const impersonationData = result.data;
+      if (impersonationData && impersonationData.coach_token) {
+        startImpersonation(impersonationData.coach_token, adminToken, coachId.toString());
+        window.open('/coach/dashboard', '_blank');
+        setMessage({ text: "Opening Coach Portal in new tab...", type: "success" });
+      }
+    } catch (error) {
+      setMessage({ text: error.message || "Failed to open Coach Portal", type: "error" });
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000);
   };
 
   const handleMarkActive = async (coachId) => {
@@ -196,6 +261,7 @@ export default function CoachesPanel() {
   const closeModal = () => {
     setShowModal(false);
     setForm(emptyForm);
+    setPhotoPreview(null);
     setFieldErrors({});
   };
 
@@ -468,7 +534,7 @@ export default function CoachesPanel() {
                       <td className="px-6 py-4 rounded-l-2xl border-y border-l border-slate-100 dark:border-gray-800 bg-white dark:bg-gray-900 group-hover:border-[#FFD100]">
                         <div className="flex items-center gap-4">
                           <div className="shadow-sm rounded-full bg-white dark:bg-gray-800 p-0.5 ring-2 ring-gray-50 dark:ring-gray-750 group-hover:ring-[#FFD100] transition-all">
-                            <Avatar name={coach.name} size="sm" />
+                            <Avatar src={coach.profile_photo || coach.photo_url} name={coach.name} size="sm" />
                           </div>
                           <div className="flex flex-col">
                             <span className="font-bold text-sm text-slate-800 dark:text-white">{coach.name}</span>
@@ -536,6 +602,15 @@ export default function CoachesPanel() {
                       {/* Actions */}
                       <td className="px-6 py-4 rounded-r-2xl border-y border-r border-slate-100 dark:border-gray-800 bg-white dark:bg-gray-900 group-hover:border-[#FFD100] text-right">
                         <div className="flex items-center justify-end gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <motion.button
+                            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                            type="button"
+                            className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/25 flex items-center justify-center transition-colors border border-blue-100 dark:border-transparent"
+                            onClick={() => handleOpenCoachPortal(coach.coach_id)}
+                            title="Open Coach Portal"
+                          >
+                            <ExternalLink size={13} />
+                          </motion.button>
                           {coach.status === 'ACTIVE' ? (
                             <motion.button
                               whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
@@ -595,6 +670,45 @@ export default function CoachesPanel() {
         </div>
 
         <form className="p-8 space-y-5" onSubmit={handleSubmit}>
+          {/* Profile Photo */}
+          <div>
+            <label className="block text-[10px] font-bold text-[#A4ABAF] uppercase tracking-wider mb-2" htmlFor="profilePhoto">Profile Photo (Optional)</label>
+            <div className="flex items-center gap-4">
+              {photoPreview ? (
+                <div className="relative">
+                  <img
+                    src={photoPreview}
+                    alt="Profile preview"
+                    className="w-20 h-20 rounded-full object-cover border-2 border-[#EAEBF0]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setPhotoPreview(null); setForm(prev => ({ ...prev, profile_photo: null })); }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-rose-600 transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                  <Upload size={24} className="text-gray-400" />
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  id="profilePhoto"
+                  name="profile_photo"
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-[#FFFDF3] file:text-[#101625] hover:file:bg-[#FFD700] transition-all cursor-pointer bg-white border border-[#EAEBF0] rounded-xl outline-none"
+                  onChange={handlePhotoChange}
+                />
+                <p className="text-[10px] text-[#A4ABAF] mt-1">Accepts JPEG, PNG, WebP (max 5MB)</p>
+                {fieldErrors.profile_photo && <p className="mt-1.5 text-[11px] font-bold text-[#EF4466]">{fieldErrors.profile_photo}</p>}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-[10px] font-bold text-[#A4ABAF] uppercase tracking-wider mb-2" htmlFor="coachName">Full Name <span className="text-[#EF4466]">*</span></label>
             <input

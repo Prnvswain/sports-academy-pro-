@@ -78,6 +78,7 @@ router.delete('/duration-plans/:plan_id', adminController.deleteDurationPlan);
 router.get('/coaches', adminController.getAllCoaches);
 router.post(
   '/coaches',
+  upload.single('photo'),
   validate('createCoach'),
   validationErrorHandler,
   adminController.createCoach,
@@ -85,11 +86,13 @@ router.post(
 router.post('/coaches/bulk-import', upload.single('file'), adminController.bulkImportCoaches);
 router.put(
   '/coaches/:coach_id',
+  upload.single('photo'),
   validate('updateCoach'),
   validationErrorHandler,
   adminController.updateCoach,
 );
 router.delete('/coaches/:coach_id', adminController.deleteCoach);
+router.post('/coaches/:coach_id/impersonate', adminController.impersonateCoach);
 
 /* ─── STUDENTS & ROSTER ENROLLMENTS ─────────────────────────────────────── */
 router.get('/students', adminController.getAllStudents);

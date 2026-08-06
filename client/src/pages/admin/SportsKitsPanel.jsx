@@ -78,11 +78,50 @@ export default function SportsKitsPanel() {
   const [newItemQty, setNewItemQty] = useState(1);
   const [newItemPrice, setNewItemPrice] = useState(0);
 
+  const [isSellingPriceEdited, setIsSellingPriceEdited] = useState(false);
+  const [editingItemIdx, setEditingItemIdx] = useState(null);
+
+  const handleCategoryChange = (cat) => {
+    setNewItemCategory(cat);
+    if (cat !== 'Others') {
+      setNewItemName(cat);
+    } else {
+      setNewItemName('');
+    }
+  };
+
+  const handleEditItem = (item, idx) => {
+    setEditingItemIdx(idx);
+    setNewItemName(item.name);
+    setNewItemCategory(item.category || 'Others');
+    setNewItemQty(item.qty);
+    setNewItemPrice(item.price);
+  };
+
+  const cancelEditItem = () => {
+    setEditingItemIdx(null);
+    setNewItemName('');
+    setNewItemCategory('Others');
+    setNewItemQty(1);
+    setNewItemPrice(0);
+  };
+
   // Search & Filters
   const [sportSearch, setSportSearch] = useState('');
   const [kitSearch, setKitSearch] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [reportFilter, setReportFilter] = useState('all'); // all, pending_payments, paid_payments, current_stock
+
+  const filteredStudents = students.filter(s => {
+    const search = studentSearch.toLowerCase();
+    return (
+      s.name?.toLowerCase().includes(search) ||
+      String(s.student_id).includes(search) ||
+      s.phone?.includes(search) ||
+      s.admission_number?.toLowerCase().includes(search)
+    );
+  });
 
   // Message notifications
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -184,6 +223,10 @@ export default function SportsKitsPanel() {
   // ─── KIT CRUD OPERATIONS ───────────────────────────────────────────
 
   const openAddKit = () => {
+    if (!selectedSport) {
+      flashMessage('Please select a sport first before creating a kit', 'error');
+      return;
+    }
     setEditingKit(null);
     setKitForm({
       name: '',
@@ -197,6 +240,8 @@ export default function SportsKitsPanel() {
     setNewItemCategory('Others');
     setNewItemQty(1);
     setNewItemPrice(0);
+    setIsSellingPriceEdited(false);
+    setEditingItemIdx(null);
     setShowAddEditModal(true);
   };
 
@@ -214,6 +259,8 @@ export default function SportsKitsPanel() {
     setNewItemCategory('Others');
     setNewItemQty(1);
     setNewItemPrice(0);
+    setIsSellingPriceEdited(true);
+    setEditingItemIdx(null);
     setShowAddEditModal(true);
   };
 
@@ -234,10 +281,16 @@ export default function SportsKitsPanel() {
       return;
     }
 
-    const updatedItems = [
-      ...kitForm.items,
-      { name: newItemName.trim(), category: newItemCategory, qty: qtyVal, price: priceVal }
-    ];
+    let updatedItems;
+    if (editingItemIdx !== null) {
+      updatedItems = kitForm.items.map((item, i) => i === editingItemIdx ? { name: newItemName.trim(), category: newItemCategory, qty: qtyVal, price: priceVal } : item);
+      setEditingItemIdx(null);
+    } else {
+      updatedItems = [
+        ...kitForm.items,
+        { name: newItemName.trim(), category: newItemCategory, qty: qtyVal, price: priceVal }
+      ];
+    }
     
     // Auto-calculate base price & selling price if not overridden
     const newBase = updatedItems.reduce((acc, item) => acc + item.qty * item.price, 0);
@@ -245,7 +298,7 @@ export default function SportsKitsPanel() {
     setKitForm({
       ...kitForm,
       items: updatedItems,
-      selling_price: editingKit ? kitForm.selling_price : newBase
+      selling_price: isSellingPriceEdited ? kitForm.selling_price : newBase
     });
 
     setNewItemName('');
@@ -261,8 +314,14 @@ export default function SportsKitsPanel() {
     setKitForm({
       ...kitForm,
       items: updatedItems,
-      selling_price: editingKit ? kitForm.selling_price : newBase
+      selling_price: isSellingPriceEdited ? kitForm.selling_price : newBase
     });
+    if (editingItemIdx === idx) {
+      setEditingItemIdx(null);
+      setNewItemName(''); setNewItemCategory('Others'); setNewItemQty(1); setNewItemPrice(0);
+    } else if (editingItemIdx !== null && editingItemIdx > idx) {
+      setEditingItemIdx(editingItemIdx - 1);
+    }
   };
 
   const calculateFormBasePrice = () => {
@@ -288,6 +347,11 @@ export default function SportsKitsPanel() {
 
     if (kitForm.items.length === 0) {
       flashMessage('Do not allow kit creation without at least one item', 'error');
+      return;
+    }
+
+    if (!selectedSport || !selectedSport.sport_id) {
+      flashMessage('Please select a sport first', 'error');
       return;
     }
 
@@ -360,7 +424,16 @@ export default function SportsKitsPanel() {
       payment_mode: 'FEE',
       payment_method: 'cash'
     });
+    setStudentSearch('');
+    setSelectedStudent(null);
     setShowAssignModal(true);
+  };
+
+  const handleStudentChange = (studentId) => {
+    const student = students.find(s => s.student_id === studentId);
+    setAssignForm({ ...assignForm, student_id });
+    setSelectedStudent(student);
+    setStudentSearch('');
   };
 
   const submitAssignment = async (e) => {
@@ -1031,180 +1104,213 @@ export default function SportsKitsPanel() {
               <button
                 type="button"
                 onClick={() => setShowAddEditModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-extrabold text-sm"
+                className="text-slate-400 hover:text-slate-650 dark:hover:text-white font-extrabold text-sm"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={submitKitForm} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar text-xs">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-350">Kit Name</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-350">Kit Name *</label>
                   <input
                     type="text"
                     required
                     value={kitForm.name}
                     onChange={(e) => setKitForm({ ...kitForm, name: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
+                    className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-955 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
                     placeholder="e.g. Beginner Kit, Premium Set"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-350">Total Sets Available</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={kitForm.total_qty}
-                    onChange={(e) => setKitForm({ ...kitForm, total_qty: parseInt(e.target.value, 10) || 0 })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-350">Description</label>
-                <textarea
-                  rows="2"
-                  value={kitForm.description}
-                  onChange={(e) => setKitForm({ ...kitForm, description: e.target.value })}
-                  className="p-2.5 border border-slate-200 dark:border-slate-855 bg-slate-50 dark:bg-slate-950 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
-                  placeholder="Items list details or specific notes..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-semibold text-slate-700 dark:text-slate-350">Status</label>
                   <select
                     value={kitForm.status}
                     onChange={(e) => setKitForm({ ...kitForm, status: e.target.value })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white font-bold"
+                    className="p-2.5 border border-slate-200 dark:border-slate-855 bg-slate-50 dark:bg-slate-955 rounded-xl focus:outline-none text-slate-900 dark:text-white font-bold"
                   >
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-slate-700 dark:text-slate-350">Final Selling Price (₹)</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-355">Total Sets Available</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={kitForm.total_qty}
+                    onChange={(e) => setKitForm({ ...kitForm, total_qty: parseInt(e.target.value, 10) || 0 })}
+                    className="p-2.5 border border-slate-200 dark:border-slate-855 bg-slate-50 dark:bg-slate-955 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Items Builder Section */}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                <div className="bg-slate-50 dark:bg-slate-950 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-350 uppercase tracking-wider">Kit Contents</span>
+                  <span className="text-xs text-emerald-600 font-bold">Base Cost: ₹{calculateFormBasePrice().toFixed(2)}</span>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex flex-wrap gap-2 items-end">
+                    {newItemCategory === 'Others' && (
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="text-[10px] text-slate-500 font-bold block mb-1">Item Name / Custom Name</label>
+                        <input
+                          type="text"
+                          value={newItemName}
+                          onChange={(e) => setNewItemName(e.target.value)}
+                          placeholder="e.g. Bat, pads, water bottle"
+                          className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-955 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
+                          required={newItemCategory === 'Others'}
+                        />
+                      </div>
+                    )}
+                    <div className="w-28">
+                      <label className="text-[10px] text-slate-500 font-bold block mb-1">Category</label>
+                      <select
+                        value={newItemCategory}
+                        onChange={(e) => handleCategoryChange(e.target.value)}
+                        className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-955 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none font-bold"
+                      >
+                        {CATEGORIES.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-16">
+                      <label className="text-[10px] text-slate-500 font-bold block mb-1">Qty</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newItemQty}
+                        onChange={(e) => setNewItemQty(parseInt(e.target.value, 10) || 1)}
+                        className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-955 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="text-[10px] text-slate-500 font-bold block mb-1">Price (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={newItemPrice}
+                        onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-slate-200 dark:border-slate-855 bg-slate-50 dark:bg-slate-955 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={addItemToKitForm}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1 transition"
+                      >
+                        {editingItemIdx !== null ? 'Update' : 'Add'}
+                      </button>
+                      {editingItemIdx !== null && (
+                        <button
+                          type="button"
+                          onClick={cancelEditItem}
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 text-xs font-bold rounded-xl transition"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Built items catalog */}
+                  <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                    {kitForm.items.length === 0 ? (
+                      <div className="p-3 text-center text-slate-500 italic text-[11px]">No items added to this kit yet.</div>
+                    ) : (
+                      kitForm.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-850 p-2.5 rounded-xl">
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white">{item.name} ({item.category || 'Others'})</span>
+                            <span className="text-[10px] text-slate-400 font-semibold ml-2">Qty: {item.qty} × ₹{item.price}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-slate-600 dark:text-slate-400 font-bold">₹{item.qty * item.price}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleEditItem(item, idx)}
+                              className="text-slate-400 hover:text-slate-650 dark:hover:text-white"
+                              title="Edit Item"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeItemFromKitForm(idx)}
+                              className="text-rose-500 hover:text-rose-700"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-slate-700 dark:text-slate-350">Description</label>
+                <textarea
+                  rows="2"
+                  value={kitForm.description}
+                  onChange={(e) => setKitForm({ ...kitForm, description: e.target.value })}
+                  className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
+                  placeholder="Items list details or specific notes..."
+                />
+              </div>
+
+              {/* Selling Price and Warning / Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-slate-350">Final Selling Price (₹) *</label>
                   <input
                     type="number"
                     min="0"
                     required
                     value={kitForm.selling_price}
-                    onChange={(e) => setKitForm({ ...kitForm, selling_price: parseFloat(e.target.value) || 0 })}
-                    className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white font-bold"
+                    onChange={(e) => { setKitForm({ ...kitForm, selling_price: parseFloat(e.target.value) || 0 }); setIsSellingPriceEdited(true); }}
+                    className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-955 rounded-xl focus:ring-1 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white font-bold"
                   />
-                  <div className="mt-2.5 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-850/60 space-y-1.5 text-[10px] w-full">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-semibold">Base Cost:</span>
-                      <span className="font-bold text-slate-800 dark:text-white">₹{calculateFormBasePrice()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-semibold">Profit / Loss:</span>
-                      <span className={`font-bold ${
-                        (kitForm.selling_price - calculateFormBasePrice()) > 0 
-                          ? 'text-emerald-600 dark:text-emerald-400' 
-                          : (kitForm.selling_price - calculateFormBasePrice()) < 0 
-                            ? 'text-rose-600 dark:text-rose-450 font-extrabold animate-pulse' 
-                            : 'text-slate-500'
-                      }`}>
-                        {(kitForm.selling_price - calculateFormBasePrice()) > 0 
-                          ? `+₹${kitForm.selling_price - calculateFormBasePrice()} (Profit)` 
-                          : (kitForm.selling_price - calculateFormBasePrice()) < 0 
-                            ? `-₹${Math.abs(kitForm.selling_price - calculateFormBasePrice())} (Loss)` 
-                            : '₹0'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-100 dark:border-slate-800/80 pt-1.5 font-bold">
-                      <span className="text-slate-700 dark:text-slate-300">Final Selling Price:</span>
-                      <span className="text-slate-900 dark:text-white text-xs font-black">₹{kitForm.selling_price}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Items Builder Section */}
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
-                <h4 className="font-bold text-slate-950 dark:text-white">Kit Items List</h4>
-                
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Item Name</label>
-                    <input
-                      type="text"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      placeholder="e.g. Bat, pads, water bottle"
-                      className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
-                    />
-                  </div>
-                  <div className="w-24">
-                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Category</label>
-                    <select
-                      value={newItemCategory}
-                      onChange={(e) => setNewItemCategory(e.target.value)}
-                      className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none font-bold"
-                    >
-                      {CATEGORIES.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="w-16">
-                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Qty</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={newItemQty}
-                      onChange={(e) => setNewItemQty(parseInt(e.target.value, 10) || 1)}
-                      className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
-                    />
-                  </div>
-                  <div className="w-20">
-                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Price (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={newItemPrice}
-                      onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
-                      className="w-full p-2 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addItemToKitForm}
-                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold p-2.5 rounded-xl text-xs"
-                  >
-                    Add
-                  </button>
-                </div>
-
-                {/* Built items catalog */}
-                <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
-                  {kitForm.items.length === 0 ? (
-                    <div className="p-3 text-center text-muted-foreground italic text-[11px]">No items added to this kit yet.</div>
-                  ) : (
-                    kitForm.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 p-2.5 rounded-xl">
-                        <div>
-                          <span className="font-bold text-slate-900 dark:text-white">{item.name} ({item.category || 'Others'})</span>
-                          <span className="text-[10px] text-slate-400 font-semibold ml-2">Qty: {item.qty} × ₹{item.price}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-slate-600 dark:text-slate-400">₹{item.qty * item.price}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeItemFromKitForm(idx)}
-                            className="text-rose-500 hover:text-rose-700"
-                          >
-                            ✕
-                          </button>
-                        </div>
+                  {kitForm.selling_price < calculateFormBasePrice() && (
+                    <div className="mt-2.5 p-3 bg-amber-50 dark:bg-amber-955/20 border border-amber-250 dark:border-amber-900/50 rounded-xl text-xs text-amber-800 dark:text-amber-400 flex items-start gap-2 animate-pulse">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+                      <div>
+                        <span className="font-bold">⚠ Warning:</span> You are selling this kit below cost. Estimated Loss: <span className="font-extrabold text-rose-600 dark:text-rose-455">₹{(calculateFormBasePrice() - kitForm.selling_price).toFixed(2)}</span>
                       </div>
-                    ))
+                    </div>
                   )}
+                </div>
+                
+                <div className="mt-2.5 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-250 dark:border-slate-850/60 space-y-1.5 text-[10px] w-full">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Base Cost:</span>
+                    <span className="font-bold text-slate-800 dark:text-white">₹{calculateFormBasePrice().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Selling Price:</span>
+                    <span className="font-bold text-slate-800 dark:text-white">₹{Number(kitForm.selling_price).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-100 dark:border-slate-800/80 pt-1.5 font-bold">
+                    <span className="text-slate-700 dark:text-slate-300">Profit / Loss:</span>
+                    <span className={`font-bold ${
+                      (kitForm.selling_price - calculateFormBasePrice()) >= 0 
+                        ? 'text-emerald-600 dark:text-emerald-400' 
+                        : 'text-rose-500 font-extrabold'
+                    }`}>
+                      {(kitForm.selling_price - calculateFormBasePrice()) >= 0 
+                        ? `+₹${(kitForm.selling_price - calculateFormBasePrice()).toFixed(2)}` 
+                        : `-₹${Math.abs(kitForm.selling_price - calculateFormBasePrice()).toFixed(2)}`}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1251,20 +1357,37 @@ export default function SportsKitsPanel() {
 
             <form onSubmit={submitAssignment} className="p-6 space-y-4 text-xs">
               <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-350">Search & Select Student</label>
-                <select
-                  required
-                  value={assignForm.student_id}
-                  onChange={(e) => setAssignForm({ ...assignForm, student_id: e.target.value })}
+                <label className="font-semibold text-slate-700 dark:text-slate-350">Student Search</label>
+                <input
+                  type="text"
+                  placeholder="Search by Name, ID, Mobile, or Admission Number..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
                   className="p-2.5 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl focus:outline-none text-slate-900 dark:text-white font-bold"
-                >
-                  <option value="">Select student…</option>
-                  {students.map(s => (
-                    <option key={s.student_id} value={s.student_id}>
-                      {s.name} ({s.student_id} - {s.batch?.name || 'No Batch'})
-                    </option>
-                  ))}
-                </select>
+                />
+                
+                {selectedStudent && (
+                  <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3 mt-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-emerald-700 dark:text-emerald-400 text-xs">{selectedStudent.name}</div>
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-500">ID: #{selectedStudent.student_id} | {selectedStudent.batch?.name || 'No Batch'} | {selectedStudent.phone || 'No Mobile'}</div>
+                      </div>
+                      <button type="button" onClick={() => { setSelectedStudent(null); setAssignForm({ ...assignForm, student_id: '' }); }} className="text-rose-500 hover:text-rose-700 text-[10px] font-semibold">Clear</button>
+                    </div>
+                  </div>
+                )}
+                
+                {studentSearch && !selectedStudent && filteredStudents.length > 0 && (
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl max-h-48 overflow-y-auto bg-white dark:bg-slate-950 mt-1">
+                    {filteredStudents.map(s => (
+                      <div key={s.student_id} onClick={() => handleStudentChange(s.student_id)} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border-b border-slate-100 dark:border-slate-800 last:border-0">
+                        <div className="font-semibold text-slate-900 dark:text-white">{s.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">ID: #{s.student_id} | {s.batch?.name || 'No Batch'} | {s.phone || 'No Mobile'}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

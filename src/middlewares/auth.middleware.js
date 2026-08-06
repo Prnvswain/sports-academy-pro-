@@ -3,6 +3,7 @@ import { JWT_SECRET } from '../config/app.config.js';
 import { errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
 import prisma from '../config/prisma.js';
+import { authLocalStorage } from '../utils/context.util.js';
 
 export const authenticate = async (req, res, next) => {
   try {
@@ -45,7 +46,9 @@ export const authenticate = async (req, res, next) => {
         }
       }
 
-      next();
+      authLocalStorage.run(decoded, () => {
+        next();
+      });
     } catch (err) {
       logger.warn('Token validation failed', { reason: err.message });
       return res.status(401).json(errorResponse('Unauthorized: Invalid token'));

@@ -55,6 +55,7 @@ export default function SportsPanel() {
     latitude: '',
     longitude: '',
     use_custom_location: false,
+    require_gps: true,
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -215,6 +216,18 @@ export default function SportsPanel() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // ─── Lock body scroll when browse modal is open ─────────────────────────────
+  useEffect(() => {
+    if (showBrowseModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showBrowseModal]);
+
   // ─── Filtered dropdown list ─────────────────────────────────────────────────
   const q = searchQuery.trim().toLowerCase();
   const filteredDropdown = q
@@ -257,12 +270,12 @@ export default function SportsPanel() {
   // ─── Submit: create one sport per selected entry ────────────────────────────
   const handleCreateSports = async (e) => {
     e.preventDefault();
-    
+
     // Prevent duplicate submissions
     if (isSubmitting) {
       return;
     }
-    
+
     setMessage({ text: '', type: '' });
     setFieldErrors({});
 
@@ -287,6 +300,7 @@ export default function SportsPanel() {
             ? parseFloat(sharedForm.attendance_radius)
             : undefined,
           use_custom_location: sharedForm.use_custom_location,
+          require_gps: sharedForm.require_gps,
         };
 
         // Only send GPS coordinates if using custom location
@@ -319,6 +333,7 @@ export default function SportsPanel() {
         latitude: '',
         longitude: '',
         use_custom_location: false,
+        require_gps: true,
       });
       setShowDropdown(false);
       loadSports();
@@ -452,6 +467,7 @@ export default function SportsPanel() {
       latitude: sport.latitude || '',
       longitude: sport.longitude || '',
       use_custom_location: !!(sport.latitude && sport.longitude),
+      require_gps: sport.require_gps ?? true,
     });
     setShowEditModal(true);
   };
@@ -461,7 +477,7 @@ export default function SportsPanel() {
     try {
       const sportId = editingSport.sport_id || editingSport.id;
       const updateData = {};
-      
+
       if (editForm.sport_center !== undefined && editForm.sport_center !== '') {
         updateData.sport_center = editForm.sport_center;
       }
@@ -478,12 +494,15 @@ export default function SportsPanel() {
         updateData.latitude = null;
         updateData.longitude = null;
       }
+      if (editForm.require_gps !== undefined) {
+        updateData.require_gps = editForm.require_gps;
+      }
 
       await adminPatch(`/admin/sports/${sportId}`, updateData);
       setMessage({ text: 'Sport details updated successfully', type: 'success' });
       setShowEditModal(false);
       setEditingSport(null);
-      setEditForm({ sport_center: '', attendance_radius_meters: '', base_fee: '', latitude: '', longitude: '', use_custom_location: false });
+      setEditForm({ sport_center: '', attendance_radius_meters: '', base_fee: '', latitude: '', longitude: '', use_custom_location: false, require_gps: true });
       loadSports();
       // Notify coach side to reload batches with updated sport config
       window.dispatchEvent(new CustomEvent('sportSettingsUpdated'));
@@ -578,15 +597,14 @@ export default function SportsPanel() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`flex items-center gap-3 rounded-2xl p-4 shadow-sm ring-1 ${
-              message.type === 'success'
+            className={`flex items-center gap-3 rounded-2xl p-4 shadow-sm ring-1 ${message.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:ring-emerald-900/50'
                 : 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:ring-rose-900/50'
-            }`}
+              }`}
           >
             {message.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
             <p className="text-sm font-medium">{message.text}</p>
-            <button type="button" onClick={() => setMessage({text: '', type: ''})} className="ml-auto opacity-70 hover:opacity-100">
+            <button type="button" onClick={() => setMessage({ text: '', type: '' })} className="ml-auto opacity-70 hover:opacity-100">
               <X className="h-4 w-4" />
             </button>
           </motion.div>
@@ -604,7 +622,7 @@ export default function SportsPanel() {
 
         <form onSubmit={handleCreateSports}>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12">
-            
+
             {/* Left Column: Search & Select */}
             <div className="space-y-6">
               <div className="relative">
@@ -615,11 +633,10 @@ export default function SportsPanel() {
                     <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
-                      className={`w-full rounded-xl border pl-10 pr-10 py-3 text-sm outline-none transition-all focus:ring-4 dark:bg-gray-900/50 ${
-                        fieldErrors.search 
-                          ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/10' 
+                      className={`w-full rounded-xl border pl-10 pr-10 py-3 text-sm outline-none transition-all focus:ring-4 dark:bg-gray-900/50 ${fieldErrors.search
+                          ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/10'
                           : 'border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/10 dark:border-gray-800'
-                      }`}
+                        }`}
                       placeholder="Search or type a sport name…"
                       value={searchQuery}
                       onChange={(e) => {
@@ -667,11 +684,10 @@ export default function SportsPanel() {
                                   <button
                                     key={sport.name}
                                     type="button"
-                                    className={`flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm transition-colors ${
-                                      sel 
-                                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 font-bold' 
+                                    className={`flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm transition-colors ${sel
+                                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 font-bold'
                                         : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
-                                    }`}
+                                      }`}
                                     onClick={() => toggleDraftSport(sport)}
                                   >
                                     <span className="text-xl">{sport.icon || FALLBACK_ICON}</span>
@@ -710,184 +726,181 @@ export default function SportsPanel() {
                 {fieldErrors.search && <p className="mt-1.5 text-xs font-medium text-rose-500">{fieldErrors.search}</p>}
               </div>
 
-  {/* Selected Sports / Empty State */}
-  <div
-    className={`relative overflow-hidden rounded-2xl transition-all ${
-      selectedSports.length > 0
-        ? "border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/40"
-        : "border border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-[#161f19]/30"
-    }`}
-  >
-
-    {selectedSports.length > 0 ? (
-      <>
-        <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
-          Selected Sports ({selectedSports.length})
-        </p>
-
-        <div className="flex flex-wrap gap-2">
-          <AnimatePresence>
-            {selectedSports.map((sport) => (
-              <motion.span
-                key={sport.name}
-                initial={{ opacity: 0, scale: .9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: .9 }}
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+              {/* Selected Sports / Empty State */}
+              <div
+                className={`relative overflow-hidden rounded-2xl transition-all ${selectedSports.length > 0
+                    ? "border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/40"
+                    : "border border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-[#161f19]/30"
+                  }`}
               >
-                <span>{sport.icon}</span>
 
-                <span>{sport.name}</span>
+                {selectedSports.length > 0 ? (
+                  <>
+                    <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
+                      Selected Sports ({selectedSports.length})
+                    </p>
 
-                <button
-                  type="button"
-                  onClick={() => removeDraftSport(sport.name)}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </motion.span>
-            ))}
-          </AnimatePresence>
-        </div>
-      </>
-    ) : (
-      <div className="relative flex min-h-[170px] flex-col items-center justify-center overflow-hidden">
+                    <div className="flex flex-wrap gap-2">
+                      <AnimatePresence>
+                        {selectedSports.map((sport) => (
+                          <motion.span
+                            key={sport.name}
+                            initial={{ opacity: 0, scale: .9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: .9 }}
+                            className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+                          >
+                            <span>{sport.icon}</span>
 
-        {/* Animation */}
-        <div className="absolute inset-0 flex items-center justify-around opacity-20 pointer-events-none">
+                            <span>{sport.name}</span>
 
-          {ANIMATION_ICONS.map((icon, i) => (
-            <motion.div
-              key={i}
-              className="text-3xl"
-              animate={{
-                y:[0,-15,0],
-                rotate:[0,10,-10,0]
-              }}
-              transition={{
-                repeat:Infinity,
-                duration:3+i*.3
-              }}
-            >
-              {icon}
-            </motion.div>
-          ))}
+                            <button
+                              type="button"
+                              onClick={() => removeDraftSport(sport.name)}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </>
+                ) : (
+                  <div className="relative flex min-h-[170px] flex-col items-center justify-center overflow-hidden">
 
-        </div>
+                    {/* Animation */}
+                    <div className="absolute inset-0 flex items-center justify-around opacity-20 pointer-events-none">
 
-        {/* Content */}
-        <div className="relative z-10 text-center">
+                      {ANIMATION_ICONS.map((icon, i) => (
+                        <motion.div
+                          key={i}
+                          className="text-3xl"
+                          animate={{
+                            y: [0, -15, 0],
+                            rotate: [0, 10, -10, 0]
+                          }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 3 + i * .3
+                          }}
+                        >
+                          {icon}
+                        </motion.div>
+                      ))}
 
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow">
-            <Grid className="h-5 w-5 text-gray-400"/>
-          </div>
+                    </div>
 
-          <p className="font-bold">
-            No sports selected yet
-          </p>
+                    {/* Content */}
+                    <div className="relative z-10 text-center">
 
-          <p className="mt-1 text-sm text-gray-500">
-            Search or browse sports to start.
-          </p>
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow">
+                        <Grid className="h-5 w-5 text-gray-400" />
+                      </div>
 
-        </div>
+                      <p className="font-bold">
+                        No sports selected yet
+                      </p>
 
-      </div>
-    )}
+                      <p className="mt-1 text-sm text-gray-500">
+                        Search or browse sports to start.
+                      </p>
 
-  </div>
+                    </div>
 
-  {/* Quick Guide */}
-  <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-[#111814]">
+                  </div>
+                )}
 
-    <div className="flex justify-between gap-6">
-
-      <div className="flex-1">
-
-        <div className="mb-4 flex items-center gap-2">
-          💡
-          <h4 className="font-bold">
-            Quick Guide
-          </h4>
-        </div>
-
-        <div className="space-y-3">
-
-          {[
-            "Search or Browse sports.",
-            "Fetch Sport Center Location.",
-            "Enter Attendance radius & fee.",
-            "Click Deploy Sport."
-          ].map((step,index)=>(
-            <div
-              key={index}
-              className="flex items-center gap-3"
-            >
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
-                {index+1}
               </div>
 
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                {step}
-              </span>
+              {/* Quick Guide */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-[#111814]">
+
+                <div className="flex justify-between gap-6">
+
+                  <div className="flex-1">
+
+                    <div className="mb-4 flex items-center gap-2">
+                      💡
+                      <h4 className="font-bold">
+                        Quick Guide
+                      </h4>
+                    </div>
+
+                    <div className="space-y-3">
+
+                      {[
+                        "Search or Browse sports.",
+                        "Fetch Sport Center Location.",
+                        "Enter Attendance radius & fee.",
+                        "Click Deploy Sport."
+                      ].map((step, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-3"
+                        >
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
+                            {index + 1}
+                          </div>
+
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {step}
+                          </span>
+
+                        </div>
+                      ))}
+
+                    </div>
+
+                  </div>
+
+                  <div className="hidden md:flex items-center">
+
+                    <div className="relative">
+
+                      <div className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/20">
+                        <MapPin className="h-10 w-10 text-emerald-600" />
+                      </div>
+
+                      <div className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-300 opacity-30" />
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
 
             </div>
-          ))}
-
-        </div>
-
-      </div>
-
-      <div className="hidden md:flex items-center">
-
-        <div className="relative">
-
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/20">
-            <MapPin className="h-10 w-10 text-emerald-600"/>
-          </div>
-
-          <div className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-300 opacity-30"/>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-</div>
             {/* Right Column: Settings */}
             <div className="space-y-6 relative z-0">
-              
+
               {/* Location Selection Card */}
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#111814] relative overflow-hidden group">
                 <div className="absolute right-0 top-0 opacity-5 pointer-events-none transition-transform group-hover:scale-110">
-                   <MapPin className="h-32 w-32 -mr-8 -mt-8 text-emerald-600" />
+                  <MapPin className="h-32 w-32 -mr-8 -mt-8 text-emerald-600" />
                 </div>
                 <h4 className="mb-3 text-sm font-bold text-gray-900 dark:text-white relative z-10">Sport Center Location</h4>
-                
+
                 {/* Location Type Toggle */}
                 <div className="flex gap-2 mb-4">
                   <button
                     type="button"
                     onClick={() => handleLocationToggle(false)}
-                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                      !sharedForm.use_custom_location
+                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${!sharedForm.use_custom_location
                         ? 'bg-emerald-600 text-white'
                         : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
+                      }`}
                   >
                     Default Academy Location
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLocationToggle(true)}
-                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                      sharedForm.use_custom_location
+                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${sharedForm.use_custom_location
                         ? 'bg-emerald-600 text-white'
                         : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
+                      }`}
                   >
                     Custom Location
                   </button>
@@ -999,6 +1012,18 @@ export default function SportsPanel() {
                     <option value="INACTIVE">Inactive (Draft/Hidden)</option>
                   </select>
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="flex items-center gap-2 cursor-pointer mt-1">
+                    <input
+                      type="checkbox"
+                      checked={sharedForm.require_gps}
+                      onChange={(e) => setSharedForm({ ...sharedForm, require_gps: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Require GPS Verification</span>
+                  </label>
+                </div>
               </div>
 
               <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
@@ -1026,93 +1051,130 @@ export default function SportsPanel() {
       {/* ── Browse Sports Full Modal ── */}
       <AnimatePresence>
         {showBrowseModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="fixed inset-0 z-50 flex flex-col pt-[8vh] sm:pt-[10vh]">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowBrowseModal(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", bounce: 0.3 }}
-              className="relative w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-[#111814] dark:ring-gray-800"
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800/60 dark:bg-gray-900/50 shrink-0">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Global Sports Catalog</h3>
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">Select multiple sports to import to your academy</p>
-                </div>
-                <button type="button" className="rounded-xl p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowBrowseModal(false)}>
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Modal Search */}
-              <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-800/60 shrink-0">
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-10 pr-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:text-white dark:focus:border-emerald-500"
-                    placeholder="Search the global catalog…"
-                    value={browseSearch}
-                    onChange={(e) => setBrowseSearch(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {/* Modal Grid Content */}
-              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-                {superAdminLoading ? (
-                  <div className="flex justify-center py-20"><Loader message="Loading catalog…" /></div>
-                ) : filteredBrowse.length === 0 ? (
-                  <p className="py-20 text-center text-gray-500 font-medium">No sports found matching your search.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                    {filteredBrowse.map((sport) => {
-                      const sel = isSelectedInDraft(sport.name);
-                      return (
-                        <button
-                          key={sport.name}
-                          type="button"
-                          className={`group relative flex flex-col items-center justify-center gap-3 rounded-2xl border p-4 transition-all ${
-                            sel
-                              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-900/20'
-                              : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-800 dark:bg-[#111814] dark:hover:border-emerald-700/50 dark:hover:bg-emerald-900/10'
-                          }`}
-                          onClick={() => toggleBrowseSport(sport)}
-                        >
-                          {sel && (
-                            <div className="absolute right-2 top-2 rounded-full bg-emerald-500 text-white p-0.5">
-                              <Check className="h-3 w-3" />
-                            </div>
-                          )}
-                          <span className="text-4xl transition-transform group-hover:scale-110">{sport.icon || FALLBACK_ICON}</span>
-                          <span className={`text-xs font-bold leading-tight text-center ${sel ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                            {sport.name}
-                          </span>
-                        </button>
-                      );
-                    })}
+            <div className="flex-1 flex items-start justify-center px-4 sm:px-6 overflow-hidden">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", bounce: 0.3 }}
+                className="relative w-full max-w-[1000px] max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-[#111814] dark:ring-gray-800"
+              >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-5 dark:border-gray-800/60 dark:bg-gray-900/50 shrink-0">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Global Sports Catalog</h3>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Select multiple sports to import to your academy</p>
                   </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="border-t border-gray-100 bg-gray-50/80 px-6 py-4 backdrop-blur-md dark:border-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between shrink-0">
-                <p className="text-sm font-bold text-gray-500">
-                  {selectedSports.length > 0 ? <span className="text-emerald-600 dark:text-emerald-400">{selectedSports.length} selected</span> : 'No sports selected'}
-                </p>
-                <div className="flex gap-3">
-                  <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowBrowseModal(false)}>
-                    Close
-                  </button>
-                  <button type="button" className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors" onClick={() => setShowBrowseModal(false)}>
-                    Confirm Selection
+                  <button type="button" className="rounded-xl p-2.5 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowBrowseModal(false)}>
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
-              </div>
-            </motion.div>
+
+                {/* Modal Search */}
+                <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-800/60 shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-12 pr-4 py-3 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:text-white dark:focus:border-emerald-500"
+                      placeholder="Search the global catalog…"
+                      value={browseSearch}
+                      onChange={(e) => setBrowseSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Modal Grid Content */}
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+                  {superAdminLoading ? (
+                    <div className="flex justify-center py-20"><Loader message="Loading catalog…" /></div>
+                  ) : filteredBrowse.length === 0 ? (
+                    <p className="py-20 text-center text-gray-500 font-medium">No sports found matching your search.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-5 sm:grid-cols-4">
+                      {filteredBrowse.map((sport) => {
+                        const sel = isSelectedInDraft(sport.name);
+                        const isAlreadyAdded = sports.some(s => s.name === sport.name);
+                        return (
+                          <button
+                            key={sport.name}
+                            type="button"
+                            disabled={isAlreadyAdded}
+                            className={`group relative flex flex-col items-center justify-between gap-3 rounded-2xl border p-5 transition-all ${sel
+                                ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-900/20'
+                                : isAlreadyAdded
+                                  ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed dark:border-gray-800 dark:bg-gray-900/30'
+                                  : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-800 dark:bg-[#111814] dark:hover:border-emerald-700/50 dark:hover:bg-emerald-900/10'
+                              }`}
+                            onClick={() => !isAlreadyAdded && toggleBrowseSport(sport)}
+                          >
+                            {/* Status Badge */}
+                            <div className="absolute right-3 top-3">
+                              {isAlreadyAdded ? (
+                                <span className="inline-flex items-center rounded bg-gray-200/80 px-1.5 py-0.5 text-[9px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                  Added
+                                </span>
+                              ) : sel ? (
+                                <div className="rounded-full bg-emerald-500 text-white p-0.5">
+                                  <Check className="h-2.5 w-2.5" />
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                  Available
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col items-center gap-2 mt-4 w-full font-sans">
+                              <span className="text-[44px] transition-transform group-hover:scale-105 leading-none">{sport.icon || FALLBACK_ICON}</span>
+                              <span className={`text-xs font-bold leading-tight text-center truncate w-full ${sel ? 'text-emerald-800 dark:text-emerald-300' : isAlreadyAdded ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                                {sport.name}
+                              </span>
+                            </div>
+
+                            {/* Select Button */}
+                            {!isAlreadyAdded && (
+                              <div className={`w-full rounded-lg py-2 text-xs font-bold transition-colors ${sel
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-gray-100 text-gray-600 group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:bg-emerald-900/30 dark:group-hover:text-emerald-400'
+                                }`}>
+                                {sel ? 'Selected' : 'Select'}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer - Sticky */}
+                <div className="sticky bottom-0 border-t border-gray-100 bg-gray-50/80 px-6 py-4 backdrop-blur-md dark:border-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between shrink-0">
+                  <p className="text-sm font-bold text-gray-500">
+                    {selectedSports.length > 0 ? <span className="text-emerald-600 dark:text-emerald-400">{selectedSports.length} sport{selectedSports.length !== 1 ? 's' : ''} selected</span> : 'No sports selected'}
+                  </p>
+                  <div className="flex gap-3">
+                    <button type="button" className="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowBrowseModal(false)}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors ${selectedSports.length > 0
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : 'bg-gray-300 cursor-not-allowed hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-700'
+                        }`}
+                      onClick={() => setShowBrowseModal(false)}
+                      disabled={selectedSports.length === 0}
+                    >
+                      Import Selected
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </div>
         )}
       </AnimatePresence>
@@ -1237,6 +1299,18 @@ export default function SportsPanel() {
                     onChange={(e) => setEditForm({ ...editForm, base_fee: e.target.value })}
                   />
                 </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.require_gps}
+                      onChange={(e) => setEditForm({ ...editForm, require_gps: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Require GPS Verification</span>
+                  </label>
+                </div>
               </div>
               <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-gray-800/60 px-6 py-4 bg-gray-50/50 dark:bg-gray-900/30">
                 <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowEditModal(false)}>
@@ -1253,7 +1327,7 @@ export default function SportsPanel() {
 
       {/* ── Active Sports Table Section ── */}
       <div className="rounded-3xl bg-white dark:bg-[#111814] shadow-[0_4px_20px_rgb(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800/60 overflow-hidden">
-        
+
         <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800/60 px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
@@ -1261,15 +1335,14 @@ export default function SportsPanel() {
             </div>
             <h3 className="font-bold text-gray-900 dark:text-white">Active Academy Sports</h3>
           </div>
-          
+
           <div className="mt-4 sm:mt-0">
-             <button
+            <button
               type="button"
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all shadow-sm ${
-                isBulkEditMode 
-                  ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900' 
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all shadow-sm ${isBulkEditMode
+                  ? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900'
                   : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-[#111814] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/50'
-              }`}
+                }`}
               onClick={toggleBulkEditMode}
             >
               {isBulkEditMode ? <><X className="h-4 w-4" /> Cancel Bulk</> : <><CheckCircle className="h-4 w-4" /> Bulk Actions</>}
@@ -1310,7 +1383,7 @@ export default function SportsPanel() {
                     <th className="px-6 py-4 w-10">
                       <input
                         type="checkbox"
-                        checked={selectedIds.length === sports.filter(s=>s.isAcademySport).length && sports.filter(s=>s.isAcademySport).length > 0}
+                        checked={selectedIds.length === sports.filter(s => s.isAcademySport).length && sports.filter(s => s.isAcademySport).length > 0}
                         onChange={(e) => handleSelectAll(e.target.checked)}
                         className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 dark:border-gray-600 dark:bg-gray-700 cursor-pointer"
                       />
@@ -1336,9 +1409,8 @@ export default function SportsPanel() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.2) }}
-                          className={`group transition-colors duration-200 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 ${
-                            isSelected ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
-                          } ${isInactive ? 'opacity-60 grayscale-[0.2]' : ''}`}
+                          className={`group transition-colors duration-200 hover:bg-gray-50/80 dark:hover:bg-gray-800/30 ${isSelected ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
+                            } ${isInactive ? 'opacity-60 grayscale-[0.2]' : ''}`}
                           onClick={() => handleRowClick(sport.sport_id || sport.id)}
                         >
                           {isBulkEditMode && (
@@ -1399,56 +1471,55 @@ export default function SportsPanel() {
                             )}
                           </td>
                           <td className="px-6 py-4">
-                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wide ${
-                                !isInactive 
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-wide ${!isInactive
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                               }`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${!isInactive ? 'bg-emerald-500' : 'bg-gray-500'}`}></span>
-                                {!isInactive ? 'ACTIVE' : 'INACTIVE'}
-                              </span>
+                              <span className={`h-1.5 w-1.5 rounded-full ${!isInactive ? 'bg-emerald-500' : 'bg-gray-500'}`}></span>
+                              {!isInactive ? 'ACTIVE' : 'INACTIVE'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <button
+                                type="button"
+                                className="rounded-lg p-2 text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors"
+                                onClick={() => handleEditSport(sport)}
+                                title="Edit Sport Details"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              {!isInactive ? (
                                 <button
                                   type="button"
-                                  className="rounded-lg p-2 text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors"
-                                  onClick={() => handleEditSport(sport)}
-                                  title="Edit Sport Details"
+                                  className="rounded-lg p-2 text-gray-400 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/30 dark:hover:text-orange-400 transition-colors"
+                                  onClick={() => handleDeactivate(sport.sport_id || sport.id)}
+                                  title="Deactivate Sport"
                                 >
-                                  <Edit2 className="h-4 w-4" />
+                                  <Unlock className="h-4 w-4" />
                                 </button>
-                                {!isInactive ? (
-                                  <button
-                                    type="button"
-                                    className="rounded-lg p-2 text-gray-400 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/30 dark:hover:text-orange-400 transition-colors"
-                                    onClick={() => handleDeactivate(sport.sport_id || sport.id)}
-                                    title="Deactivate Sport"
-                                  >
-                                    <Unlock className="h-4 w-4" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="rounded-lg p-2 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 transition-colors"
-                                    onClick={() => handleMarkActive(sport.sport_id || sport.id)}
-                                    title="Activate Sport"
-                                  >
-                                    <Lock className="h-4 w-4" />
-                                  </button>
-                                )}
-
-                                <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
-
+                              ) : (
                                 <button
                                   type="button"
-                                  className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors"
-                                  onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
-                                  title="Delete Sport"
+                                  className="rounded-lg p-2 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 transition-colors"
+                                  onClick={() => handleMarkActive(sport.sport_id || sport.id)}
+                                  title="Activate Sport"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Lock className="h-4 w-4" />
                                 </button>
-                             </div>
+                              )}
+
+                              <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+                              <button
+                                type="button"
+                                className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors"
+                                onClick={() => handleRemoveSport(sport.sport_id || sport.id)}
+                                title="Delete Sport"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </td>
                         </motion.tr>
                       );

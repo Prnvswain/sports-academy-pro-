@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { parentGet } from '../../api/client';
+import { useActiveStudent } from '../../context/ActiveStudentContext';
 import Loader from '../../components/Loader';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -90,6 +91,7 @@ function CircularProgressRing({ percentage, size = 100, strokeWidth = 8, primary
 }
 
 export default function ParentAttendance() {
+  const { activeStudent, loading: studentLoading } = useActiveStudent();
   const [loading, setLoading] = useState(true);
   const [attendanceData, setAttendanceData] = useState([]);
   const [studentData, setStudentData] = useState(null);
@@ -102,15 +104,22 @@ export default function ParentAttendance() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    fetchAttendanceData();
-  }, []);
+    console.log('[ParentAttendance] activeStudent changed:', activeStudent);
+    if (activeStudent) {
+      console.log('[ParentAttendance] Fetching attendance for student:', activeStudent.student_id);
+      fetchAttendanceData();
+    }
+  }, [activeStudent]);
 
   const fetchAttendanceData = async () => {
     try {
+      console.log('[ParentAttendance] Starting fetchAttendanceData...');
       setLoading(true);
       const response = await parentGet('/parent/dashboard');
+      console.log('[ParentAttendance] Dashboard response:', response.data);
       const students = response.data?.students || [];
-      const selectedStudent = students[0] || null;
+      const selectedStudent = students.find(s => s.student_id === activeStudent?.student_id) || activeStudent;
+      console.log('[ParentAttendance] Selected student from dashboard:', selectedStudent);
       
       if (selectedStudent) {
         setAttendanceData(selectedStudent.student_attendances || []);
@@ -122,10 +131,12 @@ export default function ParentAttendance() {
           coach: selectedStudent.batch?.coach || null,
           next_class: selectedStudent.next_class || selectedStudent.upcoming_class || null
         });
+        console.log('[ParentAttendance] Attendance data set:', selectedStudent.student_attendances);
       }
     } catch (error) {
-      console.error('Failed to fetch attendance data:', error);
+      console.error('[ParentAttendance] Failed to fetch attendance data:', error);
     } finally {
+      console.log('[ParentAttendance] Setting loading to false');
       setLoading(false);
     }
   };
