@@ -23,6 +23,12 @@ router.put('/attributes/:attributeId/reject', performanceController.rejectAttrib
 // Get approval queue (Admin only)
 router.get('/approval-queue', performanceController.getApprovalQueue);
 
+// Update performance attribute
+router.patch('/attributes/:attributeId', performanceController.updateAttribute);
+
+// Delete performance attribute
+router.delete('/attributes/:attributeId', performanceController.deleteAttribute);
+
 // Get performance scores (with optional filters)
 router.get('/scores', performanceController.getScores);
 

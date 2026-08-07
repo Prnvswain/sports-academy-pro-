@@ -445,26 +445,29 @@ export function CoachFeeCollection({ students = [] }) {
   return (
     <div className="space-y-6 w-full text-left">
       
-      {/* Top Bar Header Card */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
+      {/* Header */}
+      <motion.div
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-            <Wallet className="h-5 w-5" />
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+            <Wallet className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-foreground tracking-tight">Fee Collection</h2>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Fee Collection
+            </h1>
+            <p className="text-muted-foreground mt-1">
               Record student payments and track outstanding fees across your batches.
             </p>
           </div>
         </div>
-        
+
         {/* Tab Navigation */}
-        <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-border/60 self-end sm:self-auto">
+        <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-border/60 self-end sm:self-auto relative z-10 shrink-0">
           <button
             onClick={() => setActiveTab('collection')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${

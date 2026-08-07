@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
-import { coachGet, coachPost } from '../../api/client';
+import { coachGet, coachPost, coachPatch, coachDelete } from '../../api/client';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
 import { 
   Users, 
@@ -183,7 +183,12 @@ export default function CoachPerformancePage() {
 
   // Proposal modal state
   const [showProposal, setShowProposal] = useState(false);
-  const [proposalForm, setProposalForm] = useState({ name: '', sport_id: '' });
+  const [proposalForm, setProposalForm] = useState({ name: '', sport_id: '', category: 'Technique' });
+  const [proposedAttributes, setProposedAttributes] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [editingProposal, setEditingProposal] = useState(null);
+  const [editProposalForm, setEditProposalForm] = useState({ name: '', sport_id: '', category: 'Technique' });
+  const [showEditProposal, setShowEditProposal] = useState(false);
 
   // Flash banner
   const flash = (text, type = 'success') => {
@@ -216,9 +221,23 @@ export default function CoachPerformancePage() {
     }
   }, []);
 
+  const loadProposals = useCallback(async () => {
+    try {
+      setLoadingProposals(true);
+      const res = await coachGet('/coach/performance/attributes');
+      const list = res.data || res || [];
+      setProposedAttributes(list.filter(attr => attr.status === 'PENDING'));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingProposals(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadInitialData();
-  }, [loadInitialData]);
+    loadProposals();
+  }, [loadInitialData, loadProposals]);
 
   // Load single student assessments, daily lock status, attributes, and previous scores
   const loadStudentOperationalData = useCallback(async (studentId, sportId) => {
@@ -776,16 +795,86 @@ export default function CoachPerformancePage() {
   const handleProposeFormSubmit = async (e) => {
     e.preventDefault();
     if (!proposalForm.name.trim() || !proposalForm.sport_id) return;
+
+    let finalName = proposalForm.name.trim();
+    const category = proposalForm.category;
+
+    const currentCategory = categorizeAttribute(finalName);
+    if (currentCategory !== category) {
+      finalName = `${finalName} (${category})`;
+    }
+
+    const nameLower = finalName.toLowerCase();
+    const sportId = parseInt(proposalForm.sport_id);
+
+    const isDuplicatePending = proposedAttributes.some(
+      a => a.sport_id === sportId && a.name.trim().toLowerCase() === nameLower
+    );
+    if (isDuplicatePending) {
+      flash('You have already proposed this parameter for this sport!', 'error');
+      return;
+    }
+
     try {
       await coachPost('/coach/performance/attributes', {
-        sport_id: parseInt(proposalForm.sport_id),
-        name: proposalForm.name.trim()
+        sport_id: sportId,
+        name: finalName
       });
       flash('Proposed successfully!');
       setShowProposal(false);
-      setProposalForm({ name: '', sport_id: '' });
-    } catch {
-      flash('Failed proposal', 'error');
+      setProposalForm({ name: '', sport_id: '', category: 'Technique' });
+      loadProposals();
+    } catch (err) {
+      flash(err.message || 'Failed proposal', 'error');
+    }
+  };
+
+  const handleDeleteProposal = async (attributeId) => {
+    if (!window.confirm('Are you sure you want to cancel this proposed parameter?')) return;
+    try {
+      await coachDelete(`/coach/performance/attributes/${attributeId}`);
+      flash('Proposal cancelled successfully');
+      loadProposals();
+    } catch (err) {
+      flash(err.message || 'Failed to delete proposal', 'error');
+    }
+  };
+
+  const handleOpenEditProposal = (attr) => {
+    // Strip categories from display name in form input
+    const cleanName = attr.name.replace(/\s*\((Fitness|Technique|Mental)\)$/i, '').trim();
+    setEditingProposal(attr);
+    setEditProposalForm({
+      name: cleanName,
+      sport_id: attr.sport_id.toString(),
+      category: categorizeAttribute(attr.name)
+    });
+    setShowEditProposal(true);
+  };
+
+  const handleEditProposalSubmit = async (e) => {
+    e.preventDefault();
+    if (!editProposalForm.name.trim() || !editProposalForm.sport_id) return;
+
+    let finalName = editProposalForm.name.trim();
+    const category = editProposalForm.category;
+
+    const currentCategory = categorizeAttribute(finalName);
+    if (currentCategory !== category) {
+      finalName = `${finalName} (${category})`;
+    }
+
+    try {
+      await coachPatch(`/coach/performance/attributes/${editingProposal.attribute_id}`, {
+        name: finalName,
+        sport_id: parseInt(editProposalForm.sport_id)
+      });
+      flash('Proposal updated successfully');
+      setShowEditProposal(false);
+      setEditingProposal(null);
+      loadProposals();
+    } catch (err) {
+      flash(err.message || 'Failed to update proposal', 'error');
     }
   };
 
@@ -836,90 +925,122 @@ export default function CoachPerformancePage() {
       {/* Regular client layouts */}
       <div className="space-y-6 print:hidden">
 
-        {/* 2. Top Header Card with breadcrumb and details */}
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
         >
-          {/* Breadcrumb row */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-              <button onClick={() => requestNavigation({ type: 'back_batches' })} className="hover:text-primary transition-colors">
-                Batches
-              </button>
-              {activeBatch && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-slate-400" />
-                  <button onClick={() => requestNavigation({ type: 'back_students' })} className="hover:text-primary transition-colors">
-                    {activeBatch.name}
-                  </button>
-                </>
-              )}
-              {activeStudent && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-slate-400" />
-                  <span className="text-foreground">{activeStudent.name}</span>
-                </>
-              )}
-              {activeAction && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-slate-400" />
-                  <span className="text-primary font-black">{activeAction}</span>
-                </>
-              )}
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+              <Award className="w-7 h-7 text-white" />
             </div>
-            
-            <div className="flex gap-2">
-              {(activeBatchId || activeStudentId) && (
-                <button
-                  onClick={() => {
-                    if (activeAction) {
-                      requestNavigation({ type: 'back_students' });
-                    } else if (activeBatchId) {
-                      requestNavigation({ type: 'back_batches' });
-                    }
-                  }}
-                  className="btn btn-secondary text-xs flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" /> Back
-                </button>
-              )}
-              <button onClick={() => setShowProposal(true)} className="btn btn-primary text-xs">
-                Propose Parameter
-              </button>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                {activeAction === 'evaluate' 
+                  ? 'Evaluate Student' 
+                  : activeAction === 'analytics' 
+                    ? 'Student Performance Analytics' 
+                    : activeBatchId 
+                      ? 'Batch Performance Overview' 
+                      : 'Performance Tracker'}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {activeAction === 'evaluate' 
+                  ? `Assess and record performance scores for ${activeStudent?.name || 'student'}.`
+                  : activeAction === 'analytics' 
+                    ? `Performance graphs, ratings trends, and metrics radar for ${activeStudent?.name || 'student'}.`
+                    : activeBatchId 
+                      ? `Evaluate athlete ratings, view rosters, and track progress for ${activeBatch?.name || 'batch'}.`
+                      : 'Assess student performance, evaluate fitness metrics, and request parameter additions.'}
+              </p>
             </div>
           </div>
 
-          {/* Athlete Profile row details if evaluate / analytics is active */}
-          {activeStudent && (
-            <div className="flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/10 border border-border/80 rounded-xl p-3">
-              <Avatar src={activeStudent.profile_photo} name={activeStudent.name} size="lg" className="shrink-0" />
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-x-6 gap-y-1.5 flex-1 min-w-0 font-bold text-xs">
-                <div className="col-span-2">
-                  <h3 className="font-extrabold text-sm text-foreground truncate">{activeStudent.name}</h3>
-                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 block">Athlete ID: #{activeStudent.student_id}</span>
-                </div>
-                <div>
-                  <span className="text-slate-450 block text-[9px] uppercase">Sport</span>
-                  <span className="text-foreground">{activeBatch?.sport?.name || '—'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-450 block text-[9px] uppercase">Batch</span>
-                  <span className="text-foreground">{activeBatch?.name || '—'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-450 block text-[9px] uppercase">Age</span>
-                  <span className="text-foreground">{activeStudent.age || '—'} Yrs</span>
-                </div>
-                <div>
-                  <span className="text-slate-450 block text-[9px] uppercase">Gender</span>
-                  <span className="text-foreground">{activeStudent.gender || 'Male'}</span>
-                </div>
+          <div className="flex items-center gap-2 relative z-10 shrink-0">
+            {(activeBatchId || activeStudentId) && (
+              <button
+                onClick={() => {
+                  if (activeAction) {
+                    requestNavigation({ type: 'back_students' });
+                  } else if (activeBatchId) {
+                    requestNavigation({ type: 'back_batches' });
+                  }
+                }}
+                className="btn btn-secondary text-xs flex items-center gap-1 py-2.5 px-4 font-bold"
+              >
+                <ChevronLeft className="w-4 h-4" /> Back
+              </button>
+            )}
+            {!activeAction && (
+              <button 
+                onClick={() => setShowProposal(true)} 
+                className="btn btn-primary text-xs py-2.5 px-4 font-black uppercase tracking-wider"
+              >
+                Propose Parameter
+              </button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Breadcrumb row */}
+        {(activeBatchId || activeStudentId) && (
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest bg-card border border-border rounded-xl px-4 py-2 self-start">
+            <button onClick={() => requestNavigation({ type: 'back_batches' })} className="hover:text-primary transition-colors">
+              Batches
+            </button>
+            {activeBatch && (
+              <>
+                <ChevronRight className="w-3 h-3 text-slate-400" />
+                <button onClick={() => requestNavigation({ type: 'back_students' })} className="hover:text-primary transition-colors">
+                  {activeBatch.name}
+                </button>
+              </>
+            )}
+            {activeStudent && (
+              <>
+                <ChevronRight className="w-3 h-3 text-slate-400" />
+                <span className="text-foreground">{activeStudent.name}</span>
+              </>
+            )}
+            {activeAction && (
+              <>
+                <ChevronRight className="w-3 h-3 text-slate-400" />
+                <span className="text-primary font-black">{activeAction}</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Athlete Profile row details if evaluate / analytics is active */}
+        {activeStudent && (
+          <div className="flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/10 border border-border/80 rounded-xl p-3 text-left">
+            <Avatar src={activeStudent.profile_photo} name={activeStudent.name} size="lg" className="shrink-0" />
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-x-6 gap-y-1.5 flex-1 min-w-0 font-bold text-xs">
+              <div className="col-span-2">
+                <h3 className="font-extrabold text-sm text-foreground truncate">{activeStudent.name}</h3>
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 block">Athlete ID: #{activeStudent.student_id}</span>
+              </div>
+              <div>
+                <span className="text-slate-450 block text-[9px] uppercase">Sport</span>
+                <span className="text-foreground">{activeBatch?.sport?.name || '—'}</span>
+              </div>
+              <div>
+                <span className="text-slate-450 block text-[9px] uppercase">Batch</span>
+                <span className="text-foreground">{activeBatch?.name || '—'}</span>
+              </div>
+              <div>
+                <span className="text-slate-450 block text-[9px] uppercase">Age</span>
+                <span className="text-foreground">{activeStudent.age || '—'} Yrs</span>
+              </div>
+              <div>
+                <span className="text-slate-450 block text-[9px] uppercase">Gender</span>
+                <span className="text-foreground">{activeStudent.gender || 'Male'}</span>
               </div>
             </div>
-          )}
-        </motion.div>
+          </div>
+        )}
 
         {/* Top KPI Summary Dashboard */}
         {!activeAction && (
@@ -1086,6 +1207,89 @@ export default function CoachPerformancePage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        )}
+
+        {/* PROPOSED PARAMETERS / PENDING REQUESTS PANEL */}
+        {!activeBatchId && !isSearchActive && (
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-sm text-left space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Proposed Performance Parameters</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 font-medium">Attributes you have proposed that are pending admin approval.</p>
+              </div>
+              <button
+                onClick={() => setShowProposal(true)}
+                className="bg-primary hover:bg-primary-hover text-primary-foreground font-black px-4 py-2.5 rounded-xl shadow-[0_4px_14px_rgba(var(--theme-primary-rgb),0.25)] flex items-center justify-center gap-1.5 text-xs transition-all border border-primary uppercase tracking-wider"
+              >
+                Propose Parameter
+              </button>
+            </div>
+
+            {loadingProposals ? (
+              <div className="py-12 flex justify-center text-xs text-muted-foreground font-semibold">Loading proposed parameters...</div>
+            ) : proposedAttributes.length === 0 ? (
+              <div className="py-12 text-center text-xs text-muted-foreground font-semibold border border-dashed border-border rounded-2xl">
+                No pending parameter proposals found. Click "Propose Parameter" to request new ones.
+              </div>
+            ) : (
+              <div className="overflow-x-auto pb-2">
+                <table className="w-full text-left text-sm border-separate border-spacing-y-3">
+                  <thead>
+                    <tr className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 px-4">
+                      <th className="px-6 py-2">Parameter Name</th>
+                      <th className="px-6 py-2">Category</th>
+                      <th className="px-6 py-2">Target Sport</th>
+                      <th className="px-6 py-2">Status</th>
+                      <th className="px-6 py-2 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proposedAttributes.map((attr) => (
+                      <tr
+                        key={attr.attribute_id}
+                        className="group bg-surface-secondary/20 dark:bg-slate-900/40 shadow-[0_2px_10px_rgba(0,0,0,0.02)] ring-1 ring-gray-100 dark:ring-gray-800 hover:shadow-md transition-all duration-300 rounded-2xl animate-fade-in"
+                      >
+                        <td className="px-6 py-4 rounded-l-2xl border-y border-l border-border bg-card">
+                          <span className="font-bold text-sm text-foreground">{attr.name.replace(/\s*\((Fitness|Technique|Mental)\)$/i, '')}</span>
+                        </td>
+                        <td className="px-6 py-4 border-y border-border bg-card">
+                          <span className="badge bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase px-2.5 py-0.5">
+                            {categorizeAttribute(attr.name)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 border-y border-border bg-card font-semibold text-xs text-muted-foreground">
+                          {attr.sport?.name || '—'}
+                        </td>
+                        <td className="px-6 py-4 border-y border-border bg-card">
+                          <span className="badge bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-black uppercase px-2.5 py-0.5 animate-pulse">
+                            {attr.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 rounded-r-2xl border-y border-r border-border bg-card text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenEditProposal(attr)}
+                              className="p-2 text-slate-400 hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+                              title="Edit Proposal"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProposal(attr.attribute_id)}
+                              className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-xl transition"
+                              title="Cancel Proposal"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -1575,9 +1779,23 @@ export default function CoachPerformancePage() {
                     required
                   >
                     <option value="">Select Sport...</option>
-                    {batches.map(b => b.sport).filter((s, idx, self) => s && self.findIndex(x => x.sport_id === s.sport_id) === idx).map(sport => (
+                    {batches.map(b => b.sport).filter(Boolean).filter((s, idx, self) => self.findIndex(x => x.sport_id === s.sport_id) === idx).map(sport => (
                       <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted-foreground uppercase font-black mb-1">Category</label>
+                  <select
+                    value={proposalForm.category}
+                    onChange={(e) => setProposalForm({ ...proposalForm, category: e.target.value })}
+                    className="input-field text-xs py-2 px-3 bg-card w-full"
+                    required
+                  >
+                    <option value="Fitness">Fitness</option>
+                    <option value="Technique">Technique</option>
+                    <option value="Mental">Mental</option>
                   </select>
                 </div>
 
@@ -1606,6 +1824,95 @@ export default function CoachPerformancePage() {
                     className="btn btn-primary text-xs py-2 px-6"
                   >
                     Propose Parameter
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT PROPOSAL MODAL */}
+      <AnimatePresence>
+        {showEditProposal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border border-border rounded-3xl max-w-md w-full shadow-2xl p-6 relative space-y-4 text-left font-sans"
+            >
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <h3 className="text-base font-black text-foreground">Edit Proposed Parameter</h3>
+                <button
+                  onClick={() => {
+                    setShowEditProposal(false);
+                    setEditingProposal(null);
+                  }}
+                  className="p-1 text-slate-400 hover:text-foreground rounded-full"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleEditProposalSubmit} className="space-y-4 text-xs font-bold">
+                <div>
+                  <label className="block text-xs text-muted-foreground uppercase font-black mb-1">Target Sport</label>
+                  <select
+                    value={editProposalForm.sport_id}
+                    onChange={(e) => setEditProposalForm({ ...editProposalForm, sport_id: e.target.value })}
+                    className="input-field text-xs py-2 px-3 bg-card w-full"
+                    required
+                  >
+                    <option value="">Select Sport...</option>
+                    {batches.map(b => b.sport).filter(Boolean).filter((s, idx, self) => self.findIndex(x => x.sport_id === s.sport_id) === idx).map(sport => (
+                      <option key={sport.sport_id} value={sport.sport_id}>{sport.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted-foreground uppercase font-black mb-1">Category</label>
+                  <select
+                    value={editProposalForm.category}
+                    onChange={(e) => setEditProposalForm({ ...editProposalForm, category: e.target.value })}
+                    className="input-field text-xs py-2 px-3 bg-card w-full"
+                    required
+                  >
+                    <option value="Fitness">Fitness</option>
+                    <option value="Technique">Technique</option>
+                    <option value="Mental">Mental</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted-foreground uppercase font-black mb-1">Parameter Name</label>
+                  <input
+                    type="text"
+                    value={editProposalForm.name}
+                    onChange={(e) => setEditProposalForm({ ...editProposalForm, name: e.target.value })}
+                    className="input-field text-xs py-2 px-3 w-full"
+                    placeholder="e.g. Dribbling Pace, Serve Speed"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditProposal(false);
+                      setEditingProposal(null);
+                    }}
+                    className="btn btn-secondary text-xs py-2 px-4"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary text-xs py-2 px-6"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </form>

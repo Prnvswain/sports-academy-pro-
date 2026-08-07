@@ -765,19 +765,22 @@ export default function CoachAttendancePage() {
             exit="exit"
             className="space-y-6 max-w-6xl mx-auto"
           >
-            {/* Top Bar Header Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
+            {/* Header */}
+            <motion.div
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
             >
-              <div className="flex items-center gap-3 text-left">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-                  <Calendar className="h-5 w-5" />
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+                  <Calendar className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-foreground tracking-tight">Coach Attendance</h2>
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                    Coach Attendance
+                  </h1>
+                  <p className="text-muted-foreground mt-1">
                     Today: {new Date().toDateString()} • Verify coordinates, check-in, and start trainee roll calls
                   </p>
                 </div>

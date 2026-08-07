@@ -1747,7 +1747,7 @@ export default function PerformancePanel() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-bold text-foreground">{attr.name}</span>
+                        <span className="text-sm font-bold text-foreground">{attr.name.replace(/\s*\((Fitness|Technique|Mental)\)$/i, '')}</span>
                         <motion.span
                           whileHover={{ scale: 1.05 }}
                           className="text-xs bg-gradient-to-r from-amber-400 to-orange-400 text-white px-3 py-1 rounded-full font-bold shadow-sm"
@@ -1755,9 +1755,9 @@ export default function PerformancePanel() {
                           {attr.sport?.name || 'Global'}
                         </motion.span>
                       </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <span>👤</span> Proposed by: {attr.proposed_by || 'Coach'} · 
-                        <span>📅</span> {attr.created_at || new Date().toLocaleDateString()}
+                      <p className="text-xs text-muted-foreground flex items-center gap-2 text-left">
+                        <span>👤</span> Proposed by: {attr.requested_by?.name || attr.proposed_by || 'Coach'} · 
+                        <span>📅</span> {attr.created_at ? new Date(attr.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">

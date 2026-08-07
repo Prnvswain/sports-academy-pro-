@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, PlusCircle, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Target, PlusCircle, Trash2, ChevronDown, ChevronUp, X, Loader2 } from 'lucide-react';
 import {
   superAdminGet,
   superAdminPost,
@@ -8,42 +8,14 @@ import {
   superAdminDelete
 } from '../../api/client';
 
-// RENAME & REMOVE OPTIONS: Only keeping Sports Attributes as requested
 const CONTROL_CATEGORIES = [
   { id: 'sports-attributes', label: 'Sports Attributes', icon: Target },
 ];
 
-// Available sport icons for selection
 const SPORT_ICONS = [
   '🏏', '⚽', '🏀', '🎾', '🏸', '🏊', '🏐', '🏓', '🏑', '🏃',
   '🥊', '🤼‍♂️', '🏌️‍♂️', '⚾', '🏉', '♟️', '🏹', '🤸‍♂️', '🚴', '🤼',
   '🎯', '🏅', '🎪', '🎢', '🎡', '🎠', '🎲', '🎳', '🎱', '🏆'
-];
-
-// INJECTED: 6 Sports with 10 Premium Attributes Each
-const DEFAULT_SPORTS = [
-  { id: 'cricket', name: 'Cricket', icon: '🏏', attributes: ["Batting Average", "Strike Rate", "Bowling Economy", "Wickets Taken", "Catches Dropped", "Run Out Direct Hits", "Dot Ball %", "Fitness Score", "Yo-Yo Test", "Matches Played"] },
-  { id: 'football', name: 'Football', icon: '⚽', attributes: ["Goals Scored", "Assists", "Pass Accuracy %", "Interceptions", "Tackles Won", "Sprints Completed", "Distance Covered (km)", "Yellow/Red Cards", "Shot Accuracy %", "Clean Sheets"] },
-  { id: 'basketball', name: 'Basketball', icon: '🏀', attributes: ["Points Per Game", "Rebounds", "Assists", "Steals", "Blocks", "Free Throw %", "3-Point %", "Turnovers", "Minutes Played", "Fouls"] },
-  { id: 'tennis', name: 'Tennis', icon: '🎾', attributes: ["Aces", "First Serve %", "Double Faults", "Break Points Won", "Unforced Errors", "Winners", "Return Points Won", "Net Points Won", "Match Win Rate", "Stamina Index"] },
-  { id: 'badminton', name: 'Badminton', icon: '🏸', attributes: ["Smash Winners", "Drop Shot Accuracy", "Rallies Won", "Errors at Net", "Serve Accuracy", "Footwork Speed", "Jump Smashes", "Matches Won", "Stamina Level", "Agility Score"] },
-  { id: 'swimming', name: 'Swimming', icon: '🏊', attributes: ["50m Freestyle Time", "100m Butterfly Time", "Turn Speed", "Dive Reaction Time", "Breath Control (sec)", "Stroke Rate", "Kick Efficiency", "Endurance Score", "Lap Consistency", "Personal Best Beats"] },
-
-  // --- Newly Added 14 Sports ---
-  { id: 'volleyball', name: 'Volleyball', icon: '🏐', attributes: ["Spike Success %", "Blocks Made", "Digs", "Serve Aces", "Pass Accuracy %", "Setting Assists", "Service Errors", "Jump Height (cm)", "Agility Score", "Matches Played"] },
-  { id: 'table_tennis', name: 'Table Tennis', icon: '🏓', attributes: ["Forehand Winners", "Backhand Winners", "Spin Accuracy", "Block Success %", "Serve Points", "Unforced Errors", "Rally Win Rate", "Reaction Time", "Footwork Speed", "Match Win Rate"] },
-  { id: 'hockey', name: 'Hockey', icon: '🏑', attributes: ["Goals Scored", "Penalty Corner Conversion %", "Interceptions", "Pass Accuracy", "Tackles Won", "Saves (Goalie)", "Dribbles Completed", "Distance Covered", "Green/Yellow Cards", "Stamina Index"] },
-  { id: 'athletics', name: 'Athletics (Track & Field)', icon: '🏃', attributes: ["100m Sprint Time", "400m Time", "Long Jump Distance", "High Jump Height", "Javelin Throw Distance", "Reaction Time at Block", "Stride Length", "Endurance Score", "Personal Best Improvements", "Form Consistency"] },
-  { id: 'boxing', name: 'Boxing', icon: '🥊', attributes: ["Punches Landed", "Punch Accuracy %", "Knockdowns", "Dodges/Slips", "Jabs Landed", "Power Punches", "Block Success %", "Footwork Agility", "Stamina Level", "Matches Won"] },
-  { id: 'kabaddi', name: 'Kabaddi', icon: '🤼‍♂️', attributes: ["Successful Raids", "Super Raids", "Tackle Points", "Super Tackles", "Touch Points", "Bonus Points", "Escapes", "Empty Raids", "Catch Success %", "Agility Index"] },
-  { id: 'golf', name: 'Golf', icon: '🏌️‍♂️', attributes: ["Driving Distance", "Fairways Hit %", "Greens in Regulation (GIR)", "Putts per Round", "Sand Saves %", "Birdies", "Eagles", "Bogey Avoidance", "Handicap", "Swing Speed"] },
-  { id: 'baseball', name: 'Baseball', icon: '⚾', attributes: ["Batting Average", "Home Runs", "RBIs", "On-Base Percentage", "Strikeouts (Pitcher)", "ERA (Earned Run Average)", "Fielding Percentage", "Stolen Bases", "Fastball Speed", "Innings Pitched"] },
-  { id: 'rugby', name: 'Rugby', icon: '🏉', attributes: ["Tries Scored", "Tackles Made", "Tackle Success %", "Meters Gained", "Passes Completed", "Offloads", "Rucks Won", "Lineouts Won", "Penalties Conceded", "Stamina Index"] },
-  { id: 'chess', name: 'Chess', icon: '♟️', attributes: ["ELO Rating", "Matches Won", "Draws", "Matches Lost", "Blunders", "Inaccuracies", "Centipawn Loss", "Opening Accuracy", "Middle-Game Tactics", "Endgame Conversion %"] },
-  { id: 'archery', name: 'Archery', icon: '🏹', attributes: ["10-Ring Hits", "Bullseyes", "Average Arrow Score", "Wind Adjustment Accuracy", "Release Consistency", "Bow Arm Stability", "Draw Weight Comfort", "Total Points", "Tournament Wins", "Focus/Concentration Index"] },
-  { id: 'gymnastics', name: 'Gymnastics', icon: '🤸‍♂️', attributes: ["Vault Score", "Uneven Bars Score", "Balance Beam Score", "Floor Exercise Score", "Execution Deductions", "Difficulty Value", "Landing Stability", "Flexibility Index", "Core Strength", "Competition Medals"] },
-  { id: 'cycling', name: 'Cycling', icon: '🚴', attributes: ["Average Speed (km/h)", "Peak Power Output (Watts)", "FTP (Functional Threshold Power)", "Cadence (RPM)", "Distance Covered", "Elevation Climbed", "Sprint Speed", "Heart Rate Efficiency", "V02 Max", "Time Trial Record"] },
-  { id: 'wrestling', name: 'Wrestling', icon: '🤼', attributes: ["Takedowns", "Escapes", "Reversals", "Near Falls", "Pins / Falls", "Mat Control Time", "Defense Success %", "Stamina Index", "Flexibility", "Matches Won"] }
 ];
 
 export default function SportsSettingsPanel() {
@@ -69,19 +41,15 @@ export default function SportsSettingsPanel() {
   const handleCategoryChange = (categoryId) => {
     setActiveCategory(categoryId);
   };
-  // Fetch sports from API on mount
+
   useEffect(() => {
     const fetchSports = async () => {
       try {
         setLoadingSports(true);
         const response = await superAdminGet('/super-admin/sports');
-
-        // Backend returns: { success: true, message: '...', data: [sports] }
-        // After unwrap, response is: { success: true, message: '...', data: [sports] }
         if (response && response.data && Array.isArray(response.data)) {
           setSports(response.data);
         } else {
-          console.error('Unexpected response structure:', response);
           setSports([]);
         }
       } catch (error) {
@@ -91,102 +59,50 @@ export default function SportsSettingsPanel() {
         setLoadingSports(false);
       }
     };
-
     fetchSports();
   }, []);
+
   const toggleSportExpansion = (sportId) => {
     setExpandedSportId(expandedSportId === sportId ? null : sportId);
   };
 
   const handleAddAttribute = async (sportId) => {
     const attributeName = newAttributeInputs[sportId]?.trim();
-
     if (!attributeName) return;
-
     const sport = sports.find((s) => s.id === sportId);
-
     if (!sport) return;
-
-    const updatedAttributes = [
-      ...(sport.attributes || []),
-      attributeName
-    ];
-
+    const updatedAttributes = [...(sport.attributes || []), attributeName];
     try {
-      await superAdminPut(
-        `/super-admin/sports/${sportId}/attributes`,
-        {
-          attributes: updatedAttributes
-        }
-      );
-
+      await superAdminPut(`/super-admin/sports/${sportId}/attributes`, { attributes: updatedAttributes });
       setSports((prev) =>
-        prev.map((s) =>
-          s.id === sportId
-            ? {
-              ...s,
-              attributes: updatedAttributes
-            }
-            : s
-        )
+        prev.map((s) => s.id === sportId ? { ...s, attributes: updatedAttributes } : s)
       );
-
-      setNewAttributeInputs((prev) => ({
-        ...prev,
-        [sportId]: ""
-      }));
-
+      setNewAttributeInputs((prev) => ({ ...prev, [sportId]: "" }));
     } catch (err) {
       console.error(err);
       alert("Failed to save attribute.");
     }
   };
-  const handleRemoveAttribute = async (
-    sportId,
-    attributeIndex
-  ) => {
 
-    const sport = sports.find(
-      s => s.id === sportId
-    );
-
+  const handleRemoveAttribute = async (sportId, attributeIndex) => {
+    const sport = sports.find(s => s.id === sportId);
     if (!sport) return;
-
-    const updatedAttributes =
-      sport.attributes.filter(
-        (_, i) => i !== attributeIndex
-      );
-
+    const updatedAttributes = sport.attributes.filter((_, i) => i !== attributeIndex);
     try {
-
-      await superAdminPut(
-        `/super-admin/sports/${sportId}/attributes`,
-        {
-          attributes: updatedAttributes
-        }
-      );
-
+      await superAdminPut(`/super-admin/sports/${sportId}/attributes`, { attributes: updatedAttributes });
       setSports(prev =>
-        prev.map(s =>
-          s.id === sportId
-            ? {
-              ...s,
-              attributes: updatedAttributes
-            }
-            : s
-        )
+        prev.map(s => s.id === sportId ? { ...s, attributes: updatedAttributes } : s)
       );
-
     } catch (err) {
       console.error(err);
       alert("Failed to update attributes.");
     }
   };
+
   const handleAttributeInputChange = (sportId, value) => {
     setNewAttributeInputs((prev) => ({ ...prev, [sportId]: value }));
   };
 
-  // Add New Sport Modal Handlers
   const handleAddSportAttribute = () => {
     const attributeName = newAttributeInput.trim();
     if (!attributeName) return;
@@ -203,7 +119,6 @@ export default function SportsSettingsPanel() {
       alert("Please enter a sport name.");
       return;
     }
-
     setIsSavingSport(true);
     try {
       const payload = {
@@ -211,45 +126,53 @@ export default function SportsSettingsPanel() {
         icon: newSportIcon,
         attributes: newSportAttributes
       };
-
       const response = await superAdminPost('/super-admin/sports', payload);
-
-      // Parse response from successResponse format: { success: true, message: '...', data: sport }
       if (response && response.success && response.data) {
         const savedSport = response.data;
-
-        // Add fallback icon if missing
-        const sportWithFallback = {
-          ...savedSport,
-          icon: savedSport.icon || '🏅'
-        };
-
-        // Reactively update state without refresh
+        const sportWithFallback = { ...savedSport, icon: savedSport.icon || '🏅' };
         setSports((prevSports) => [...prevSports, sportWithFallback]);
-
         setIsAddSportModalOpen(false);
         setNewSportName('');
         setNewSportIcon('🏏');
         setNewSportAttributes([]);
         setNewAttributeInput('');
-
         alert('Sport created successfully! 🎉');
       } else {
-        alert(response?.message || 'Failed to create sport. Validation error.');
+        alert(response?.message || 'Failed to create sport.');
       }
     } catch (error) {
-      console.error('Failed to create sport:', error);
-      let errorMessage = error.message || 'Please try again.';
-
-      // Handle specific error cases
-      if (error.message?.includes('already exists') || error.response?.status === 409) {
-        errorMessage = `A sport named "${newSportName}" already exists. Please choose a different name.`;
-      }
-
-      alert(`Failed to create sport: ${errorMessage}`);
+      alert(error.message || 'Error occurred');
     } finally {
       setIsSavingSport(false);
     }
+  };
+
+  const handleDeleteSportClick = (sport) => {
+    setSportToDelete(sport);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sportToDelete) return;
+    setIsDeletingSport(true);
+    try {
+      const response = await superAdminDelete(`/super-admin/sports/${sportToDelete.id}`);
+      if (response?.success) {
+        setSports(prev => prev.filter(s => s.id !== sportToDelete.id));
+        setIsDeleteModalOpen(false);
+        setSportToDelete(null);
+        alert('Sport deleted successfully!');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to delete sport');
+    } finally {
+      setIsDeletingSport(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setSportToDelete(null);
   };
 
   const handleCancelAddSport = () => {
@@ -260,48 +183,13 @@ export default function SportsSettingsPanel() {
     setNewAttributeInput('');
   };
 
-  const handleDeleteSportClick = (sport) => {
-    setSportToDelete(sport);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleCancelDelete = () => {
-    setIsDeleteModalOpen(false);
-    setSportToDelete(null);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!sportToDelete) return;
-
-    setIsDeletingSport(true);
-    try {
-      const response = await superAdminDelete(`/super-admin/sports/${sportToDelete.id}`);
-
-      if (response && response.success) {
-        // Remove the deleted sport from the UI
-        setSports((prevSports) => prevSports.filter((sport) => sport.id !== sportToDelete.id));
-        alert('Sport deleted successfully.');
-        setIsDeleteModalOpen(false);
-        setSportToDelete(null);
-      } else {
-        alert(response?.message || 'Failed to delete sport.');
-      }
-    } catch (error) {
-      console.error('Failed to delete sport:', error);
-      const errorMessage = error.message || 'Please try again.';
-      alert(`Failed to delete sport: ${errorMessage}`);
-    } finally {
-      setIsDeletingSport(false);
-    }
-  };
-
   return (
-    <div className="bg-slate-50 min-h-screen flex w-full overflow-hidden">
-      {/* Left Sidebar - Sports Settings Title */}
-      <div className="w-64 bg-white/50 border-r border-slate-200/60 p-4 flex-shrink-0">
+    <div className="flex h-full min-h-[500px] rounded-2xl overflow-hidden super-glass border border-white/10 dark:border-white/5 text-foreground shadow-xl">
+      {/* Left Sidebar */}
+      <div className="w-64 border-r border-white/5 p-4 flex-shrink-0 bg-white/5">
         <div className="mb-6">
-          <h2 className="text-slate-800 text-lg font-bold">Sports Settings</h2>
-          <p className="text-slate-400 text-xs mt-1">Global system configuration</p>
+          <h2 className="text-foreground text-sm font-extrabold uppercase tracking-wider">Controller Panel</h2>
+          <p className="text-muted-foreground text-[10px] font-bold mt-1">Platform global metadata setups</p>
         </div>
 
         <nav className="space-y-2">
@@ -312,9 +200,9 @@ export default function SportsSettingsPanel() {
               <motion.button
                 key={category.id}
                 type="button"
-                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${isActive
-                  ? 'bg-emerald-50 text-emerald-600'
-                  : 'text-slate-600 hover:bg-slate-100/70'
+                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl uppercase tracking-wider transition-all ${isActive
+                  ? 'premium-gradient-purple text-white shadow-lg shadow-purple-500/20'
+                  : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                   }`}
                 onClick={() => handleCategoryChange(category.id)}
                 whileHover={{ scale: 1.02 }}
@@ -338,16 +226,16 @@ export default function SportsSettingsPanel() {
             className="space-y-6"
           >
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
               <div>
-                <h2 className="text-slate-800 text-2xl font-bold">Manage Sports Attributes</h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  Define dynamic performance tracking metrics for coaches and admins
+                <h2 className="text-foreground text-lg font-extrabold tracking-tight">Platform Performance Metrics</h2>
+                <p className="text-muted-foreground text-xs font-semibold mt-1">
+                  Define dynamic tracking performance parameters for coaches and academy admins.
                 </p>
               </div>
               <motion.button
                 type="button"
-                className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 text-sm font-medium shadow-sm"
+                className="px-4 py-2.5 premium-gradient-purple text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-500/20"
                 onClick={() => setIsAddSportModalOpen(true)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -360,56 +248,52 @@ export default function SportsSettingsPanel() {
             {/* Sports Grid */}
             {loadingSports ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-slate-400 text-sm">Loading sports...</div>
+                <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sports?.map((sport, index) => (
                   <motion.div
                     key={sport.id}
-                    className="bg-white/75 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden"
+                    className="bg-white/5 border border-black/5 dark:border-white/5 rounded-2xl shadow-inner overflow-hidden"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                   >
                     {/* Sport Header */}
-                    <motion.button
-                      type="button"
-                      className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+                    <div
+                      className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
                       onClick={() => toggleSportExpansion(sport.id)}
-                      whileHover={{ backgroundColor: 'rgba(248, 250, 252, 0.5)' }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-2xl">
+                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-md">
                           {sport.icon}
                         </div>
-                        <div className="text-left">
-                          <h3 className="text-slate-800 text-base font-semibold">{sport.name}</h3>
-                          <p className="text-slate-400 text-xs">
-                            {sport.attributes?.length || 0} attributes configured
+                        <div className="text-left min-w-0">
+                          <h3 className="text-foreground text-sm font-extrabold truncate">{sport.name}</h3>
+                          <p className="text-muted-foreground text-[10px] font-bold mt-0.5 uppercase tracking-wide">
+                            {sport.attributes?.length || 0} parameters
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <motion.button
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
                           type="button"
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteSportClick(sport);
                           }}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
                         >
                           <Trash2 className="w-4 h-4" />
-                        </motion.button>
+                        </button>
                         {expandedSportId === sport.id ? (
-                          <ChevronUp className="w-5 h-5 text-slate-400" />
+                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
                         ) : (
-                          <ChevronDown className="w-5 h-5 text-slate-400" />
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
                         )}
                       </div>
-                    </motion.button>
+                    </div>
 
                     {/* Expanded Content */}
                     <AnimatePresence>
@@ -419,33 +303,31 @@ export default function SportsSettingsPanel() {
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="border-t border-slate-200/60"
+                          className="border-t border-white/5 bg-white/5"
                         >
                           <div className="p-5 space-y-4">
                             {/* Attributes List */}
                             <div>
-                              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">
-                                Existing Attributes
+                              <p className="text-muted-foreground text-[9px] font-extrabold uppercase tracking-wider mb-3">
+                                Existing Parameters
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {sport.attributes?.map((attribute, attrIndex) => (
                                   <span
                                     key={attrIndex}
-                                    className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1 text-sm text-slate-600 rounded-lg"
+                                    className="inline-flex items-center gap-2 bg-white/5 border border-black/5 dark:border-white/5 px-3 py-1.5 text-xs text-foreground font-semibold rounded-lg shadow-sm"
                                   >
                                     {attribute}
-                                    <motion.button
+                                    <button
                                       type="button"
-                                      className="text-slate-400 hover:text-red-500 transition-colors"
+                                      className="text-muted-foreground hover:text-red-500 transition-colors"
                                       onClick={() => handleRemoveAttribute(sport.id, attrIndex)}
-                                      whileHover={{ scale: 1.1 }}
-                                      whileTap={{ scale: 0.9 }}
                                     >
-                                      <Trash2 className="w-3 h-3" />
-                                    </motion.button>
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
                                   </span>
                                 )) || (
-                                    <span className="text-slate-400 text-sm">No attributes configured</span>
+                                    <span className="text-muted-foreground text-xs font-semibold">No attributes configured</span>
                                   )}
                               </div>
                             </div>
@@ -457,23 +339,21 @@ export default function SportsSettingsPanel() {
                                 placeholder="e.g., Batting Average"
                                 value={newAttributeInputs[sport.id] || ''}
                                 onChange={(e) => handleAttributeInputChange(sport.id, e.target.value)}
-                                className="flex-1 px-4 py-2.5 bg-white/90 border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"
+                                className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 dark:border-white/5 rounded-xl focus:outline-none focus:border-purple-500 text-xs text-foreground placeholder-slate-400 outline-none transition-all shadow-inner"
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
                                     handleAddAttribute(sport.id);
                                   }
                                 }}
                               />
-                              <motion.button
+                              <button
                                 type="button"
-                                className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 text-sm font-medium"
+                                className="px-4 py-2.5 bg-slate-900 text-white dark:bg-white dark:text-slate-950 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md hover:opacity-90 transition-all shrink-0"
                                 onClick={() => handleAddAttribute(sport.id)}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
                               >
                                 <PlusCircle className="w-4 h-4" />
                                 Add
-                              </motion.button>
+                              </button>
                             </div>
                           </div>
                         </motion.div>
@@ -494,7 +374,7 @@ export default function SportsSettingsPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={handleCancelAddSport}
           >
             <motion.div
@@ -502,65 +382,61 @@ export default function SportsSettingsPanel() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+              className="bg-slate-955/95 dark:bg-slate-900/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col justify-between text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
                 <div>
-                  <h3 className="text-slate-800 text-lg font-bold">Add New Sport</h3>
-                  <p className="text-slate-400 text-xs mt-1">Create a new sport with custom attributes</p>
+                  <h3 className="text-foreground text-sm font-extrabold uppercase tracking-wider">Add New Sport Profile</h3>
+                  <p className="text-muted-foreground text-[10px] font-semibold mt-1">Configure metrics definition matrix</p>
                 </div>
-                <motion.button
+                <button
                   type="button"
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-white/5 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                   onClick={handleCancelAddSport}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
                 >
-                  <X className="w-5 h-5 text-slate-400" />
-                </motion.button>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {/* Modal Body */}
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden">
                 {/* Sport Name */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Sport Name *</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Sport Name *</label>
                   <input
                     type="text"
                     placeholder="e.g., Karate"
                     value={newSportName}
                     onChange={(e) => setNewSportName(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 dark:border-white/5 rounded-xl focus:outline-none focus:border-purple-500 text-xs text-foreground placeholder-slate-400 outline-none transition-all shadow-inner"
                   />
                 </div>
 
                 {/* Icon Selection */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Select Icon *</label>
-                  <div className="grid grid-cols-10 gap-2">
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Select Icon *</label>
+                  <div className="grid grid-cols-10 gap-2 max-h-40 overflow-y-auto p-1.5 border border-white/5 rounded-xl bg-white/5 shadow-inner">
                     {SPORT_ICONS.map((icon) => (
-                      <motion.button
+                      <button
                         key={icon}
                         type="button"
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-all ${newSportIcon === icon
-                          ? 'bg-emerald-500 text-white ring-2 ring-emerald-500 ring-offset-2'
-                          : 'bg-slate-100 hover:bg-slate-200'
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center text-xl transition-all ${newSportIcon === icon
+                          ? 'premium-gradient-purple text-white shadow-lg shadow-purple-500/25 scale-105'
+                          : 'hover:bg-white/10'
                           }`}
                         onClick={() => setNewSportIcon(icon)}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
                       >
                         {icon}
-                      </motion.button>
+                      </button>
                     ))}
                   </div>
                 </div>
 
                 {/* Attributes Manager */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Attributes</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Parameters List</label>
                   <div className="flex gap-2 mb-3">
                     <input
                       type="text"
@@ -572,35 +448,31 @@ export default function SportsSettingsPanel() {
                           handleAddSportAttribute();
                         }
                       }}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all"
+                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 dark:border-white/5 rounded-xl focus:outline-none focus:border-purple-500 text-xs text-foreground placeholder-slate-400 outline-none transition-all shadow-inner"
                     />
-                    <motion.button
+                    <button
                       type="button"
-                      className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 text-sm font-medium"
+                      className="px-4 py-2.5 premium-gradient-purple text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-500/20"
                       onClick={handleAddSportAttribute}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
                     >
                       <PlusCircle className="w-4 h-4" />
-                    </motion.button>
+                    </button>
                   </div>
                   {newSportAttributes.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border border-white/5 rounded-xl bg-white/5 shadow-inner">
                       {newSportAttributes.map((attr, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1 text-sm text-slate-600 rounded-lg"
+                          className="inline-flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-1.5 text-xs text-foreground font-semibold rounded-lg shadow-sm"
                         >
                           {attr}
-                          <motion.button
+                          <button
                             type="button"
-                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            className="text-muted-foreground hover:text-red-500 transition-colors"
                             onClick={() => handleRemoveSportAttribute(index)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
                           >
-                            <Trash2 className="w-3 h-3" />
-                          </motion.button>
+                            <X className="w-3 h-3" />
+                          </button>
                         </span>
                       ))}
                     </div>
@@ -609,26 +481,22 @@ export default function SportsSettingsPanel() {
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
-                <motion.button
+              <div className="px-6 py-4 border-t border-white/5 flex items-center justify-end gap-3 shrink-0">
+                <button
                   type="button"
-                  className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all text-sm font-medium"
+                  className="px-4 py-2.5 super-glass border border-white/10 dark:border-white/5 text-muted-foreground rounded-xl font-bold text-xs hover:text-foreground"
                   onClick={handleCancelAddSport}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   Cancel
-                </motion.button>
-                <motion.button
+                </button>
+                <button
                   type="button"
-                  className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all text-sm font-medium"
+                  className="px-5 py-2.5 premium-gradient-purple text-white rounded-xl font-bold text-xs shadow-lg shadow-purple-500/20 hover:opacity-90"
                   onClick={handleSaveNewSport}
                   disabled={isSavingSport}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
-                  {isSavingSport ? 'Saving...' : 'Save Sport'}
-                </motion.button>
+                  {isSavingSport ? 'Saving...' : 'Save Sport Profile'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -641,7 +509,7 @@ export default function SportsSettingsPanel() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   handleCancelDelete();
@@ -653,43 +521,39 @@ export default function SportsSettingsPanel() {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+                className="bg-slate-955/95 dark:bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-foreground p-6 space-y-4"
               >
                 {/* Modal Header */}
-                <div className="px-6 py-4 border-b border-slate-200">
-                  <h3 className="text-lg font-semibold text-slate-800">Delete Sport</h3>
+                <div className="border-b border-white/5 pb-3">
+                  <h3 className="text-sm font-extrabold uppercase tracking-wider text-foreground">Delete Sport Profile</h3>
                 </div>
 
                 {/* Modal Body */}
-                <div className="px-6 py-4">
-                  <p className="text-slate-600 mb-2">
-                    Are you sure you want to delete <span className="font-semibold text-slate-800">"{sportToDelete.name}"</span>?
+                <div className="text-xs font-semibold text-muted-foreground">
+                  <p>
+                    Are you sure you want to delete <span className="font-extrabold text-foreground">"{sportToDelete.name}"</span>?
                   </p>
-                  <p className="text-slate-400 text-sm">This action cannot be undone.</p>
+                  <p className="text-[10px] text-red-500/80 font-bold mt-1 uppercase tracking-wider">This action cannot be undone.</p>
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
-                  <motion.button
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+                  <button
                     type="button"
-                    className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all text-sm font-medium"
+                    className="px-4 py-2.5 super-glass border border-white/15 dark:border-white/5 text-muted-foreground rounded-xl font-bold text-xs"
                     onClick={handleCancelDelete}
                     disabled={isDeletingSport}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
                     Cancel
-                  </motion.button>
-                  <motion.button
+                  </button>
+                  <button
                     type="button"
-                    className="px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all text-sm font-medium"
+                    className="px-5 py-2.5 bg-red-500 hover:bg-red-650 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/25"
                     onClick={handleConfirmDelete}
                     disabled={isDeletingSport}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
-                    {isDeletingSport ? 'Deleting...' : 'Delete'}
-                  </motion.button>
+                    {isDeletingSport ? 'Deleting...' : 'Confirm Delete'}
+                  </button>
                 </div>
               </motion.div>
             </motion.div>

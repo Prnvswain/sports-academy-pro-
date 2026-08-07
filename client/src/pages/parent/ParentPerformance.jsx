@@ -9,7 +9,7 @@ import { Activity, Target, Brain, CalendarCheck, TrendingUp, Trophy, Medal, Mess
 
 export default function ParentPerformance() {
   const navigate = useNavigate();
-  const { activeStudent, loading: studentLoading } = useActiveStudent();
+  const { activeStudent, loading: studentLoading, students, switchStudent } = useActiveStudent();
   const [studentDashboardData, setStudentDashboardData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [availableAttributes, setAvailableAttributes] = useState([]);
@@ -50,6 +50,7 @@ export default function ParentPerformance() {
       setMessage({ text: 'Failed to load student dashboard', type: 'error' });
     } finally {
       setLoadingDashboard(false);
+      setLoading(false);
     }
   };
 
@@ -59,8 +60,10 @@ export default function ParentPerformance() {
       console.log('[ParentPerformance] Loading dashboard for student:', activeStudent.student_id);
       loadStudentDashboard(activeStudent.student_id);
       setSelectedAssessment(null);
+    } else if (!studentLoading) {
+      setLoading(false);
     }
-  }, [activeStudent]);
+  }, [activeStudent, studentLoading]);
 
   const calculateAverageRating = (scores) => {
     if (!scores || scores.length === 0) return 0;
@@ -184,14 +187,14 @@ export default function ParentPerformance() {
         </div>
 
         {/* Child Selection buttons */}
-        {children.length > 1 && (
+        {students && students.length > 1 && (
           <div className="bg-muted/40 p-1.5 rounded-xl border border-border shadow-inner flex items-center gap-1 self-start sm:self-center">
-            {children.map(child => (
+            {students.map(child => (
               <button
                 key={child.student_id}
-                onClick={() => setSelectedChild(child)}
+                onClick={() => switchStudent(child)}
                 className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                  selectedChild?.student_id === child.student_id
+                  activeStudent?.student_id === child.student_id
                     ? 'bg-card text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -214,7 +217,7 @@ export default function ParentPerformance() {
         <div className="py-20 flex justify-center">
           <Loader />
         </div>
-      ) : selectedChild && studentDashboardData ? (
+      ) : activeStudent && studentDashboardData ? (
         <div className="space-y-6">
           {/* Metrics summary row */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">

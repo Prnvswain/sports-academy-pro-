@@ -28,6 +28,10 @@ function unwrap(response) {
 }
 
 export function getAdminToken() {
+  const impToken = localStorage.getItem('impersonation_token');
+  if (impToken && impToken !== 'null' && impToken !== 'undefined' && impToken !== '""') {
+    return impToken;
+  }
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   // 🎯 FIX: Check for invalid token values
   if (!token || token === 'null' || token === 'undefined' || token === '""') {

@@ -1037,24 +1037,28 @@ export default function CoachSportsKitsPage() {
 
   return (
     <div className="space-y-6 w-full max-w-7xl mx-auto font-sans">
-      {/* Page Header */}
+      {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/50 dark:border-slate-800/50 pb-5"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
       >
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-            <span>Inventory</span>
-            <span className="opacity-40">/</span>
-            <span className="font-semibold text-foreground">Sports Kits</span>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+            <Package className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Sports Kits</h1>
-          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">
-            View assigned kits · Distribute to students · Track payments
-          </p>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Sports Kits
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              View assigned kits · Distribute to students · Track payments
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl px-3 py-2">
+
+        <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl px-3 py-2 shrink-0">
           <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0" />
           <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">View-only · Admin-assigned kits</span>
         </div>

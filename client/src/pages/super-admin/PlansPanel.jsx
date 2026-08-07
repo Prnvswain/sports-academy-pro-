@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Check, Edit, X, Trash2, ShieldAlert, Sparkles, Loader2, Save, 
-  Settings, Layers, Users, Trophy, DollarSign, Calendar 
+  Settings, Layers, Info
 } from 'lucide-react';
-import { superAdminGet, superAdminPost, superAdminPut, superAdminDelete, superAdminPatch } from '../../api/client';
+import { superAdminGet, superAdminPost, superAdminPut, superAdminDelete } from '../../api/client';
 
 export default function PlansPanel() {
   const [activeTab, setActiveTab] = useState('plans');
@@ -185,22 +185,22 @@ export default function PlansPanel() {
     switch (status?.toLowerCase()) {
       case 'active':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-emerald-500/10 text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             ACTIVE
           </span>
         );
       case 'disabled':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-red-500/10 text-red-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-            SUSPENDED
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-red-500/10 text-red-500 border border-red-500/25">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+            DISABLED
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-slate-800 text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/25">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
             {status?.toUpperCase() || 'UNKNOWN'}
           </span>
         );
@@ -208,20 +208,23 @@ export default function PlansPanel() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto w-full overflow-x-hidden">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Layers className="text-lime-400 h-6 w-6" /> Platform Pricing Matrix
+      <div className="super-glass p-6 rounded-2xl border border-white/10 dark:border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
+        <div className="space-y-1">
+          <span className="premium-gradient-purple text-white text-[10px] font-extrabold uppercase px-3 py-1 rounded-full tracking-widest shadow-lg shadow-purple-500/20">
+            Billing Architecture
+          </span>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight mt-2 flex items-center gap-2">
+            <Layers className="text-purple-500 h-6 w-6 animate-pulse" /> Platform Pricing Matrix
           </h1>
-          <p className="text-slate-400 mt-1 text-sm">Configure subscription plans, pricing, limits, and system trial policies.</p>
+          <p className="text-muted-foreground text-xs font-semibold">Configure subscription plans, pricing, limits, and platform trial policies.</p>
         </div>
         
         {activeTab === 'plans' && (
           <button
             onClick={handleOpenCreate}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-950 bg-lime-400 rounded-xl hover:bg-lime-300 transition-all shadow-md shadow-lime-400/10 shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white premium-gradient-purple rounded-xl hover:opacity-90 shadow-lg shadow-purple-500/20 shrink-0 transition-transform hover:scale-[1.02]"
           >
             <Plus className="w-4 h-4" />
             Create Plan
@@ -230,19 +233,19 @@ export default function PlansPanel() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-850 gap-6">
+      <div className="flex border-b border-white/5 gap-6 text-xs font-bold uppercase tracking-wider">
         <button
           onClick={() => setActiveTab('plans')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'plans' ? 'border-lime-400 text-lime-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'plans' ? 'border-purple-500 text-purple-500' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <Layers className="h-4 w-4" /> SaaS Subscription Plans ({plans.length})
         </button>
         <button
           onClick={() => setActiveTab('trials')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'trials' ? 'border-lime-400 text-lime-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'trials' ? 'border-purple-500 text-purple-500' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <Settings className="h-4 w-4" /> Free Trial Settings
@@ -251,7 +254,7 @@ export default function PlansPanel() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-lime-400" />
+          <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
         </div>
       ) : (
         <div className="space-y-6">
@@ -262,39 +265,39 @@ export default function PlansPanel() {
               {plans.map((plan) => (
                 <div 
                   key={plan.id}
-                  className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6 flex flex-col justify-between hover:border-slate-750 hover:bg-slate-900/60 transition-all shadow-md shadow-slate-950/20"
+                  className="super-glass rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-xl transition-all duration-300 relative overflow-hidden"
                 >
                   <div className="space-y-4">
                     <div className="flex justify-between items-start gap-2">
                       <div>
-                        <h3 className="font-extrabold text-white text-lg tracking-tight">{plan.name}</h3>
+                        <h3 className="font-extrabold text-foreground text-lg tracking-tight">{plan.name}</h3>
                         {plan.highlights?.[0] && (
-                          <span className="text-xs text-lime-400 font-semibold">{plan.highlights[0]}</span>
+                          <span className="text-xs text-purple-500 dark:text-purple-400 font-extrabold">{plan.highlights[0]}</span>
                         )}
                       </div>
                       {getStatusBadge(plan.status)}
                     </div>
 
                     <div className="py-2">
-                      <p className="text-3xl font-extrabold text-white">₹{plan.price}</p>
-                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Billed {plan.duration}</p>
+                      <p className="text-3xl font-extrabold text-foreground">₹{plan.price}</p>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">Billed {plan.duration}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800 text-xs">
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5 text-xs font-semibold text-muted-foreground">
                       <div>
-                        <p className="text-slate-500 uppercase tracking-wider font-semibold">Coaches Limit</p>
-                        <p className="text-white font-extrabold text-sm mt-1">{plan.teacher_limit || 'Unlimited'}</p>
+                        <p className="uppercase tracking-wider text-[10px] font-bold">Coaches Limit</p>
+                        <p className="text-foreground font-extrabold text-sm mt-1">{plan.teacher_limit || 'Unlimited'}</p>
                       </div>
                       <div>
-                        <p className="text-slate-500 uppercase tracking-wider font-semibold">Students Limit</p>
-                        <p className="text-white font-extrabold text-sm mt-1">{plan.student_limit || 'Unlimited'}</p>
+                        <p className="uppercase tracking-wider text-[10px] font-bold">Students Limit</p>
+                        <p className="text-foreground font-extrabold text-sm mt-1">{plan.student_limit || 'Unlimited'}</p>
                       </div>
                     </div>
 
-                    <ul className="space-y-1.5 pt-4 border-t border-slate-800 text-xs text-slate-400">
+                    <ul className="space-y-1.5 pt-4 border-t border-white/5 text-xs text-muted-foreground font-semibold">
                       {plan.features?.map((f, i) => (
                         <li key={i} className="flex items-center gap-2">
-                          <Check className="h-3.5 w-3.5 text-lime-400" />
+                          <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                           <span>{f}</span>
                         </li>
                       ))}
@@ -303,7 +306,7 @@ export default function PlansPanel() {
 
                   <button
                     onClick={() => handleOpenEdit(plan)}
-                    className="w-full mt-6 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                    className="w-full mt-6 py-2.5 bg-slate-900 text-white dark:bg-white dark:text-slate-950 rounded-xl hover:opacity-90 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-black/10 transition-all"
                   >
                     <Edit className="h-3.5 w-3.5" />
                     Modify Plan Specifications
@@ -315,52 +318,52 @@ export default function PlansPanel() {
 
           {/* Tab 2: Trial Settings */}
           {activeTab === 'trials' && (
-            <div className="max-w-2xl bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-md">
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Sparkles className="text-lime-400 h-5 w-5 animate-pulse" /> Trial Configuration Dashboard
+            <div className="max-w-2xl super-glass p-6 rounded-2xl shadow-xl">
+              <h2 className="text-base font-extrabold text-foreground mb-4 flex items-center gap-2">
+                <Sparkles className="text-purple-500 h-5 w-5 animate-pulse" /> Trial Configuration Policy
               </h2>
               <form onSubmit={handleUpdateTrialSettings} className="space-y-5">
-                <div className="flex items-center gap-3 py-2 border-b border-slate-850">
+                <div className="flex items-center gap-3 py-3 border-b border-white/5">
                   <input
                     type="checkbox"
                     id="trial_enabled"
                     checked={trialSettings.enabled}
                     onChange={e => setTrialSettings(prev => ({ ...prev, enabled: e.target.checked }))}
-                    className="h-4 w-4 text-lime-500 bg-slate-950 rounded border-slate-800 focus:ring-0 cursor-pointer"
+                    className="h-4 w-4 text-purple-600 bg-white/5 border border-white/10 dark:border-white/5 rounded focus:ring-0 cursor-pointer shadow-inner"
                   />
-                  <label htmlFor="trial_enabled" className="text-sm font-bold text-slate-200 select-none cursor-pointer">
+                  <label htmlFor="trial_enabled" className="text-xs font-bold text-foreground select-none cursor-pointer">
                     Enable Default Free Trials for New Academy Registrations
                   </label>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-350 mb-1.5">Default Trial Length (Days)</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Default Trial Length (Days)</label>
                     <input
                       type="number"
                       required
                       min="1"
                       value={trialSettings.duration_days}
                       onChange={e => setTrialSettings(prev => ({ ...prev, duration_days: parseInt(e.target.value, 10) || '' }))}
-                      className="w-full bg-slate-950 border border-slate-850 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-355 mb-1.5">Target Trial Plan</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Target Trial Plan</label>
                     <select
                       value={trialSettings.default_plan_id}
                       onChange={e => setTrialSettings(prev => ({ ...prev, default_plan_id: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-850 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     >
                       {plans.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id} className="text-slate-900">{p.name}</option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-slate-850">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-450">Active Trial Constraints</h4>
+                <div className="space-y-3 pt-3 border-t border-white/5">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Active Trial Constraints</h4>
                   <div className="flex flex-col gap-2.5">
                     <div className="flex items-center gap-3">
                       <input
@@ -371,9 +374,9 @@ export default function PlansPanel() {
                           ...prev,
                           restrictions: { ...prev.restrictions, limit_coaches: e.target.checked }
                         }))}
-                        className="h-4 w-4 text-lime-500 bg-slate-950 rounded border-slate-800 focus:ring-0 cursor-pointer"
+                        className="h-4 w-4 text-purple-600 bg-white/5 border border-white/10 dark:border-white/5 rounded focus:ring-0 cursor-pointer shadow-inner"
                       />
-                      <label htmlFor="limit_coaches" className="text-xs font-semibold text-slate-300 select-none cursor-pointer">
+                      <label htmlFor="limit_coaches" className="text-xs font-bold text-muted-foreground select-none cursor-pointer">
                         Restrict Coaches addition past active plan limit
                       </label>
                     </div>
@@ -386,9 +389,9 @@ export default function PlansPanel() {
                           ...prev,
                           restrictions: { ...prev.restrictions, limit_students: e.target.checked }
                         }))}
-                        className="h-4 w-4 text-lime-500 bg-slate-950 rounded border-slate-800 focus:ring-0 cursor-pointer"
+                        className="h-4 w-4 text-purple-600 bg-white/5 border border-white/10 dark:border-white/5 rounded focus:ring-0 cursor-pointer shadow-inner"
                       />
-                      <label htmlFor="limit_students" className="text-xs font-semibold text-slate-300 select-none cursor-pointer">
+                      <label htmlFor="limit_students" className="text-xs font-bold text-muted-foreground select-none cursor-pointer">
                         Restrict Students addition past active plan limit
                       </label>
                     </div>
@@ -398,7 +401,7 @@ export default function PlansPanel() {
                 <button
                   type="submit"
                   disabled={submitLoading}
-                  className="w-full mt-4 py-3 bg-lime-400 hover:bg-lime-300 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+                  className="w-full mt-4 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-black/10"
                 >
                   {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save Policy Configuration
@@ -419,7 +422,7 @@ export default function PlansPanel() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-45"
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-45"
               onClick={handleCloseDrawer}
             />
 
@@ -429,38 +432,38 @@ export default function PlansPanel() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-slate-900 border-l border-slate-800 p-6 shadow-2xl flex flex-col justify-between"
+              className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-slate-955/95 dark:bg-slate-900/95 backdrop-blur-3xl border-l border-white/10 p-6 shadow-2xl flex flex-col justify-between"
             >
               {/* Header */}
-              <div className="flex justify-between items-start border-b border-slate-800 pb-4 shrink-0">
+              <div className="flex justify-between items-start border-b border-white/10 pb-4 shrink-0">
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">
+                  <h3 className="text-lg font-extrabold text-foreground">
                     {selectedPlan ? `Edit Specifications: ${selectedPlan.name}` : 'Create Platform Plan'}
                   </h3>
-                  <p className="text-slate-450 text-xs mt-0.5">Customize pricing thresholds, highlights, limits, and capabilities.</p>
+                  <p className="text-muted-foreground text-xs font-semibold mt-0.5">Customize pricing thresholds, highlights, limits, and capabilities.</p>
                 </div>
-                <button onClick={handleCloseDrawer} className="text-slate-400 hover:text-white">
+                <button onClick={handleCloseDrawer} className="text-muted-foreground hover:text-foreground">
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {/* Form container */}
-              <form onSubmit={planFormSubmit => handlePlanFormSubmit(planFormSubmit)} className="flex-1 overflow-y-auto py-6 space-y-4 [&::-webkit-scrollbar]:hidden">
+              <form onSubmit={e => handlePlanFormSubmit(e)} className="flex-1 overflow-y-auto py-6 space-y-4 [&::-webkit-scrollbar]:hidden text-foreground">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Plan Name</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Plan Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Pro Academy Track"
                     value={planForm.name}
                     onChange={e => setPlanForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Price (INR, ₹)</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Price (INR, ₹)</label>
                     <input
                       type="number"
                       required
@@ -468,114 +471,109 @@ export default function PlansPanel() {
                       placeholder="e.g. 790"
                       value={planForm.price}
                       onChange={e => setPlanForm(prev => ({ ...prev, price: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Billing Period</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Billing Period</label>
                     <select
                       value={planForm.duration}
                       onChange={e => setPlanForm(prev => ({ ...prev, duration: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     >
-                      <option value="Monthly">Monthly</option>
-                      <option value="Quarterly">Quarterly</option>
-                      <option value="Half-Yearly">Half-Yearly</option>
-                      <option value="Yearly">Yearly</option>
+                      <option value="Monthly" className="text-slate-900">Monthly</option>
+                      <option value="Quarterly" className="text-slate-900">Quarterly</option>
+                      <option value="Half-Yearly" className="text-slate-900">Half-Yearly</option>
+                      <option value="Yearly" className="text-slate-900">Yearly</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Coaches Limit</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Coaches Limit</label>
                     <input
                       type="number"
                       placeholder="Leave blank for unlimited"
                       value={planForm.teacher_limit}
                       onChange={e => setPlanForm(prev => ({ ...prev, teacher_limit: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Students Limit</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Students Limit</label>
                     <input
                       type="number"
                       placeholder="Leave blank for unlimited"
                       value={planForm.student_limit}
                       onChange={e => setPlanForm(prev => ({ ...prev, student_limit: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Highlights (Comma separated)</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Highlights (Comma separated)</label>
                   <input
                     type="text"
                     placeholder="e.g. Recommended for growing academies, Save 10%"
                     value={planForm.highlights}
                     onChange={e => setPlanForm(prev => ({ ...prev, highlights: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Features Included (Comma separated)</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Features List (Comma separated)</label>
                   <textarea
                     rows="3"
-                    placeholder="e.g. Smart batch scheduling tracking, Automated email notification systems, Standard portal access support"
+                    placeholder="e.g. Smart batch scheduling tracking, Automated email notification systems"
                     value={planForm.features}
                     onChange={e => setPlanForm(prev => ({ ...prev, features: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500 resize-none"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Package Status</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Plan Status</label>
                   <select
                     value={planForm.status}
                     onChange={e => setPlanForm(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full bg-slate-955 border border-slate-800 rounded-xl py-2 px-3.5 text-xs text-slate-200 focus:outline-none focus:border-lime-500"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2 px-3.5 text-xs text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   >
-                    <option value="active">Active State</option>
-                    <option value="disabled">Suspended State</option>
+                    <option value="active" className="text-slate-900">Active</option>
+                    <option value="disabled" className="text-slate-900">Disabled</option>
                   </select>
                 </div>
-
-                {/* Submit button inside overflow wrapper to avoid block */}
-                <button type="submit" className="hidden" id="submit-hidden-btn" />
               </form>
 
-              {/* Drawer Footer */}
-              <div className="border-t border-slate-800 pt-4 mt-4 shrink-0 flex gap-2">
+              {/* Drawer footer */}
+              <div className="border-t border-white/10 pt-4 mt-4 shrink-0 flex gap-2">
                 {selectedPlan && (
                   <button
                     type="button"
                     onClick={handleDeletePlan}
                     disabled={submitLoading}
-                    className="px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-505 hover:text-white hover:bg-red-500 rounded-xl font-bold text-xs transition-all shrink-0 flex items-center justify-center"
-                    title="Delete Plan"
+                    className="w-28 py-2.5 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
                   </button>
                 )}
                 <button
-                  type="button"
-                  onClick={() => document.getElementById('submit-hidden-btn').click()}
+                  type="submit"
                   disabled={submitLoading}
-                  className="flex-1 py-3 bg-lime-400 hover:bg-lime-300 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50"
+                  onClick={handlePlanFormSubmit}
+                  className="flex-1 py-2.5 premium-gradient-purple text-white rounded-xl hover:opacity-90 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-500/20 transition-all"
                 >
-                  {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  {selectedPlan ? 'Save plan changes' : 'Create Pricing Plan'}
+                  {submitLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {selectedPlan ? 'Save plan changes' : 'Create new plan'}
                 </button>
               </div>
-
             </motion.div>
           </>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

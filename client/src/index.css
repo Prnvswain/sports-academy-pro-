@@ -264,3 +264,104 @@
     @apply border border-border/50 shadow-lg;
   }
 }
+
+/* 🎯 Super Admin Portal Light Mode CSS Overrides */
+:root[data-theme='light'] .super-admin-portal .bg-slate-900\/40,
+:root[data-theme='light'] .super-admin-portal .bg-slate-900\/50,
+:root[data-theme='light'] .super-admin-portal .bg-slate-900\/60,
+:root[data-theme='light'] .super-admin-portal .bg-slate-950,
+:root[data-theme='light'] .super-admin-portal .bg-slate-955 {
+  background-color: rgb(255 255 255 / 0.85) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal .border-slate-800,
+:root[data-theme='light'] .super-admin-portal .border-slate-850,
+:root[data-theme='light'] .super-admin-portal .border-slate-700,
+:root[data-theme='light'] .super-admin-portal .border-slate-800\/80,
+:root[data-theme='light'] .super-admin-portal .border-slate-850\/50,
+:root[data-theme='light'] .super-admin-portal .border-slate-200 {
+  border-color: rgb(226 232 240 / 0.85) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal .text-white,
+:root[data-theme='light'] .super-admin-portal .text-slate-100,
+:root[data-theme='light'] .super-admin-portal .text-slate-200,
+:root[data-theme='light'] .super-admin-portal .text-slate-800 {
+  color: rgb(15 23 42) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal .text-slate-300,
+:root[data-theme='light'] .super-admin-portal .text-slate-350,
+:root[data-theme='light'] .super-admin-portal .text-slate-400,
+:root[data-theme='light'] .super-admin-portal .text-slate-450,
+:root[data-theme='light'] .super-admin-portal .text-slate-555,
+:root[data-theme='light'] .super-admin-portal .text-slate-500 {
+  color: rgb(71 85 105) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal input[type="text"],
+:root[data-theme='light'] .super-admin-portal input[type="number"],
+:root[data-theme='light'] .super-admin-portal select,
+:root[data-theme='light'] .super-admin-portal textarea {
+  background-color: rgb(255 255 255) !important;
+  color: rgb(15 23 42) !important;
+  border-color: rgb(203 213 225) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal .bg-slate-800 {
+  background-color: rgb(241 245 249) !important;
+  color: rgb(15 23 42) !important;
+  border-color: rgb(226 232 240) !important;
+}
+:root[data-theme='light'] .super-admin-portal .bg-slate-800:hover {
+  background-color: rgb(226 232 240) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal .text-lime-400,
+:root[data-theme='light'] .super-admin-portal .text-emerald-400 {
+  color: rgb(16 185 129) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal .fixed.bg-slate-900 {
+  background-color: rgb(255 255 255) !important;
+  border-left-color: rgb(226 232 240) !important;
+}
+
+:root[data-theme='light'] .super-admin-portal ::-webkit-scrollbar {
+  display: none;
+}
+
+/* 🎯 Premium Super Admin SaaS Custom Utility Classes */
+.super-glass {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme='light'] .super-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.premium-gradient-purple {
+  background: linear-gradient(135deg, #7C3AED 0%, #3B82F6 50%, #EC4899 100%);
+}
+
+.premium-gradient-cyan {
+  background: linear-gradient(135deg, #06B6D4 0%, #3B82F6 50%, #8B5CF6 100%);
+}
+
+.premium-gradient-emerald {
+  background: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #3B82F6 100%);
+}
+
+.premium-gradient-orange {
+  background: linear-gradient(135deg, #F97316 0%, #F59E0B 50%, #EC4899 100%);
+}
+
+.text-glow-premium {
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}

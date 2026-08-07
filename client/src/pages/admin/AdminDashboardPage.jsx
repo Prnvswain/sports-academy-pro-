@@ -106,7 +106,7 @@ export default function AnalyticsPanel() {
     localStorage.removeItem('impersonated_academy_name');
 
     if (originalToken) {
-      localStorage.setItem('super_admin_token', originalToken);
+      localStorage.setItem('sams_super_admin_token', originalToken);
       window.location.href = '/super-admin/dashboard';
     } else {
       window.location.href = '/super-admin/login';

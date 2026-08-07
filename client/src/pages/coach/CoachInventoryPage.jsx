@@ -144,30 +144,35 @@ export default function CoachInventoryPage() {
   return (
     <div className="w-full bg-transparent font-sans p-2 space-y-6 text-left">
       
-      {/* Top Bar Header Card */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm"
+      {/* Header */}
+      <motion.div
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
       >
-        <div className="flex items-center gap-3 text-left">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-            <Package className="h-5 w-5" />
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+            <Package className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-foreground tracking-tight">Equipment & Inventory</h2>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Equipment & Inventory
+            </h1>
+            <p className="text-muted-foreground mt-1">
               View assigned gear or submit repair and replacement request tickets to administration.
             </p>
           </div>
         </div>
-        
-        <button
-          onClick={handleOpenRequest}
-          className="btn btn-primary text-xs flex items-center gap-1.5 self-end sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Request Gear / Action
-        </button>
+
+        <div className="flex items-center gap-3 relative z-10 shrink-0">
+          <button
+            onClick={handleOpenRequest}
+            className="btn btn-primary text-xs flex items-center gap-1.5 py-2.5 px-4 font-black uppercase tracking-wider"
+          >
+            <Plus className="w-4 h-4" /> Request Gear / Action
+          </button>
+        </div>
       </motion.div>
 
       {/* Message Notifications Alert Banner */}

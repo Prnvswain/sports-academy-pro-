@@ -144,39 +144,42 @@ export default function SuperAdminPaymentsPanel() {
   });
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <CreditCard className="text-lime-400 h-6 w-6" /> Platform Payments
+      <div className="super-glass p-6 rounded-2xl border border-white/10 dark:border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xl">
+        <div className="space-y-1">
+          <span className="premium-gradient-purple text-white text-[10px] font-extrabold uppercase px-3 py-1 rounded-full tracking-widest shadow-lg shadow-purple-500/20">
+            Billing & Invoices
+          </span>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight mt-2 flex items-center gap-2">
+            <CreditCard className="text-purple-500 h-6 w-6 animate-pulse" /> Platform Payments
           </h1>
-          <p className="text-slate-400 mt-1 text-sm">Approve subscription transactions, customize merchant gateway configurations, and manage promotional coupon codes.</p>
+          <p className="text-muted-foreground text-xs font-semibold">Approve subscription transactions, customize merchant gateway configurations, and manage promotional coupon codes.</p>
         </div>
       </div>
 
       {/* Tabs Layout */}
-      <div className="flex border-b border-slate-800 gap-6">
+      <div className="flex border-b border-white/5 gap-6 text-xs font-bold uppercase tracking-wider">
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'transactions' ? 'border-lime-400 text-lime-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'transactions' ? 'border-purple-500 text-purple-500' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <CreditCard className="h-4 w-4" /> Transactions Log ({transactions.length})
         </button>
         <button
           onClick={() => setActiveTab('settings')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'settings' ? 'border-lime-400 text-lime-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'settings' ? 'border-purple-500 text-purple-500' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <Settings className="h-4 w-4" /> Gateway Config
         </button>
         <button
           onClick={() => setActiveTab('coupons')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'coupons' ? 'border-lime-400 text-lime-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'coupons' ? 'border-purple-500 text-purple-500' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           <Ticket className="h-4 w-4" /> Coupon Manager ({settings.coupons?.length || 0})
@@ -186,8 +189,8 @@ export default function SuperAdminPaymentsPanel() {
       {/* Main View Grid */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="h-10 w-10 animate-spin text-lime-400" />
-          <p className="text-slate-400 text-sm">Loading billing records...</p>
+          <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
+          <p className="text-muted-foreground text-sm font-bold animate-pulse">Loading billing records...</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -197,35 +200,34 @@ export default function SuperAdminPaymentsPanel() {
               {/* Search & Filters */}
               <div className="flex flex-col sm:flex-row gap-4 items-center">
                 <div className="relative w-full sm:flex-1">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
                     placeholder="Search by academy name, plan, checkout reference or transaction ID..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500/50"
+                    className="w-full super-glass border border-white/10 dark:border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:border-purple-500/50 shadow-inner"
                   />
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                  <Filter className="h-4 w-4 text-slate-400 self-center hidden sm:inline" />
                   <select
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value)}
-                    className="w-full sm:w-44 bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-slate-300 focus:outline-none focus:border-lime-500/50"
+                    className="w-full sm:w-44 super-glass border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-3 text-sm text-foreground focus:outline-none focus:border-purple-500/50 shadow-inner"
                   >
-                    <option value="ALL">All Statuses</option>
-                    <option value="PENDING">Pending Review</option>
-                    <option value="COMPLETED">Approved</option>
-                    <option value="REJECTED">Declined / Failed</option>
+                    <option value="ALL" className="text-slate-900">All Statuses</option>
+                    <option value="PENDING" className="text-slate-900">Pending Review</option>
+                    <option value="COMPLETED" className="text-slate-900">Approved</option>
+                    <option value="REJECTED" className="text-slate-900">Declined / Failed</option>
                   </select>
                 </div>
               </div>
 
               {/* Transactions Table */}
-              <div className="bg-slate-900/40 rounded-2xl border border-slate-800 overflow-x-auto">
+              <div className="super-glass rounded-2xl border border-white/10 dark:border-white/5 overflow-x-auto shadow-xl">
                 <table className="w-full border-collapse text-left min-w-[800px]">
                   <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-900/20">
+                    <tr className="border-b border-white/5 text-muted-foreground text-[10px] font-bold uppercase tracking-wider bg-white/5">
                       <th className="p-4">Academy ID / Name</th>
                       <th className="p-4">Selected Plan</th>
                       <th className="p-4">Reference & Method</th>
@@ -238,47 +240,47 @@ export default function SuperAdminPaymentsPanel() {
                   <tbody>
                     {filteredTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-500 text-sm">
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground font-semibold text-sm">
                           No transaction records found matching filters.
                         </td>
                       </tr>
                     ) : (
                       filteredTransactions.map(tx => (
-                        <tr key={tx.id} className="border-b border-slate-850 hover:bg-slate-900/20 transition-all text-sm text-slate-300">
+                        <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5 transition-all text-xs font-semibold text-muted-foreground">
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              <Building className="h-4 w-4 text-slate-500" />
+                              <Building className="h-4 w-4 text-purple-500" />
                               <div>
-                                <h4 className="font-bold text-white leading-tight">{tx.academy_name}</h4>
-                                <span className="text-xs text-slate-500">ID: {tx.academy_id}</span>
+                                <h4 className="font-extrabold text-foreground leading-tight text-xs">{tx.academy_name}</h4>
+                                <span className="text-[10px] text-muted-foreground/60 font-bold">ID: {tx.academy_id}</span>
                               </div>
                             </div>
                           </td>
                           <td className="p-4">
-                            <span className="bg-slate-800 text-slate-200 px-2.5 py-1 rounded-full text-xs font-semibold">
+                            <span className="premium-gradient-purple text-white px-2.5 py-1 rounded-full text-[10px] font-bold uppercase">
                               {tx.plan_name}
                             </span>
                           </td>
                           <td className="p-4">
                             <div>
-                              <p className="font-semibold text-slate-200">{tx.transaction_id || 'N/A'}</p>
-                              <p className="text-xs text-slate-500">Method: {tx.payment_method} {tx.coupon_code && `• Code: ${tx.coupon_code}`}</p>
+                              <p className="font-bold text-foreground">{tx.transaction_id || 'N/A'}</p>
+                              <p className="text-[10px] text-muted-foreground/60 font-bold">Method: {tx.payment_method} {tx.coupon_code && `• Code: ${tx.coupon_code}`}</p>
                             </div>
                           </td>
-                          <td className="p-4 font-bold text-white">₹{tx.amount}</td>
-                          <td className="p-4 text-slate-400 text-xs">
+                          <td className="p-4 font-extrabold text-foreground text-sm">₹{tx.amount}</td>
+                          <td className="p-4 text-muted-foreground text-xs">
                             {new Date(tx.created_at).toLocaleString()}
                           </td>
                           <td className="p-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
-                              tx.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400' :
-                              tx.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400' :
-                              'bg-red-500/10 text-red-400'
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                              tx.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/25' :
+                              tx.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/25' :
+                              'bg-red-500/10 text-red-500 border-red-500/25'
                             }`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${
-                                tx.status === 'COMPLETED' ? 'bg-emerald-400' :
-                                tx.status === 'PENDING' ? 'bg-amber-400' :
-                                'bg-red-400'
+                                tx.status === 'COMPLETED' ? 'bg-emerald-500' :
+                                tx.status === 'PENDING' ? 'bg-amber-500' :
+                                'bg-red-500'
                               }`} />
                               {tx.status}
                             </span>
@@ -288,21 +290,21 @@ export default function SuperAdminPaymentsPanel() {
                               <div className="flex justify-end gap-2">
                                 <button
                                   onClick={() => handleUpdateStatus(tx.id, 'COMPLETED')}
-                                  className="p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all"
+                                  className="p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg hover:bg-emerald-500/25 transition-all shadow-sm"
                                   title="Approve Transaction"
                                 >
                                   <Check className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => handleUpdateStatus(tx.id, 'REJECTED')}
-                                  className="p-1.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg hover:bg-red-500/20 transition-all"
+                                  className="p-1.5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg hover:bg-red-500/25 transition-all shadow-sm"
                                   title="Reject Transaction"
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-xs text-slate-500">Verified</span>
+                              <span className="text-[10px] font-bold text-muted-foreground/60 uppercase">Verified</span>
                             )}
                           </td>
                         </tr>
@@ -316,60 +318,60 @@ export default function SuperAdminPaymentsPanel() {
 
           {/* Tab 2: Gateway Configuration Settings */}
           {activeTab === 'settings' && (
-            <div className="max-w-2xl bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-md">
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <QrCode className="text-lime-400 h-5 w-5" /> Merchant UPI & QR Setup
+            <div className="max-w-2xl super-glass p-6 rounded-2xl shadow-xl">
+              <h2 className="text-base font-extrabold text-foreground mb-4 flex items-center gap-2">
+                <QrCode className="text-purple-500 h-5 w-5 animate-pulse" /> Merchant UPI & QR Setup
               </h2>
               <form onSubmit={handleSaveSettings} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">UPI ID for Direct Transfers</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">UPI ID for Direct Transfers</label>
                   <input
                     type="text"
                     required
                     value={settings.upi_id}
                     onChange={e => setSettings(prev => ({ ...prev, upi_id: e.target.value }))}
                     placeholder="e.g. business@upi"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">Merchant Name</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Merchant Name</label>
                   <input
                     type="text"
                     required
                     value={settings.merchant_name}
                     onChange={e => setSettings(prev => ({ ...prev, merchant_name: e.target.value }))}
                     placeholder="e.g. Sports Academy Pro Pvt Ltd"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   />
                 </div>
-                <div className="flex items-center gap-3 py-2">
+                <div className="flex items-center gap-3 py-2 border-b border-white/5">
                   <input
                     type="checkbox"
                     id="qr_enabled"
                     checked={settings.qr_enabled}
                     onChange={e => setSettings(prev => ({ ...prev, qr_enabled: e.target.checked }))}
-                    className="h-4 w-4 text-lime-500 bg-slate-950 rounded border-slate-800 focus:ring-0"
+                    className="h-4 w-4 text-purple-600 bg-white/5 border border-white/10 dark:border-white/5 rounded focus:ring-0 cursor-pointer shadow-inner"
                   />
-                  <label htmlFor="qr_enabled" className="text-sm font-semibold text-slate-350 select-none cursor-pointer">
+                  <label htmlFor="qr_enabled" className="text-xs font-bold text-foreground select-none cursor-pointer">
                     Enable QR Image Display on Checkout Screen
                   </label>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">QR Image URL (Optional)</label>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">QR Image URL (Optional)</label>
                   <input
                     type="text"
                     value={settings.qr_image_url}
                     onChange={e => setSettings(prev => ({ ...prev, qr_image_url: e.target.value }))}
                     placeholder="e.g. https://imagekit.io/your_merchant_qr.jpg"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                    className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                   />
                 </div>
                 
                 <button
                   type="submit"
                   disabled={submitLoading}
-                  className="w-full py-3 bg-lime-400 hover:bg-lime-300 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="w-full py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-black/10"
                 >
                   {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   Save Gateway configuration
@@ -382,24 +384,24 @@ export default function SuperAdminPaymentsPanel() {
           {activeTab === 'coupons' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Add Coupon Form */}
-              <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-md h-fit">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Sparkles className="text-lime-400 h-5 w-5" /> Issue New Coupon
+              <div className="super-glass p-6 rounded-2xl shadow-xl h-fit">
+                <h3 className="text-base font-extrabold text-foreground mb-4 flex items-center gap-2">
+                  <Sparkles className="text-purple-500 h-5 w-5" /> Issue New Coupon
                 </h3>
                 <form onSubmit={handleCreateCoupon} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Promo Code</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Promo Code</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. METRIC50"
                       value={couponForm.code}
                       onChange={e => setCouponForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Discount Percentage (%)</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Discount Percentage (%)</label>
                     <input
                       type="number"
                       required
@@ -408,32 +410,32 @@ export default function SuperAdminPaymentsPanel() {
                       placeholder="e.g. 50"
                       value={couponForm.discount_percentage}
                       onChange={e => setCouponForm(prev => ({ ...prev, discount_percentage: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Max Discount Cap (₹, Optional)</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Max Discount Cap (₹, Optional)</label>
                     <input
                       type="number"
                       placeholder="e.g. 500"
                       value={couponForm.max_discount}
                       onChange={e => setCouponForm(prev => ({ ...prev, max_discount: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Valid Until (Optional)</label>
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Valid Until (Optional)</label>
                     <input
                       type="date"
                       value={couponForm.valid_until}
                       onChange={e => setCouponForm(prev => ({ ...prev, valid_until: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-200 focus:outline-none focus:border-lime-500"
+                      className="w-full bg-white/5 border border-white/10 dark:border-white/5 rounded-xl py-2.5 px-4 text-sm text-foreground focus:outline-none focus:border-purple-500 shadow-inner"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={submitLoading}
-                    className="w-full py-2.5 bg-slate-800 text-slate-200 border border-slate-700 font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50"
+                    className="w-full py-2.5 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 shadow-md animate-pulse-slow"
                   >
                     {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     Create Coupon Code
@@ -442,14 +444,14 @@ export default function SuperAdminPaymentsPanel() {
               </div>
 
               {/* Coupons List */}
-              <div className="lg:col-span-2 bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden backdrop-blur-md">
-                <div className="p-4 border-b border-slate-850 bg-slate-900/20">
-                  <h3 className="font-bold text-white text-sm">Active Promotions & Discount Coupons</h3>
+              <div className="lg:col-span-2 super-glass rounded-2xl overflow-hidden shadow-xl">
+                <div className="p-4 border-b border-white/5 bg-white/5">
+                  <h3 className="font-extrabold text-foreground text-sm">Active Promotions & Discount Coupons</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-900/20">
+                      <tr className="border-b border-white/5 text-muted-foreground text-[10px] font-bold uppercase tracking-wider bg-white/5">
                         <th className="p-4">Coupon Code</th>
                         <th className="p-4">Percentage</th>
                         <th className="p-4">Discount Cap</th>
@@ -461,28 +463,28 @@ export default function SuperAdminPaymentsPanel() {
                     <tbody>
                       {!settings.coupons || settings.coupons.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-500 text-sm">
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold text-sm">
                             No coupons created yet. Apply a coupon in the checkout flow to verify!
                           </td>
                         </tr>
                       ) : (
                         settings.coupons.map((c, idx) => (
-                          <tr key={idx} className="border-b border-slate-850 text-sm hover:bg-slate-900/10 text-slate-300">
-                            <td className="p-4 font-extrabold text-white tracking-wider flex items-center gap-2">
-                              <Ticket className="h-4 w-4 text-lime-400 shrink-0" /> {c.code}
+                          <tr key={idx} className="border-b border-white/5 text-xs font-semibold hover:bg-white/5 text-muted-foreground">
+                            <td className="p-4 font-extrabold text-foreground tracking-wider flex items-center gap-2">
+                              <Ticket className="h-4 w-4 text-purple-500 shrink-0" /> {c.code}
                             </td>
-                            <td className="p-4 font-bold text-slate-200">{c.discount_percentage}% OFF</td>
-                            <td className="p-4 text-slate-400">{c.max_discount ? `₹${c.max_discount}` : 'No Limit'}</td>
-                            <td className="p-4 text-slate-400 text-xs">{c.valid_until ? new Date(c.valid_until).toLocaleDateString() : 'Lifetime'}</td>
+                            <td className="p-4 font-extrabold text-foreground">{c.discount_percentage}% OFF</td>
+                            <td className="p-4 text-muted-foreground font-bold">{c.max_discount ? `₹${c.max_discount}` : 'No Limit'}</td>
+                            <td className="p-4 text-muted-foreground font-bold text-xs">{c.valid_until ? new Date(c.valid_until).toLocaleDateString() : 'Lifetime'}</td>
                             <td className="p-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${c.is_active ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/25' : 'bg-slate-200/50 text-slate-500 border-slate-300'}`}>
                                 {c.is_active ? 'Active' : 'Expired'}
                               </span>
                             </td>
                             <td className="p-4 text-right">
                               <button
                                 onClick={() => handleDeleteCoupon(c.code)}
-                                className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                                 title="Remove Coupon"
                               >
                                 <Trash2 className="h-4 w-4" />
