@@ -317,6 +317,19 @@ export const assignKit = async (academy_id, kit_id, data) => {
         }
       });
       feeId = fee.fee_id;
+    } else if (paymentMode === 'CREDIT') {
+      const currentStudent = await tx.student.findUnique({
+        where: { student_id: studentId }
+      });
+      const balance = parseFloat(currentStudent.advance_balance || 0);
+      if (balance < finalAmount) {
+        throw new Error(`Insufficient credit. Available balance: ₹${balance.toFixed(2)}`);
+      }
+      
+      await tx.student.update({
+        where: { student_id: studentId },
+        data: { advance_balance: { decrement: finalAmount } }
+      });
     } else {
       // Create Payment Record (Receipt) inside Accounts/Payment Records
       const year = new Date().getFullYear();
@@ -342,7 +355,7 @@ export const assignKit = async (academy_id, kit_id, data) => {
     }
 
     // 3. Create SportsKitAssignment
-    return await tx.sportsKitAssignment.create({
+    const assignment = await tx.sportsKitAssignment.create({
       data: {
         academy_id: academyId,
         kit_id: kitId,
@@ -350,7 +363,7 @@ export const assignKit = async (academy_id, kit_id, data) => {
         issue_date: issueDate,
         expected_return_date: data.expected_return_date ? new Date(data.expected_return_date) : null,
         status: 'ACTIVE',
-        payment_status: paymentMode === 'PAID' ? 'PAID' : 'UNPAID',
+        payment_status: (paymentMode === 'PAID' || paymentMode === 'CREDIT') ? 'PAID' : 'UNPAID',
         payment_mode: paymentMode,
         remarks: data.remarks || null,
         fee_id: feeId,
@@ -364,6 +377,22 @@ export const assignKit = async (academy_id, kit_id, data) => {
         student: true
       }
     });
+
+    if (paymentMode === 'CREDIT') {
+      await tx.studentCreditTransaction.create({
+        data: {
+          student_id: studentId,
+          academy_id: academyId,
+          amount: finalAmount,
+          type: 'USE',
+          reason: `Sports Kit Purchased: ${kit.name} (Qty: ${quantity})`,
+          reference_type: 'KIT',
+          reference_id: assignment.assignment_id
+        }
+      });
+    }
+
+    return assignment;
   });
 
   // Notifications Section 10
@@ -986,7 +1015,8 @@ export const assignKitFromCoach = async (academy_id, coach_id, kit_id, data) => 
   });
   const issueDate = data.issue_date ? new Date(data.issue_date) : new Date();
   const paymentMode = data.payment_mode || 'FEE';
-  const finalAmount = Math.max(0, (unitPrice || kit.selling_price) * quantity - discount);
+  const kitSellingPrice = Number(kit.selling_price || 0);
+  const finalAmount = Math.max(0, kitSellingPrice * quantity - discount);
 
   const result = await prisma.$transaction(async (tx) => {
     // Decrement coach's remaining qty by quantity
@@ -1047,7 +1077,7 @@ export const assignKitFromCoach = async (academy_id, coach_id, kit_id, data) => 
         remarks: data.remarks || null,
         fee_id: feeId,
         quantity: quantity,
-        unit_price: unitPrice || kit.selling_price,
+        unit_price: kitSellingPrice,
         discount: discount,
         total_amount: finalAmount
       },

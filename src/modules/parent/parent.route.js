@@ -6,6 +6,8 @@ import { body } from 'express-validator';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
 import { upload } from '../../config/multer.config.js';
 
+import { parentCalendarRouter } from '../calendar/calendar.route.js';
+
 const router = express.Router();
 
 // Public routes
@@ -22,6 +24,8 @@ router.post(
 
 // Protected routes
 router.use(authenticate);
+
+router.use('/calendar', parentCalendarRouter);
 
 router.get('/profile', parentController.getProfile);
 router.put(

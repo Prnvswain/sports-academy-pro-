@@ -1051,130 +1051,128 @@ export default function SportsPanel() {
       {/* ── Browse Sports Full Modal ── */}
       <AnimatePresence>
         {showBrowseModal && (
-          <div className="fixed inset-0 z-50 flex flex-col pt-[8vh] sm:pt-[10vh]">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowBrowseModal(false)} />
-            <div className="flex-1 flex items-start justify-center px-4 sm:px-6 overflow-hidden">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ type: "spring", bounce: 0.3 }}
-                className="relative w-full max-w-[1000px] max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-[#111814] dark:ring-gray-800"
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-5 dark:border-gray-800/60 dark:bg-gray-900/50 shrink-0">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Global Sports Catalog</h3>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Select multiple sports to import to your academy</p>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", bounce: 0.3 }}
+              className="relative w-full max-w-[820px] max-h-[75vh] md:max-h-[70vh] flex flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-[#111814] dark:ring-gray-800"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-5 py-4 dark:border-gray-800/60 dark:bg-gray-900/50 shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Global Sports Catalog</h3>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-0.5">Select multiple sports to import to your academy</p>
+                </div>
+                <button type="button" className="rounded-xl p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowBrowseModal(false)}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Modal Search */}
+              <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800/60 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-12 pr-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:text-white dark:focus:border-emerald-500"
+                    placeholder="Search the global catalog…"
+                    value={browseSearch}
+                    onChange={(e) => setBrowseSearch(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Modal Grid Content */}
+              <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
+                {superAdminLoading ? (
+                  <div className="flex justify-center py-10"><Loader message="Loading catalog…" /></div>
+                ) : filteredBrowse.length === 0 ? (
+                  <p className="py-10 text-center text-gray-500 font-medium">No sports found matching your search.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {filteredBrowse.map((sport) => {
+                      const sel = isSelectedInDraft(sport.name);
+                      const isAlreadyAdded = sports.some(s => s.name === sport.name);
+                      return (
+                        <button
+                          key={sport.name}
+                          type="button"
+                          disabled={isAlreadyAdded}
+                          className={`group relative flex flex-col items-center justify-between gap-2.5 rounded-2xl border p-4 transition-all ${sel
+                              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-900/20'
+                              : isAlreadyAdded
+                                ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed dark:border-gray-800 dark:bg-gray-900/30'
+                                : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-800 dark:bg-[#111814] dark:hover:border-emerald-700/50 dark:hover:bg-emerald-900/10'
+                            }`}
+                          onClick={() => !isAlreadyAdded && toggleBrowseSport(sport)}
+                        >
+                          {/* Status Badge */}
+                          <div className="absolute right-2.5 top-2.5">
+                            {isAlreadyAdded ? (
+                              <span className="inline-flex items-center rounded bg-gray-200/80 px-1.5 py-0.5 text-[9px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                Added
+                              </span>
+                            ) : sel ? (
+                              <div className="rounded-full bg-emerald-500 text-white p-0.5">
+                                <Check className="h-2.5 w-2.5" />
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                Available
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-center gap-1.5 mt-3.5 w-full font-sans">
+                            <span className="text-[36px] transition-transform group-hover:scale-105 leading-none">{sport.icon || FALLBACK_ICON}</span>
+                            <span className={`text-xs font-bold leading-tight text-center truncate w-full ${sel ? 'text-emerald-800 dark:text-emerald-300' : isAlreadyAdded ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                              {sport.name}
+                            </span>
+                          </div>
+
+                          {/* Select Button */}
+                          {!isAlreadyAdded && (
+                            <div className={`w-full rounded-lg py-1.5 text-xs font-bold transition-colors ${sel
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-gray-100 text-gray-600 group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:bg-emerald-900/30 dark:group-hover:text-emerald-400'
+                              }`}>
+                              {sel ? 'Selected' : 'Select'}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <button type="button" className="rounded-xl p-2.5 text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white transition-colors" onClick={() => setShowBrowseModal(false)}>
-                    <X className="h-5 w-5" />
+                )}
+              </div>
+
+              {/* Modal Footer - Sticky */}
+              <div className="sticky bottom-0 border-t border-gray-100 bg-gray-50/80 px-5 py-3 backdrop-blur-md dark:border-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between shrink-0">
+                <p className="text-sm font-bold text-gray-500">
+                  {selectedSports.length > 0 ? <span className="text-emerald-600 dark:text-emerald-400">{selectedSports.length} sport{selectedSports.length !== 1 ? 's' : ''} selected</span> : 'No sports selected'}
+                </p>
+                <div className="flex gap-3">
+                  <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowBrowseModal(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-xl px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors ${selectedSports.length > 0
+                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                        : 'bg-gray-300 cursor-not-allowed hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-700'
+                      }`}
+                    onClick={() => setShowBrowseModal(false)}
+                    disabled={selectedSports.length === 0}
+                  >
+                    Import Selected
                   </button>
                 </div>
-
-                {/* Modal Search */}
-                <div className="border-b border-gray-100 px-6 py-5 dark:border-gray-800/60 shrink-0">
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-12 pr-4 py-3 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 dark:border-gray-800 dark:bg-gray-900/50 dark:text-white dark:focus:border-emerald-500"
-                      placeholder="Search the global catalog…"
-                      value={browseSearch}
-                      onChange={(e) => setBrowseSearch(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                {/* Modal Grid Content */}
-                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-                  {superAdminLoading ? (
-                    <div className="flex justify-center py-20"><Loader message="Loading catalog…" /></div>
-                  ) : filteredBrowse.length === 0 ? (
-                    <p className="py-20 text-center text-gray-500 font-medium">No sports found matching your search.</p>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-5 sm:grid-cols-4">
-                      {filteredBrowse.map((sport) => {
-                        const sel = isSelectedInDraft(sport.name);
-                        const isAlreadyAdded = sports.some(s => s.name === sport.name);
-                        return (
-                          <button
-                            key={sport.name}
-                            type="button"
-                            disabled={isAlreadyAdded}
-                            className={`group relative flex flex-col items-center justify-between gap-3 rounded-2xl border p-5 transition-all ${sel
-                                ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-900/20'
-                                : isAlreadyAdded
-                                  ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed dark:border-gray-800 dark:bg-gray-900/30'
-                                  : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-gray-800 dark:bg-[#111814] dark:hover:border-emerald-700/50 dark:hover:bg-emerald-900/10'
-                              }`}
-                            onClick={() => !isAlreadyAdded && toggleBrowseSport(sport)}
-                          >
-                            {/* Status Badge */}
-                            <div className="absolute right-3 top-3">
-                              {isAlreadyAdded ? (
-                                <span className="inline-flex items-center rounded bg-gray-200/80 px-1.5 py-0.5 text-[9px] font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                                  Added
-                                </span>
-                              ) : sel ? (
-                                <div className="rounded-full bg-emerald-500 text-white p-0.5">
-                                  <Check className="h-2.5 w-2.5" />
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                  Available
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-col items-center gap-2 mt-4 w-full font-sans">
-                              <span className="text-[44px] transition-transform group-hover:scale-105 leading-none">{sport.icon || FALLBACK_ICON}</span>
-                              <span className={`text-xs font-bold leading-tight text-center truncate w-full ${sel ? 'text-emerald-800 dark:text-emerald-300' : isAlreadyAdded ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
-                                {sport.name}
-                              </span>
-                            </div>
-
-                            {/* Select Button */}
-                            {!isAlreadyAdded && (
-                              <div className={`w-full rounded-lg py-2 text-xs font-bold transition-colors ${sel
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-gray-100 text-gray-600 group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:bg-emerald-900/30 dark:group-hover:text-emerald-400'
-                                }`}>
-                                {sel ? 'Selected' : 'Select'}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Modal Footer - Sticky */}
-                <div className="sticky bottom-0 border-t border-gray-100 bg-gray-50/80 px-6 py-4 backdrop-blur-md dark:border-gray-800/60 dark:bg-gray-900/80 flex items-center justify-between shrink-0">
-                  <p className="text-sm font-bold text-gray-500">
-                    {selectedSports.length > 0 ? <span className="text-emerald-600 dark:text-emerald-400">{selectedSports.length} sport{selectedSports.length !== 1 ? 's' : ''} selected</span> : 'No sports selected'}
-                  </p>
-                  <div className="flex gap-3">
-                    <button type="button" className="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors" onClick={() => setShowBrowseModal(false)}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors ${selectedSports.length > 0
-                          ? 'bg-emerald-600 hover:bg-emerald-700'
-                          : 'bg-gray-300 cursor-not-allowed hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-700'
-                        }`}
-                      onClick={() => setShowBrowseModal(false)}
-                      disabled={selectedSports.length === 0}
-                    >
-                      Import Selected
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>

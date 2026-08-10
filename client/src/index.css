@@ -5,9 +5,12 @@
 @tailwind utilities;
 
 ::selection {
-  background-color: #0f172a !important; /* Dark Navy */
-  color: #a3e635 !important;           /* Lime Green */
+  background-color: #0f172a !important;
+  /* Dark Navy */
+  color: #a3e635 !important;
+  /* Lime Green */
 }
+
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
@@ -15,11 +18,12 @@
   --font-display: 'Lexend', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  
+
   /* FIXED: Background made slightly grey/off-white so white cards pop out */
-  --background: 220 14% 96%; 
+  --background: 220 14% 96%;
   --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%; /* Pure white cards */
+  --card: 0 0% 100%;
+  /* Pure white cards */
   --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
@@ -60,15 +64,15 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --background: 156 20% 5%; 
+  --background: 156 20% 5%;
   --foreground: 210 40% 98%;
-  --card: 146 17% 8%; 
+  --card: 146 17% 8%;
   --card-foreground: 210 40% 98%;
   --popover: 146 17% 8%;
   --popover-foreground: 210 40% 98%;
   --primary: 153 60% 45%;
   --primary-foreground: 222.2 47.4% 1.2%;
-  --secondary: 150 20% 12%; 
+  --secondary: 150 20% 12%;
   --secondary-foreground: 210 40% 98%;
   --muted: 150 20% 12%;
   --muted-foreground: 215 20.2% 65.1%;
@@ -76,7 +80,7 @@
   --accent-foreground: 210 40% 98%;
   --destructive: 0 62.8% 45%;
   --destructive-foreground: 210 40% 98%;
-  --border: 150 17% 15%; 
+  --border: 150 17% 15%;
   --input: 150 17% 15%;
   --ring: 153 60% 45%;
 
@@ -86,7 +90,7 @@
   --color-text-muted: 148, 163, 184;
   --color-border: 27, 38, 32;
   --color-card: 17, 24, 20;
-  
+
   --color-accent-primary: 52, 211, 153;
   --color-accent-hover: 16, 185, 129;
   --color-blue-primary: 96, 165, 250;
@@ -107,6 +111,7 @@
     min-height: 100vh;
     min-height: 100dvh;
   }
+
   body {
     @apply text-foreground antialiased transition-colors duration-300 ease-out;
     background-color: hsl(var(--background)) !important;
@@ -121,6 +126,7 @@
     background-size: 24px 24px;
     color: rgb(var(--color-text));
   }
+
   #root {
     @apply flex flex-col w-full overflow-x-hidden;
     background-color: hsl(var(--background)) !important;
@@ -128,23 +134,42 @@
     min-height: 100dvh;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply text-foreground font-semibold;
     font-family: var(--font-display);
     letter-spacing: -0.025em;
     line-height: 1.15;
     color: rgb(var(--color-text));
   }
-  h1 { @apply text-3xl md:text-4xl font-bold tracking-tight; }
-  h2 { @apply text-2xl md:text-3xl font-bold tracking-tight; }
-  h3 { @apply text-xl md:text-2xl font-semibold; }
-  h4 { @apply text-lg md:text-xl font-semibold; }
-  
-  p { 
+
+  h1 {
+    @apply text-3xl md:text-4xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-2xl md:text-3xl font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-xl md:text-2xl font-semibold;
+  }
+
+  h4 {
+    @apply text-lg md:text-xl font-semibold;
+  }
+
+  p {
     @apply text-foreground/85 leading-relaxed;
     color: rgb(var(--color-text));
   }
-  small, .text-caption { 
+
+  small,
+  .text-caption {
     @apply text-xs text-muted-foreground;
     color: rgb(var(--color-text-muted));
   }
@@ -156,6 +181,7 @@
   :focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
+
   ::selection {
     background-color: rgba(var(--color-accent-primary), 0.25);
     color: rgb(var(--color-text));
@@ -163,34 +189,42 @@
 }
 
 @layer components {
+
   /* BUTTONS: Deep 3D tactile feel */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold tracking-wide transition-all duration-300 ease-out disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97];
     color: rgb(var(--color-text));
   }
-  .btn-primary, .btn-success {
+
+  .btn-primary,
+  .btn-success {
     background: linear-gradient(180deg, hsl(var(--primary)/0.85) 0%, hsl(var(--primary)) 100%);
     @apply text-primary-foreground border border-transparent shadow-md hover:shadow-lg hover:-translate-y-0.5;
     box-shadow: 0 4px 14px 0 hsl(var(--primary)/0.25), inset 0 1px 0 hsl(var(--primary-foreground)/0.2);
   }
+
   .btn-secondary {
     @apply bg-card text-foreground border border-border/80 hover:bg-secondary hover:text-primary hover:-translate-y-0.5;
     background-color: rgb(var(--color-bg-secondary));
     color: rgb(var(--color-text));
-    box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 1px 0 rgba(0,0,0,0.02);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 0 rgba(0, 0, 0, 0.02);
   }
+
   .btn-secondary:hover {
     background-color: rgb(var(--color-bg-tertiary));
   }
+
   .btn-danger {
     background: linear-gradient(180deg, rgb(var(--color-danger)) 0%, rgb(var(--color-danger)) 100%);
     @apply text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 border border-transparent;
-    box-shadow: 0 4px 14px 0 rgba(var(--color-danger), 0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: 0 4px 14px 0 rgba(var(--color-danger), 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
+
   .btn-ghost {
     @apply border border-transparent bg-transparent text-foreground/80 hover:bg-secondary hover:text-foreground;
     color: rgb(var(--color-text));
   }
+
   .btn-ghost:hover {
     background-color: rgb(var(--color-bg-tertiary));
   }
@@ -201,6 +235,7 @@
     border: 1px solid hsl(var(--border) / 0.8);
     box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.03);
   }
+
   .card:hover {
     @apply border-border;
     box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
@@ -210,21 +245,24 @@
   /* INPUTS: Tactile depth */
   .input-field {
     @apply w-full rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 transition-all duration-300 outline-none;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
   }
+
   .input-field:focus {
     @apply border-primary bg-card ring-4 ring-primary/20;
   }
-  
+
   /* ALERTS & BADGES: Fixed invalid Tailwind classes */
   .alert {
     @apply mt-4 flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm font-medium shadow-sm;
   }
+
   .alert-success {
     background-color: rgba(var(--color-accent-primary), 0.1);
     color: rgb(var(--color-accent-hover));
     border-color: rgba(var(--color-accent-primary), 0.3);
   }
+
   .alert-error {
     background-color: rgba(var(--color-danger), 0.1);
     color: rgb(var(--color-danger));
@@ -234,11 +272,13 @@
   .badge {
     @apply inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-sm border;
   }
+
   .badge-success {
     background-color: rgba(var(--color-accent-primary), 0.1);
     color: rgb(var(--color-accent-hover));
     border-color: rgba(var(--color-accent-primary), 0.3);
   }
+
   .badge-danger {
     background-color: rgba(var(--color-danger), 0.1);
     color: rgb(var(--color-danger));
@@ -249,12 +289,14 @@
     @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-all duration-200 ease-out hover:bg-secondary hover:text-foreground;
     color: rgb(var(--color-text-muted));
   }
+
   .sidebar-link:hover {
     background-color: rgb(var(--color-bg-tertiary));
     color: rgb(var(--color-text));
   }
+
   .sidebar-link-active {
-    @apply bg-primary/10 text-primary font-semibold ring-1 ring-primary/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)];
+    @apply bg-primary/10 text-primary font-semibold ring-1 ring-primary/20 shadow-[inset_0_1px_2px_rgba(0, 0, 0, 0.02)];
   }
 
   .glass {
@@ -313,6 +355,7 @@
   color: rgb(15 23 42) !important;
   border-color: rgb(226 232 240) !important;
 }
+
 :root[data-theme='light'] .super-admin-portal .bg-slate-800:hover {
   background-color: rgb(226 232 240) !important;
 }
@@ -364,4 +407,62 @@
 
 .text-glow-premium {
   text-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+/* Coach Portal Layout Overscroll Fixes */
+.coach-sidebar-overscroll {
+  position: relative;
+}
+.coach-sidebar-overscroll::before {
+  content: '';
+  position: absolute;
+  top: -300px;
+  left: 0;
+  right: 0;
+  height: 300px;
+  background: inherit;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.coach-header-overscroll {
+  position: relative;
+  background-color: var(--theme-navbar, #84cc16) !important;
+}
+:root[data-theme='dark'] .coach-header-overscroll {
+  background-color: rgb(15 23 42 / 0.95) !important;
+}
+
+.coach-header-overscroll::before {
+  content: '';
+  position: absolute;
+  top: -300px;
+  left: 0;
+  right: 0;
+  height: 300px;
+  background: var(--theme-navbar, #84cc16) !important;
+  z-index: 10;
+  pointer-events: none;
+}
+:root[data-theme='dark'] .coach-header-overscroll::before {
+  background: rgb(15 23 42 / 0.95) !important;
+}
+
+/* Coach Portal Root/Body Styles */
+html.coach-portal-root,
+body.coach-portal-root,
+#root.coach-portal-root {
+  background: linear-gradient(135deg, #EF4444 0%, #F87171 50%, #FFFFFF 100%) !important;
+  overscroll-behavior: none !important;
+  overflow: hidden !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  width: 100vw !important;
+}
+
+/* In dark mode */
+:root[data-theme='dark'] html.coach-portal-root,
+:root[data-theme='dark'] body.coach-portal-root,
+:root[data-theme='dark'] #root.coach-portal-root {
+  background: linear-gradient(135deg, #0f172a 0%, #090d16 50%, #020617 100%) !important;
 }

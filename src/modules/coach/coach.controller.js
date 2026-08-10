@@ -308,3 +308,13 @@ export const getStudentAttendance = async (req, res, next) => {
   }
 };
 
+export const getGpsSettings = async (req, res, next) => {
+  try {
+    const settings = await coachService.getGpsSettings(req.user.academy_id);
+    res.json(successResponse('GPS settings retrieved', settings));
+  } catch (err) {
+    next(err);
+  }
+};
+
+

@@ -132,6 +132,8 @@ export default function CoachPerformancePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [isCalendarHoliday, setIsCalendarHoliday] = useState(false);
+  const [holidayMessage, setHolidayMessage] = useState('');
 
   // Single entity operations
   const [scores, setScores] = useState({});
@@ -238,6 +240,24 @@ export default function CoachPerformancePage() {
     loadInitialData();
     loadProposals();
   }, [loadInitialData, loadProposals]);
+
+  useEffect(() => {
+    const checkCalendarStatus = async () => {
+      try {
+        const res = await coachGet('/coach/calendar/dashboard');
+        if (res?.success && res.data) {
+          const status = res.data.todayStatus;
+          if (status.includes('Holiday') || status.includes('Weekly Off') || status.includes('Parent Meeting')) {
+            setIsCalendarHoliday(true);
+            setHolidayMessage(`This date is marked as a ${status.split(' ').slice(1).join(' ')}. Attendance and Performance operations are disabled.`);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check calendar status:', err);
+      }
+    };
+    checkCalendarStatus();
+  }, []);
 
   // Load single student assessments, daily lock status, attributes, and previous scores
   const loadStudentOperationalData = useCallback(async (studentId, sportId) => {
@@ -923,7 +943,24 @@ export default function CoachPerformancePage() {
       </div>
 
       {/* Regular client layouts */}
-      <div className="space-y-6 print:hidden">
+      {isCalendarHoliday ? (
+        <div className="p-4 md:p-6 max-w-lg mx-auto mt-12 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-xl p-8 text-center space-y-6 print:hidden">
+          <div className="w-16 h-16 bg-rose-100 dark:bg-rose-950/20 text-rose-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-rose-500/10">
+            <AlertCircle size={32} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white">Performance Entry Locked</h2>
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
+            {holidayMessage || 'This date is marked as a Holiday. Attendance and Performance operations are disabled.'}
+          </p>
+          <button
+            onClick={() => navigate('/coach/calendar')}
+            className="w-full btn btn-primary py-3 font-bold text-xs uppercase tracking-wider"
+          >
+            View Calendar
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6 print:hidden">
 
         {/* Header */}
         <motion.div
@@ -1709,6 +1746,7 @@ export default function CoachPerformancePage() {
         )}
 
       </div>
+      )}
 
       {/* 4. UNSAVED CHANGES GUARD WARNING MODAL */}
       <AnimatePresence>
@@ -1939,7 +1977,6 @@ export default function CoachPerformancePage() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { validationErrorHandler } from '../../middlewares/validation.middleware.
 import { validate } from './admin.validator.js';
 import { upload } from '../../config/multer.config.js';
 import inventoryAdminRoutes from '../inventory/inventory.admin.route.js';
+import { adminCalendarRouter } from '../calendar/calendar.route.js';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use((req, res, next) => {
 });
 
 router.use('/inventory', inventoryAdminRoutes);
+router.use('/calendar', adminCalendarRouter);
 
 /* ─── ACADEMY DETAILS ────────────────────────────────────────────────────── */
 router.get('/academy', adminController.getAcademyDetails);
@@ -199,6 +201,9 @@ router.patch(
 router.get('/accounts/student-ledger/:student_id', adminController.getStudentLedger);
 router.get('/accounts/students-fee-summary', adminController.getStudentsFeeSummary);
 router.get('/accounts/receipts', adminController.getReceipts);
+router.get('/accounts/students/:student_id/credit-history', adminController.getStudentCreditHistory);
+router.post('/accounts/students/:student_id/credit', adminController.addStudentCredit);
+router.post('/accounts/students/:student_id/use-credit', adminController.useStudentCredit);
 router.post(
   '/accounts/receipts',
   validate('createPayment'),

@@ -39,6 +39,7 @@ import InventorySportsKits from './pages/admin/inventory/InventorySportsKits';
 import CoachInventoryPage from './pages/coach/CoachInventoryPage';
 import CoachSportsKitsPage from './pages/coach/CoachSportsKitsPage';
 import ForgotPassword from './pages/ForgotPassword.jsx';
+import AcademyCalendar from './pages/shared/AcademyCalendar';
 import CoachDashboardPage from './pages/coach/CoachDashboardPage';
 import CoachAttendancePage from './pages/coach/CoachAttendancePage';
 import CoachStudentsPage from './pages/coach/CoachStudentsPage';
@@ -133,6 +134,7 @@ export default function App() {
             <Route path="enquiries" element={<EnquiriesPanel />} />
             <Route path="gps-settings" element={<GpsSettingsPanel />} />
             <Route path="settings" element={<SettingsPanel />} />
+            <Route path="calendar" element={<AcademyCalendar role="ADMIN" />} />
             <Route path="inventory" element={<Navigate to="/admin/inventory/stock" replace />} />
             <Route path="inventory/stock" element={<InventoryStock />} />
             <Route path="inventory/sports-kits" element={<InventorySportsKits />} />
@@ -167,6 +169,7 @@ export default function App() {
             <Route path="inventory" element={<Navigate to="/coach/inventory/equipment" replace />} />
             <Route path="inventory/equipment" element={<CoachInventoryPage />} />
             <Route path="inventory/sports-kits" element={<CoachSportsKitsPage />} />
+            <Route path="calendar" element={<AcademyCalendar role="COACH" />} />
             <Route path="announcements" element={<CoachAnnouncementHistory />} />
             <Route path="announcements/create" element={<CoachCreateAnnouncement />} />
             <Route path="announcements/:id" element={<CoachAnnouncementDetails />} />
@@ -193,6 +196,7 @@ export default function App() {
             <Route path="sports-kits" element={<ParentSportsKits />} />
             <Route path="profile" element={<ParentProfile />} />
             <Route path="settings" element={<ParentSettings />} />
+            <Route path="calendar" element={<AcademyCalendar role="PARENT" />} />
             <Route path="announcements" element={<ParentAnnouncements />} />
             <Route path="announcements/:id" element={<ParentAnnouncementDetails />} />
           </Route>

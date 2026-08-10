@@ -64,6 +64,25 @@ export default function CoachDashboardPage() {
   const [inventory, setInventory] = useState([]);
   const [inventoryRequests, setInventoryRequests] = useState([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [calendarStats, setCalendarStats] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
+  useEffect(() => {
+    const loadCalendarStats = async () => {
+      try {
+        setCalendarLoading(true);
+        const result = await coachGet('/coach/calendar/dashboard');
+        if (result?.success) {
+          setCalendarStats(result.data);
+        }
+      } catch (err) {
+        console.error('Failed to load calendar dashboard stats:', err);
+      } finally {
+        setCalendarLoading(false);
+      }
+    };
+    loadCalendarStats();
+  }, []);
 
   // Load notifications
   useEffect(() => {
@@ -571,6 +590,53 @@ export default function CoachDashboardPage() {
 
         {/* Right Column: Attendance / Performance / Fees / Inventory Overviews & Checklist */}
         <div className="space-y-6 text-xs">
+
+          {/* Working Calendar Dashboard Card */}
+          {calendarStats && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-2xl p-5 shadow-lg border border-slate-800 space-y-4 relative overflow-hidden text-left"
+            >
+              <div className="absolute right-[-20px] top-[-20px] opacity-10 text-white pointer-events-none">
+                <Calendar size={120} />
+              </div>
+
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Today's Academy Calendar</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xl font-black">{calendarStats.todayStatus}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-slate-800 pt-3 text-[11px]">
+                {calendarStats.nextEvent && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-bold">📅 Next Event:</span>
+                    <span className="font-black text-white">{calendarStats.nextEvent.title} ({new Date(calendarStats.nextEvent.start_date).toLocaleDateString([], { month: 'short', day: 'numeric' })})</span>
+                  </div>
+                )}
+                {calendarStats.nextTournament && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-bold">🏆 Next Tournament:</span>
+                    <span className="font-black text-purple-400 truncate max-w-[140px]">{calendarStats.nextTournament.title}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-slate-300">
+                  <span className="font-bold">🟢 Working Days:</span>
+                  <span className="font-black text-emerald-400">{calendarStats.workingDaysThisMonth} Days</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => navigate('/coach/calendar')}
+                className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer animate-pulse-slow"
+              >
+                <Calendar size={13} />
+                Open Academy Calendar
+              </button>
+            </motion.div>
+          )}
           
           {/* Quick Operations grid */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">

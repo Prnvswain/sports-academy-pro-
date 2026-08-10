@@ -27,6 +27,7 @@ export default function CoachesPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [editingCoachId, setEditingCoachId] = useState(null);
 
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState({});
@@ -173,21 +174,38 @@ export default function CoachesPanel() {
         profilePhotoData = form.profile_photo;
       }
 
-      const result = await adminPost('/admin/coaches', {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone_number: form.phone_number.trim(),
-        specialization: form.specialization.trim(),
-        profile_photo: profilePhotoData,
-      });
-      setMessage({
-        text: `${result.message} Login credentials have been emailed to the coach.`,
-        type: 'success',
-      });
+      if (editingCoachId) {
+        const payload = {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone_number: form.phone_number.trim(),
+          specialization: form.specialization.trim(),
+        };
+        payload.profile_photo = profilePhotoData;
+
+        const result = await adminPut(`/admin/coaches/${editingCoachId}`, payload);
+        setMessage({
+          text: `Coach updated successfully.`,
+          type: 'success',
+        });
+      } else {
+        const result = await adminPost('/admin/coaches', {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone_number: form.phone_number.trim(),
+          specialization: form.specialization.trim(),
+          profile_photo: profilePhotoData,
+        });
+        setMessage({
+          text: `${result.message} Login credentials have been emailed to the coach.`,
+          type: 'success',
+        });
+      }
       setForm(emptyForm);
       setPhotoPreview(null);
       setFieldErrors({});
       setShowModal(false);
+      setEditingCoachId(null);
       loadCoaches();
     } catch (error) {
       // Handle structured validation errors from backend
@@ -253,6 +271,7 @@ export default function CoachesPanel() {
   };
 
   const openModal = () => {
+    setEditingCoachId(null);
     setForm(emptyForm);
     setFieldErrors({});
     setShowModal(true);
@@ -263,6 +282,21 @@ export default function CoachesPanel() {
     setForm(emptyForm);
     setPhotoPreview(null);
     setFieldErrors({});
+    setEditingCoachId(null);
+  };
+
+  const handleEditCoach = (coach) => {
+    setEditingCoachId(coach.coach_id);
+    setForm({
+      name: coach.name || '',
+      email: coach.email || '',
+      phone_number: coach.phone_number || '',
+      specialization: coach.specialization || '',
+      profile_photo: coach.profile_photo || coach.photo_url || null,
+    });
+    setPhotoPreview(coach.profile_photo || coach.photo_url || null);
+    setFieldErrors({});
+    setShowModal(true);
   };
 
   const handleBulkImport = async () => {
@@ -611,6 +645,15 @@ export default function CoachesPanel() {
                           >
                             <ExternalLink size={13} />
                           </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                            type="button"
+                            className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/25 flex items-center justify-center transition-colors border border-amber-100 dark:border-transparent"
+                            onClick={() => handleEditCoach(coach)}
+                            title="Edit Coach Details"
+                          >
+                            <Edit size={13} />
+                          </motion.button>
                           {coach.status === 'ACTIVE' ? (
                             <motion.button
                               whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
@@ -661,8 +704,8 @@ export default function CoachesPanel() {
       >
         <div className="flex items-center justify-between px-8 py-6 border-b border-[#EAEBF0] bg-[#FFFDF3]">
           <div>
-            <h3 className="text-lg font-bold text-[#101625]">PROVISION NEW COACH</h3>
-            <p className="text-[10px] text-[#A4ABAF] font-bold mt-1 tracking-wide uppercase">Secure credentials will be emailed</p>
+            <h3 className="text-lg font-bold text-[#101625]">{editingCoachId ? 'EDIT COACH DETAILS' : 'PROVISION NEW COACH'}</h3>
+            <p className="text-[10px] text-[#A4ABAF] font-bold mt-1 tracking-wide uppercase">{editingCoachId ? 'Modify profile fields' : 'Secure credentials will be emailed'}</p>
           </div>
           <button type="button" onClick={closeModal} className="p-2 rounded-xl bg-white shadow-sm border border-[#EAEBF0] text-[#A4ABAF] hover:bg-[#fcc93d] hover:text-[#101625] hover:border-transparent transition-all">
             <X size={16} />
@@ -785,10 +828,10 @@ export default function CoachesPanel() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  {editingCoachId ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
-                'GENERATE CREDENTIALS & ADD'
+                editingCoachId ? 'SAVE CHANGES' : 'GENERATE CREDENTIALS & ADD'
               )}
             </motion.button>
           </div>

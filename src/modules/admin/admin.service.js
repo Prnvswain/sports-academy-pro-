@@ -601,7 +601,7 @@ export const getDurationPlans = async (academy_id) => {
 
     },
 
-    orderBy: { duration_months: 'asc' },
+    orderBy: { duration: 'asc' },
 
     include: {
 
@@ -620,7 +620,10 @@ export const getDurationPlans = async (academy_id) => {
 
 
 
-  return plans;
+  return plans.map(p => ({
+    ...p,
+    duration_months: p.duration_type === 'DAYS' ? Math.round(p.duration / 30) : p.duration
+  }));
 
 };
 
@@ -638,7 +641,9 @@ export const createDurationPlan = async (academy_id, data) => {
 
       name: data.name,
 
-      duration_months: parseInt(data.duration_months, 10),
+      duration_type: data.duration_type || 'MONTHS',
+
+      duration: parseInt(data.duration, 10),
 
       multiplier: parseFloat(data.multiplier),
 
@@ -654,7 +659,10 @@ export const createDurationPlan = async (academy_id, data) => {
 
   logger.info('Duration plan created', { plan_id: plan.plan_id, academy_id: academyId });
 
-  return plan;
+  return {
+    ...plan,
+    duration_months: plan.duration_type === 'DAYS' ? Math.round(plan.duration / 30) : plan.duration
+  };
 
 };
 
@@ -3021,16 +3029,23 @@ export const createStudent = async (academy_id, data) => {
 
 
 
-  // Calculate next due date based on duration plan (Use 1 Month = 30 Days consistently)
+  // Calculate next due date based on duration plan (Use 1 Month = 30 Days consistently for MONTHS type)
 
   let nextDueDate = null;
   let planStartDate = null;
   let planEndDate = null;
 
-  if (durationPlan && durationPlan.duration_months) {
+  if (durationPlan && durationPlan.duration) {
 
     planStartDate = data.joining_date ? new Date(data.joining_date) : new Date();
-    const durationDays = durationPlan.duration_months * 30;
+    let durationDays;
+
+    if (durationPlan.duration_type === 'DAYS') {
+      durationDays = durationPlan.duration;
+    } else {
+      // MONTHS type: convert to days (1 month = 30 days)
+      durationDays = durationPlan.duration * 30;
+    }
 
     planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
     nextDueDate = planEndDate;
@@ -4596,7 +4611,12 @@ export const getStudentLedger = async (academy_id, student_id) => {
 
 
 
-  const student = await getStudentForAcademy(academyId, studentId);
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+    },
+  });
 
   if (!student) {
 
@@ -4728,10 +4748,6 @@ export const getStudentsFeeSummary = async (academy_id) => {
 
       academy_id: academyId,
 
-      is_deleted: false,
-
-      status: 'ACTIVE',
-
     },
 
     include: {
@@ -4854,6 +4870,12 @@ export const getStudentsFeeSummary = async (academy_id) => {
 
         receipts: student.receipts,
 
+        status: student.status,
+
+        is_deleted: student.is_deleted,
+
+        advance_balance: parseFloat(student.advance_balance || 0),
+
       };
 
     })
@@ -4862,55 +4884,210 @@ export const getStudentsFeeSummary = async (academy_id) => {
 
 
 
-  // Calculate overall summary stats
+  // Calculate overall summary stats (filter to active students only)
+  const activeSummary = studentsSummary.filter(s => s.status === 'ACTIVE' && !s.is_deleted);
+  const inactiveSummary = studentsSummary.filter(s => s.status !== 'ACTIVE' || s.is_deleted);
 
-  const totalStudents = studentsSummary.length;
-
-  const fullyPaid = studentsSummary.filter(s => s.fee_status === 'paid').length;
-
-  const partiallyPaid = studentsSummary.filter(s => s.paid_amount > 0 && s.due_amount > 0).length;
-
-  const unpaid = studentsSummary.filter(s => s.fee_status === 'unpaid').length;
-
-  const totalOutstanding = studentsSummary.reduce((sum, s) => sum + s.due_amount, 0);
-
-
+  const totalStudents = activeSummary.length;
+  const fullyPaid = activeSummary.filter(s => s.fee_status === 'paid').length;
+  const partiallyPaid = activeSummary.filter(s => s.paid_amount > 0 && s.due_amount > 0).length;
+  const unpaid = activeSummary.filter(s => s.fee_status === 'unpaid').length;
+  const inactive = inactiveSummary.length;
+  const totalOutstanding = activeSummary.reduce((sum, s) => sum + s.due_amount, 0);
 
   logger.info('Students fee summary calculated', {
-
     academy_id: academyId,
-
     total_students: totalStudents,
-
     total_outstanding: totalOutstanding,
-
+    inactive_students: inactive,
   });
 
-
-
   return {
-
     students: studentsSummary,
-
     summary: {
-
       total_students: totalStudents,
-
       fully_paid: fullyPaid,
-
       partially_paid: partiallyPaid,
-
       unpaid: unpaid,
-
+      inactive: inactive,
       total_outstanding: totalOutstanding,
-
     },
-
   };
 
 };
 
+export const getStudentCreditHistory = async (academy_id, student_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
 
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const transactions = await prisma.studentCreditTransaction.findMany({
+    where: {
+      academy_id: academyId,
+      student_id: studentId,
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+  });
+
+  return {
+    advance_balance: parseFloat(student.advance_balance || 0),
+    transactions: transactions.map(t => ({
+      ...t,
+      amount: parseFloat(t.amount || 0),
+    })),
+  };
+};
+
+export const addStudentCredit = async (academy_id, student_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  const amount = parseFloat(data.amount);
+
+  if (isNaN(amount) || amount <= 0) {
+    const error = new Error('Invalid credit amount');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updatedStudent = await prisma.$transaction(async (tx) => {
+    const updated = await tx.student.update({
+      where: { student_id: studentId },
+      data: { advance_balance: { increment: amount } },
+    });
+
+    await tx.studentCreditTransaction.create({
+      data: {
+        student_id: studentId,
+        academy_id: academyId,
+        amount,
+        type: 'ADD',
+        reason: data.reason || 'Manual Credit Addition',
+        reference_type: 'MANUAL',
+      },
+    });
+
+    return updated;
+  });
+
+  return {
+    advance_balance: parseFloat(updatedStudent.advance_balance || 0),
+  };
+};
+
+export const useStudentCredit = async (academy_id, student_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  const amount = parseFloat(data.amount);
+  const useFor = data.use_for; // 'KIT' or 'PLAN' or 'OTHER'
+  const referenceId = data.reference_id ? parseInt(data.reference_id, 10) : null;
+
+  if (isNaN(amount) || amount <= 0) {
+    const error = new Error('Invalid debit amount');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const currentBalance = parseFloat(student.advance_balance || 0);
+  if (currentBalance < amount) {
+    const error = new Error(`Insufficient credit. Available balance: ₹${currentBalance.toFixed(2)}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const updatedStudent = await prisma.$transaction(async (tx) => {
+    // 1. Decrement balance
+    const updated = await tx.student.update({
+      where: { student_id: studentId },
+      data: { advance_balance: { decrement: amount } },
+    });
+
+    // 2. Log credit transaction
+    const txLog = await tx.studentCreditTransaction.create({
+      data: {
+        student_id: studentId,
+        academy_id: academyId,
+        amount,
+        type: 'USE',
+        reason: data.reason || `Used credit for ${useFor}`,
+        reference_type: useFor,
+        reference_id: referenceId,
+      },
+    });
+
+    // 3. Side effects
+    if (useFor === 'KIT' && referenceId) {
+      await tx.sportsKitAssignment.update({
+        where: { assignment_id: referenceId },
+        data: {
+          payment_status: 'PAID',
+          payment_mode: 'CREDIT',
+        },
+      });
+    } else if (useFor === 'PLAN' && referenceId) {
+      // Find current enrollment to update paid_amount
+      const enrollment = await tx.studentEnrollment.findUnique({
+        where: { enrollment_id: referenceId },
+      });
+      if (enrollment) {
+        const newPaidAmount = parseFloat(enrollment.paid_amount || 0) + amount;
+        await tx.studentEnrollment.update({
+          where: { enrollment_id: referenceId },
+          data: { paid_amount: newPaidAmount },
+        });
+
+        // Also create a Receipt with method CREDIT so it registers in standard payment lists
+        const year = new Date().getFullYear();
+        const count = await tx.receipt.count({
+          where: {
+            academy_id: academyId,
+            receipt_number: { startsWith: `REC-${year}` },
+          },
+        });
+        const receiptNumber = `REC-${year}-${String(count + 1).padStart(3, '0')}`;
+        await tx.receipt.create({
+          data: {
+            receipt_number: receiptNumber,
+            academy_id: academyId,
+            student_id: studentId,
+            amount,
+            payment_date: new Date(),
+            method: 'CREDIT',
+            status: 'COMPLETED',
+            remarks: data.reason || `Credit applied to Plan Enrollment`,
+          },
+        });
+      }
+    }
+
+    return updated;
+  });
+
+  return {
+    advance_balance: parseFloat(updatedStudent.advance_balance || 0),
+  };
+};
 
 export const getReceipts = async (academy_id) => {
 
@@ -5036,20 +5213,33 @@ export const createReceipt = async (academy_id, data) => {
 
 
 
+  const extraAmount = parseFloat(data.extra_amount || 0);
+  if (extraAmount > 0) {
+    await prisma.student.update({
+      where: { student_id: student.student_id },
+      data: { advance_balance: { increment: extraAmount } }
+    });
+
+    await prisma.studentCreditTransaction.create({
+      data: {
+        student_id: student.student_id,
+        academy_id: academyId,
+        amount: extraAmount,
+        type: 'ADD',
+        reason: 'Advance Payment',
+        reference_type: 'RECEIPT',
+        reference_id: receipt.receipt_id
+      }
+    });
+  }
+
   // Update the student's active enrollment's paid_amount to maintain financial link
-
   const activeEnrollment = await prisma.studentEnrollment.findFirst({
-
     where: {
-
       student_id: student.student_id,
-
       academy_id: academyId,
-
       is_active: true,
-
     },
-
   });
 
 
@@ -5188,11 +5378,23 @@ export const getPendingDues = async (academy_id) => {
 
       const joiningDate = latestEnrollment?.joining_date || student.created_at;
 
-      const durationMonths = latestEnrollment?.duration_months || 1;
-
-      const nextDueDate = new Date(joiningDate);
-
-      nextDueDate.setMonth(nextDueDate.getMonth() + durationMonths);
+      // Get duration plan to calculate due date
+      const durationPlan = latestEnrollment?.duration_plan_id ? 
+        await prisma.durationPlan.findUnique({ where: { plan_id: latestEnrollment.duration_plan_id } }) : null;
+      
+      let nextDueDate;
+      if (durationPlan) {
+        if (durationPlan.duration_type === 'DAYS') {
+          nextDueDate = new Date(joiningDate.getTime() + durationPlan.duration * 24 * 60 * 60 * 1000);
+        } else {
+          // MONTHS type: convert to days (1 month = 30 days)
+          const durationDays = durationPlan.duration * 30;
+          nextDueDate = new Date(joiningDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        }
+      } else {
+        // Fallback to 1 month (30 days)
+        nextDueDate = new Date(joiningDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
 
 
 
@@ -5416,15 +5618,53 @@ export const createPayment = async (academy_id, data) => {
 
   }
 
+  const extraAmount = parseFloat(data.extra_amount || 0);
+  if (extraAmount > 0) {
+    await prisma.student.update({
+      where: { student_id: student.student_id },
+      data: { advance_balance: { increment: extraAmount } }
+    });
+
+    await prisma.studentCreditTransaction.create({
+      data: {
+        student_id: student.student_id,
+        academy_id: parseInt(academy_id, 10),
+        amount: extraAmount,
+        type: 'ADD',
+        reason: 'Advance Payment',
+        reference_type: 'RECEIPT',
+        reference_id: receipt.receipt_id
+      }
+    });
+  }
+
   if (data.status === 'completed') {
 
     try {
-      const newTotalPaid = totalPaid + paymentAmount;
+      const netPaymentAmount = paymentAmount - extraAmount;
+      const newTotalPaid = totalPaid + netPaymentAmount;
       let newFeesStatus = 'unpaid';
       if (newTotalPaid >= totalFeesAssigned) {
         newFeesStatus = 'paid';
       } else if (newTotalPaid > 0) {
         newFeesStatus = 'partial';
+      }
+
+      // Update active enrollment paid_amount if exists
+      const activeEnrollment = await prisma.studentEnrollment.findFirst({
+        where: {
+          student_id: student.student_id,
+          academy_id: parseInt(academy_id, 10),
+          is_active: true,
+        },
+      });
+      if (activeEnrollment) {
+        const currentPaidAmount = parseFloat(activeEnrollment.paid_amount || 0);
+        const newPaidAmount = currentPaidAmount + netPaymentAmount;
+        await prisma.studentEnrollment.update({
+          where: { enrollment_id: activeEnrollment.enrollment_id },
+          data: { paid_amount: newPaidAmount },
+        });
       }
 
       await prisma.student.update({
@@ -7323,7 +7563,14 @@ const getPlanDurationDays = async (planId) => {
   const plan = await prisma.durationPlan.findUnique({
     where: { plan_id: planId }
   });
-  return plan ? plan.duration_months * 30 : 30;
+  if (!plan) return 30;
+  
+  if (plan.duration_type === 'DAYS') {
+    return plan.duration;
+  } else {
+    // MONTHS type: convert to days (1 month = 30 days)
+    return plan.duration * 30;
+  }
 };
 
 const getFinalFeeForPlan = async (planId, sportId) => {
@@ -7380,8 +7627,19 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
       const durationPlan = await prisma.durationPlan.findUnique({
         where: { plan_id: targetPlanId }
       });
-      const durationMonths = durationPlan?.duration_months || 1;
-      const durationDays = durationMonths * 30;
+      
+      let durationDays;
+      if (durationPlan) {
+        if (durationPlan.duration_type === 'DAYS') {
+          durationDays = durationPlan.duration;
+        } else {
+          // MONTHS type: convert to days (1 month = 30 days)
+          durationDays = durationPlan.duration * 30;
+        }
+      } else {
+        durationDays = 30; // Fallback
+      }
+      
       const newEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
       const updatedEnrollment = await tx.studentEnrollment.update({

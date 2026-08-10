@@ -51,9 +51,12 @@ export const validate = (method) => {
     case 'createDurationPlan':
       return [
         body('name').isString().trim().notEmpty().withMessage('Plan name is required'),
-        body('duration_months')
+        body('duration_type')
+          .isIn(['MONTHS', 'DAYS'])
+          .withMessage('Duration type must be either MONTHS or DAYS'),
+        body('duration')
           .isInt({ min: 1 })
-          .withMessage('Duration months must be a positive integer'),
+          .withMessage('Duration must be a positive integer'),
         body('multiplier')
           .isFloat({ min: 0.1 })
           .withMessage('Multiplier must be a valid number greater than 0'),

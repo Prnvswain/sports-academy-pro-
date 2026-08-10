@@ -6,6 +6,7 @@ import NotificationBell from '../components/NotificationBell';
 import BrandingLogo from '../components/BrandingLogo';
 import GlobalBackground from '../components/GlobalBackground';
 import Avatar from '../components/Avatar';
+import AcademyCalendarModal from '../components/AcademyCalendarModal';
 import { clearCoachToken, SIDEBAR_COLLAPSED_KEY, getCoachToken, coachGet, isImpersonating, endImpersonation } from '../api/client';
 import { CoachBatchesProvider, useCoachBatches } from '../context/CoachBatchesContext';
 import { useTheme } from '../context/ThemeContext';
@@ -26,6 +27,7 @@ import {
   Menu,
   Home,
   Package,
+  CalendarDays,
   ChevronDown
 } from 'lucide-react';
 
@@ -80,6 +82,7 @@ function CoachLayoutShell() {
   const [expandedMenus, setExpandedMenus] = useState({});
   const [coachUser, setCoachUser] = useState(null);
   const [showDailyNotes, setShowDailyNotes] = useState(false);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -208,7 +211,7 @@ function CoachLayoutShell() {
               to="/coach/dashboard"
               collapsed={collapsedForNav}
               onLogoClick={() => !collapsedForNav && setSidebarCollapsed(true)}
-              className="rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--theme-primary,#84cc16)] transition-transform duration-250 hover:scale-105"
+              className="rounded-lg focus-visible:ring-2 focus-visible:ring-[#ef4444] transition-transform duration-250 hover:scale-105"
             />
             <motion.button
               type="button"
@@ -287,7 +290,7 @@ function CoachLayoutShell() {
                               onClick={closeMobileSidebar}
                               className={({ isActive }) =>
                                 `flex items-center gap-2 py-2 text-xs font-bold transition-all duration-200 rounded-xl outline-none ${isActive
-                                  ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-md shadow-lime-500/20'
+                                  ? 'bg-[#ef4444] text-white shadow-md shadow-red-500/20'
                                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
                                 }`
                               }
@@ -313,7 +316,7 @@ function CoachLayoutShell() {
                   className={({ isActive }) =>
                     `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${collapsedForNav ? 'justify-center px-0' : 'px-4'
                     } ${isActive
-                      ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
+                      ? 'bg-[#ef4444] text-white shadow-lg shadow-red-500/30 scale-105'
                       : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                     }`
                   }
@@ -361,8 +364,8 @@ function CoachLayoutShell() {
             <motion.button
               type="button"
               className={`w-full flex justify-center items-center rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${collapsedForNav
-                  ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
-                  : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
+                ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
+                : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
                 }`}
               whileHover={{ scale: 1.05, y: -1 }}
               whileTap={{ scale: 0.98 }}
@@ -377,8 +380,8 @@ function CoachLayoutShell() {
             <motion.button
               type="button"
               className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${collapsedForNav
-                  ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
-                  : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
+                ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
+                : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
                 }`}
               onClick={handleLogout}
               whileHover={{ scale: 1.05, y: -1 }}
@@ -446,6 +449,16 @@ function CoachLayoutShell() {
             </motion.div>
 
             <div className="flex items-center gap-3">
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCalendarModalOpen(true)}
+                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
+                title="Academy Calendar"
+              >
+                <CalendarDays size={18} strokeWidth={2.5} />
+              </motion.button>
+
               <motion.button
                 whileHover={{ scale: 1.1, y: -2 }}
                 whileTap={{ scale: 0.95 }}
@@ -541,6 +554,12 @@ function CoachLayoutShell() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AcademyCalendarModal
+          isOpen={calendarModalOpen}
+          onClose={() => setCalendarModalOpen(false)}
+          role="COACH"
+        />
       </div>
     </div>
   );

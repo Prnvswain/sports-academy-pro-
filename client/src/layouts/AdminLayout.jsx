@@ -6,6 +6,7 @@ import NotificationBell from '../components/NotificationBell';
 import BroadcastModal from '../components/BroadcastModal';
 import BrandingLogo from '../components/BrandingLogo';
 import GlobalBackground from '../components/GlobalBackground';
+import AcademyCalendarModal from '../components/AcademyCalendarModal';
 import { clearAdminToken, SIDEBAR_COLLAPSED_KEY, adminGet, getAdminToken } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 
@@ -94,6 +95,7 @@ export default function AdminLayout() {
   );
   const [expandedMenus, setExpandedMenus] = useState({});
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [batches, setBatches] = useState([]);
   const [academy, setAcademy] = useState(null);
   const [adminUser, setAdminUser] = useState(null);
@@ -490,6 +492,16 @@ export default function AdminLayout() {
             <motion.button
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => setCalendarModalOpen(true)}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
+              title="Academy Calendar"
+            >
+              <CalendarDays size={18} strokeWidth={2.5} />
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setBroadcastModalOpen(true)}
               className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 dark:bg-slate-800 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
               title="Send Broadcast"
@@ -536,6 +548,12 @@ export default function AdminLayout() {
         isOpen={broadcastModalOpen}
         onClose={() => setBroadcastModalOpen(false)}
         batches={batches}
+      />
+
+      <AcademyCalendarModal
+        isOpen={calendarModalOpen}
+        onClose={() => setCalendarModalOpen(false)}
+        role="ADMIN"
       />
     </div>
   );

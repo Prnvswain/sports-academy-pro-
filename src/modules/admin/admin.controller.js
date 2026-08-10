@@ -511,6 +511,36 @@ export const getReceipts = async (req, res, next) => {
   }
 };
 
+export const getStudentCreditHistory = async (req, res, next) => {
+  try {
+    const history = await adminService.getStudentCreditHistory(req.user.academy_id, req.params.student_id);
+    res.json(successResponse('Student credit history retrieved successfully', history));
+  } catch (err) {
+    logger.error('Failed to get student credit history', err);
+    next(err);
+  }
+};
+
+export const addStudentCredit = async (req, res, next) => {
+  try {
+    const result = await adminService.addStudentCredit(req.user.academy_id, req.params.student_id, req.body);
+    res.status(201).json(successResponse('Credit added successfully', result));
+  } catch (err) {
+    logger.error('Failed to add student credit', err);
+    next(err);
+  }
+};
+
+export const useStudentCredit = async (req, res, next) => {
+  try {
+    const result = await adminService.useStudentCredit(req.user.academy_id, req.params.student_id, req.body);
+    res.status(200).json(successResponse('Credit used successfully', result));
+  } catch (err) {
+    logger.error('Failed to use student credit', err);
+    next(err);
+  }
+};
+
 export const createReceipt = async (req, res, next) => {
   try {
     const receipt = await adminService.createReceipt(req.user.academy_id, req.body);

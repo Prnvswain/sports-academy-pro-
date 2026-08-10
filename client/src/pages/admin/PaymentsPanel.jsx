@@ -9,6 +9,7 @@ import { Wallet, TrendingUp, AlertCircle, CheckCircle, Users, DollarSign, Calend
 const emptyForm = {
   student_id: '',
   amount: '',
+  extra_amount: '',
   pending_amount: 0, 
   payment_date: new Date().toISOString().split('T')[0],
   due_date: '',
@@ -20,6 +21,7 @@ export default function AccountsPanel() {
   const [payments, setPayments] = useState([]);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(emptyForm);
+  const [collectExtra, setCollectExtra] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [studentFeeData, setStudentFeeData] = useState(null);
@@ -243,11 +245,48 @@ export default function AccountsPanel() {
     }
 
     setIsSubmitting(true);
-    setMessage({ text: '', type: '' });
+    const isFullyPaid = form.student_id && parseFloat(form.pending_amount || 0) === 0;
+
+    if (isFullyPaid) {
+      const extraAmount = parseFloat(form.extra_amount || 0);
+      if (isNaN(extraAmount) || extraAmount <= 0) {
+        setMessage({ text: 'Please enter a valid extra amount', type: 'error' });
+        setIsSubmitting(false);
+        return;
+      }
+
+      try {
+        const result = await adminPost(`/admin/accounts/students/${form.student_id}/credit`, {
+          amount: extraAmount,
+          reason: 'Advance Payment'
+        });
+        if (result?.success) {
+          setMessage({ text: 'Advance Credit added to account successfully', type: 'success' });
+          setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
+          setCollectExtra(false);
+          setStudentSearchTerm('');
+          setStudentFeeData(null);
+          loadData(false);
+        } else {
+          setMessage({ text: result?.message || 'Failed to add credit', type: 'error' });
+        }
+      } catch (error) {
+        setMessage({ text: error.message, type: 'error' });
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    const amountToPay = parseFloat(form.amount || 0);
+    const extraAmount = collectExtra ? parseFloat(form.extra_amount || 0) : 0;
+    const totalAmount = amountToPay + extraAmount;
 
     const payload = {
       student_id: parseInt(form.student_id, 10),
-      amount: parseFloat(form.amount),
+      amount: totalAmount,
+      extra_amount: extraAmount,
+      amount_paid: amountToPay,
       payment_date: form.payment_date,
       method: form.method,
       status: form.status,
@@ -257,6 +296,7 @@ export default function AccountsPanel() {
       const result = await adminPost('/admin/accounts', payload);
       setMessage({ text: result.message || 'Payment recorded successfully', type: 'success' });
       setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
+      setCollectExtra(false);
       setStudentSearchTerm('');
       setStudentFeeData(null);
       loadData(false);
@@ -462,8 +502,83 @@ export default function AccountsPanel() {
     document.getElementById('payStudent')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const [creditHistories, setCreditHistories] = useState({});
+  const [creditLoading, setCreditLoading] = useState({});
+  const [showAddCreditForm, setShowAddCreditForm] = useState({});
+  const [showUseCreditForm, setShowUseCreditForm] = useState({});
+  const [addCreditData, setAddCreditData] = useState({ amount: '', reason: '' });
+  const [useCreditData, setUseCreditData] = useState({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
+
+  const fetchCreditHistory = async (studentId) => {
+    setCreditLoading(prev => ({ ...prev, [studentId]: true }));
+    try {
+      const res = await adminGet(`/admin/accounts/students/${studentId}/credit-history`);
+      if (res?.success && res?.data) {
+        setCreditHistories(prev => ({ ...prev, [studentId]: res.data }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch credit history:', err);
+    } finally {
+      setCreditLoading(prev => ({ ...prev, [studentId]: false }));
+    }
+  };
+
+  const handleAddCredit = async (studentId) => {
+    if (!addCreditData.amount || parseFloat(addCreditData.amount) <= 0) {
+      setMessage({ text: 'Please enter a valid amount', type: 'error' });
+      return;
+    }
+    try {
+      const res = await adminPost(`/admin/accounts/students/${studentId}/credit`, {
+        amount: parseFloat(addCreditData.amount),
+        reason: addCreditData.reason || 'Manual Credit Addition'
+      });
+      if (res?.success) {
+        setMessage({ text: 'Credit added successfully', type: 'success' });
+        setAddCreditData({ amount: '', reason: '' });
+        setShowAddCreditForm(prev => ({ ...prev, [studentId]: false }));
+        fetchCreditHistory(studentId);
+        loadStudentAccountsData(true);
+      } else {
+        setMessage({ text: res?.message || 'Failed to add credit', type: 'error' });
+      }
+    } catch (err) {
+      setMessage({ text: err.message || 'Error adding credit', type: 'error' });
+    }
+  };
+
+  const handleUseCredit = async (studentId) => {
+    if (!useCreditData.amount || parseFloat(useCreditData.amount) <= 0) {
+      setMessage({ text: 'Please enter a valid amount', type: 'error' });
+      return;
+    }
+    try {
+      const res = await adminPost(`/admin/accounts/students/${studentId}/use-credit`, {
+        amount: parseFloat(useCreditData.amount),
+        use_for: useCreditData.use_for,
+        reference_id: useCreditData.reference_id ? parseInt(useCreditData.reference_id, 10) : null,
+        reason: useCreditData.reason || `Used credit for ${useCreditData.use_for}`
+      });
+      if (res?.success) {
+        setMessage({ text: 'Credit consumed successfully', type: 'success' });
+        setUseCreditData({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
+        setShowUseCreditForm(prev => ({ ...prev, [studentId]: false }));
+        fetchCreditHistory(studentId);
+        loadStudentAccountsData(true);
+      } else {
+        setMessage({ text: res?.message || 'Failed to consume credit', type: 'error' });
+      }
+    } catch (err) {
+      setMessage({ text: err.message || 'Error consuming credit', type: 'error' });
+    }
+  };
+
   const toggleStudentExpansion = (studentId) => {
-    setExpandedStudentId(expandedStudentId === studentId ? null : studentId);
+    const isExpanding = expandedStudentId !== studentId;
+    setExpandedStudentId(isExpanding ? studentId : null);
+    if (isExpanding) {
+      fetchCreditHistory(studentId);
+    }
   };
 
   const getSortedStudents = (students) => {
@@ -875,134 +990,253 @@ export default function AccountsPanel() {
             </motion.div>
           )}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payAmount">Amount to Pay (₹)</label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                id="payAmount"
-                name="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm disabled:opacity-50"
-                value={form.amount}
-                disabled={!form.student_id}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setForm((prev) => ({ ...prev, amount: val }));
-                }}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payDate">Payment Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  id="payDate"
-                  name="payment_date"
-                  type="date"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
-                  value={form.payment_date}
-                  onChange={handleChange}
-                  required
-                />
+          {form.student_id && parseFloat(form.pending_amount || 0) === 0 ? (
+            // ADD IN ACCOUNT FLOW FOR FULLY PAID STUDENTS
+            <div className="space-y-4 pt-2">
+              <div className="bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 text-[11px] font-semibold space-y-1.5 shadow-sm">
+                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px]">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Fee Status: Fully Paid
+                </div>
+                <div>This student has no outstanding dues. You can directly add advance credit to their account.</div>
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dueDate">Due Date (Optional)</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  id="dueDate"
-                  name="due_date"
-                  type="date"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
-                  value={form.due_date}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payMethod">Payment Method</label>
-              <div className="relative">
-                <select
-                  id="payMethod"
-                  name="method"
-                  className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
-                  value={form.method}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">Select Method</option>
-                  <option value="upi">UPI</option>
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="online">Online</option>
-                </select>
-                <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-150 dark:border-slate-800">
+                <span>Available Credit Balance:</span>
+                <span className="text-indigo-600 dark:text-indigo-400">
+                  ₹{parseFloat(students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString())?.advance_balance || 0).toFixed(2)}
+                </span>
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payStatus">Status</label>
-              <div className="relative">
-                <select
-                  id="payStatus"
-                  name="status"
-                  className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
-                  value={form.status}
-                  onChange={handleChange}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="completed">Completed</option>
-                  <option value="failed">Failed</option>
-                </select>
-                <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="extraAmountInput">Extra Amount (₹)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    id="extraAmountInput"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="e.g. 2000"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-indigo-100 dark:border-indigo-900/40 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-indigo-500 transition-all duration-300 text-sm"
+                    value={form.extra_amount}
+                    onChange={(e) => setForm(prev => ({ ...prev, extra_amount: e.target.value }))}
+                    required
+                  />
+                </div>
+                {parseFloat(form.extra_amount || 0) > 0 && (
+                  <div className="mt-3 space-y-1.5 p-3 bg-indigo-50/10 dark:bg-indigo-950/5 rounded-xl border border-dashed border-indigo-150 dark:border-indigo-900/45 text-[11px] font-semibold">
+                    <div className="text-indigo-600 dark:text-indigo-400 flex justify-between">
+                      <span>Total Credit Added:</span>
+                      <span className="font-bold">₹{parseFloat(form.extra_amount || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="text-slate-650 dark:text-slate-400 flex justify-between border-t border-slate-100 dark:border-slate-800 pt-1.5">
+                      <span>New Available Credit:</span>
+                      <span className="font-bold">₹{(parseFloat(students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString())?.advance_balance || 0) + parseFloat(form.extra_amount || 0)).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              <motion.button 
+                whileHover={{ scale: isSubmitting || !form.extra_amount || parseFloat(form.extra_amount) <= 0 ? 1 : 1.02, y: isSubmitting || !form.extra_amount || parseFloat(form.extra_amount) <= 0 ? 0 : -2 }}
+                whileTap={{ scale: isSubmitting || !form.extra_amount || parseFloat(form.extra_amount) <= 0 ? 1 : 0.98 }}
+                type="submit" 
+                disabled={isSubmitting || !form.extra_amount || parseFloat(form.extra_amount) <= 0} 
+                className="w-full h-11 mt-3 text-sm font-bold bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded-xl transition-all duration-300 text-white shadow-lg shadow-indigo-600/20"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="w-4 h-4" />
+                    Add to Account
+                  </>
+                )}
+              </motion.button>
             </div>
-          </div>
+          ) : (
+            // NORMAL FEE COLLECTION FLOW
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payAmount">Amount to Pay (₹)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    id="payAmount"
+                    name="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm disabled:opacity-50"
+                    value={form.amount}
+                    disabled={!form.student_id}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((prev) => ({ ...prev, amount: val }));
+                    }}
+                    required
+                  />
+                </div>
+              </div>
 
-          <motion.button 
-            whileHover={{ scale: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 1 : 1.02, y: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 0 : -2 }}
-            whileTap={{ scale: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 1 : 0.98 }}
-            type="submit" 
-            disabled={isSubmitting || parseFloat(form.pending_amount || 0) <= 0} 
-            className={`w-full h-11 mt-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ${
-              parseFloat(form.pending_amount || 0) <= 0
-                ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
-                : 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50'
-            }`}
-          >
+              {form.student_id && (
+                <div className="space-y-3 bg-indigo-50/20 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                      checked={collectExtra}
+                      onChange={(e) => {
+                        setCollectExtra(e.target.checked);
+                        if (!e.target.checked) {
+                          setForm(prev => ({ ...prev, extra_amount: '' }));
+                        }
+                      }}
+                    />
+                    <span className="text-xs font-bold text-indigo-650 dark:text-indigo-400">Collect Extra Amount (Advance Credit)</span>
+                  </label>
 
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating...
-              </>
-            ) : parseFloat(form.pending_amount || 0) <= 0 ? (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                Fully Paid
-              </>
-            ) : (
-              <>
-                <DollarSign className="w-4 h-4" />
-                Create Payment
-              </>
-            )}
-          </motion.button>
+                  {collectExtra && (
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400" htmlFor="extraAmountInput">Extra Amount (₹)</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          id="extraAmountInput"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          placeholder="e.g. 2000"
+                          className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-indigo-100 dark:border-indigo-900/40 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-indigo-500 transition-all duration-300 text-xs"
+                          value={form.extra_amount}
+                          onChange={(e) => setForm(prev => ({ ...prev, extra_amount: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center justify-between">
+                        <span>Total Received from Student:</span>
+                        <span className="font-bold text-xs">
+                          ₹{(parseFloat(form.amount || 0) + parseFloat(form.extra_amount || 0)).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payDate">Payment Date</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      id="payDate"
+                      name="payment_date"
+                      type="date"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                      value={form.payment_date}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dueDate">Due Date (Optional)</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      id="dueDate"
+                      name="due_date"
+                      type="date"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
+                      value={form.due_date}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payMethod">Payment Method</label>
+                  <div className="relative">
+                    <select
+                      id="payMethod"
+                      name="method"
+                      className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
+                      value={form.method}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Select Method</option>
+                      <option value="upi">UPI</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="online">Online</option>
+                    </select>
+                    <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="payStatus">Status</label>
+                  <div className="relative">
+                    <select
+                      id="payStatus"
+                      name="status"
+                      className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
+                      value={form.status}
+                      onChange={handleChange}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="completed">Completed</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                    <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <motion.button 
+                whileHover={{ scale: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 1 : 1.02, y: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 0 : -2 }}
+                whileTap={{ scale: isSubmitting || parseFloat(form.pending_amount || 0) <= 0 ? 1 : 0.98 }}
+                type="submit" 
+                disabled={isSubmitting || parseFloat(form.pending_amount || 0) <= 0} 
+                className={`w-full h-11 mt-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ${
+                  parseFloat(form.pending_amount || 0) <= 0
+                    ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                    : 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating...
+                  </>
+                ) : parseFloat(form.pending_amount || 0) <= 0 ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Fully Paid
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="w-4 h-4" />
+                    Create Payment
+                  </>
+                )}
+              </motion.button>
+            </>
+          )}
         </motion.form>
 
         {/* FILTERS CARD - Premium Design */}
@@ -1362,7 +1596,7 @@ export default function AccountsPanel() {
                       : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                   }`}
                 >
-                  All ({studentAccountsData?.students?.length || 0})
+                  All ({studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})
                 </button>
                 <button
                   onClick={() => setStudentAccountsFilter('paid')}
@@ -1372,7 +1606,7 @@ export default function AccountsPanel() {
                       : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                   }`}
                 >
-                  Paid ({studentAccountsData?.students?.filter(s => s.fee_status === 'paid').length || 0})
+                  Paid ({studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})
                 </button>
                 <button
                   onClick={() => setStudentAccountsFilter('unpaid')}
@@ -1382,7 +1616,17 @@ export default function AccountsPanel() {
                       : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                   }`}
                 >
-                  Unpaid ({studentAccountsData?.students?.filter(s => s.fee_status === 'unpaid').length || 0})
+                  Unpaid ({studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})
+                </button>
+                <button
+                  onClick={() => setStudentAccountsFilter('inactive')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${
+                    studentAccountsFilter === 'inactive'
+                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
+                  }`}
+                >
+                  Inactive ({studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})
                 </button>
               </div>
             </div>
@@ -1431,6 +1675,7 @@ export default function AccountsPanel() {
                         <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Amount</th>
                         <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Paid</th>
                         <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Due</th>
+                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Credit</th>
                         <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Last Paid</th>
                         <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Status</th>
                         <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Actions</th>
@@ -1445,10 +1690,18 @@ export default function AccountsPanel() {
                       const studentsList = studentAccountsData?.students || [];
                       const filteredStudents = studentsList.filter((student) => {
                         const feeStatus = student.fee_status || 'unpaid';
+                        const isActive = student.status === 'ACTIVE' && !student.is_deleted;
                         
-                        // Filter by payment status
-                        if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
-                        if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
+                        // Filter by tab status
+                        if (studentAccountsFilter === 'inactive') {
+                          if (isActive) return false;
+                        } else {
+                          // Tab is 'all', 'paid', or 'unpaid' -> hide inactive/deactivated students
+                          if (!isActive) return false;
+                          
+                          if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
+                          if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
+                        }
                         
                         // Filter by search term
                         if (studentAccountsSearch) {
@@ -1492,6 +1745,7 @@ export default function AccountsPanel() {
                         const feeStatus = student.fee_status || 'unpaid';
                         const paymentProgress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
                         const isExpanded = expandedStudentId === student.student_id;
+                        const isDeactivated = student.status === 'INACTIVE' || student.is_deleted;
                         
                         // Check if student is overdue (has due amount and no recent payment)
                         const isOverdue = dueAmount > 0 && lastPaidDate && new Date(lastPaidDate) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -1502,11 +1756,16 @@ export default function AccountsPanel() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.03 }}
-                              className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
+                              className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isDeactivated ? 'opacity-70' : ''} ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
                             >
                               <td className="px-4 py-3">
-                                <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                                <div className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
                                   {student.name || '—'}
+                                  {isDeactivated && (
+                                    <span className="inline-flex items-center rounded-full bg-red-50 dark:bg-red-950/40 px-2 py-0.5 text-[8px] font-bold text-red-600 dark:text-red-400 border border-red-200/50 dark:border-red-900/50 uppercase tracking-wider">
+                                      Inactive
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-[10px] text-slate-500 dark:text-slate-400">
                                   {student.phone || '—'}
@@ -1538,6 +1797,9 @@ export default function AccountsPanel() {
                               </td>
                               <td className="px-4 py-3 text-xs font-bold text-amber-500">
                                 ₹{parseFloat(dueAmount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                ₹{parseFloat(student.advance_balance || 0).toFixed(2)}
                               </td>
                               <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
                                 {formatDate(lastPaidDate)}
@@ -1581,33 +1843,261 @@ export default function AccountsPanel() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                               >
-                                <td colSpan="9" className="px-4 py-4 bg-slate-50 dark:bg-slate-900/30">
-                                  <div className="space-y-2">
-                                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
-                                      <Calendar className="w-3 h-3 text-[#84cc16]" /> Payment History
-                                    </h4>
-                                    {student.receipts && student.receipts.length > 0 ? (
-                                      <div className="space-y-1.5">
-                                        {student.receipts.map((receipt, idx) => (
-                                          <div key={idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
-                                                <DollarSign className="w-3 h-3 text-[#84cc16]" />
+                                <td colSpan="10" className="px-4 py-4 bg-slate-50 dark:bg-slate-900/30">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+                                    
+                                    {/* Left Column: Fee Summary & History */}
+                                    <div className="space-y-4">
+                                      <div>
+                                        <h4 className="font-bold text-slate-950 dark:text-white text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                                          <DollarSign className="w-3.5 h-3.5 text-[#84cc16]" /> Fee Summary
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                          <div className="text-center">
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Total Fee</div>
+                                            <div className="font-bold text-slate-900 dark:text-slate-100 text-xs mt-0.5">₹{parseFloat(totalAmount || 0).toFixed(2)}</div>
+                                          </div>
+                                          <div className="text-center border-x border-slate-100 dark:border-slate-700">
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Paid</div>
+                                            <div className="font-bold text-[#84cc16] text-xs mt-0.5">₹{parseFloat(paidAmount || 0).toFixed(2)}</div>
+                                          </div>
+                                          <div className="text-center">
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Due</div>
+                                            <div className="font-bold text-amber-500 text-xs mt-0.5">₹{parseFloat(dueAmount || 0).toFixed(2)}</div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                                          <Calendar className="w-3.5 h-3.5 text-[#84cc16]" /> Payment History
+                                        </h4>
+                                        {student.receipts && student.receipts.length > 0 ? (
+                                          <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1">
+                                            {student.receipts.map((receipt, idx) => (
+                                              <div key={idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                <div className="flex items-center gap-2">
+                                                  <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
+                                                    <DollarSign className="w-3 h-3 text-[#84cc16]" />
+                                                  </div>
+                                                  <div>
+                                                    <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
+                                                    {parseFloat(receipt.discount || 0) > 0 && (
+                                                      <span className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">(Discount: ₹{parseFloat(receipt.discount).toFixed(0)})</span>
+                                                    )}
+                                                    <span className="text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
+                                                  </div>
+                                                </div>
+                                                <div className="text-slate-600 dark:text-slate-400 font-bold flex items-center gap-1.5">
+                                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[8px] uppercase">{receipt.method || 'cash'}</span>
+                                                  {receipt.remarks && (
+                                                    <span className="text-slate-400 max-w-[120px] truncate" title={receipt.remarks}>— {receipt.remarks}</span>
+                                                  )}
+                                                </div>
                                               </div>
-                                              <div>
-                                                <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
-                                                <span className="text-slate-500 dark:text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
-                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No payment history available</p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Right Column: Advance Credit */}
+                                    <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-700 md:pl-6 pt-4 md:pt-0">
+                                      <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                                          <TrendingUp className="w-3.5 h-3.5 text-indigo-600" /> Advance Credit
+                                        </h4>
+                                        <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                                          Available Balance: ₹{parseFloat(student.advance_balance || 0).toFixed(2)}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
+                                            setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: false }));
+                                            setAddCreditData({ amount: '', reason: '' });
+                                          }}
+                                          className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors"
+                                        >
+                                          + Add Credit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={parseFloat(student.advance_balance || 0) <= 0}
+                                          onClick={() => {
+                                            setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
+                                            setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }));
+                                            setUseCreditData({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
+                                          }}
+                                          className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          - Use Credit
+                                        </button>
+                                      </div>
+
+                                      {/* Add Credit Form */}
+                                      {showAddCreditForm[student.student_id] && (
+                                        <motion.div
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: 'auto' }}
+                                          className="bg-indigo-50/55 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 space-y-3"
+                                        >
+                                          <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Add Advance Credit Balance</div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <input
+                                              type="number"
+                                              placeholder="Amount (₹)"
+                                              className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                              value={addCreditData.amount}
+                                              onChange={(e) => setAddCreditData({ ...addCreditData, amount: e.target.value })}
+                                            />
+                                            <input
+                                              type="text"
+                                              placeholder="Reason/Remarks"
+                                              className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                              value={addCreditData.reason}
+                                              onChange={(e) => setAddCreditData({ ...addCreditData, reason: e.target.value })}
+                                            />
+                                          </div>
+                                          <div className="flex gap-2 justify-end">
+                                            <button
+                                              type="button"
+                                              onClick={() => setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }))}
+                                              className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleAddCredit(student.student_id)}
+                                              className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[9px] font-bold"
+                                            >
+                                              Save
+                                            </button>
+                                          </div>
+                                        </motion.div>
+                                      )}
+
+                                      {/* Use Credit Form */}
+                                      {showUseCreditForm[student.student_id] && (
+                                        <motion.div
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: 'auto' }}
+                                          className="bg-indigo-50/55 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 space-y-3"
+                                        >
+                                          <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Consume Credit Balance</div>
+                                          <div className="grid grid-cols-3 gap-2">
+                                            <div>
+                                              <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Use For</label>
+                                              <select
+                                                className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                value={useCreditData.use_for}
+                                                onChange={(e) => setUseCreditData({ ...useCreditData, use_for: e.target.value, reference_id: '' })}
+                                              >
+                                                <option value="KIT">Sports Kit</option>
+                                                <option value="PLAN">Duration Plan</option>
+                                                <option value="OTHER">Other Charges</option>
+                                              </select>
                                             </div>
-                                            <div className="text-slate-600 dark:text-slate-400 font-medium">
-                                              {receipt.method || '—'}
+                                            <div>
+                                              <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Amount (₹)</label>
+                                              <input
+                                                type="number"
+                                                placeholder="Amount"
+                                                className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                value={useCreditData.amount}
+                                                onChange={(e) => setUseCreditData({ ...useCreditData, amount: e.target.value })}
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Reference ID</label>
+                                              {useCreditData.use_for === 'PLAN' ? (
+                                                <select
+                                                  className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                  value={useCreditData.reference_id}
+                                                  onChange={(e) => setUseCreditData({ ...useCreditData, reference_id: e.target.value })}
+                                                >
+                                                  <option value="">Select Plan</option>
+                                                  {(student.enrollments || []).map((enr, idx) => (
+                                                    <option key={idx} value={enr.enrollment_id}>
+                                                      {enr.batch?.sport?.name || 'Sport'} (Due: ₹{(enr.final_fee - enr.paid_amount).toFixed(0)})
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              ) : (
+                                                <input
+                                                  type="text"
+                                                  placeholder="ID / Code"
+                                                  className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                  value={useCreditData.reference_id}
+                                                  onChange={(e) => setUseCreditData({ ...useCreditData, reference_id: e.target.value })}
+                                                />
+                                              )}
                                             </div>
                                           </div>
-                                        ))}
+                                          <div>
+                                            <input
+                                              type="text"
+                                              placeholder="Description / Remarks"
+                                              className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                              value={useCreditData.reason}
+                                              onChange={(e) => setUseCreditData({ ...useCreditData, reason: e.target.value })}
+                                            />
+                                          </div>
+                                          <div className="flex gap-2 justify-end">
+                                            <button
+                                              type="button"
+                                              onClick={() => setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: false }))}
+                                              className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUseCredit(student.student_id)}
+                                              className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[9px] font-bold"
+                                            >
+                                              Apply
+                                            </button>
+                                          </div>
+                                        </motion.div>
+                                      )}
+
+                                      {/* Credit History Table */}
+                                      <div className="space-y-2">
+                                        <div className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">Credit History</div>
+                                        {creditLoading[student.student_id] ? (
+                                          <div className="text-[10px] text-slate-400 py-2">Loading credit transactions...</div>
+                                        ) : creditHistories[student.student_id]?.transactions && creditHistories[student.student_id].transactions.length > 0 ? (
+                                          <div className="max-h-[160px] overflow-y-auto pr-1 space-y-1.5">
+                                            {creditHistories[student.student_id].transactions.map((tx, idx) => (
+                                              <div key={idx} className="flex items-center justify-between text-[9px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className={`font-bold ${tx.type === 'ADD' ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                    {tx.type === 'ADD' ? '+' : '—'} ₹{parseFloat(tx.amount).toFixed(2)}
+                                                  </span>
+                                                  <span className="text-slate-500 dark:text-slate-400 truncate max-w-[130px] font-medium" title={tx.reason}>{tx.reason}</span>
+                                                </div>
+                                                <div className="text-slate-400 flex items-center gap-1">
+                                                  {tx.reference_type && (
+                                                    <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-[7px] uppercase font-bold text-slate-500">{tx.reference_type}</span>
+                                                  )}
+                                                  <span>{formatDate(tx.created_at)}</span>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No credit history available</p>
+                                        )}
                                       </div>
-                                    ) : (
-                                      <p className="text-slate-500 dark:text-slate-400 text-[10px] italic">No payment history available</p>
-                                    )}
+                                    </div>
+                                    
                                   </div>
                                 </td>
                               </motion.tr>

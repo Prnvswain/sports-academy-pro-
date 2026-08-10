@@ -501,8 +501,8 @@ function AssignToStudentTab() {
   };
 
   const handleStudentChange = (studentId) => {
-    const student = myStudents.find(s => s.student_id === studentId);
-    setForm({ ...form, student_id });
+    const student = myStudents.find(s => s.student_id === studentId || s.student_id === parseInt(studentId, 10));
+    setForm(prev => ({ ...prev, student_id: studentId }));
     setSelectedStudent(student);
     setStudentSearch('');
     if (studentId && selectedKit) {
@@ -591,12 +591,28 @@ function AssignToStudentTab() {
               
               {selectedStudent && (
                 <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3 mb-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-emerald-700 dark:text-emerald-400 text-xs">{selectedStudent.name}</div>
-                      <div className="text-[10px] text-emerald-600 dark:text-emerald-500">ID: #{selectedStudent.student_id} | {selectedStudent.batch?.name || 'No Batch'} | {selectedStudent.phone || 'No Mobile'}</div>
+                  <div className="flex items-center justify-between gap-3 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-100 dark:bg-emerald-900 border border-emerald-250 dark:border-emerald-805 flex items-center justify-center flex-shrink-0">
+                        {selectedStudent.profile_photo ? (
+                          <img
+                            src={selectedStudent.profile_photo}
+                            alt={selectedStudent.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = ''; e.target.onerror = null; }}
+                          />
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase">
+                            {selectedStudent.name?.charAt(0) || 'S'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-emerald-750 dark:text-emerald-400 text-xs truncate">{selectedStudent.name}</div>
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-500 truncate">ID: #{selectedStudent.student_id} | {selectedStudent.batch?.name || 'No Batch'} | {selectedStudent.phone || 'No Mobile'}</div>
+                      </div>
                     </div>
-                    <button type="button" onClick={() => { setSelectedStudent(null); setForm({ ...form, student_id: '' }); setExistingAssignments(0); }} className="text-rose-500 hover:text-rose-700 text-[10px] font-semibold">Clear</button>
+                    <button type="button" onClick={() => { setSelectedStudent(null); setForm({ ...form, student_id: '' }); setExistingAssignments(0); }} className="text-rose-500 hover:text-rose-700 text-[10px] font-semibold flex-shrink-0">Clear</button>
                   </div>
                 </div>
               )}
@@ -604,9 +620,29 @@ function AssignToStudentTab() {
               {studentSearch && !selectedStudent && filteredStudents.length > 0 && (
                 <div className="border border-slate-200 dark:border-slate-800 rounded-xl max-h-48 overflow-y-auto bg-white dark:bg-slate-950 mb-2">
                   {filteredStudents.map(s => (
-                    <div key={s.student_id} onClick={() => handleStudentChange(s.student_id)} className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border-b border-slate-100 dark:border-slate-800 last:border-0">
-                      <div className="font-semibold text-slate-900 dark:text-white">{s.name}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">ID: #{s.student_id} | {s.batch?.name || 'No Batch'} | {s.phone || 'No Mobile'}</div>
+                    <div
+                      key={s.student_id}
+                      onClick={() => handleStudentChange(s.student_id)}
+                      className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border-b border-slate-100 dark:border-slate-800 last:border-0 flex items-center gap-3 text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
+                        {s.profile_photo ? (
+                          <img
+                            src={s.profile_photo}
+                            alt={s.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = ''; e.target.onerror = null; }}
+                          />
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400 uppercase">
+                            {s.name?.charAt(0) || 'S'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-900 dark:text-white truncate">{s.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">ID: #{s.student_id} | {s.batch?.name || 'No Batch'} | {s.phone || 'No Mobile'}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -671,52 +707,58 @@ function AssignToStudentTab() {
               </div>
             )}
 
-            {/* Quantity and Price */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Quantity *</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={selectedKit?.remaining_qty || 1}
-                  value={form.quantity}
-                  onChange={e => setForm({ ...form, quantity: e.target.value })}
-                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Unit Price (₹)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.unit_price}
-                  onChange={e => setForm({ ...form, unit_price: e.target.value })}
-                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
+            {/* Quantity, Price, Discount, and Final Amount fields (conditional) */}
+            {selectedKit && (
+              <>
+                {/* Quantity and Price */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Quantity *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={selectedKit?.remaining_qty || 1}
+                      value={form.quantity}
+                      onChange={e => setForm({ ...form, quantity: e.target.value })}
+                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Unit Price (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.unit_price}
+                      readOnly
+                      disabled
+                      className="w-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900/50 rounded-xl px-3 py-2.5 text-sm focus:outline-none text-slate-500 cursor-not-allowed"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Discount (₹) <span className="text-xs font-normal text-slate-500">(Optional)</span></label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.discount}
-                onChange={e => setForm({ ...form, discount: e.target.value })}
-                className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Discount (₹) <span className="text-xs font-normal text-slate-500">(Optional)</span></label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.discount}
+                    onChange={e => setForm({ ...form, discount: e.target.value })}
+                    className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
+                  />
+                </div>
 
-            {/* Final Amount Display */}
-            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Final Amount:</span>
-                <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">₹{calculateFinalAmount().toFixed(2)}</span>
-              </div>
-            </div>
+                {/* Final Amount Display */}
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Final Amount:</span>
+                    <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">₹{calculateFinalAmount().toFixed(2)}</span>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Issue Date */}
             <div>

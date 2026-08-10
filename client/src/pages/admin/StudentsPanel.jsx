@@ -5650,7 +5650,7 @@ export default function StudentsPanel() {
 
                 <option key={p.plan_id || p.id} value={p.plan_id || p.id}>
 
-                  {p.name || p.plan_name} ({p.duration_months} months)
+                  {p.name || p.plan_name} ({p.duration_type === 'DAYS' ? `${p.duration} Days` : `${p.duration} Month${p.duration > 1 ? 's' : ''}`})
 
                 </option>
 
@@ -7131,7 +7131,7 @@ export default function StudentsPanel() {
 
                                 <option key={p.plan_id} value={p.plan_id}>
 
-                                  {p.name} ({p.duration_months} months) - {p.multiplier}x
+                                  {p.name} ({p.duration_type === 'DAYS' ? `${p.duration} Days` : `${p.duration} Month${p.duration > 1 ? 's' : ''}`}) - {p.multiplier}x
 
                                 </option>
 
@@ -7297,8 +7297,9 @@ export default function StudentsPanel() {
                             const today = new Date();
                             const nextDue = activeEnrollment.next_due_date ? new Date(activeEnrollment.next_due_date) : null;
                             const remainingDays = nextDue ? Math.ceil((nextDue - today) / (1000 * 60 * 60 * 24)) : 0;
-                            const durationMonths = activeEnrollment.duration_plan?.duration_months || 1;
-                            const totalPlanDays = durationMonths * 30;
+                            const totalPlanDays = activeEnrollment.duration_plan?.duration_type === 'DAYS'
+                              ? (activeEnrollment.duration_plan?.duration || 30)
+                              : ((activeEnrollment.duration_plan?.duration || 1) * 30);
                             const planStart = activeEnrollment.plan_start_date ? new Date(activeEnrollment.plan_start_date) : null;
                             const elapsedDays = planStart ? Math.max(0, Math.ceil((today - planStart) / (1000 * 60 * 60 * 24))) : 0;
                             const progressPercent = Math.min(100, Math.round((elapsedDays / totalPlanDays) * 100));
@@ -9351,7 +9352,7 @@ export default function StudentsPanel() {
 
                   <option key={plan.plan_id || plan.id} value={plan.plan_id || plan.id}>
 
-                    {plan.name} ({plan.duration_months} months)
+                    {plan.name} ({plan.duration_type === 'DAYS' ? `${plan.duration} Days` : `${plan.duration} Month${plan.duration > 1 ? 's' : ''}`})
 
                   </option>
 
@@ -9804,8 +9805,9 @@ export default function StudentsPanel() {
                 
                 // Calculate new end date based on selected start date and duration plan
                 const planStartDate = reactivateForm.plan_start_date ? new Date(reactivateForm.plan_start_date) : today;
-                const durationMonths = latestEnrollment.duration_plan?.duration_months || 1;
-                const durationDays = durationMonths * 30;
+                const durationDays = latestEnrollment.duration_plan?.duration_type === 'DAYS'
+                  ? (latestEnrollment.duration_plan?.duration || 30)
+                  : ((latestEnrollment.duration_plan?.duration || 1) * 30);
                 const newEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
                 const newRemainingDays = Math.max(0, Math.ceil((newEndDate - today) / (1000 * 60 * 60 * 24)));
                 
@@ -9964,7 +9966,7 @@ export default function StudentsPanel() {
                     value={(() => {
                       const plan = durationPlans.find(p => p.plan_id === parseInt(reactivateForm.duration_plan_id));
                       if (!plan || !reactivateForm.plan_start_date) return '—';
-                      const durationDays = plan.duration_months * 30;
+                      const durationDays = plan.duration_type === 'DAYS' ? plan.duration : plan.duration * 30;
                       const endDate = new Date(new Date(reactivateForm.plan_start_date).getTime() + durationDays * 24 * 60 * 60 * 1000);
                       return endDate.toLocaleDateString();
                     })()}

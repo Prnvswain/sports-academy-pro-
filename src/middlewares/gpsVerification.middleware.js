@@ -183,6 +183,11 @@ export const verifyAttendanceLocation = async (req, res, next) => {
       return next();
     }
 
+    // For student/batch attendance marking, check require_student_gps
+    if (!gpsSettings.require_student_gps) {
+      return next();
+    }
+
     // Admin override - if enabled and user is admin, skip verification
     if (gpsSettings.admin_override_enabled && user_role === 'ACADEMY_ADMIN') {
       return next();
@@ -369,8 +374,8 @@ export const optionalGpsVerification = async (req, res, next) => {
       where: { academy_id }
     });
 
-    // If GPS verification is disabled, skip
-    if (!gpsSettings || !gpsSettings.gps_verification_enabled) {
+    // If GPS verification is disabled globally or for coach, skip
+    if (!gpsSettings || !gpsSettings.gps_verification_enabled || !gpsSettings.require_coach_gps) {
       return next();
     }
 

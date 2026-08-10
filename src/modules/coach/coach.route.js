@@ -9,6 +9,9 @@ import { verifyAttendanceLocation, optionalGpsVerification } from '../../middlew
 import { validate } from './coach.validator.js';
 import { upload } from '../../config/multer.config.js';
 import inventoryCoachRoutes from '../inventory/inventory.coach.route.js';
+import { coachCalendarRouter } from '../calendar/calendar.route.js';
+
+import { checkCalendarLock } from '../../middlewares/calendarLock.middleware.js';
 
 const router = express.Router();
 
@@ -17,8 +20,10 @@ router.use(authorize('COACH'));
 router.use(enforceActiveSubscription);
 
 router.use('/inventory', inventoryCoachRoutes);
+router.use('/calendar', coachCalendarRouter);
 
 router.get('/dashboard', coachController.getDashboard);
+router.get('/gps-settings', coachController.getGpsSettings);
 router.get('/batches', coachController.getMyBatches);
 router.get('/batches/:id', coachController.getBatchById);
 router.get('/sports', coachController.getSports);
@@ -26,7 +31,7 @@ router.get('/payments', coachController.getPayments);
 router.get('/students-fee-summary', coachController.getStudentsFeeSummary);
 router.get('/student-ledger/:student_id', coachController.getStudentLedger);
 router.get('/attendance', coachController.getStudentAttendance);
-router.post('/attendance', validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
+router.post('/attendance', checkCalendarLock('ATTENDANCE'), validate('markAttendance'), validationErrorHandler, coachController.markAttendance);
 router.post(
   '/payments',
   upload.single('proof_file'),
@@ -48,6 +53,7 @@ router.patch(
 router.get('/self-attendance', coachController.getSelfAttendance);
 router.post(
   '/self-attendance',
+  checkCalendarLock('ATTENDANCE'),
   optionalGpsVerification,
   [
     body('date').optional().isISO8601(),
@@ -70,6 +76,7 @@ router.post(
 // Batch session routes
 router.post(
   '/batch-session/start',
+  checkCalendarLock('ATTENDANCE'),
   [
     body('batch_id').isInt().withMessage('Batch ID is required')
   ],
@@ -92,7 +99,7 @@ router.post('/performance/attributes', validationErrorHandler, performanceContro
 router.get('/performance/assessments', performanceController.getAssessmentHistory);
 router.get('/performance/assessments/:assessmentId', performanceController.getAssessmentById);
 router.get('/performance/students/:studentId', performanceController.getStudentPerformance);
-router.post('/performance/scores', validationErrorHandler, performanceController.createScore);
-router.post('/performance/weekly-performance', validationErrorHandler, performanceController.submitWeeklyPerformance);
+router.post('/performance/scores', checkCalendarLock('PERFORMANCE'), validationErrorHandler, performanceController.createScore);
+router.post('/performance/weekly-performance', checkCalendarLock('PERFORMANCE'), validationErrorHandler, performanceController.submitWeeklyPerformance);
 
 export default router;

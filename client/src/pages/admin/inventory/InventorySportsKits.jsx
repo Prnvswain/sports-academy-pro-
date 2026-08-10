@@ -771,7 +771,6 @@ function StudentAssignmentsSection({ onAssignStudent, refreshKey }) {
       const assignments = assignRes.data || [];
       setAllAssignments(assignments);
       setSports(sportsRes?.data || sportsRes || []);
-      setAllKits(kitsRes.data || []);
       setKits([...new Map(assignments.map(a => [a.kit?.kit_id, a.kit])).values()].filter(Boolean));
       setStudents(studentsRes.data?.students || studentsRes.data || []);
       const batchMap = {};
@@ -979,40 +978,7 @@ function StudentAssignmentsSection({ onAssignStudent, refreshKey }) {
         </div>
       )}
 
-      <StandardModal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title="Assign Kit to Student" subtitle={assigningStudent ? assigningStudent.name : 'Choose student and kit'} size="md"
-        footer={<div className="flex gap-3"><button type="button" onClick={() => setShowAssignModal(false)} className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Cancel</button><button type="submit" disabled={isAssigning} onClick={submitAssignment} className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl text-sm font-bold transition">{isAssigning ? 'Assigning…' : 'Confirm'}</button></div>}
-      >
-        <form onSubmit={submitAssignment} className="space-y-4">
-          {!assigningStudent ? (
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Select Student *</label>
-              <select
-                value={assignForm.student_id}
-                onChange={e => setAssignForm({ ...assignForm, student_id: parseInt(e.target.value, 10) || '' })}
-                className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
-                required
-              >
-                <option value="">— Choose a Student —</option>
-                {students.map(s => (
-                  <option key={s.student_id} value={s.student_id}>
-                    {s.name} (#{s.student_id}) {s.batch?.name ? `— ${s.batch.name}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          <div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Select Kit *</label><select value={assignForm.kit_id} onChange={e => setAssignForm({ ...assignForm, kit_id: e.target.value })} className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white" required><option value="">— Choose a Kit —</option>{allKits.filter(k => k.available_qty > 0 && k.status === 'ACTIVE').map(k => <option key={k.kit_id} value={k.kit_id}>{k.name} (Avail: {k.available_qty}) — ₹{Number(k.selling_price)}</option>)}</select></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Issue Date</label><input type="date" value={assignForm.issue_date} onChange={e => setAssignForm({ ...assignForm, issue_date: e.target.value })} className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white" /></div>
-            <div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Expected Return</label><input type="date" value={assignForm.expected_return_date} onChange={e => setAssignForm({ ...assignForm, expected_return_date: e.target.value })} className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white" /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Payment Mode</label><select value={assignForm.payment_mode} onChange={e => setAssignForm({ ...assignForm, payment_mode: e.target.value })} className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"><option value="FEE">Add to Fees</option><option value="PAID">Paid Direct</option></select></div>
-            <div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Payment Method</label><select value={assignForm.payment_method} onChange={e => setAssignForm({ ...assignForm, payment_method: e.target.value })} className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"><option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option></select></div>
-          </div>
-          <div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Remarks</label><textarea value={assignForm.remarks} onChange={e => setAssignForm({ ...assignForm, remarks: e.target.value })} rows={2} className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white" /></div>
-        </form>
-      </StandardModal>
+
 
       {/* Receipt Modal */}
       <StandardModal isOpen={showReceiptModal} onClose={() => setShowReceiptModal(false)} title="Kit Assignment Receipt" subtitle={receiptItem?.student?.name} size="md"

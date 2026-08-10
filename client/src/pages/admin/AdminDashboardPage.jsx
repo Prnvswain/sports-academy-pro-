@@ -90,6 +90,7 @@ export default function AnalyticsPanel() {
   const [inventoryAssignments, setInventoryAssignments] = useState([]);
   const [coachLocationLogs, setCoachLocationLogs] = useState([]);
   const [batchSessions, setBatchSessions] = useState([]);
+  const [calendarStats, setCalendarStats] = useState(null);
 
   useEffect(() => {
     const impersonationToken = localStorage.getItem('impersonation_token');
@@ -145,7 +146,8 @@ export default function AnalyticsPanel() {
         invAssignmentsData,
         coachLogsData,
         sessionsData,
-        academyRes
+        academyRes,
+        calendarRes
       ] = await Promise.all([
         safeFetch(adminGet('/admin/analytics'), {}),
         safeFetch(adminGet('/admin/students'), []),
@@ -159,7 +161,8 @@ export default function AnalyticsPanel() {
         safeFetch(adminGet('/admin/inventory/assignments'), []),
         safeFetch(adminGet('/admin/gps/coach-location-logs'), []),
         safeFetch(adminGet('/admin/batch-sessions'), []),
-        safeFetch(adminGet('/admin/academy'), null)
+        safeFetch(adminGet('/admin/academy'), null),
+        safeFetch(adminGet('/admin/calendar/dashboard'), null)
       ]);
 
       setRawMetrics(analyticsData);
@@ -186,6 +189,10 @@ export default function AnalyticsPanel() {
       if (academyRes) {
         setAcademy(academyRes);
         setLogoError(false);
+      }
+
+      if (calendarRes) {
+        setCalendarStats(calendarRes);
       }
     } catch (err) {
       setError(err.message || 'Failed to sync academy analytics logs.');
@@ -1754,6 +1761,57 @@ export default function AnalyticsPanel() {
 
         {/* Right Side: Quick Action and Recent Timeline */}
         <div className="space-y-6">
+
+          {/* Working Calendar Dashboard Card */}
+          {calendarStats && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-2xl p-5 shadow-lg border border-slate-800 space-y-4 relative overflow-hidden"
+            >
+              <div className="absolute right-[-20px] top-[-20px] opacity-10 text-white pointer-events-none">
+                <Calendar size={120} />
+              </div>
+
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Today's Academy Calendar</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xl font-black">{calendarStats.todayStatus}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-slate-800 pt-3 text-xs">
+                {calendarStats.nextHoliday && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-bold">📅 Next Holiday:</span>
+                    <span className="font-black text-white">{calendarStats.nextHoliday.title} ({new Date(calendarStats.nextHoliday.start_date).toLocaleDateString([], { month: 'short', day: 'numeric' })})</span>
+                  </div>
+                )}
+                {calendarStats.nextTournament && (
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span className="font-bold">🏆 Next Tournament:</span>
+                    <span className="font-black text-purple-400 truncate max-w-[150px]">{calendarStats.nextTournament.title}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-slate-300">
+                  <span className="font-bold">🟢 Working Days:</span>
+                  <span className="font-black text-emerald-400">{calendarStats.workingDaysThisMonth} Days</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-300">
+                  <span className="font-bold">🟡 Holiday Count:</span>
+                  <span className="font-black text-rose-400">{calendarStats.holidaysCountThisMonth} Days</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => navigate('/admin/calendar')}
+                className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Calendar size={13} />
+                Open Academy Calendar
+              </button>
+            </motion.div>
+          )}
 
           {/* Quick Action Panel */}
           <motion.div

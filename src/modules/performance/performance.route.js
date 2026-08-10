@@ -3,6 +3,8 @@ import * as performanceController from './performance.controller.js';
 import { authenticate } from '../../middlewares/auth.middleware.js';
 import { validationErrorHandler } from '../../middlewares/validation.middleware.js';
 
+import { checkCalendarLock } from '../../middlewares/calendarLock.middleware.js';
+
 const router = express.Router();
 
 // All routes require authentication
@@ -33,7 +35,7 @@ router.delete('/attributes/:attributeId', performanceController.deleteAttribute)
 router.get('/scores', performanceController.getScores);
 
 // Create new performance score
-router.post('/scores', validationErrorHandler, performanceController.createScore);
+router.post('/scores', checkCalendarLock('PERFORMANCE'), validationErrorHandler, performanceController.createScore);
 
 // Get assessment history with filtering
 router.get('/assessments/history', performanceController.getAssessmentHistory);
@@ -51,7 +53,7 @@ router.get('/students/:studentId', performanceController.getStudentPerformance);
 router.get('/batches/:batchId', performanceController.getBatchPerformance);
 
 // Submit weekly performance report
-router.post('/weekly-performance', performanceController.submitWeeklyPerformance);
+router.post('/weekly-performance', checkCalendarLock('PERFORMANCE'), performanceController.submitWeeklyPerformance);
 
 // Performance analytics endpoints
 router.get('/analytics/student/:studentId', performanceController.getStudentAnalytics);
@@ -60,10 +62,10 @@ router.get('/analytics/academy', performanceController.getAcademyAnalytics);
 
 // Sport attributes synchronization endpoints
 router.get('/sport-attributes/:sportId', performanceController.getSportAttributes);
-router.post('/rate-student', performanceController.rateStudent);
+router.post('/rate-student', checkCalendarLock('PERFORMANCE'), performanceController.rateStudent);
 router.post('/sync-global-attributes/:sportId', performanceController.syncGlobalSportAttributes);
 
 // Admin manual scoring endpoint
-router.patch('/manual-score', performanceController.manualScore);
+router.patch('/manual-score', checkCalendarLock('PERFORMANCE'), performanceController.manualScore);
 
 export default router;

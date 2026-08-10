@@ -467,6 +467,13 @@ model Academy {
   sports_kits            SportsKit[]
   sports_kit_assignments SportsKitAssignment[]
   coach_kit_assignments  CoachKitAssignment[]
+  calendar_events        CalendarEvent[]
+
+  calendar_overrides     CalendarOverride[]
+
+  student_credit_transactions StudentCreditTransaction[]
+
+
 
   @@map("academies")
 
@@ -644,6 +651,9 @@ model Coach {
 
   updated_at     DateTime     @updatedAt
 
+  photo_url      String?      @db.Text
+  photo_file_id  String?
+
 
 
   academy               Academy                   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "coaches_academy_id_fk")
@@ -765,42 +775,39 @@ model Sport {
   attendanceAuditLogs AttendanceAuditLog[]
 
   inventory_items     InventoryItem[]
-
   sports_kits         SportsKit[]
-
-
+  calendar_events     CalendarEvent[]
 
   @@unique([name, academy_id])
-
   @@index([academy_id])
-
   @@index([global_sport_id])
-
   @@map("sports")
 
 }
 
 
 
-/// Duration plans (1/3/6/12 months) — separate from subscription tiers
+/// Duration plans (1/3/6/12 months or custom days) — separate from subscription tiers
 
 model DurationPlan {
 
-  plan_id         Int          @id @default(autoincrement())
+  plan_id         Int      @id @default(autoincrement())
 
   academy_id      Int
 
   name            String
 
-  duration_months Int
+  duration_type   String   @default("MONTHS") @db.VarChar(20)
 
-  multiplier      Decimal      @default(1) @db.Decimal(5, 2)
+  duration        Int
+
+  multiplier      Decimal  @default(1) @db.Decimal(5, 2)
 
   status          RecordStatus @default(ACTIVE)
 
-  created_at      DateTime     @default(now())
+  created_at      DateTime @default(now())
 
-  updated_at      DateTime     @updatedAt
+  updated_at      DateTime @updatedAt
 
 
 
@@ -1040,6 +1047,8 @@ model Student {
 
   fees_status   String       @default("unpaid")
 
+  advance_balance Decimal    @default(0.00) @db.Decimal(10, 2)
+
   status        RecordStatus @default(ACTIVE)
 
   auto_deactivate_on_due Boolean   @default(true)
@@ -1085,6 +1094,8 @@ model Student {
   attendance_audit_logs AttendanceAuditLog[]
 
   sports_kit_assignments SportsKitAssignment[]
+
+  credit_transactions   StudentCreditTransaction[]
 
 
 
@@ -2475,5 +2486,74 @@ model CoachKitAssignment {
   @@index([coach_id])
   @@index([kit_id])
   @@map("coach_kit_assignments")
+}
+
+model CalendarEvent {
+  event_id             Int      @id @default(autoincrement())
+  academy_id           Int
+  title                String
+  description          String?  @db.Text
+  type                 String   // WORKING_DAY, WEEKLY_OFF, NATIONAL_HOLIDAY, PUBLIC_HOLIDAY, ACADEMY_HOLIDAY, TOURNAMENT, COMPETITION, MATCH, PRACTICE_CAMP, TRIAL_DAY, PARENT_MEETING, FEE_REMINDER, EXAM, MAINTENANCE, CUSTOM_EVENT
+  start_date           DateTime
+  end_date             DateTime
+  start_time           String?
+  end_time             String?
+  location             String?
+  sport_id             Int?
+  organizer            String?
+  banner               String?
+  attachment           String?
+  priority             String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  reminder             Int?     // minutes before
+  visibility           String   @default("ALL") // ALL, COACH, PARENT
+  notes                String?  @db.Text
+  block_attendance     Boolean  @default(false)
+  block_performance    Boolean  @default(false)
+  is_custom            Boolean  @default(false)
+  color                String?  // custom hex color
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  academy              Academy  @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "calendar_events_academy_id_fk")
+  sport                Sport?   @relation(fields: [sport_id], references: [sport_id], onDelete: SetNull, map: "calendar_events_sport_id_fk")
+
+  @@index([academy_id])
+  @@index([sport_id])
+  @@map("calendar_events")
+}
+
+model CalendarOverride {
+  override_id          Int      @id @default(autoincrement())
+  academy_id           Int
+  date                 DateTime
+  reason               String   @db.Text
+  type                 String   // ATTENDANCE, PERFORMANCE, BOTH
+  created_by           Int
+  created_at           DateTime @default(now())
+
+  academy              Academy  @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "calendar_overrides_academy_id_fk")
+
+  @@unique([academy_id, date, type])
+  @@index([academy_id])
+  @@map("calendar_overrides")
+}
+
+model StudentCreditTransaction {
+  transaction_id Int      @id @default(autoincrement())
+  student_id     Int
+  academy_id     Int
+  amount         Decimal  @db.Decimal(10, 2)
+  type           String   // 'ADD' or 'USE'
+  reason         String   @db.Text
+  reference_type String?  // 'KIT', 'PLAN', 'MANUAL', 'RECEIPT'
+  reference_id   Int?
+  created_at     DateTime @default(now())
+
+  student        Student  @relation(fields: [student_id], references: [student_id], onDelete: Cascade, map: "student_credit_transactions_student_id_fk")
+  academy        Academy  @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "student_credit_transactions_academy_id_fk")
+
+  @@index([student_id])
+  @@index([academy_id])
+  @@map("student_credit_transactions")
 }
 

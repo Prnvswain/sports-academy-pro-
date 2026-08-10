@@ -6,6 +6,7 @@ import NotificationBell from '../components/NotificationBell';
 import BrandingLogo from '../components/BrandingLogo';
 import GlobalBackground from '../components/GlobalBackground';
 import StudentSwitcher from '../components/StudentSwitcher';
+import AcademyCalendarModal from '../components/AcademyCalendarModal';
 import { SIDEBAR_COLLAPSED_KEY, parentGet } from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { useActiveStudent } from '../context/ActiveStudentContext';
@@ -49,6 +50,7 @@ function ParentLayoutShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
   );
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -200,7 +202,7 @@ function ParentLayoutShell() {
             className="flex items-center gap-3 no-underline outline-none transition-transform duration-250 hover:scale-105"
             onClick={() => !collapsedForNav && setSidebarCollapsed(true)}
           >
-            <span className="bg-[var(--theme-primary,#b2f04d)] text-[#0b1121] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-lg shadow-lime-500/30">
+            <span className="bg-[#2563eb] text-white flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black tracking-tighter shadow-lg shadow-blue-500/30">
               {PRODUCT_LOGO}
             </span>
             <motion.span
@@ -209,13 +211,13 @@ function ParentLayoutShell() {
               transition={{ duration: 0.2 }}
               className="font-black tracking-widest text-white text-[13px] whitespace-nowrap uppercase"
             >
-              Sports <span className="text-[#b2f04d]">Pro</span>
+              Sports <span className="text-[#2563eb]">Pro</span>
             </motion.span>
           </Link>
 
           <motion.button
             type="button"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-800/80 hover:text-[#b2f04d] lg:flex shrink-0 transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-800/80 hover:text-[#2563eb] lg:flex shrink-0 transition-all duration-250 hover:shadow-lg hover:shadow-black/20"
             onClick={() => setSidebarCollapsed((c) => !c)}
             whileHover={{ scale: 1.1, y: -1 }}
             whileTap={{ scale: 0.95 }}
@@ -237,7 +239,7 @@ function ParentLayoutShell() {
                 className={({ isActive }) =>
                   `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${collapsedForNav ? 'justify-center px-0' : 'px-4'
                   } ${isActive
-                    ? 'bg-[var(--theme-primary,#b2f04d)] text-[#0b1121] shadow-lg shadow-lime-500/30 scale-105'
+                    ? 'bg-[#2563eb] text-white shadow-lg shadow-blue-500/30 scale-105'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
@@ -373,6 +375,16 @@ function ParentLayoutShell() {
 
           <div className="flex items-center gap-4">
             <StudentSwitcher />
+            <motion.button
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setCalendarModalOpen(true)}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/10 text-slate-900 hover:bg-black/20 transition-all duration-250 shadow-lg shadow-black/20"
+              title="Academy Calendar"
+            >
+              <CalendarDays size={18} strokeWidth={2.5} />
+            </motion.button>
+
             <motion.div
               whileHover={{ scale: 1.1, y: -2 }}
               transition={{ duration: 0.25 }}
@@ -402,6 +414,12 @@ function ParentLayoutShell() {
           </motion.div>
         </main>
       </motion.div>
+
+      <AcademyCalendarModal
+        isOpen={calendarModalOpen}
+        onClose={() => setCalendarModalOpen(false)}
+        role="PARENT"
+      />
     </div>
   );
 }

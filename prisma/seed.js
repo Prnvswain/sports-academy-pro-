@@ -15,10 +15,10 @@ const GLOBAL_SPORTS = [
 ];
 
 const DURATION_PLANS = [
-  { name: '1 Month', duration_months: 1, multiplier: 1 },
-  { name: '3 Months', duration_months: 3, multiplier: 2.8 },
-  { name: '6 Months', duration_months: 6, multiplier: 5.5 },
-  { name: '12 Months', duration_months: 12, multiplier: 10 }
+  { name: '1 Month', duration: 1, duration_type: 'MONTHS', multiplier: 1 },
+  { name: '3 Months', duration: 3, duration_type: 'MONTHS', multiplier: 2.8 },
+  { name: '6 Months', duration: 6, duration_type: 'MONTHS', multiplier: 5.5 },
+  { name: '12 Months', duration: 12, duration_type: 'MONTHS', multiplier: 10 }
 ];
 
 async function main() {
@@ -109,7 +109,8 @@ async function main() {
         data: {
           academy_id: academy.academy_id,
           name: plan.name,
-          duration_months: plan.duration_months,
+          duration: plan.duration,
+          duration_type: plan.duration_type || 'MONTHS',
           multiplier: plan.multiplier,
           status: RecordStatus.ACTIVE
         }

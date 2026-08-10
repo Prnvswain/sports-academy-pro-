@@ -184,10 +184,10 @@ export const signupAcademy = async ({
 
       await tx.durationPlan.createMany({
         data: [
-          { academy_id: academy.academy_id, name: '1 Month', duration_months: 1, multiplier: 1 },
-          { academy_id: academy.academy_id, name: '3 Months', duration_months: 3, multiplier: 0.95 },
-          { academy_id: academy.academy_id, name: '6 Months', duration_months: 6, multiplier: 0.9 },
-          { academy_id: academy.academy_id, name: '12 Months', duration_months: 12, multiplier: 0.85 }
+          { academy_id: academy.academy_id, name: '1 Month', duration: 1, duration_type: 'MONTHS', multiplier: 1 },
+          { academy_id: academy.academy_id, name: '3 Months', duration: 3, duration_type: 'MONTHS', multiplier: 0.95 },
+          { academy_id: academy.academy_id, name: '6 Months', duration: 6, duration_type: 'MONTHS', multiplier: 0.9 },
+          { academy_id: academy.academy_id, name: '12 Months', duration: 12, duration_type: 'MONTHS', multiplier: 0.85 }
         ]
       });
 
@@ -706,10 +706,10 @@ export const signupWithGoogle = async ({
 
       await tx.durationPlan.createMany({
         data: [
-          { academy_id: academy.academy_id, name: '1 Month', duration_months: 1, multiplier: 1 },
-          { academy_id: academy.academy_id, name: '3 Months', duration_months: 3, multiplier: 0.95 },
-          { academy_id: academy.academy_id, name: '6 Months', duration_months: 6, multiplier: 0.9 },
-          { academy_id: academy.academy_id, name: '12 Months', duration_months: 12, multiplier: 0.85 }
+          { academy_id: academy.academy_id, name: '1 Month', duration: 1, duration_type: 'MONTHS', multiplier: 1 },
+          { academy_id: academy.academy_id, name: '3 Months', duration: 3, duration_type: 'MONTHS', multiplier: 0.95 },
+          { academy_id: academy.academy_id, name: '6 Months', duration: 6, duration_type: 'MONTHS', multiplier: 0.9 },
+          { academy_id: academy.academy_id, name: '12 Months', duration: 12, duration_type: 'MONTHS', multiplier: 0.85 }
         ]
       });
 

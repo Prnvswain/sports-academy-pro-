@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { parentGet, parentPost } from '../../api/client';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useActiveStudent } from '../../context/ActiveStudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -97,6 +98,7 @@ function CircularProgressRing({ percentage, size = 120, strokeWidth = 8, primary
 }
 
 export default function ParentDashboard() {
+  const navigate = useNavigate();
   const { isDark } = useTheme();
   const { activeStudent, loading: studentLoading } = useActiveStudent();
 
@@ -106,6 +108,26 @@ export default function ParentDashboard() {
 
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  const [calendarStats, setCalendarStats] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
+  useEffect(() => {
+    const loadCalendarStats = async () => {
+      try {
+        setCalendarLoading(true);
+        const result = await parentGet('/parent/calendar/dashboard');
+        if (result?.success) {
+          setCalendarStats(result.data);
+        }
+      } catch (err) {
+        console.error('Failed to load calendar dashboard stats:', err);
+      } finally {
+        setCalendarLoading(false);
+      }
+    };
+    loadCalendarStats();
+  }, []);
 
   // Consolidated detailed performance data
   const [perfData, setPerfData] = useState(null);
@@ -764,6 +786,49 @@ export default function ParentDashboard() {
               {/* Right Column (1/3 width) */}
               <div className="lg:col-span-1 space-y-6">
                 
+                {/* Working Calendar Dashboard Card */}
+                {calendarStats && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-2xl p-5 shadow-lg border border-slate-800 space-y-4 relative overflow-hidden text-left"
+                  >
+                    <div className="absolute right-[-20px] top-[-20px] opacity-10 text-white pointer-events-none">
+                      <Calendar size={120} />
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Academy Events Calendar</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xl font-black">{calendarStats.todayStatus}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-800 pt-3 text-xs">
+                      {calendarStats.nextHoliday && (
+                        <div className="flex justify-between items-center text-slate-300">
+                          <span className="font-bold">📅 Upcoming Holiday:</span>
+                          <span className="font-black text-white">{calendarStats.nextHoliday.title}</span>
+                        </div>
+                      )}
+                      {calendarStats.nextTournament && (
+                        <div className="flex justify-between items-center text-slate-300">
+                          <span className="font-bold">🏆 Next Tournament:</span>
+                          <span className="font-black text-purple-400 truncate max-w-[120px]">{calendarStats.nextTournament.title}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => navigate('/parent/calendar')}
+                      className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Calendar size={13} />
+                      Open Academy Calendar
+                    </button>
+                  </motion.div>
+                )}
+
                 {/* Quick actions panel */}
                 <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-3.5">
                   <h4 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground pb-2 border-b border-border/40">Quick Operations</h4>

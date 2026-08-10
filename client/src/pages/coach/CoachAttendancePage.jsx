@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import Loader from '../../components/Loader';
 import SessionCard from '../../components/attendance/SessionCard';
 import CoachAttendanceCard from '../../components/attendance/CoachAttendanceCard';
@@ -34,11 +35,47 @@ const formatTime = (seconds) => {
 };
 
 export default function CoachAttendancePage() {
+  const navigate = useNavigate();
   const { batches, loading } = useCoachBatches();
   const [selectedBatchId, setSelectedBatchId] = useState('');
 
   // Always use today's date
   const attendanceDate = new Date().toISOString().split('T')[0];
+
+  const [isCalendarHoliday, setIsCalendarHoliday] = useState(false);
+  const [holidayMessage, setHolidayMessage] = useState('');
+  const [gpsSettings, setGpsSettings] = useState(null);
+
+  useEffect(() => {
+    const checkCalendarStatus = async () => {
+      try {
+        const res = await coachGet('/coach/calendar/dashboard');
+        if (res?.success && res.data) {
+          const status = res.data.todayStatus;
+          if (status.includes('Holiday') || status.includes('Weekly Off') || status.includes('Parent Meeting')) {
+            setIsCalendarHoliday(true);
+            setHolidayMessage(`This date is marked as a ${status.split(' ').slice(1).join(' ')}. Attendance and Performance operations are disabled.`);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check calendar status:', err);
+      }
+    };
+    
+    const fetchGpsSettings = async () => {
+      try {
+        const res = await coachGet('/coach/gps-settings');
+        if (res?.success && res.data) {
+          setGpsSettings(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch GPS settings:', err);
+      }
+    };
+
+    checkCalendarStatus();
+    fetchGpsSettings();
+  }, []);
 
   const [attendanceMap, setAttendanceMap] = useState({});
   const [remarksMap, setRemarksMap] = useState({});
@@ -85,6 +122,11 @@ export default function CoachAttendancePage() {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   const selectedBatch = batches.find((b) => String(b.batch_id) === String(selectedBatchId));
+
+  const isGpsEnabledGlobally = gpsSettings?.gps_verification_enabled ?? true;
+  const isGpsRequiredForCoach = isGpsEnabledGlobally && (gpsSettings?.require_coach_gps ?? true);
+  const isGpsRequiredForSport = selectedBatch?.sport?.require_gps !== false;
+  const gpsRequired = isGpsRequiredForCoach && isGpsRequiredForSport;
 
   // Ref for GPS capture to trigger programmatically
   const gpsCaptureRef = useRef(null);
@@ -167,10 +209,12 @@ export default function CoachAttendancePage() {
         });
       } else {
         setSportCenter(null);
-        setMessage({
-          text: 'Location not configured. Please contact admin to configure GPS settings.',
-          type: 'error'
-        });
+        if (gpsRequired) {
+          setMessage({
+            text: 'Location not configured. Please contact admin to configure GPS settings.',
+            type: 'error'
+          });
+        }
       }
 
       // Attendance Radius Priority: Sport > Academy
@@ -180,13 +224,15 @@ export default function CoachAttendancePage() {
         setAttendanceRadius(selectedBatch.academy.attendance_radius_meters);
       } else {
         setAttendanceRadius(null);
-        setMessage({
-          text: 'Attendance radius not configured. Please contact admin to configure settings.',
-          type: 'error'
-        });
+        if (gpsRequired) {
+          setMessage({
+            text: 'Attendance radius not configured. Please contact admin to configure settings.',
+            type: 'error'
+          });
+        }
       }
     }
-  }, [selectedBatch]);
+  }, [selectedBatch, gpsSettings]);
 
   useEffect(() => {
     if (gpsCoords.latitude && gpsCoords.longitude && sportCenter) {
@@ -413,14 +459,18 @@ export default function CoachAttendancePage() {
 
   // Reset workflow when batch changes
   useEffect(() => {
-    const gpsRequired = selectedBatch?.sport?.require_gps !== false;
+    const isGpsEnabledGlobally = gpsSettings?.gps_verification_enabled ?? true;
+    const isGpsRequiredForCoach = isGpsEnabledGlobally && (gpsSettings?.require_coach_gps ?? true);
+    const isGpsRequiredForSport = selectedBatch?.sport?.require_gps !== false;
+    const gpsRequired = isGpsRequiredForCoach && isGpsRequiredForSport;
+
     setStep1GpsVerified(!gpsRequired);
     setStep1GpsLoading(false);
     setStep2AttendanceMarked(false);
     setStep2AttendanceLoading(false);
     setStep3BatchStarted(false);
     setStep4BatchEnded(false);
-  }, [selectedBatchId, selectedBatch]);
+  }, [selectedBatchId, selectedBatch, gpsSettings]);
 
   const handleCoachAttendance = async ({ status, remarks }) => {
     if (status === 'PRESENT' && !attendanceWindow.active) {
@@ -721,11 +771,31 @@ export default function CoachAttendancePage() {
     exit: { opacity: 0, y: -15, transition: { duration: 0.2 } }
   };
 
+  if (isCalendarHoliday) {
+    return (
+      <div className="p-4 md:p-6 max-w-lg mx-auto mt-12 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-xl p-8 text-center space-y-6">
+        <div className="w-16 h-16 bg-rose-100 dark:bg-rose-950/20 text-rose-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-rose-500/10">
+          <AlertCircle size={32} />
+        </div>
+        <h2 className="text-2xl font-black text-slate-900 dark:text-white">Attendance Locked</h2>
+        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
+          {holidayMessage || 'This date is marked as a Holiday. Attendance and Performance operations are disabled.'}
+        </p>
+        <button
+          onClick={() => navigate('/coach/calendar')}
+          className="w-full btn btn-primary py-3 font-bold text-xs uppercase tracking-wider"
+        >
+          View Calendar
+        </button>
+      </div>
+    );
+  }
+
   if (loading) {
     return <Loader message="Loading batches..." />;
   }
 
-  const gpsRequired = selectedBatch?.sport?.require_gps !== false;
+  // gpsRequired is computed at component body level
   // Helper variables for step progression state
   const step1Complete = coachAttendanceMarked && (selectedCoachStatus === 'ABSENT' || !gpsRequired || gpsVerified);
   const step2Complete = hasActiveSession || hasCompletedSession;
@@ -962,7 +1032,7 @@ export default function CoachAttendancePage() {
                 </div>
 
                 {/* GPS Capture panel */}
-                {selectedCoachStatus === 'PRESENT' && attendanceWindow.active && (
+                {gpsRequired && selectedCoachStatus === 'PRESENT' && attendanceWindow.active && (
                   <div className="card border border-border bg-card overflow-hidden relative p-2">
                     <span className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></span>
                     <div className="p-1">

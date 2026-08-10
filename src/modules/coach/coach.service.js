@@ -3794,11 +3794,32 @@ export const markCoachSelfAttendance = async (coach_id, academy_id, payload) => 
     let isVerified = false;
     let distance = null;
 
+    // Fetch GPS settings for the academy
+    const gpsSettings = await prisma.gpsAttendanceSettings.findUnique({
+      where: { academy_id: academyId }
+    });
+
+    const isGpsEnabledGlobally = gpsSettings?.gps_verification_enabled ?? true;
+    const isGpsRequiredForCoach = isGpsEnabledGlobally && (gpsSettings?.require_coach_gps ?? true);
+
+    let requireGpsForThisBatch = isGpsRequiredForCoach;
+    if (isGpsEnabledGlobally) {
+      const batchDetails = await prisma.batch.findUnique({
+        where: { batch_id: batchId },
+        include: { sport: true }
+      });
+      if (batchDetails?.sport && batchDetails.sport.require_gps === false) {
+        requireGpsForThisBatch = false;
+      }
+    } else {
+      requireGpsForThisBatch = false;
+    }
+
     if (existingVerification) {
       isVerified = true;
       distance = existingVerification.distance_from_location_meters ? Number(existingVerification.distance_from_location_meters) : null;
       logger.info('Skipping GPS verification as verification already exists today', { coachId, batchId, date: startOfDay });
-    } else if (status === 'PRESENT' || status === 'LATE') {
+    } else if ((status === 'PRESENT' || status === 'LATE') && requireGpsForThisBatch) {
       if (payload.latitude && payload.longitude) {
         const batchDetails = await prisma.batch.findUnique({
           where: { batch_id: batchId },
@@ -4029,3 +4050,16 @@ export const getStudentAttendance = async (coach_id, academy_id, batch_id, date)
 
   return attendanceRecords;
 };
+
+export const getGpsSettings = async (academy_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const settings = await prisma.gpsAttendanceSettings.findUnique({
+    where: { academy_id: academyId }
+  });
+  return settings || {
+    gps_verification_enabled: true,
+    require_student_gps: true,
+    require_coach_gps: true,
+    attendance_radius_meters: 100,
+  };
+};
