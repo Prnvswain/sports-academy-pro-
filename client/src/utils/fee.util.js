@@ -37,19 +37,21 @@ export const calculateStudentFee = (enrollment) => {
     1
   );
 
-  // Calculate sports fee (base fee × multiplier, applied only once)
-  const sportsFee = sportsBaseFee * planMultiplier;
+  // Get stored sports_fee if non-zero, otherwise calculate it
+  const storedSportsFee = parseFloat(
+    enrollment?.sports_fee ||
+    enrollment?.sportsFee ||
+    0
+  );
+  const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
 
   // Get other fee components
   const registrationFee = parseFloat(enrollment?.registration_fee || 0);
   const additionalCharges = parseFloat(enrollment?.additional_charges || 0);
   const discount = parseFloat(enrollment?.discount || 0);
 
-  // Prefer stored final_fee if available, otherwise calculate
-  const totalComputedFee = parseFloat(
-    enrollment?.final_fee ||
-    (sportsFee + registrationFee + additionalCharges - discount)
-  );
+  // Calculate total computed fee directly from components
+  const totalComputedFee = sportsFee + registrationFee + additionalCharges - discount;
 
   return {
     sportsBaseFee,

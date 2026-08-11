@@ -300,6 +300,7 @@ export default function AccountsPanel() {
       setStudentSearchTerm('');
       setStudentFeeData(null);
       loadData(false);
+      loadStudentAccountsData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -308,42 +309,28 @@ export default function AccountsPanel() {
   };
 
   const updateStatus = async (paymentObj, fallbackId, status, rejected_reason) => {
-    let targetId = paymentObj?.id || paymentObj?.payment_id || paymentObj?.paymentId || paymentObj?.PaymentID || paymentObj?._id || paymentObj?.id_payment;
+    let targetId = paymentObj?.receipt_id || paymentObj?.id || paymentObj?.payment_id || paymentObj?.paymentId || paymentObj?.PaymentID || paymentObj?._id || paymentObj?.id_payment;
 
     if (!targetId && targetId !== 0) {
-      const keys = Object.keys(paymentObj || {});
-      const idKey = keys.find((k) => k.toLowerCase().includes('id'));
-      if (idKey) targetId = paymentObj[idKey];
-    }
-
-    if ((!targetId && targetId !== 0) || targetId === fallbackId) {
-      setMessage({ text: 'Error: Frontend could not read your database Primary Key ID field.', type: 'error' });
+      setMessage({ text: 'Error: Could not read payment record ID. Please refresh and try again.', type: 'error' });
       return;
     }
 
-    // Check if trying to mark as completed
-    if (status && status.toLowerCase() === 'completed') {
-      // Get student's fee data to check if already fully paid
-      const studentId = paymentObj?.student_id || paymentObj?.student?.student_id;
-      if (studentId) {
-        const student = studentsList.find(s => s.student_id === studentId);
-        if (student) {
-          const totalFeesAssigned = student.total_fees_assigned || 0;
-          const totalFeesPaid = student.total_fees_paid || 0;
-          
-          // Check if student is already fully paid
-          if (totalFeesPaid >= totalFeesAssigned) {
-            setMessage({ text: 'Payment already completed. This student\'s full fee has already been submitted.', type: 'error' });
-            return;
-          }
-        }
-      }
-    }
 
     try {
       const result = await adminPatch(`/admin/accounts/${targetId}/status`, { status, rejected_reason });
       setMessage({ text: result.message || 'Status updated successfully', type: 'success' });
       loadData(true);
+      loadStudentAccountsData();
+      // Also refresh the ledger for the currently selected student so fee totals update immediately
+      if (form.student_id) {
+        try {
+          const ledgerRes = await adminGet(`/admin/accounts/student-ledger/${form.student_id}`);
+          setStudentFeeData(ledgerRes.data || null);
+        } catch (_) {
+          // silently ignore ledger refresh error
+        }
+      }
     } catch (error) {
       setMessage({ text: error.message || 'Failed to update payment status', type: 'error' });
     }
@@ -1365,7 +1352,7 @@ export default function AccountsPanel() {
                 ) : (
                   paginatedPayments.map((payment, index) => {
                     const normalizedStatus = (payment?.status || '').toUpperCase();
-                    const currentId = payment?.id || payment?._id || payment?.payment_id || index;
+                    const currentId = payment?.receipt_id || payment?.id || payment?._id || payment?.payment_id || index;
                     const isOverdue = normalizedStatus === 'PENDING' && payment?.due_date && new Date(payment.due_date) < new Date();
 
                     return (
@@ -1872,32 +1859,73 @@ export default function AccountsPanel() {
                                         <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
                                           <Calendar className="w-3.5 h-3.5 text-[#84cc16]" /> Payment History
                                         </h4>
-                                        {student.receipts && student.receipts.length > 0 ? (
-                                          <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1">
-                                            {student.receipts.map((receipt, idx) => (
-                                              <div key={idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                <div className="flex items-center gap-2">
-                                                  <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
-                                                    <DollarSign className="w-3 h-3 text-[#84cc16]" />
-                                                  </div>
-                                                  <div>
-                                                    <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
-                                                    {parseFloat(receipt.discount || 0) > 0 && (
-                                                      <span className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">(Discount: ₹{parseFloat(receipt.discount).toFixed(0)})</span>
-                                                    )}
-                                                    <span className="text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
-                                                  </div>
+                                        {student.receipts && student.receipts.length > 0 ? (() => {
+                                          const hasCycleMeta = student.receipts.some(r => r.is_current_cycle !== undefined);
+                                          const currentCycleReceipts = hasCycleMeta ? student.receipts.filter(r => r.is_current_cycle) : student.receipts;
+                                          const previousCycleReceipts = hasCycleMeta ? student.receipts.filter(r => !r.is_current_cycle) : [];
+
+                                          const renderReceipt = (receipt, idx) => (
+                                            <div key={receipt.receipt_id || idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
+                                                  <DollarSign className="w-3 h-3 text-[#84cc16]" />
                                                 </div>
-                                                <div className="text-slate-600 dark:text-slate-400 font-bold flex items-center gap-1.5">
-                                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[8px] uppercase">{receipt.method || 'cash'}</span>
-                                                  {receipt.remarks && (
-                                                    <span className="text-slate-400 max-w-[120px] truncate" title={receipt.remarks}>— {receipt.remarks}</span>
+                                                <div>
+                                                  <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
+                                                  {parseFloat(receipt.discount || 0) > 0 && (
+                                                    <span className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">(Discount: ₹{parseFloat(receipt.discount).toFixed(0)})</span>
                                                   )}
+                                                  <span className="text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
                                                 </div>
                                               </div>
-                                            ))}
-                                          </div>
-                                        ) : (
+                                              <div className="text-slate-600 dark:text-slate-400 font-bold flex items-center gap-1.5">
+                                                <span className={`px-1.5 py-0.5 rounded text-[8px] uppercase ${
+                                                  (receipt.status || '').toUpperCase() === 'COMPLETED'
+                                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                                }`}>{receipt.status || 'N/A'}</span>
+                                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[8px] uppercase">{receipt.method || 'cash'}</span>
+                                                {receipt.remarks && (
+                                                  <span className="text-slate-400 max-w-[100px] truncate" title={receipt.remarks}>— {receipt.remarks}</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+
+                                          return (
+                                            <div className="max-h-[280px] overflow-y-auto space-y-3 pr-1">
+                                              {/* Current Cycle */}
+                                              <div>
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#84cc16]/15 text-[#65a30d] dark:text-[#84cc16] border border-[#84cc16]/30">
+                                                    ✦ Current Cycle
+                                                  </span>
+                                                </div>
+                                                {currentCycleReceipts.length > 0 ? (
+                                                  <div className="space-y-1.5">
+                                                    {currentCycleReceipts.map((r, idx) => renderReceipt(r, idx))}
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-slate-400 dark:text-slate-500 text-[10px] italic px-2">No payments in current cycle yet</p>
+                                                )}
+                                              </div>
+
+                                              {/* Previous Cycles */}
+                                              {previousCycleReceipts.length > 0 && (
+                                                <div>
+                                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                                      ◇ Previous Cycles
+                                                    </span>
+                                                  </div>
+                                                  <div className="space-y-1.5 opacity-70">
+                                                    {previousCycleReceipts.map((r, idx) => renderReceipt(r, idx))}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })() : (
                                           <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No payment history available</p>
                                         )}
                                       </div>

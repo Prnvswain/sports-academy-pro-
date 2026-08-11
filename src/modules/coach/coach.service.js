@@ -1478,32 +1478,30 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
 
     students.map(async (student) => {
 
-      // Calculate total fee due from enrollments (only from coach's batches) using centralized fee utility
+      const activeEnrollment = student.enrollments.find(e => e.is_active) || null;
+      let totalFeeDue = 0;
+      let totalPaid = 0;
+      let balanceOutstanding = 0;
 
-      const totalFeeDue = student.enrollments.reduce((sum, e) => {
+      if (activeEnrollment) {
+        const sportsBaseFee = parseFloat(activeEnrollment.sport?.base_fee || activeEnrollment.sports_base_fee || 0);
+        const planMultiplier = parseFloat(activeEnrollment.duration_plan?.multiplier || activeEnrollment.plan_multiplier || 1);
+        const storedSportsFee = parseFloat(activeEnrollment.sports_fee || 0);
+        const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+        const registrationFee = parseFloat(activeEnrollment.registration_fee || 0);
+        const additionalCharges = parseFloat(activeEnrollment.additional_charges || 0);
+        const discount = parseFloat(activeEnrollment.discount || 0);
 
-        const feeBreakdown = calculateStudentFee(e);
+        totalFeeDue = sportsFee + registrationFee + additionalCharges - discount;
 
-        return sum + feeBreakdown.totalComputedFee;
+        const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
+        const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart);
+        totalPaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
 
-      }, 0);
-
-
-
-      // Calculate total paid from receipts
-
-      const totalPaid = student.receipts.reduce((sum, r) => sum + Number(r.amount), 0);
-
-
-
-      // Calculate balance outstanding
-
-      const balanceOutstanding = Math.max(0, totalFeeDue - totalPaid);
-
-
+        balanceOutstanding = Math.max(0, totalFeeDue - totalPaid);
+      }
 
       // Determine fee status
-
       const feeStatus = balanceOutstanding === 0 ? 'paid' : 'unpaid';
 
 
@@ -3302,30 +3300,40 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
     error.statusCode = 404;
 
     throw error;
-
   }
+
+  const activeEnrollment = student.enrollments.find(e => e.is_active) || null;
+  if (!activeEnrollment) {
+    const error = new Error('No active plan found for this student. No payments can be accepted.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
 
   // Payment validation: Check if payment amount exceeds remaining fee
   const studentLedger = await prisma.receipt.aggregate({
     where: {
       student_id: studentId,
       academy_id: academyId,
-      status: { in: ['COMPLETED', 'PAID', 'APPROVED'] }
+      status: { in: ['COMPLETED', 'PAID', 'APPROVED'] },
+      created_at: { gte: cycleStart }
     },
     _sum: { amount: true }
   });
 
   const totalPaid = studentLedger._sum.amount || 0;
   
-  // Get total fees assigned from student's latest enrollment
-  let totalFeesAssigned = 0;
-  if (student.enrollments && student.enrollments.length > 0) {
-    const latestEnrollment = student.enrollments[student.enrollments.length - 1];
-    // Use the centralized fee calculation utility
-    const { calculateStudentFee } = await import('../../utils/fee.util.js');
-    const feeBreakdown = calculateStudentFee(latestEnrollment);
-    totalFeesAssigned = feeBreakdown.totalComputedFee;
-  }
+  // Get total fees assigned from student's active cycle
+  const cycleFeesAgg = await prisma.fee.aggregate({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      created_at: { gte: cycleStart }
+    },
+    _sum: { amount_due: true }
+  });
+  const totalFeesAssigned = cycleFeesAgg._sum.amount_due || 0;
 
   const remainingFee = Math.max(0, totalFeesAssigned - totalPaid);
 

@@ -34,5 +34,6 @@ router.use('/coach/performance', performanceRoutes);
 router.use('/coach/notifications', notificationsRoutes);
 router.use('/coach/announcements', announcementsRoutes);
 router.use('/parent', parentRoutes);
+router.use('/parent/notifications', notificationsRoutes);
 
 export default router;

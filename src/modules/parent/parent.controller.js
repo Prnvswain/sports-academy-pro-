@@ -125,6 +125,7 @@ export const getChildDetails = async (req, res, next) => {
           orderBy: { payment_date: 'desc' },
           take: 10,
         },
+        fees: true,
       },
     });
 
@@ -135,8 +136,34 @@ export const getChildDetails = async (req, res, next) => {
       });
     }
 
+    const activeEnrollment = child.enrollments.find(e => e.is_active) || null;
+    let total_fees_assigned = 0;
+    let total_fees_paid = 0;
+    let pending_fees = 0;
+    let balance_outstanding = 0;
+
+    if (activeEnrollment) {
+      const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
+      const cycleFees = (child.fees || []).filter(f => new Date(f.created_at) >= cycleStart);
+      total_fees_assigned = cycleFees.reduce((sum, f) => sum + parseFloat(f.amount_due || 0), 0);
+
+      const cycleReceipts = child.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.payment_date) >= cycleStart);
+      total_fees_paid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+
+      balance_outstanding = Math.max(0, total_fees_assigned - total_fees_paid);
+      pending_fees = balance_outstanding;
+    }
+
+    const decoratedChild = {
+      ...child,
+      total_fees_assigned,
+      total_fees_paid,
+      pending_fees,
+      balance_outstanding
+    };
+
     return res.status(200).json(
-      successResponse('Child details retrieved successfully', child)
+      successResponse('Child details retrieved successfully', decoratedChild)
     );
   } catch (error) {
     next(error);

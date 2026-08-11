@@ -470,6 +470,7 @@ model Academy {
   calendar_events        CalendarEvent[]
 
   calendar_overrides     CalendarOverride[]
+  batch_holiday_requests BatchHolidayRequest[]
 
   student_credit_transactions StudentCreditTransaction[]
 
@@ -685,6 +686,8 @@ model Coach {
   inventory_requests    InventoryRequest[]
 
   coach_kit_assignments CoachKitAssignment[]
+  calendarEvents        CalendarEvent[]
+  batchHolidayRequests BatchHolidayRequest[]
 
 
 
@@ -880,6 +883,8 @@ model Batch {
   coachAttendances    CoachAttendance[]         @relation("coachAttendances")
 
   batchSessions       BatchSession[]
+  calendarEvents      CalendarEvent[]
+  batchHolidayRequests BatchHolidayRequest[]
 
 
 
@@ -2517,8 +2522,16 @@ model CalendarEvent {
   academy              Academy  @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "calendar_events_academy_id_fk")
   sport                Sport?   @relation(fields: [sport_id], references: [sport_id], onDelete: SetNull, map: "calendar_events_sport_id_fk")
 
+  batch_id             Int?
+  coach_id             Int?
+
+  batch                Batch?   @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "calendar_events_batch_id_fk")
+  coach                Coach?   @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "calendar_events_coach_id_fk")
+
   @@index([academy_id])
   @@index([sport_id])
+  @@index([batch_id])
+  @@index([coach_id])
   @@map("calendar_events")
 }
 
@@ -2555,5 +2568,26 @@ model StudentCreditTransaction {
   @@index([student_id])
   @@index([academy_id])
   @@map("student_credit_transactions")
+}
+
+model BatchHolidayRequest {
+  request_id   Int      @id @default(autoincrement())
+  academy_id   Int
+  coach_id     Int
+  batch_id     Int
+  date         DateTime
+  reason       String   @db.Text
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  academy      Academy  @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "batch_holiday_requests_academy_id_fk")
+  coach        Coach    @relation(fields: [coach_id], references: [coach_id], onDelete: Cascade, map: "batch_holiday_requests_coach_id_fk")
+  batch        Batch    @relation(fields: [batch_id], references: [batch_id], onDelete: Cascade, map: "batch_holiday_requests_batch_id_fk")
+
+  @@index([academy_id])
+  @@index([coach_id])
+  @@index([batch_id])
+  @@map("batch_holiday_requests")
 }
 

@@ -116,7 +116,11 @@ export default function ParentDashboard() {
     const loadCalendarStats = async () => {
       try {
         setCalendarLoading(true);
-        const result = await parentGet('/parent/calendar/dashboard');
+        let url = '/parent/calendar/dashboard';
+        if (activeStudent?.student_id) {
+          url += `?student_id=${activeStudent.student_id}`;
+        }
+        const result = await parentGet(url);
         if (result?.success) {
           setCalendarStats(result.data);
         }
@@ -127,7 +131,7 @@ export default function ParentDashboard() {
       }
     };
     loadCalendarStats();
-  }, []);
+  }, [activeStudent]);
 
   // Consolidated detailed performance data
   const [perfData, setPerfData] = useState(null);

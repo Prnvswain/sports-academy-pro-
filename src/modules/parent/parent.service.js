@@ -7,6 +7,7 @@ import logger from '../../utils/logger.js';
 import { sendPasswordChangeEmail } from '../../services/email.service.js';
 import * as receiptService from '../../services/receipt.service.js';
 import { logAudit } from '../../utils/audit.util.js';
+import { getCurrentCycleEnrollments } from '../admin/admin.service.js';
 
 export const createParentAccount = async ({ academy_id, name, email, phone, password }) => {
   const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
@@ -273,17 +274,63 @@ export const getParentChildren = async (parent_id) => {
           sport: true,
           batch: true,
           enrollments: {
-            where: { is_active: true },
             include: {
               duration_plan: true,
+              batch: {
+                include: {
+                  sport: true,
+                },
+              },
+              sport: true,
             },
           },
+          fees: true,
+          receipts: {
+            where: { status: 'COMPLETED' }
+          }
         },
       },
     },
   });
 
-  return parent.students;
+  if (!parent) return [];
+
+  return parent.students.map(student => {
+    const cycleEnrollments = getCurrentCycleEnrollments(student.enrollments || []);
+    let total_fees_assigned = 0;
+    let total_fees_paid = 0;
+    let pending_fees = 0;
+    let balance_outstanding = 0;
+
+    if (cycleEnrollments.length > 0) {
+      total_fees_assigned = cycleEnrollments.reduce((sum, e) => {
+        const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
+        const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
+        const storedSportsFee = parseFloat(e.sports_fee || 0);
+        const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+        const registrationFee = parseFloat(e.registration_fee || 0);
+        const additionalCharges = parseFloat(e.additional_charges || 0);
+        const discount = parseFloat(e.discount || 0);
+        return sum + (sportsFee + registrationFee + additionalCharges - discount);
+      }, 0);
+
+      const oldestEnrollment = cycleEnrollments[0];
+      const cycleStart = new Date(oldestEnrollment.created_at.getTime() - 5000);
+      const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart);
+      total_fees_paid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+
+      balance_outstanding = Math.max(0, total_fees_assigned - total_fees_paid);
+      pending_fees = balance_outstanding;
+    }
+
+    return {
+      ...student,
+      total_fees_assigned,
+      total_fees_paid,
+      pending_fees,
+      balance_outstanding
+    };
+  });
 };
 
 export const getParentPayments = async (parent_id, academy_id, student_id = null) => {
@@ -538,27 +585,38 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
     throw error;
   }
 
+  const activeEnrollment = student.enrollments.find(e => e.is_active) || null;
+  if (!activeEnrollment) {
+    const error = new Error('No active plan found for this student. No payments can be accepted.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
+
   // Payment validation: Check if payment amount exceeds remaining fee
   const studentLedger = await prisma.receipt.aggregate({
     where: {
       student_id: studentId,
       academy_id: academyId,
-      status: { in: ['COMPLETED', 'PAID', 'APPROVED'] }
+      status: { in: ['COMPLETED', 'PAID', 'APPROVED'] },
+      created_at: { gte: cycleStart }
     },
     _sum: { amount: true }
   });
 
   const totalPaid = studentLedger._sum.amount || 0;
   
-  // Get total fees assigned from student's latest enrollment
-  let totalFeesAssigned = 0;
-  if (student.enrollments && student.enrollments.length > 0) {
-    const latestEnrollment = student.enrollments[student.enrollments.length - 1];
-    // Use the centralized fee calculation utility
-    const { calculateStudentFee } = await import('../../utils/fee.util.js');
-    const feeBreakdown = calculateStudentFee(latestEnrollment);
-    totalFeesAssigned = feeBreakdown.totalComputedFee;
-  }
+  // Get total fees assigned from student's active cycle
+  const cycleFeesAgg = await prisma.fee.aggregate({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      created_at: { gte: cycleStart }
+    },
+    _sum: { amount_due: true }
+  });
+  const totalFeesAssigned = cycleFeesAgg._sum.amount_due || 0;
 
   const remainingFee = Math.max(0, totalFeesAssigned - totalPaid);
 
@@ -568,7 +626,6 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
     error.statusCode = 400;
     throw error;
   }
-
 
   // Check if student is already fully paid
   if (remainingFee <= 0) {
@@ -691,6 +748,7 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
             orderBy: { payment_date: 'desc' },
             take: 10,
           },
+          fees: true,
         },
       },
     },
@@ -724,10 +782,16 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
         )
       : 0;
 
-  const allReceipts = filteredStudents.flatMap((s) => s.receipts);
-  const pendingFees = allReceipts
-    .filter((r) => r.status === 'PENDING' || r.status === 'DUE')
-    .reduce((sum, r) => sum + (r.amount || 0), 0);
+  const pendingFees = filteredStudents.reduce((sum, student) => {
+    const activeEnrollment = student.enrollments?.find(e => e.is_active) || null;
+    if (!activeEnrollment) return sum;
+    const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
+    const cycleFees = (student.fees || []).filter(f => new Date(f.created_at) >= cycleStart);
+    const cycleReceipts = (student.receipts || []).filter(r => r.status === 'COMPLETED' && new Date(r.payment_date) >= cycleStart);
+    const totalFeesAssigned = cycleFees.reduce((s, f) => s + parseFloat(f.amount_due || 0), 0);
+    const totalFeesPaid = cycleReceipts.reduce((s, r) => s + parseFloat(r.amount || 0), 0);
+    return sum + Math.max(0, totalFeesAssigned - totalFeesPaid);
+  }, 0);
 
   const recentNotes = filteredStudents.flatMap((s) => s.daily_notes).slice(0, 5);
 

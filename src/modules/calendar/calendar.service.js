@@ -1,5 +1,6 @@
 import prisma from '../../config/prisma.js';
 import logger from '../../utils/logger.js';
+import { createNotification } from '../notifications/notifications.service.js';
 
 // India's static national/public holidays mapping table
 const INDIA_HOLIDAYS = [
@@ -66,8 +67,8 @@ export const seedNationalHolidaysForYear = async (academyId, year) => {
 };
 
 // Get calendar events for standard views
-export const getCalendarEvents = async (academyId, query) => {
-  const { year, month, sport_id, type } = query;
+export const getCalendarEvents = async (academyId, query, user) => {
+  const { year, month, sport_id, type, student_id } = query;
   const academy_id = parseInt(academyId, 10);
   
   const targetYear = parseInt(year || new Date().getFullYear(), 10);
@@ -99,10 +100,63 @@ export const getCalendarEvents = async (academyId, query) => {
     whereClause.type = type;
   }
 
+  // Scoping checks based on role
+  if (user) {
+    if (user.role === 'COACH') {
+      const batchCoaches = await prisma.batchCoach.findMany({
+        where: { coach_id: user.coach_id },
+        select: { batch_id: true }
+      });
+      const coachBatchIds = batchCoaches.map(bc => bc.batch_id);
+
+      whereClause.AND = [
+        {
+          OR: [
+            { batch_id: null, visibility: { in: ['ALL', 'COACH'] } },
+            { batch_id: { in: coachBatchIds } }
+          ]
+        }
+      ];
+    } else if (user.role === 'PARENT') {
+      let parentBatchIds = [];
+      const parentId = parseInt(user.id, 10);
+
+      if (student_id) {
+        const student = await prisma.student.findFirst({
+          where: { student_id: parseInt(student_id, 10), parent_id: parentId, is_deleted: false },
+          select: { batch_id: true }
+        });
+        if (student && student.batch_id) {
+          parentBatchIds = [student.batch_id];
+        }
+      } else {
+        const students = await prisma.student.findMany({
+          where: { parent_id: parentId, is_deleted: false },
+          select: { batch_id: true }
+        });
+        parentBatchIds = students.map(s => s.batch_id).filter(id => id !== null);
+      }
+
+      whereClause.AND = [
+        {
+          OR: [
+            { batch_id: null, visibility: { in: ['ALL', 'PARENT'] } },
+            { batch_id: { in: parentBatchIds } }
+          ]
+        }
+      ];
+    }
+  }
+
   const events = await prisma.calendarEvent.findMany({
     where: whereClause,
     include: {
       sport: {
+        select: {
+          name: true
+        }
+      },
+      batch: {
         select: {
           name: true
         }
@@ -117,7 +171,7 @@ export const getCalendarEvents = async (academyId, query) => {
 };
 
 // Create calendar event
-export const createCalendarEvent = async (academyId, data) => {
+export const createCalendarEvent = async (academyId, data, user) => {
   const {
     title,
     description,
@@ -138,13 +192,27 @@ export const createCalendarEvent = async (academyId, data) => {
     block_attendance,
     block_performance,
     is_custom,
-    color
+    color,
+    batch_id
   } = data;
 
   const academy_id = parseInt(academyId, 10);
   const parsedSportId = sport_id ? parseInt(sport_id, 10) : null;
+  const parsedBatchId = batch_id ? parseInt(batch_id, 10) : null;
 
-  // Validate duplicate kit names (or in this case, duplicate custom event names on same date)
+  if (user && user.role === 'COACH') {
+    if (!parsedBatchId) {
+      throw new Error('Batch ID is required for coach events.');
+    }
+    const assigned = await prisma.batchCoach.findFirst({
+      where: { coach_id: user.coach_id, batch_id: parsedBatchId }
+    });
+    if (!assigned) {
+      throw new Error('Coach is not assigned to this batch.');
+    }
+  }
+
+  // Validate duplicate custom event names on same date
   if (type === 'CUSTOM_EVENT') {
     const duplicate = await prisma.calendarEvent.findFirst({
       where: {
@@ -158,7 +226,7 @@ export const createCalendarEvent = async (academyId, data) => {
     }
   }
 
-  return await prisma.calendarEvent.create({
+  const createdEvent = await prisma.calendarEvent.create({
     data: {
       academy_id,
       title: title.trim(),
@@ -170,6 +238,8 @@ export const createCalendarEvent = async (academyId, data) => {
       end_time,
       location,
       sport_id: parsedSportId,
+      batch_id: parsedBatchId,
+      coach_id: user && user.role === 'COACH' ? user.coach_id : null,
       organizer,
       banner,
       attachment,
@@ -183,10 +253,33 @@ export const createCalendarEvent = async (academyId, data) => {
       color: color || '#eab308'
     }
   });
+
+  // Notify parents
+  if (createdEvent.batch_id) {
+    const batch = await prisma.batch.findUnique({
+      where: { batch_id: createdEvent.batch_id },
+      select: { name: true }
+    });
+    const students = await prisma.student.findMany({
+      where: { batch_id: createdEvent.batch_id, is_deleted: false, parent_id: { not: null } },
+      select: { parent_id: true }
+    });
+    const parentIds = [...new Set(students.map(s => s.parent_id))];
+    for (const parentId of parentIds) {
+      await createNotification(academy_id, {
+        type: 'GENERAL',
+        title: `New Batch Event: ${createdEvent.title}`,
+        body: `A new event "${createdEvent.title}" for batch "${batch?.name || ''}" has been scheduled on ${new Date(createdEvent.start_date).toLocaleDateString()}.`,
+        user_id: parentId
+      });
+    }
+  }
+
+  return createdEvent;
 };
 
 // Update calendar event
-export const updateCalendarEvent = async (academyId, eventId, data) => {
+export const updateCalendarEvent = async (academyId, eventId, data, user) => {
   const id = parseInt(eventId, 10);
   const academy_id = parseInt(academyId, 10);
 
@@ -195,6 +288,12 @@ export const updateCalendarEvent = async (academyId, eventId, data) => {
   });
 
   if (!event) throw new Error('Event not found');
+
+  if (user && user.role === 'COACH') {
+    if (event.coach_id !== user.coach_id) {
+      throw new Error('Unauthorized to modify this event.');
+    }
+  }
 
   const {
     title,
@@ -216,10 +315,11 @@ export const updateCalendarEvent = async (academyId, eventId, data) => {
     block_attendance,
     block_performance,
     is_custom,
-    color
+    color,
+    batch_id
   } = data;
 
-  return await prisma.calendarEvent.update({
+  const updatedEvent = await prisma.calendarEvent.update({
     where: { event_id: id },
     data: {
       title: title?.trim(),
@@ -231,6 +331,7 @@ export const updateCalendarEvent = async (academyId, eventId, data) => {
       end_time,
       location,
       sport_id: sport_id ? parseInt(sport_id, 10) : null,
+      batch_id: batch_id ? parseInt(batch_id, 10) : undefined,
       organizer,
       banner,
       attachment,
@@ -244,10 +345,33 @@ export const updateCalendarEvent = async (academyId, eventId, data) => {
       color
     }
   });
+
+  // Notify parents
+  if (updatedEvent.batch_id) {
+    const batch = await prisma.batch.findUnique({
+      where: { batch_id: updatedEvent.batch_id },
+      select: { name: true }
+    });
+    const students = await prisma.student.findMany({
+      where: { batch_id: updatedEvent.batch_id, is_deleted: false, parent_id: { not: null } },
+      select: { parent_id: true }
+    });
+    const parentIds = [...new Set(students.map(s => s.parent_id))];
+    for (const parentId of parentIds) {
+      await createNotification(academy_id, {
+        type: 'GENERAL',
+        title: `Batch Event Updated: ${updatedEvent.title}`,
+        body: `The event "${updatedEvent.title}" for batch "${batch?.name || ''}" on ${new Date(updatedEvent.start_date).toLocaleDateString()} has been updated.`,
+        user_id: parentId
+      });
+    }
+  }
+
+  return updatedEvent;
 };
 
 // Delete calendar event
-export const deleteCalendarEvent = async (academyId, eventId) => {
+export const deleteCalendarEvent = async (academyId, eventId, user) => {
   const id = parseInt(eventId, 10);
   const academy_id = parseInt(academyId, 10);
 
@@ -256,6 +380,12 @@ export const deleteCalendarEvent = async (academyId, eventId) => {
   });
 
   if (!event) throw new Error('Event not found');
+
+  if (user && user.role === 'COACH') {
+    if (event.coach_id !== user.coach_id) {
+      throw new Error('Unauthorized to delete this event.');
+    }
+  }
 
   await prisma.calendarEvent.delete({
     where: { event_id: id }
@@ -293,7 +423,7 @@ export const createDateOverride = async (academyId, userId, data) => {
 };
 
 // Check if a date operation is blocked
-export const isOperationBlocked = async (academyId, dateStr, operationType) => {
+export const isOperationBlocked = async (academyId, dateStr, operationType, batchId = null) => {
   const academy_id = parseInt(academyId, 10);
   const date = new Date(dateStr);
   date.setHours(0, 0, 0, 0);
@@ -303,9 +433,11 @@ export const isOperationBlocked = async (academyId, dateStr, operationType) => {
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const blockingEvent = await prisma.calendarEvent.findFirst({
+  // 1. Academy Holiday / Admin Weekly Off (Blocks all)
+  const academyBlockEvent = await prisma.calendarEvent.findFirst({
     where: {
       academy_id,
+      batch_id: null,
       start_date: { lte: endOfDay },
       end_date: { gte: startOfDay },
       OR: [
@@ -332,22 +464,54 @@ export const isOperationBlocked = async (academyId, dateStr, operationType) => {
     }
   });
 
-  if (!blockingEvent) return false;
+  if (academyBlockEvent) {
+    // If a blocking event exists, check if there is an active override
+    const override = await prisma.calendarOverride.findFirst({
+      where: {
+        academy_id,
+        date,
+        type: { in: [operationType, 'BOTH'] }
+      }
+    });
 
-  // If a blocking event exists, check if there is an active override
-  const override = await prisma.calendarOverride.findFirst({
-    where: {
-      academy_id,
-      date,
-      type: { in: [operationType, 'BOTH'] }
+    if (!override) {
+      return {
+        blocked: true,
+        message: 'Academy is closed today. Attendance and performance entry are unavailable.'
+      };
     }
-  });
+  }
 
-  return !override; // Blocked if no override exists
+  // 2. Approved Batch Holiday (Blocks only that batch)
+  if (batchId) {
+    const parsedBatchId = parseInt(batchId, 10);
+    const batchBlockEvent = await prisma.calendarEvent.findFirst({
+      where: {
+        academy_id,
+        batch_id: parsedBatchId,
+        start_date: { lte: endOfDay },
+        end_date: { gte: startOfDay },
+        OR: [
+          { type: 'BATCH_HOLIDAY' },
+          { block_attendance: operationType === 'ATTENDANCE' },
+          { block_performance: operationType === 'PERFORMANCE' }
+        ]
+      }
+    });
+
+    if (batchBlockEvent) {
+      return {
+        blocked: true,
+        message: 'This batch is off today. Attendance and performance entry are unavailable.'
+      };
+    }
+  }
+
+  return false;
 };
 
 // Get Dashboard widgets details
-export const getCalendarDashboardStats = async (academyId) => {
+export const getCalendarDashboardStats = async (academyId, user, query = {}) => {
   const academy_id = parseInt(academyId, 10);
   const today = new Date();
   const startOfDay = new Date(today);
@@ -355,23 +519,75 @@ export const getCalendarDashboardStats = async (academyId) => {
   const endOfDay = new Date(today);
   endOfDay.setHours(23, 59, 59, 999);
 
-  // 1. Today's Status
-  const activeEvent = await prisma.calendarEvent.findFirst({
-    where: {
-      academy_id,
-      start_date: { lte: endOfDay },
-      end_date: { gte: startOfDay }
-    },
-    orderBy: {
-      priority: 'desc'
+  // Determine what batch_id to filter for today's status
+  let batchIds = [];
+
+  if (user) {
+    if (user.role === 'PARENT') {
+      const studentId = query.student_id ? parseInt(query.student_id, 10) : null;
+      if (studentId) {
+        const student = await prisma.student.findFirst({
+          where: { student_id: studentId, parent_id: parseInt(user.id, 10), is_deleted: false },
+          select: { batch_id: true }
+        });
+        if (student && student.batch_id) {
+          batchIds = [student.batch_id];
+        }
+      } else {
+        const students = await prisma.student.findMany({
+          where: { parent_id: parseInt(user.id, 10), is_deleted: false },
+          select: { batch_id: true }
+        });
+        batchIds = students.map(s => s.batch_id).filter(id => id !== null);
+      }
+    } else if (user.role === 'COACH') {
+      const bId = query.batch_id ? parseInt(query.batch_id, 10) : null;
+      if (bId) {
+        batchIds = [bId];
+      } else {
+        const batchCoaches = await prisma.batchCoach.findMany({
+          where: { coach_id: user.coach_id },
+          select: { batch_id: true }
+        });
+        batchIds = batchCoaches.map(bc => bc.batch_id);
+      }
     }
+  }
+
+  // 1. Today's Status
+  const whereEvent = {
+    academy_id,
+    start_date: { lte: endOfDay },
+    end_date: { gte: startOfDay }
+  };
+
+  if (user && user.role === 'COACH') {
+    whereEvent.OR = [
+      { batch_id: null, visibility: { in: ['ALL', 'COACH'] } },
+      { batch_id: { in: batchIds } }
+    ];
+  } else if (user && user.role === 'PARENT') {
+    whereEvent.OR = [
+      { batch_id: null, visibility: { in: ['ALL', 'PARENT'] } },
+      { batch_id: { in: batchIds } }
+    ];
+  }
+
+  const activeEvent = await prisma.calendarEvent.findFirst({
+    where: whereEvent,
+    orderBy: [
+      { priority: 'desc' },
+      { created_at: 'desc' }
+    ]
   });
 
   let todayStatus = '🟢 Working Day';
   let banner = '';
 
   if (activeEvent) {
-    if (activeEvent.type === 'NATIONAL_HOLIDAY' || activeEvent.type === 'PUBLIC_HOLIDAY' || activeEvent.type === 'ACADEMY_HOLIDAY') {
+    if (activeEvent.type === 'BATCH_HOLIDAY') {
+      todayStatus = `🔴 ${activeEvent.title}`;
+    } else if (activeEvent.type === 'NATIONAL_HOLIDAY' || activeEvent.type === 'PUBLIC_HOLIDAY' || activeEvent.type === 'ACADEMY_HOLIDAY') {
       todayStatus = '🔴 Holiday';
     } else if (activeEvent.type === 'WEEKLY_OFF') {
       todayStatus = '🔴 Weekly Off';
@@ -390,30 +606,58 @@ export const getCalendarDashboardStats = async (academyId) => {
   }
 
   // 2. Upcoming events count & dates
+  const nextHolidayWhere = {
+    academy_id,
+    start_date: { gt: today },
+    type: { in: ['NATIONAL_HOLIDAY', 'PUBLIC_HOLIDAY', 'ACADEMY_HOLIDAY', 'WEEKLY_OFF', 'BATCH_HOLIDAY'] }
+  };
+
+  const nextTournamentWhere = {
+    academy_id,
+    start_date: { gt: today },
+    type: 'TOURNAMENT'
+  };
+
+  const nextEventWhere = {
+    academy_id,
+    start_date: { gt: today },
+    type: { notIn: ['WORKING_DAY', 'NATIONAL_HOLIDAY', 'PUBLIC_HOLIDAY', 'ACADEMY_HOLIDAY', 'WEEKLY_OFF', 'BATCH_HOLIDAY'] }
+  };
+
+  if (user && user.role === 'COACH') {
+    const andCond = {
+      OR: [
+        { batch_id: null },
+        { batch_id: { in: batchIds } }
+      ]
+    };
+    nextHolidayWhere.AND = andCond;
+    nextTournamentWhere.AND = andCond;
+    nextEventWhere.AND = andCond;
+  } else if (user && user.role === 'PARENT') {
+    const andCond = {
+      OR: [
+        { batch_id: null },
+        { batch_id: { in: batchIds } }
+      ]
+    };
+    nextHolidayWhere.AND = andCond;
+    nextTournamentWhere.AND = andCond;
+    nextEventWhere.AND = andCond;
+  }
+
   const nextHoliday = await prisma.calendarEvent.findFirst({
-    where: {
-      academy_id,
-      start_date: { gt: today },
-      type: { in: ['NATIONAL_HOLIDAY', 'PUBLIC_HOLIDAY', 'ACADEMY_HOLIDAY', 'WEEKLY_OFF'] }
-    },
+    where: nextHolidayWhere,
     orderBy: { start_date: 'asc' }
   });
 
   const nextTournament = await prisma.calendarEvent.findFirst({
-    where: {
-      academy_id,
-      start_date: { gt: today },
-      type: 'TOURNAMENT'
-    },
+    where: nextTournamentWhere,
     orderBy: { start_date: 'asc' }
   });
 
   const nextEvent = await prisma.calendarEvent.findFirst({
-    where: {
-      academy_id,
-      start_date: { gt: today },
-      type: { notIn: ['WORKING_DAY', 'NATIONAL_HOLIDAY', 'PUBLIC_HOLIDAY', 'ACADEMY_HOLIDAY', 'WEEKLY_OFF'] }
-    },
+    where: nextEventWhere,
     orderBy: { start_date: 'asc' }
   });
 
@@ -421,12 +665,30 @@ export const getCalendarDashboardStats = async (academyId) => {
   const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
 
+  const holidaysCountThisMonthWhere = {
+    academy_id,
+    start_date: { gte: currentMonthStart, lte: currentMonthEnd },
+    type: { in: ['NATIONAL_HOLIDAY', 'PUBLIC_HOLIDAY', 'ACADEMY_HOLIDAY', 'WEEKLY_OFF', 'BATCH_HOLIDAY'] }
+  };
+
+  if (user && user.role === 'COACH') {
+    holidaysCountThisMonthWhere.AND = {
+      OR: [
+        { batch_id: null },
+        { batch_id: { in: batchIds } }
+      ]
+    };
+  } else if (user && user.role === 'PARENT') {
+    holidaysCountThisMonthWhere.AND = {
+      OR: [
+        { batch_id: null },
+        { batch_id: { in: batchIds } }
+      ]
+    };
+  }
+
   const holidaysThisMonth = await prisma.calendarEvent.count({
-    where: {
-      academy_id,
-      start_date: { gte: currentMonthStart, lte: currentMonthEnd },
-      type: { in: ['NATIONAL_HOLIDAY', 'PUBLIC_HOLIDAY', 'ACADEMY_HOLIDAY', 'WEEKLY_OFF'] }
-    }
+    where: holidaysCountThisMonthWhere
   });
 
   const daysInMonth = currentMonthEnd.getDate();
@@ -640,5 +902,160 @@ export const applyWeeklyOffRule = async (academyId, year, month, rule) => {
       data: eventsToCreate
     });
   }
+};
+
+
+// ─── Batch Holiday Request Services ───────────────────────────────────────────
+
+export const createBatchHolidayRequest = async (academyId, user, data) => {
+  const { batch_id, date, reason } = data;
+  const academy_id = parseInt(academyId, 10);
+  const parsedBatchId = parseInt(batch_id, 10);
+  const coach_id = user.coach_id;
+
+  // Validate future date
+  const requestDate = new Date(date);
+  requestDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (requestDate <= today) {
+    throw new Error('Batch off request date must be in the future.');
+  }
+
+  // Verify coach assignment
+  const assignment = await prisma.batchCoach.findFirst({
+    where: { coach_id, batch_id: parsedBatchId }
+  });
+  if (!assignment) {
+    throw new Error('Coach is not assigned to this batch.');
+  }
+
+  return await prisma.batchHolidayRequest.create({
+    data: {
+      academy_id,
+      coach_id,
+      batch_id: parsedBatchId,
+      date: requestDate,
+      reason,
+      status: 'PENDING'
+    },
+    include: {
+      batch: { select: { name: true } }
+    }
+  });
+};
+
+export const getBatchHolidayRequests = async (academyId, user) => {
+  const academy_id = parseInt(academyId, 10);
+  const where = { academy_id };
+
+  if (user.role === 'COACH') {
+    where.coach_id = user.coach_id;
+  }
+
+  return await prisma.batchHolidayRequest.findMany({
+    where,
+    include: {
+      coach: { select: { name: true, first_name: true, last_name: true } },
+      batch: { select: { name: true, sport: { select: { name: true } } } }
+    },
+    orderBy: { created_at: 'desc' }
+  });
+};
+
+export const approveBatchHolidayRequest = async (academyId, requestId) => {
+  const id = parseInt(requestId, 10);
+  const academy_id = parseInt(academyId, 10);
+
+  const request = await prisma.batchHolidayRequest.findFirst({
+    where: { request_id: id, academy_id },
+    include: { batch: { select: { name: true } }, coach: { select: { coach_id: true } } }
+  });
+
+  if (!request) throw new Error('Request not found');
+  if (request.status !== 'PENDING') throw new Error('Request is already processed.');
+
+  // Update request status
+  const updatedRequest = await prisma.batchHolidayRequest.update({
+    where: { request_id: id },
+    data: { status: 'APPROVED' }
+  });
+
+  // Create CalendarEvent for BATCH_HOLIDAY
+  const start = new Date(request.date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(request.date);
+  end.setHours(23, 59, 59, 999);
+
+  await prisma.calendarEvent.create({
+    data: {
+      academy_id,
+      title: `Batch Off: ${request.batch.name}`,
+      description: `Approved Batch Off. Reason: ${request.reason}`,
+      type: 'BATCH_HOLIDAY',
+      start_date: start,
+      end_date: end,
+      batch_id: request.batch_id,
+      coach_id: request.coach_id,
+      block_attendance: true,
+      block_performance: true,
+      color: '#f43f5e',
+      visibility: 'ALL'
+    }
+  });
+
+  // Notify Coach
+  await createNotification(academy_id, {
+    type: 'GENERAL',
+    title: 'Batch Off Request Approved',
+    body: `Your request for Batch Off on ${new Date(request.date).toLocaleDateString()} for batch "${request.batch.name}" has been approved.`,
+    coach_id: request.coach_id
+  });
+
+  // Notify Parents of student in that batch
+  const students = await prisma.student.findMany({
+    where: { batch_id: request.batch_id, is_deleted: false, parent_id: { not: null } },
+    select: { parent_id: true }
+  });
+  const parentIds = [...new Set(students.map(s => s.parent_id))];
+  for (const parentId of parentIds) {
+    await createNotification(academy_id, {
+      type: 'GENERAL',
+      title: `Batch Declared OFF: ${request.batch.name}`,
+      body: `The batch "${request.batch.name}" has been declared OFF for ${new Date(request.date).toLocaleDateString()}. Attendance and performance entry are unavailable.`,
+      user_id: parentId
+    });
+  }
+
+  return updatedRequest;
+};
+
+export const rejectBatchHolidayRequest = async (academyId, requestId, reason) => {
+  const id = parseInt(requestId, 10);
+  const academy_id = parseInt(academyId, 10);
+
+  const request = await prisma.batchHolidayRequest.findFirst({
+    where: { request_id: id, academy_id },
+    include: { batch: { select: { name: true } } }
+  });
+
+  if (!request) throw new Error('Request not found');
+  if (request.status !== 'PENDING') throw new Error('Request is already processed.');
+
+  const updatedRequest = await prisma.batchHolidayRequest.update({
+    where: { request_id: id },
+    data: { status: 'REJECTED' }
+  });
+
+  // Notify Coach
+  await createNotification(academy_id, {
+    type: 'GENERAL',
+    title: 'Batch Off Request Rejected',
+    body: `Your request for Batch Off on ${new Date(request.date).toLocaleDateString()} for batch "${request.batch.name}" has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
+    coach_id: request.coach_id
+  });
+
+  return updatedRequest;
 };
 

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users, History, CheckSquare, XCircle, CheckCircle, Power, PowerOff } from 'lucide-react';
+import { Eye, Lock, Unlock, Trash2, Edit, Camera, X, Wallet, ChevronLeft, ChevronRight, Calendar, Pause, Play, Key, Filter, Users, History, CheckSquare, XCircle, CheckCircle, Power, PowerOff, Package } from 'lucide-react';
 
 import Loader from '../../components/Loader';
 
@@ -181,6 +181,62 @@ const getAttendanceColor = (date, attendanceRecords, selectedDate) => {
 
 
 
+const getCurrentCycleEnrollments = (enrollments) => {
+  if (!enrollments || enrollments.length === 0) return [];
+  
+  const sorted = [...enrollments].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  
+  let activeIndex = sorted.findIndex(e => e.is_active);
+  const today = new Date();
+  if (activeIndex === -1) {
+    activeIndex = sorted.findIndex(e => {
+      const start = new Date(e.plan_start_date);
+      const end = new Date(e.plan_end_date);
+      return today >= start && today <= end;
+    });
+  }
+  if (activeIndex === -1) {
+    activeIndex = sorted.length - 1;
+  }
+  
+  const activeEnrollment = sorted[activeIndex];
+  if (!activeEnrollment) return [];
+  
+  const cycleEnrollments = [activeEnrollment];
+  
+  let currentActive = activeEnrollment;
+  for (let i = activeIndex - 1; i >= 0; i--) {
+    const prev = sorted[i];
+    const prevEnd = new Date(prev.plan_end_date);
+    const currStart = new Date(currentActive.plan_start_date);
+    
+    const diffDays = Math.abs(currStart - prevEnd) / (1000 * 60 * 60 * 24);
+    if (diffDays <= 2) {
+      cycleEnrollments.unshift(prev);
+      currentActive = prev;
+    } else {
+      break;
+    }
+  }
+  
+  currentActive = activeEnrollment;
+  for (let i = activeIndex + 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    const currEnd = new Date(currentActive.plan_end_date);
+    const nextStart = new Date(next.plan_start_date);
+    
+    const diffDays = Math.abs(nextStart - currEnd) / (1000 * 60 * 60 * 24);
+    if (diffDays <= 2) {
+      cycleEnrollments.push(next);
+      currentActive = next;
+    } else {
+      break;
+    }
+  }
+  
+  return cycleEnrollments;
+};
+
 const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
 
   const studentRecord = studentData?.student || studentData || {};
@@ -188,8 +244,6 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
   const activeEnrollments = studentData?.enrollments?.filter((enrollment) => enrollment?.is_active) || [];
 
   const latestEnrollment = activeEnrollments[0] || studentData?.enrollments?.[0] || null;
-
-
 
   const globalDurationPlans = durationPlans || [];
 
@@ -202,8 +256,6 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
     studentRecord?.durationPlan ||
 
     '';
-
-
 
   const exactPlanMatch = globalDurationPlans.find(
 
@@ -219,23 +271,40 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
 
   );
 
-
-
-  // Use the centralized fee calculation utility
+  const cycleEnrollments = getCurrentCycleEnrollments(studentData?.enrollments || []);
 
   const feeBreakdown = calculateStudentFee(latestEnrollment);
 
-  const balanceInfo = calculateBalance(
+  let totalComputedFee = feeBreakdown.totalComputedFee;
+  if (cycleEnrollments.length > 0) {
+    totalComputedFee = cycleEnrollments.reduce((sum, e) => {
+      const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
+      const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
+      const storedSportsFee = parseFloat(e.sports_fee || 0);
+      const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+      const registrationFee = parseFloat(e.registration_fee || 0);
+      const additionalCharges = parseFloat(e.additional_charges || 0);
+      const discount = parseFloat(e.discount || 0);
+      return sum + (sportsFee + registrationFee + additionalCharges - discount);
+    }, 0);
+  }
 
-    latestEnrollment,
+  let currentCyclePaid = 0;
+  if (cycleEnrollments.length > 0) {
+    const oldestEnrollment = cycleEnrollments[0];
+    const cycleStart = new Date(new Date(oldestEnrollment.created_at).getTime() - 5000);
+    const cycleReceipts = (studentData?.receipts || []).filter(
+      (r) => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart
+    );
+    currentCyclePaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+  }
 
-    studentRecord?.amount_paid || studentRecord?.amountPaid || studentData?.amount_paid || studentData?.amountPaid || 0
-
-  );
+  const balanceInfo = {
+    amountPaid: currentCyclePaid,
+    balanceDue: Math.max(0, totalComputedFee - currentCyclePaid)
+  };
 
   const durationPlanName = getPlanName(latestEnrollment);
-
-
 
   return (
 
@@ -270,6 +339,96 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
       </div>
 
 
+
+      {cycleEnrollments.length > 1 && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
+          <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Current Fee Breakdown</h5>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {cycleEnrollments.map((e, index) => {
+              const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
+              const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
+              const storedSportsFee = parseFloat(e.sports_fee || 0);
+              const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+              const regFee = parseFloat(e.registration_fee || 0);
+              const addCharges = parseFloat(e.additional_charges || 0);
+              const disc = parseFloat(e.discount || 0);
+              const totalFee = sportsFee + regFee + addCharges - disc;
+
+              const isUpcoming = new Date() < new Date(e.plan_start_date);
+              const isActive = e.is_active && !isUpcoming;
+              const isPrevious = new Date() > new Date(e.plan_end_date) && !isActive && !isUpcoming;
+
+              let label = "Previous Plan";
+              let statusLabel = "";
+              if (isActive) {
+                label = "Active Plan";
+                statusLabel = "Active";
+              } else if (isUpcoming) {
+                label = "Renewed Plan";
+                statusLabel = "Upcoming / Renewal Added";
+              } else if (isPrevious) {
+                label = "Previous Plan";
+                statusLabel = "Completed";
+              }
+
+              let planPaid = 0;
+              if (isPrevious) {
+                planPaid = totalFee;
+              } else if (isActive) {
+                planPaid = Math.min(totalFee, Math.max(0, currentCyclePaid - cycleEnrollments.filter((_, idx) => idx < index).reduce((acc, prevE) => {
+                  const prevBase = parseFloat(prevE.sport?.base_fee || prevE.sports_base_fee || 0);
+                  const prevMult = parseFloat(prevE.duration_plan?.multiplier || prevE.plan_multiplier || 1);
+                  const prevStored = parseFloat(prevE.sports_fee || 0);
+                  const prevSportsFee = prevStored > 0 ? prevStored : (prevBase * prevMult);
+                  return acc + (prevSportsFee + parseFloat(prevE.registration_fee || 0) + parseFloat(prevE.additional_charges || 0) - parseFloat(prevE.discount || 0));
+                }, 0)));
+              } else if (isUpcoming) {
+                planPaid = Math.max(0, currentCyclePaid - cycleEnrollments.filter((_, idx) => idx < index).reduce((acc, prevE) => {
+                  const prevBase = parseFloat(prevE.sport?.base_fee || prevE.sports_base_fee || 0);
+                  const prevMult = parseFloat(prevE.duration_plan?.multiplier || prevE.plan_multiplier || 1);
+                  const prevStored = parseFloat(prevE.sports_fee || 0);
+                  const prevSportsFee = prevStored > 0 ? prevStored : (prevBase * prevMult);
+                  return acc + (prevSportsFee + parseFloat(prevE.registration_fee || 0) + parseFloat(prevE.additional_charges || 0) - parseFloat(prevE.discount || 0));
+                }, 0));
+                planPaid = Math.min(totalFee, planPaid);
+              }
+
+              return (
+                <div key={e.enrollment_id || index} className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800">{label}</span>
+                      {statusLabel && (
+                        <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                          isActive
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400'
+                            : isUpcoming
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400'
+                            : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {statusLabel}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-slate-500 font-medium">
+                      {e.duration_plan?.name || `${planMultiplier}x Plan`} ({e.sport?.name || 'Sports'})
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Validity: {new Date(e.plan_start_date).toLocaleDateString()} - {new Date(e.plan_end_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="sm:text-right">
+                    <span className="font-bold text-slate-800 block">₹{formatCurrency(totalFee)}</span>
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      Paid: <span className="text-emerald-600 font-bold">₹{formatCurrency(planPaid)}</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
 
@@ -4236,22 +4395,13 @@ export default function StudentsPanel() {
 
                     )}
 
-                    <th className="pb-3">Name</th>
-
-                    <th className="px-2 pb-3">Age</th>
-
-                    <th className="px-2 pb-3">Sports</th>
-
-                    <th className="px-2 pb-3">Batch</th>
-
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-
-                      Status
-
-                    </th>
-
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Age</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Sports</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Batch</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
                     <th 
-                      className="px-2 pb-3 cursor-pointer hover:text-slate-600 transition-colors"
+                      className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400 cursor-pointer hover:text-slate-600 transition-colors"
                       onClick={() => handleSort('remainingPlan')}
                     >
                       Remaining Plan
@@ -4261,8 +4411,7 @@ export default function StudentsPanel() {
                         </span>
                       )}
                     </th>
-
-                    <th className="px-2 pb-3">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Actions</th>
 
                   </tr>
 
@@ -4344,7 +4493,7 @@ export default function StudentsPanel() {
 
                           )}
 
-                          <td>
+                          <td className="px-4 py-4 whitespace-nowrap">
 
                             <div className="flex items-center gap-3">
 
@@ -4352,7 +4501,7 @@ export default function StudentsPanel() {
 
                               <div>
 
-                                <p className="font-semibold">{student.name}</p>
+                                <p className="font-semibold text-slate-900 dark:text-slate-100">{student.name}</p>
 
                                 <p className="text-muted text-xs">ID: {student.student_id}</p>
 
@@ -4362,9 +4511,9 @@ export default function StudentsPanel() {
 
                           </td>
 
-                          <td className="text-muted">{student.age || '—'}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-slate-600 dark:text-slate-400">{student.age || '—'}</td>
 
-                          <td>
+                          <td className="px-4 py-4 whitespace-nowrap">
 
                             {student.enrollments &&
 
@@ -4384,13 +4533,13 @@ export default function StudentsPanel() {
 
                           </td>
 
-                          <td className="text-muted">
+                          <td className="px-4 py-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
 
                             {student.batch?.name || student.enrollments?.[0]?.batch?.name || '—'}
 
                           </td>
 
-                          <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
+                          <td className="px-4 py-4 whitespace-nowrap">
 
                             {student.auto_deactivated ? (
 
@@ -4408,13 +4557,13 @@ export default function StudentsPanel() {
 
                           </td>
 
-                          <td className="px-2 py-4">
+                          <td className="px-4 py-4 whitespace-nowrap">
                             {(() => {
                               const activeEnrollment = student.enrollments?.find(e => e.is_active);
                               if (!activeEnrollment) {
-                                return (
-                                  <span className="text-red-600 font-medium text-xs">0 Days</span>
-                                );
+                                  return (
+                                    <span className="text-red-600 font-medium text-xs">0 Days</span>
+                                  );
                               }
 
                               const today = new Date();
@@ -4470,7 +4619,7 @@ export default function StudentsPanel() {
                           })()}
                           </td>
 
-                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
 
                             <div className="flex items-center gap-2">
 

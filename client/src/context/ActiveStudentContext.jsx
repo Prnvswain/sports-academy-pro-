@@ -3,7 +3,7 @@ import { parentGet } from '../api/client';
 
 const ACTIVE_STUDENT_KEY = 'parent_active_student_id';
 
-const ActiveStudentContext = createContext(null);
+export const ActiveStudentContext = createContext(null);
 
 export function ActiveStudentProvider({ children }) {
   const [students, setStudents] = useState([]);

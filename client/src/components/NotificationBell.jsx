@@ -65,16 +65,22 @@ export default function NotificationBell({ userRole }) {
         return;
       }
 
-      let response;
+      let annRes, notRes;
       if (userRole === 'COACH') {
-        response = await coachGet('/coach/announcements/unread-count');
+        [annRes, notRes] = await Promise.all([
+          coachGet('/coach/announcements/unread-count'),
+          coachGet('/coach/notifications/unread-count')
+        ]);
       } else if (userRole === 'PARENT') {
-        response = await parentGet('/parent/announcements/unread-count');
+        [annRes, notRes] = await Promise.all([
+          parentGet('/parent/announcements/unread-count'),
+          parentGet('/parent/notifications/unread-count')
+        ]);
       }
 
-      if (response?.data) {
-        setUnreadCount(response.data.count || 0);
-      }
+      const annCount = annRes?.data?.count || 0;
+      const notCount = notRes?.data?.count || 0;
+      setUnreadCount(annCount + notCount);
     } catch (error) {
       console.error('Failed to fetch unread count:', error);
     }
@@ -83,56 +89,26 @@ export default function NotificationBell({ userRole }) {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
+      let annRes, notRes;
       if (userRole === 'ACADEMY_ADMIN') {
-        const [annRes, notRes] = await Promise.all([
+        [annRes, notRes] = await Promise.all([
           adminGet('/admin/announcements/my/announcements?limit=10'),
           adminGet('/admin/notifications?limit=10')
         ]);
-
-        const announcements = annRes?.data?.announcements || [];
-        const mappedAnn = announcements.map(a => ({
-          id: `ann_${a.announcement_id}`,
-          type: 'ANNOUNCEMENT',
-          title: a.title,
-          body: a.message,
-          category: a.category || 'GENERAL',
-          priority: a.priority || 'NORMAL',
-          created_at: a.published_at || a.created_at,
-          is_read: a.readStatuses?.[0]?.is_read || false,
-          original: a
-        }));
-
-        const notifications = notRes?.data || [];
-        const mappedNot = notifications.map(n => ({
-          id: `not_${n.notification_id}`,
-          type: 'NOTIFICATION',
-          title: n.title,
-          body: n.body,
-          category: 'GENERAL',
-          priority: 'NORMAL',
-          created_at: n.created_at,
-          is_read: n.is_read,
-          original: n
-        }));
-
-        const combined = [...mappedAnn, ...mappedNot].sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at)
-        );
-        setNotifications(combined.slice(0, 10));
-        return;
-      }
-
-      let response;
-      let announcements = [];
-      if (userRole === 'COACH') {
-        response = await coachGet('/coach/announcements/my/announcements?limit=10');
-        announcements = response?.data?.announcements || [];
+      } else if (userRole === 'COACH') {
+        [annRes, notRes] = await Promise.all([
+          coachGet('/coach/announcements/my/announcements?limit=10'),
+          coachGet('/coach/notifications?limit=10')
+        ]);
       } else if (userRole === 'PARENT') {
-        response = await parentGet('/parent/announcements/my/announcements?limit=10');
-        announcements = response?.data?.announcements || [];
+        [annRes, notRes] = await Promise.all([
+          parentGet('/parent/announcements/my/announcements?limit=10'),
+          parentGet('/parent/notifications?limit=10')
+        ]);
       }
 
-      const mapped = announcements.map(a => ({
+      const announcements = annRes?.data?.announcements || [];
+      const mappedAnn = announcements.map(a => ({
         id: `ann_${a.announcement_id}`,
         type: 'ANNOUNCEMENT',
         title: a.title,
@@ -143,7 +119,24 @@ export default function NotificationBell({ userRole }) {
         is_read: a.readStatuses?.[0]?.is_read || false,
         original: a
       }));
-      setNotifications(mapped);
+
+      const notifications = notRes?.data || [];
+      const mappedNot = notifications.map(n => ({
+        id: `not_${n.notification_id}`,
+        type: 'NOTIFICATION',
+        title: n.title,
+        body: n.body,
+        category: 'GENERAL',
+        priority: 'NORMAL',
+        created_at: n.created_at,
+        is_read: n.is_read,
+        original: n
+      }));
+
+      const combined = [...mappedAnn, ...mappedNot].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+      setNotifications(combined.slice(0, 10));
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -166,6 +159,10 @@ export default function NotificationBell({ userRole }) {
         const notificationId = item.original.notification_id;
         if (userRole === 'ACADEMY_ADMIN') {
           await adminPatch(`/admin/notifications/${notificationId}/read`);
+        } else if (userRole === 'COACH') {
+          await coachPatch(`/coach/notifications/${notificationId}/read`);
+        } else if (userRole === 'PARENT') {
+          await parentPatch(`/parent/notifications/${notificationId}/read`);
         }
       }
 
@@ -188,9 +185,15 @@ export default function NotificationBell({ userRole }) {
           adminPatch('/admin/notifications/read-all')
         ]);
       } else if (userRole === 'COACH') {
-        await coachPatch('/coach/announcements/read-all');
+        await Promise.all([
+          coachPatch('/coach/announcements/read-all'),
+          coachPatch('/coach/notifications/read-all')
+        ]);
       } else if (userRole === 'PARENT') {
-        await parentPatch('/parent/announcements/read-all');
+        await Promise.all([
+          parentPatch('/parent/announcements/read-all'),
+          parentPatch('/parent/notifications/read-all')
+        ]);
       }
 
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
