@@ -306,17 +306,16 @@ export const getParentChildren = async (parent_id) => {
       total_fees_assigned = cycleEnrollments.reduce((sum, e) => {
         const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
         const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-        const storedSportsFee = parseFloat(e.sports_fee || 0);
-        const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+        const assignedSportsFee = sportsBaseFee * planMultiplier;
         const registrationFee = parseFloat(e.registration_fee || 0);
         const additionalCharges = parseFloat(e.additional_charges || 0);
         const discount = parseFloat(e.discount || 0);
-        return sum + (sportsFee + registrationFee + additionalCharges - discount);
+        return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
       }, 0);
 
       const oldestEnrollment = cycleEnrollments[0];
       const cycleStart = new Date(oldestEnrollment.created_at.getTime() - 5000);
-      const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart);
+      const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart && !(r.remarks && r.remarks.includes('Sports Kit')));
       total_fees_paid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
 
       balance_outstanding = Math.max(0, total_fees_assigned - total_fees_paid);
@@ -600,7 +599,11 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
       student_id: studentId,
       academy_id: academyId,
       status: { in: ['COMPLETED', 'PAID', 'APPROVED'] },
-      created_at: { gte: cycleStart }
+      created_at: { gte: cycleStart },
+      OR: [
+        { remarks: null },
+        { remarks: { not: { contains: 'Sports Kit' } } }
+      ]
     },
     _sum: { amount: true }
   });
@@ -787,7 +790,7 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
     if (!activeEnrollment) return sum;
     const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
     const cycleFees = (student.fees || []).filter(f => new Date(f.created_at) >= cycleStart);
-    const cycleReceipts = (student.receipts || []).filter(r => r.status === 'COMPLETED' && new Date(r.payment_date) >= cycleStart);
+    const cycleReceipts = (student.receipts || []).filter(r => r.status === 'COMPLETED' && new Date(r.payment_date) >= cycleStart && !(r.remarks && r.remarks.includes('Sports Kit')));
     const totalFeesAssigned = cycleFees.reduce((s, f) => s + parseFloat(f.amount_due || 0), 0);
     const totalFeesPaid = cycleReceipts.reduce((s, r) => s + parseFloat(r.amount || 0), 0);
     return sum + Math.max(0, totalFeesAssigned - totalFeesPaid);

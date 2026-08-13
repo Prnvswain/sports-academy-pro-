@@ -278,14 +278,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
   let totalComputedFee = feeBreakdown.totalComputedFee;
   if (cycleEnrollments.length > 0) {
     totalComputedFee = cycleEnrollments.reduce((sum, e) => {
-      const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
-      const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-      const storedSportsFee = parseFloat(e.sports_fee || 0);
-      const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
-      const registrationFee = parseFloat(e.registration_fee || 0);
-      const additionalCharges = parseFloat(e.additional_charges || 0);
-      const discount = parseFloat(e.discount || 0);
-      return sum + (sportsFee + registrationFee + additionalCharges - discount);
+      return sum + calculateStudentFee(e).totalComputedFee;
     }, 0);
   }
 
@@ -345,14 +338,8 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
           <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Current Fee Breakdown</h5>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {cycleEnrollments.map((e, index) => {
-              const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
-              const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-              const storedSportsFee = parseFloat(e.sports_fee || 0);
-              const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
-              const regFee = parseFloat(e.registration_fee || 0);
-              const addCharges = parseFloat(e.additional_charges || 0);
-              const disc = parseFloat(e.discount || 0);
-              const totalFee = sportsFee + regFee + addCharges - disc;
+              const eBreakdown = calculateStudentFee(e);
+              const totalFee = eBreakdown.totalComputedFee;
 
               const isUpcoming = new Date() < new Date(e.plan_start_date);
               const isActive = e.is_active && !isUpcoming;
@@ -376,19 +363,11 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
                 planPaid = totalFee;
               } else if (isActive) {
                 planPaid = Math.min(totalFee, Math.max(0, currentCyclePaid - cycleEnrollments.filter((_, idx) => idx < index).reduce((acc, prevE) => {
-                  const prevBase = parseFloat(prevE.sport?.base_fee || prevE.sports_base_fee || 0);
-                  const prevMult = parseFloat(prevE.duration_plan?.multiplier || prevE.plan_multiplier || 1);
-                  const prevStored = parseFloat(prevE.sports_fee || 0);
-                  const prevSportsFee = prevStored > 0 ? prevStored : (prevBase * prevMult);
-                  return acc + (prevSportsFee + parseFloat(prevE.registration_fee || 0) + parseFloat(prevE.additional_charges || 0) - parseFloat(prevE.discount || 0));
+                  return acc + calculateStudentFee(prevE).totalComputedFee;
                 }, 0)));
               } else if (isUpcoming) {
                 planPaid = Math.max(0, currentCyclePaid - cycleEnrollments.filter((_, idx) => idx < index).reduce((acc, prevE) => {
-                  const prevBase = parseFloat(prevE.sport?.base_fee || prevE.sports_base_fee || 0);
-                  const prevMult = parseFloat(prevE.duration_plan?.multiplier || prevE.plan_multiplier || 1);
-                  const prevStored = parseFloat(prevE.sports_fee || 0);
-                  const prevSportsFee = prevStored > 0 ? prevStored : (prevBase * prevMult);
-                  return acc + (prevSportsFee + parseFloat(prevE.registration_fee || 0) + parseFloat(prevE.additional_charges || 0) - parseFloat(prevE.discount || 0));
+                  return acc + calculateStudentFee(prevE).totalComputedFee;
                 }, 0));
                 planPaid = Math.min(totalFee, planPaid);
               }
@@ -411,7 +390,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
                       )}
                     </div>
                     <span className="text-slate-500 font-medium">
-                      {e.duration_plan?.name || `${planMultiplier}x Plan`} ({e.sport?.name || 'Sports'})
+                      {e.duration_plan?.name || `${eBreakdown.planMultiplier}x Plan`} ({e.sport?.name || 'Sports'})
                     </span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">
                       Validity: {new Date(e.plan_start_date).toLocaleDateString()} - {new Date(e.plan_end_date).toLocaleDateString()}
@@ -464,7 +443,7 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
 
           <div className="flex items-center justify-between text-sm">
 
-            <span className="text-slate-600">Sports Fee</span>
+            <span className="text-slate-600">Assigned Sports Fee</span>
 
             <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.sportsFee)}</span>
 
@@ -508,9 +487,9 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
 
           <div className="flex items-center justify-between text-sm">
 
-            <span className="text-slate-600">Total Computed Fee</span>
+            <span className="text-slate-600">Training Fee</span>
 
-            <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.totalComputedFee)}</span>
+            <span className="font-semibold text-slate-800">₹{formatCurrency(feeBreakdown.trainingFee)}</span>
 
           </div>
 
@@ -549,6 +528,54 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
           </div>
 
         </div>
+
+        {/* Credit Balance Card */}
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+
+          <div className="flex items-center justify-between text-sm">
+
+            <span className="text-slate-600">Balance Due</span>
+
+            <span className="font-semibold text-slate-800">₹{formatCurrency(balanceInfo.balanceDue)}</span>
+
+          </div>
+
+          <div className="mt-2 flex items-center justify-between text-xs text-rose-700">
+
+            <span>Status</span>
+
+            <span className="font-medium text-rose-700">
+
+              {balanceInfo.balanceDue > 0 ? 'Pending' : 'Paid'}
+
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* Credit Balance Card */}
+        {(studentRecord.advance_balance > 0 || studentData?.student?.advance_balance > 0) && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+
+            <div className="flex items-center justify-between text-sm">
+
+              <span className="text-slate-600">Credit Balance</span>
+
+              <span className="font-semibold text-emerald-600">₹{formatCurrency(studentRecord.advance_balance || studentData?.student?.advance_balance || 0)}</span>
+
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-xs text-emerald-700">
+
+              <span>Status</span>
+
+            <span className="font-medium text-emerald-600">Available</span>
+
+            </div>
+
+          </div>
+        )}
 
       </div>
 
@@ -897,7 +924,8 @@ export default function StudentsPanel() {
     batch_id: '',
     plan_start_date: new Date().toISOString().split('T')[0],
     additional_charges: '',
-    registration_fee: ''
+    registration_fee: '',
+    discount: ''
   });
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [renewForm, setRenewForm] = useState({ duration_plan_id: '' });
@@ -1118,6 +1146,33 @@ export default function StudentsPanel() {
   // handleStudentClick is defined later in the file; students list is the key dependency
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.openStudentId, students]);
+
+  // Auto-open Reactivate Modal when navigated from Accounts payment panel
+  useEffect(() => {
+    const reactivateId = location.state?.reactivateStudentId;
+    if (!reactivateId || students.length === 0) return;
+
+    const student = students.find(
+      (s) => (s.id || s.student_id) === reactivateId || String(s.id || s.student_id) === String(reactivateId)
+    );
+
+    if (student) {
+      setSelectedStudent(student);
+      setReactivateForm({ 
+        action: 'continue', 
+        duration_plan_id: '',
+        sport_id: student.sport_id || '',
+        batch_id: student.batch_id || '',
+        plan_start_date: new Date().toISOString().split('T')[0],
+        additional_charges: '',
+        registration_fee: '',
+        discount: ''
+      });
+      setShowReactivateModal(true);
+      // Clear the state so this doesn't re-fire on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.reactivateStudentId, students, navigate]);
 
 
 
@@ -4074,9 +4129,9 @@ export default function StudentsPanel() {
 
                               <div className="mt-1 grid grid-cols-2 gap-2">
 
-                                <span>Base Fee: ₹{formatCurrency(feeBreakdown.sportsBaseFee)}</span>
+                                <span>Sports Base Fee: ₹{formatCurrency(feeBreakdown.sportsBaseFee)}</span>
 
-                                <span>Sports Fee: ₹{formatCurrency(feeBreakdown.sportsFee)}</span>
+                                <span>Assigned Sports Fee: ₹{formatCurrency(feeBreakdown.assignedSportsFee)}</span>
 
                                 <span>Registration: ₹{formatCurrency(feeBreakdown.registrationFee)}</span>
 
@@ -4086,7 +4141,7 @@ export default function StudentsPanel() {
 
                                 <span className="text-success col-span-2 font-bold">
 
-                                  Net Due: ₹{formatCurrency(feeBreakdown.totalComputedFee)}
+                                  Training Fee: ₹{formatCurrency(feeBreakdown.trainingFee)}
 
                                 </span>
 
@@ -4700,7 +4755,8 @@ export default function StudentsPanel() {
                                       batch_id: student.batch_id || '',
                                       plan_start_date: new Date().toISOString().split('T')[0],
                                       additional_charges: '',
-                                      registration_fee: ''
+                                      registration_fee: '',
+                                      discount: ''
                                     });
                                     setShowReactivateModal(true);
                                   }}
@@ -6053,7 +6109,7 @@ export default function StudentsPanel() {
 
             <div className="flex justify-between">
 
-              <span>Sports Fee (with multiplier):</span>
+              <span>Assigned Sports Fee:</span>
 
               <span className="font-semibold text-slate-900 dark:text-white">
 
@@ -6101,7 +6157,7 @@ export default function StudentsPanel() {
 
             <div className="mt-2 flex justify-between border-t border-emerald-200 dark:border-emerald-900/50 pt-2">
 
-              <span className="font-bold text-slate-900 dark:text-white">Final Fee:</span>
+              <span className="font-bold text-slate-900 dark:text-white">Training Fee:</span>
 
               <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
 
@@ -7554,7 +7610,8 @@ export default function StudentsPanel() {
                                         batch_id: studentDetails?.student?.batch_id || '',
                                         plan_start_date: new Date().toISOString().split('T')[0],
                                         additional_charges: '',
-                                        registration_fee: ''
+                                        registration_fee: '',
+                                        discount: ''
                                       });
                                       setShowReactivateModal(true);
                                     }}
@@ -9885,24 +9942,7 @@ export default function StudentsPanel() {
     onClose={() => setShowReactivateModal(false)}
     title="Reactivate Student Plan"
     size="md"
-    footer={
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => setShowReactivateModal(false)}
-          className="flex-1 py-2 px-4 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          onClick={handleReactivateSubmit}
-          className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
-        >
-          Reactivate
-        </button>
-      </div>
-    }
+    footer={null}
   >
     <form onSubmit={handleReactivateSubmit} className="space-y-4">
           <div>
@@ -10153,6 +10193,44 @@ export default function StudentsPanel() {
                   step="0.01"
                 />
               </div>
+
+              <div>
+                <label className="label block text-sm font-medium text-slate-700 mb-1">
+                  Discount (Optional)
+                </label>
+                <input
+                  type="number"
+                  className="input-field w-full"
+                  placeholder="Enter discount"
+                  value={reactivateForm.discount}
+                  onChange={(e) => setReactivateForm({ ...reactivateForm, discount: e.target.value })}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              {reactivateForm.sport_id && reactivateForm.duration_plan_id && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-xl space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Assigned Sports Fee:</span>
+                    <span className="font-semibold text-slate-800">
+                      ₹{((parseFloat(sports.find(s => String(s.sport_id) === String(reactivateForm.sport_id))?.base_fee || 0)) * (parseFloat(durationPlans.find(p => String(p.plan_id) === String(reactivateForm.duration_plan_id))?.multiplier || 1))).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-emerald-100">
+                    <span className="text-slate-900 font-bold">Training Fee:</span>
+                    <span className="font-bold text-emerald-600 text-sm">
+                      ₹{(
+                        (parseFloat(sports.find(s => String(s.sport_id) === String(reactivateForm.sport_id))?.base_fee || 0) * 
+                        parseFloat(durationPlans.find(p => String(p.plan_id) === String(reactivateForm.duration_plan_id))?.multiplier || 1)) +
+                        parseFloat(reactivateForm.registration_fee || 0) +
+                        parseFloat(reactivateForm.additional_charges || 0) -
+                        parseFloat(reactivateForm.discount || 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

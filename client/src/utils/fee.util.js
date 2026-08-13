@@ -13,15 +13,17 @@ export const calculateStudentFee = (enrollment) => {
     return {
       sportsBaseFee: 0,
       planMultiplier: 1,
+      assignedSportsFee: 0,
       sportsFee: 0,
       registrationFee: 0,
       additionalCharges: 0,
       discount: 0,
+      trainingFee: 0,
       totalComputedFee: 0,
     };
   }
 
-  // Get the actual sport base fee from the sport relation (not the already-multiplied sports_fee)
+  // Get the actual sport base fee from the sport relation
   const sportsBaseFee = parseFloat(
     enrollment?.sport?.base_fee ||
     enrollment?.sports_base_fee ||
@@ -37,30 +39,25 @@ export const calculateStudentFee = (enrollment) => {
     1
   );
 
-  // Get stored sports_fee if non-zero, otherwise calculate it
-  const storedSportsFee = parseFloat(
-    enrollment?.sports_fee ||
-    enrollment?.sportsFee ||
-    0
-  );
-  const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
-
   // Get other fee components
   const registrationFee = parseFloat(enrollment?.registration_fee || 0);
   const additionalCharges = parseFloat(enrollment?.additional_charges || 0);
   const discount = parseFloat(enrollment?.discount || 0);
 
-  // Calculate total computed fee directly from components
-  const totalComputedFee = sportsFee + registrationFee + additionalCharges - discount;
+  // Calculate Assigned Sports Fee and Training Fee dynamically
+  const assignedSportsFee = sportsBaseFee * planMultiplier;
+  const trainingFee = assignedSportsFee + registrationFee + additionalCharges - discount;
 
   return {
     sportsBaseFee,
     planMultiplier,
-    sportsFee,
+    assignedSportsFee,
+    sportsFee: assignedSportsFee, // alias for backwards compatibility
     registrationFee,
     additionalCharges,
     discount,
-    totalComputedFee,
+    trainingFee,
+    totalComputedFee: trainingFee, // alias for backwards compatibility
   };
 };
 
@@ -73,7 +70,7 @@ export const calculateStudentFee = (enrollment) => {
 export const calculateBalance = (enrollment, amountPaid = 0) => {
   const feeBreakdown = calculateStudentFee(enrollment);
   const paidAmount = parseFloat(amountPaid || 0);
-  const balanceDue = Math.max(0, feeBreakdown.totalComputedFee - paidAmount);
+  const balanceDue = Math.max(0, feeBreakdown.trainingFee - paidAmount);
 
   return {
     ...feeBreakdown,

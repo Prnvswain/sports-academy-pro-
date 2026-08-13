@@ -635,7 +635,11 @@ export const getKitAssignments = async (academy_id, query = {}) => {
   return await prisma.sportsKitAssignment.findMany({
     where,
     include: {
-      kit: true,
+      kit: {
+        include: {
+          sport: true
+        }
+      },
       student: {
         include: {
           batch: true

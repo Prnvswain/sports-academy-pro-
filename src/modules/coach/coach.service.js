@@ -1422,19 +1422,13 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
         },
 
         include: {
-
           duration_plan: true,
-
+          sport: true,
           batch: {
-
             include: {
-
               sport: true,
-
             },
-
           },
-
         },
 
       },
@@ -1486,16 +1480,14 @@ export const getCoachStudentsFeeSummary = async (coach_id, academy_id, batch_id 
       if (activeEnrollment) {
         const sportsBaseFee = parseFloat(activeEnrollment.sport?.base_fee || activeEnrollment.sports_base_fee || 0);
         const planMultiplier = parseFloat(activeEnrollment.duration_plan?.multiplier || activeEnrollment.plan_multiplier || 1);
-        const storedSportsFee = parseFloat(activeEnrollment.sports_fee || 0);
-        const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+        const assignedSportsFee = sportsBaseFee * planMultiplier;
         const registrationFee = parseFloat(activeEnrollment.registration_fee || 0);
         const additionalCharges = parseFloat(activeEnrollment.additional_charges || 0);
         const discount = parseFloat(activeEnrollment.discount || 0);
-
-        totalFeeDue = sportsFee + registrationFee + additionalCharges - discount;
+        totalFeeDue = assignedSportsFee + registrationFee + additionalCharges - discount;
 
         const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
-        const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart);
+        const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart && !(r.remarks && r.remarks.includes('Sports Kit')));
         totalPaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
 
         balanceOutstanding = Math.max(0, totalFeeDue - totalPaid);
@@ -3317,7 +3309,11 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
       student_id: studentId,
       academy_id: academyId,
       status: { in: ['COMPLETED', 'PAID', 'APPROVED'] },
-      created_at: { gte: cycleStart }
+      created_at: { gte: cycleStart },
+      OR: [
+        { remarks: null },
+        { remarks: { not: { contains: 'Sports Kit' } } }
+      ]
     },
     _sum: { amount: true }
   });

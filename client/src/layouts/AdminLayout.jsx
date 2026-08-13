@@ -74,9 +74,9 @@ export const ADMIN_NAV_ITEMS = [
   { path: 'reports', label: 'Reports', icon: FileText },
   { path: 'announcements', label: 'Announcements', icon: Megaphone },
   { path: 'notifications', label: 'Notifications', icon: Bell },
-  { 
-    path: 'inventory', 
-    label: 'Inventory', 
+  {
+    path: 'inventory',
+    label: 'Inventory',
     icon: Package,
     submenu: [
       { path: 'inventory/stock', label: 'Equipment' },
@@ -223,7 +223,7 @@ export default function AdminLayout() {
   return (
     /* Main App Background supporting Light and Dark Mode */
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative z-0">
-      
+
       {/* Universal Fixed Background (Fully Stationary, No scrolling/clipping/repeating bugs) */}
       <GlobalBackground />
 
@@ -233,12 +233,11 @@ export default function AdminLayout() {
         animate={{ width: collapsedForNav ? '5rem' : '15.5rem' }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
         whileHover={{ scale: 1.0005 }}
-        className={`bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-xl border-r border-slate-800/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 transition-all duration-300 ${
-          sidebarOpen ? '!translate-x-0' : ''
-        }`}
+        className={`bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-xl border-r border-slate-800/50 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 -translate-x-full lg:relative lg:translate-x-0 shadow-2xl shadow-black/20 transition-all duration-300 ${sidebarOpen ? '!translate-x-0' : ''
+          }`}
       >
         {/* Sidebar Header / Logo */}
-        <motion.div 
+        <motion.div
           whileHover={{ scale: 1.02 }}
           transition={{ duration: 0.25 }}
           className="flex h-16 items-center justify-between px-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 shadow-lg shadow-black/10"
@@ -279,13 +278,11 @@ export default function AdminLayout() {
                     type="button"
                     onClick={() => toggleMenu(menuKey)}
                     title={collapsedForNav ? item.label : undefined}
-                    className={`flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
-                      collapsedForNav ? 'justify-center px-0' : 'px-4'
-                    } ${
-                      location.pathname.startsWith(`/admin/${item.path}`)
+                    className={`flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${collapsedForNav ? 'justify-center px-0' : 'px-4'
+                      } ${location.pathname.startsWith(`/admin/${item.path}`)
                         ? 'bg-slate-800/80 text-white'
                         : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
-                    }`}
+                      }`}
                   >
                     <motion.span
                       className={`flex items-center justify-center ${collapsedForNav ? '' : 'min-w-[20px]'}`}
@@ -327,10 +324,9 @@ export default function AdminLayout() {
                             to={`/admin/${subItem.path}`}
                             onClick={closeMobileSidebar}
                             className={({ isActive }) =>
-                              `flex items-center gap-2 py-2 text-xs font-bold transition-all duration-200 rounded-xl outline-none ${
-                                isActive
-                                  ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-md shadow-lime-500/20'
-                                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+                              `flex items-center gap-2 py-2 text-xs font-bold transition-all duration-200 rounded-xl outline-none ${isActive
+                                ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-md shadow-lime-500/20'
+                                : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
                               }`
                             }
                           >
@@ -353,12 +349,10 @@ export default function AdminLayout() {
                 data-nav={item.path}
                 onClick={closeMobileSidebar}
                 className={({ isActive }) =>
-                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${
-                    collapsedForNav ? 'justify-center px-0' : 'px-4'
-                  } ${
-                    isActive
-                      ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
-                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
+                  `flex w-full items-center gap-3.5 py-3 text-sm transition-all duration-300 rounded-2xl group outline-none font-bold ${collapsedForNav ? 'justify-center px-0' : 'px-4'
+                  } ${isActive
+                    ? 'bg-[var(--theme-primary,#84cc16)] text-slate-950 shadow-lg shadow-lime-500/30 scale-105'
+                    : 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20 hover:scale-105'
                   }`
                 }
               >
@@ -388,7 +382,7 @@ export default function AdminLayout() {
         </nav>
 
         {/* Sidebar Footer / Profile & Sign Out */}
-        <motion.div 
+        <motion.div
           whileHover={{ scale: 1.01 }}
           transition={{ duration: 0.25 }}
           className="p-4 shrink-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-800/50 shadow-lg shadow-black/10 space-y-2"
@@ -401,11 +395,10 @@ export default function AdminLayout() {
           )}
           <motion.button
             type="button"
-            className={`w-full flex justify-center items-center rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
-              collapsedForNav
+            className={`w-full flex justify-center items-center rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${collapsedForNav
                 ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
                 : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
-            }`}
+              }`}
             whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
             title={collapsedForNav ? 'Back to Home' : undefined}
@@ -418,11 +411,10 @@ export default function AdminLayout() {
 
           <motion.button
             type="button"
-            className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${
-              collapsedForNav
+            className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${collapsedForNav
                 ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
                 : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
-            }`}
+              }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
@@ -451,19 +443,19 @@ export default function AdminLayout() {
       </AnimatePresence>
 
       {/* Main Layout Area */}
-      <motion.div 
+      <motion.div
         whileHover={{ scale: 1.002 }}
         transition={{ duration: 0.3 }}
         className={`flex min-w-0 flex-1 flex-col ${sidebarOpen && isDrawerMode ? 'overflow-hidden' : 'overflow-y-auto'}`}
       >
-        
+
         {/* Top Header - Auto Adapts Color Palette */}
-        <motion.header 
+        <motion.header
           whileHover={{ y: -1, scale: 1.002 }}
           transition={{ duration: 0.3 }}
           className="bg-[var(--theme-navbar,#84cc16)]/95 dark:bg-slate-900/95 backdrop-blur-xl text-slate-950 dark:text-slate-100 border-b border-black/5 dark:border-slate-800/50 sticky top-0 z-30 flex h-16 items-center justify-between px-5 lg:px-8 transition-colors duration-300 flex-shrink-0 shadow-xl shadow-black/20"
         >
-          <motion.div 
+          <motion.div
             whileHover={{ scale: 1.02 }}
             transition={{ duration: 0.25 }}
             className="flex items-center gap-4"
@@ -509,7 +501,7 @@ export default function AdminLayout() {
               <Megaphone size={18} strokeWidth={2.5} />
             </motion.button>
 
-            <motion.div 
+            <motion.div
               whileHover={{ scale: 1.1, y: -2 }}
               transition={{ duration: 0.25 }}
               className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"
@@ -519,7 +511,7 @@ export default function AdminLayout() {
 
             <div className="h-5 w-px bg-slate-900/20 dark:bg-slate-700 mx-1 hidden sm:block"></div>
 
-            <motion.div 
+            <motion.div
               whileHover={{ scale: 1.1, y: -2 }}
               transition={{ duration: 0.25 }}
               className="flex items-center justify-center bg-black/10 dark:bg-slate-800 rounded-full h-10 w-10 text-slate-900 dark:text-slate-100 hover:bg-black/20 dark:hover:bg-slate-700 transition-all duration-250 shadow-lg shadow-black/20"

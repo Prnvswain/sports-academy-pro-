@@ -546,9 +546,7 @@ export default function PerformancePanel() {
 
       // Reload student dashboard data
       if (studentId) {
-        const result = await adminGet(`/admin/students/${studentId}/performance`);
-        setStudentDashboardData(result.data);
-        setPastDatesStatus(buildPastDatesStatus(result.data?.history));
+        await loadStudentDashboard(studentId);
       }
 
       // Auto-navigate to next student

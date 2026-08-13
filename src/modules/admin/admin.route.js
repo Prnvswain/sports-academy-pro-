@@ -204,6 +204,7 @@ router.get('/accounts/receipts', adminController.getReceipts);
 router.get('/accounts/students/:student_id/credit-history', adminController.getStudentCreditHistory);
 router.post('/accounts/students/:student_id/credit', adminController.addStudentCredit);
 router.post('/accounts/students/:student_id/use-credit', adminController.useStudentCredit);
+router.post('/accounts/students/:student_id/use-credit-fees', adminController.applyCreditToFees);
 router.post(
   '/accounts/receipts',
   validate('createPayment'),

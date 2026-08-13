@@ -2577,6 +2577,8 @@ export const impersonateCoach = async (academy_id, coach_id, admin_user_id, ip) 
 
   await logAudit({
 
+    academy_id: academyId,
+
     actor_type: 'ACADEMY_ADMIN',
 
     actor_id: admin_user_id,
@@ -2587,9 +2589,12 @@ export const impersonateCoach = async (academy_id, coach_id, admin_user_id, ip) 
 
     entity_id: coach.coach_id,
 
-    target_actor_type: 'COACH',
-
-    target_actor_id: coach.coach_id,
+    metadata: {
+      impersonating: true,
+      admin_id: admin_user_id,
+      coach_id: coach.coach_id,
+      coach_name: coach.name
+    },
 
     ip_address: ip
 
@@ -2625,7 +2630,9 @@ export const impersonateCoach = async (academy_id, coach_id, admin_user_id, ip) 
 
       email: coach.email
 
-    }
+    },
+
+    redirect_url: '/coach/dashboard'
 
   };
 
@@ -4648,6 +4655,36 @@ export const getStudentLedger = async (academy_id, student_id) => {
     },
   });
 
+  const kitAssignments = await prisma.sportsKitAssignment.findMany({
+    where: {
+      student_id: studentId,
+      academy_id: academyId
+    },
+    include: {
+      kit: {
+        include: {
+          sport: true
+        }
+      }
+    }
+  });
+
+  const kitAssignmentsWithTotals = kitAssignments.map(assignment => {
+    const kitReceipts = receipts.filter(r => r.remarks && r.remarks.includes(`[Assignment: ${assignment.assignment_id}]`));
+    const paid = kitReceipts.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    const total = parseFloat(assignment.total_amount || 0);
+    const due = Math.max(0, total - paid);
+    return {
+      ...assignment,
+      paid_amount: paid,
+      due_amount: due
+    };
+  });
+
+  const kitAssignedTotal = kitAssignmentsWithTotals.reduce((sum, a) => sum + parseFloat(a.total_amount || 0), 0);
+  const kitPaidTotal = kitAssignmentsWithTotals.reduce((sum, a) => sum + parseFloat(a.paid_amount || 0), 0);
+  const kitDueTotal = kitAssignmentsWithTotals.reduce((sum, a) => sum + parseFloat(a.due_amount || 0), 0);
+
   // Calculate total fee due based on enrollments
   const enrollments = await prisma.studentEnrollment.findMany({
     where: {
@@ -4657,6 +4694,7 @@ export const getStudentLedger = async (academy_id, student_id) => {
     },
     include: {
       duration_plan: true,
+      sport: true,
       batch: {
         include: {
           sport: true,
@@ -4674,17 +4712,16 @@ export const getStudentLedger = async (academy_id, student_id) => {
     totalFeeDue = cycleEnrollments.reduce((sum, e) => {
       const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
       const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-      const storedSportsFee = parseFloat(e.sports_fee || 0);
-      const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+      const assignedSportsFee = sportsBaseFee * planMultiplier;
       const registrationFee = parseFloat(e.registration_fee || 0);
       const additionalCharges = parseFloat(e.additional_charges || 0);
       const discount = parseFloat(e.discount || 0);
-      return sum + (sportsFee + registrationFee + additionalCharges - discount);
+      return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
     }, 0);
 
     const oldestEnrollment = cycleEnrollments[0];
     const cycleStart = new Date(oldestEnrollment.created_at.getTime() - 5000);
-    const cycleReceipts = receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart);
+    const cycleReceipts = receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart && !(r.remarks && r.remarks.includes('Sports Kit')));
     totalPaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
   }
 
@@ -4714,6 +4751,11 @@ export const getStudentLedger = async (academy_id, student_id) => {
     receipt_count: receipts.length,
 
     enrollment_count: enrollments.length,
+    sports_kit_fees_assigned: kitAssignedTotal,
+    sports_kit_fees_paid: kitPaidTotal,
+    sports_kit_fees_due: kitDueTotal,
+    sports_kit_assignments: kitAssignmentsWithTotals,
+    credit_balance: parseFloat(student.advance_balance || 0),
 
   };
 
@@ -4741,6 +4783,7 @@ export const getStudentsFeeSummary = async (academy_id) => {
         },
         include: {
           duration_plan: true,
+          sport: true,
           batch: {
             include: {
               sport: true,
@@ -4754,6 +4797,15 @@ export const getStudentsFeeSummary = async (academy_id) => {
           status: 'COMPLETED',
         },
         orderBy: { payment_date: 'desc' },
+      },
+      sports_kit_assignments: {
+        include: {
+          kit: {
+            include: {
+              sport: true
+            }
+          }
+        }
       },
       fees: false,
       parent: true,
@@ -4773,17 +4825,16 @@ export const getStudentsFeeSummary = async (academy_id) => {
         totalFeeDue = cycleEnrollments.reduce((sum, e) => {
           const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
           const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-          const storedSportsFee = parseFloat(e.sports_fee || 0);
-          const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+          const assignedSportsFee = sportsBaseFee * planMultiplier;
           const registrationFee = parseFloat(e.registration_fee || 0);
           const additionalCharges = parseFloat(e.additional_charges || 0);
           const discount = parseFloat(e.discount || 0);
-          return sum + (sportsFee + registrationFee + additionalCharges - discount);
+          return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
         }, 0);
 
         const oldestEnrollment = cycleEnrollments[0];
         const cycleStart = new Date(oldestEnrollment.created_at.getTime() - 5000);
-        const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart);
+        const cycleReceipts = student.receipts.filter(r => r.status === 'COMPLETED' && new Date(r.created_at) >= cycleStart && !(r.remarks && r.remarks.includes('Sports Kit')));
         totalPaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
       }
 
@@ -4820,6 +4871,18 @@ export const getStudentsFeeSummary = async (academy_id) => {
       // Get last paid date from receipts (display only)
       const lastPaidDate = student.receipts.length > 0 ? student.receipts[0].payment_date : null;
 
+      const kitAssignmentsWithTotals = (student.sports_kit_assignments || []).map(assignment => {
+        const kitReceipts = student.receipts.filter(r => r.remarks && r.remarks.includes(`[Assignment: ${assignment.assignment_id}]`));
+        const paid = kitReceipts.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+        const total = parseFloat(assignment.total_amount || 0);
+        const due = Math.max(0, total - paid);
+        return {
+          ...assignment,
+          paid_amount: paid,
+          due_amount: due
+        };
+      });
+
       return {
 
         student_id: student.student_id,
@@ -4835,6 +4898,7 @@ export const getStudentsFeeSummary = async (academy_id) => {
         paid_amount: totalPaid,
 
         due_amount: balanceOutstanding,
+        sports_kit_assignments: kitAssignmentsWithTotals,
 
         fee_status: feeStatus,
 
@@ -5065,6 +5129,106 @@ export const useStudentCredit = async (academy_id, student_id, data) => {
   };
 };
 
+export const applyCreditToFees = async (academy_id, student_id, data) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  const amount = parseFloat(data.amount);
+  const pendingFees = parseFloat(data.pending_fees || 0);
+
+  if (isNaN(amount) || amount <= 0) {
+    const error = new Error('Invalid credit amount');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const student = await getStudentForAcademy(academyId, studentId);
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const currentBalance = parseFloat(student.advance_balance || 0);
+  if (currentBalance < amount) {
+    const error = new Error(`Insufficient credit. Available balance: ₹${currentBalance.toFixed(2)}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const updatedStudent = await prisma.$transaction(async (tx) => {
+    // 1. Decrement credit balance
+    const updated = await tx.student.update({
+      where: { student_id: studentId },
+      data: { advance_balance: { decrement: amount } },
+    });
+
+    // 2. Log credit transaction
+    await tx.studentCreditTransaction.create({
+      data: {
+        student_id: studentId,
+        academy_id: academyId,
+        amount,
+        type: 'USE',
+        reason: 'Credit Applied to Pending Fees',
+        reference_type: 'FEE_PAYMENT',
+      },
+    });
+
+    // 3. Get active enrollment to update paid_amount
+    const activeEnrollment = await tx.studentEnrollment.findFirst({
+      where: {
+        student_id: studentId,
+        academy_id: academyId,
+        is_active: true,
+      },
+    });
+
+    if (activeEnrollment) {
+      const currentPaidAmount = parseFloat(activeEnrollment.paid_amount || 0);
+      const newPaidAmount = currentPaidAmount + amount;
+      
+      await tx.studentEnrollment.update({
+        where: { enrollment_id: activeEnrollment.enrollment_id },
+        data: { paid_amount: newPaidAmount },
+      });
+    }
+
+    // 4. Create receipt with method CREDIT
+    const year = new Date().getFullYear();
+    const count = await tx.receipt.count({
+      where: {
+        academy_id: academyId,
+        receipt_number: { startsWith: `REC-${year}` },
+      },
+    });
+    const receiptNumber = `REC-${year}-${String(count + 1).padStart(3, '0')}`;
+    await tx.receipt.create({
+      data: {
+        receipt_number: receiptNumber,
+        academy_id: academyId,
+        student_id: studentId,
+        amount,
+        payment_date: new Date(),
+        method: 'CREDIT',
+        status: 'COMPLETED',
+        remarks: 'Credit applied to pending fees',
+      },
+    });
+
+    return updated;
+  });
+
+  // Calculate new pending fees
+  const newPendingFees = Math.max(0, pendingFees - amount);
+  const remainingCredit = parseFloat(updatedStudent.advance_balance || 0);
+
+  return {
+    advance_balance: remainingCredit,
+    new_pending_fees: newPendingFees,
+    amount_applied: amount,
+  };
+};
+
 export const getReceipts = async (academy_id) => {
 
   const academyId = parseInt(academy_id, 10);
@@ -5155,6 +5319,52 @@ export const createReceipt = async (academy_id, data) => {
 
 
 
+  // Calculate payment breakdown
+  const totalPayment = parseFloat(data.amount);
+  const amountPaid = parseFloat(data.amount_paid || data.amount);
+  const extraAmount = parseFloat(data.extra_amount || 0);
+  
+  // Get current fee information to calculate how much should go to fees vs credit
+  const activeEnrollment = await prisma.studentEnrollment.findFirst({
+    where: {
+      student_id: student.student_id,
+      academy_id: academyId,
+      is_active: true,
+    },
+    include: {
+      duration_plan: true,
+      sport: true,
+    },
+  });
+
+  let feePaymentAmount = amountPaid;
+  let creditFromPayment = 0;
+
+  if (activeEnrollment) {
+    const currentPaidAmount = parseFloat(activeEnrollment.paid_amount || 0);
+    
+    // Calculate total fee assigned for this enrollment
+    const sportsBaseFee = parseFloat(activeEnrollment.sport?.base_fee || activeEnrollment.sports_base_fee || 0);
+    const planMultiplier = parseFloat(activeEnrollment.duration_plan?.multiplier || activeEnrollment.plan_multiplier || 1);
+    const assignedFee = sportsBaseFee * planMultiplier;
+    const registrationFee = parseFloat(activeEnrollment.registration_fee || 0);
+    const additionalCharges = parseFloat(activeEnrollment.additional_charges || 0);
+    const discount = parseFloat(activeEnrollment.discount || 0);
+    const totalAssignedFee = assignedFee + registrationFee + additionalCharges - discount;
+    
+    // Calculate how much is already paid towards fees
+    const remainingFeeAmount = Math.max(0, totalAssignedFee - currentPaidAmount);
+    
+    // If payment exceeds remaining fee, excess goes to credit
+    if (amountPaid > remainingFeeAmount) {
+      feePaymentAmount = remainingFeeAmount;
+      creditFromPayment = amountPaid - remainingFeeAmount;
+    } else {
+      feePaymentAmount = amountPaid;
+      creditFromPayment = 0;
+    }
+  }
+
   const receipt = await prisma.receipt.create({
 
     data: {
@@ -5165,7 +5375,7 @@ export const createReceipt = async (academy_id, data) => {
 
       student_id: student.student_id,
 
-      amount: parseFloat(data.amount),
+      amount: totalPayment,
 
       discount: parseFloat(data.discount || 0),
 
@@ -5177,6 +5387,8 @@ export const createReceipt = async (academy_id, data) => {
 
       status: data.status === 'completed' ? 'COMPLETED' : 'PENDING',
 
+      remarks: data.remarks || (creditFromPayment > 0 ? `Advance Credit: ₹${creditFromPayment.toFixed(2)}` : null),
+
     },
 
     include: {
@@ -5187,9 +5399,27 @@ export const createReceipt = async (academy_id, data) => {
 
   });
 
+  // Handle credit from payment (automatic credit when payment exceeds fees)
+  if (creditFromPayment > 0) {
+    await prisma.student.update({
+      where: { student_id: student.student_id },
+      data: { advance_balance: { increment: creditFromPayment } }
+    });
 
+    await prisma.studentCreditTransaction.create({
+      data: {
+        student_id: student.student_id,
+        academy_id: academyId,
+        amount: creditFromPayment,
+        type: 'ADD',
+        reason: 'Automatic Credit from Payment',
+        reference_type: 'RECEIPT',
+        reference_id: receipt.receipt_id
+      }
+    });
+  }
 
-  const extraAmount = parseFloat(data.extra_amount || 0);
+  // Handle explicit extra amount (manual advance credit)
   if (extraAmount > 0) {
     await prisma.student.update({
       where: { student_id: student.student_id },
@@ -5202,7 +5432,7 @@ export const createReceipt = async (academy_id, data) => {
         academy_id: academyId,
         amount: extraAmount,
         type: 'ADD',
-        reason: 'Advance Payment',
+        reason: 'Manual Advance Credit',
         reference_type: 'RECEIPT',
         reference_id: receipt.receipt_id
       }
@@ -5210,21 +5440,12 @@ export const createReceipt = async (academy_id, data) => {
   }
 
   // Update the student's active enrollment's paid_amount to maintain financial link
-  const activeEnrollment = await prisma.studentEnrollment.findFirst({
-    where: {
-      student_id: student.student_id,
-      academy_id: academyId,
-      is_active: true,
-    },
-  });
-
-
-
+  // Only update with the actual fee payment amount, not total payment
   if (activeEnrollment) {
 
     const currentPaidAmount = parseFloat(activeEnrollment.paid_amount || 0);
 
-    const newPaidAmount = currentPaidAmount + parseFloat(data.amount_paid);
+    const newPaidAmount = currentPaidAmount + feePaymentAmount;
 
 
 
@@ -5251,6 +5472,13 @@ export const createReceipt = async (academy_id, data) => {
     entity_type: 'Receipt',
 
     entity_id: receipt.receipt_id,
+
+    metadata: {
+      fee_payment: feePaymentAmount,
+      automatic_credit: creditFromPayment,
+      manual_credit: extraAmount,
+      total_payment: totalPayment
+    }
 
   });
 
@@ -5507,8 +5735,8 @@ export const getRevenueSummary = async (academy_id) => {
 
 
 export const createPayment = async (academy_id, data) => {
-
-  const student = await getStudentForAcademy(academy_id, data.student_id);
+  const academyId = parseInt(academy_id, 10);
+  const student = await getStudentForAcademy(academyId, data.student_id);
 
 
 
@@ -5530,6 +5758,89 @@ export const createPayment = async (academy_id, data) => {
     throw error;
   }
 
+  if (data.kit_assignment_id) {
+    const assignmentId = parseInt(data.kit_assignment_id, 10);
+    const assignment = await prisma.sportsKitAssignment.findFirst({
+      where: { assignment_id: assignmentId, academy_id: academyId },
+      include: { kit: true }
+    });
+    if (!assignment) {
+      const error = new Error('Sports Kit assignment not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const payAmount = parseFloat(data.amount);
+    if (!Number.isFinite(payAmount) || payAmount <= 0) {
+      const error = new Error('Payment amount must be a positive number');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const allReceipts = await prisma.receipt.findMany({
+      where: {
+        student_id: student.student_id,
+        academy_id: academyId,
+        status: 'COMPLETED'
+      }
+    });
+    const kitReceipts = allReceipts.filter(r => r.remarks && r.remarks.includes(`[Assignment: ${assignmentId}]`));
+    const alreadyPaid = kitReceipts.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    const totalAmount = parseFloat(assignment.total_amount || 0);
+    const remaining = Math.max(0, totalAmount - alreadyPaid);
+
+    if (payAmount > remaining) {
+      const error = new Error(`Payment amount cannot exceed the remaining kit fee of ₹${remaining.toFixed(2)}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const generatedReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const receipt = await prisma.receipt.create({
+      data: {
+        receipt_number: generatedReceiptNo,
+        academy_id: academyId,
+        student_id: student.student_id,
+        amount: payAmount,
+        discount: 0,
+        additional_charges: 0,
+        payment_date: new Date(data.payment_date || new Date()),
+        method: data.method || 'cash',
+        status: 'COMPLETED',
+        remarks: `Sports Kit Payment: ${assignment.kit.name} (Qty: ${assignment.quantity}) [Assignment: ${assignmentId}]`
+      }
+    });
+
+    const newTotalPaid = alreadyPaid + payAmount;
+    let paymentStatus = 'UNPAID';
+    if (newTotalPaid >= totalAmount) {
+      paymentStatus = 'PAID';
+    } else if (newTotalPaid > 0) {
+      paymentStatus = 'PARTIAL';
+    }
+
+    await prisma.sportsKitAssignment.update({
+      where: { assignment_id: assignmentId },
+      data: { payment_status: paymentStatus }
+    });
+
+    if (assignment.fee_id) {
+      if (paymentStatus === 'PAID') {
+        await prisma.fee.delete({ where: { fee_id: assignment.fee_id } }).catch(() => {});
+      } else {
+        await prisma.fee.update({
+          where: { fee_id: assignment.fee_id },
+          data: {
+            paid_amount: newTotalPaid,
+            status: 'PENDING'
+          }
+        }).catch(() => {});
+      }
+    }
+
+    return receipt;
+  }
+
   const enrollments = await prisma.studentEnrollment.findMany({
     where: { student_id: student.student_id, academy_id: parseInt(academy_id, 10) },
     include: { sport: true, duration_plan: true }
@@ -5544,12 +5855,11 @@ export const createPayment = async (academy_id, data) => {
   const totalFeesAssigned = cycleEnrollments.reduce((sum, e) => {
     const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
     const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-    const storedSportsFee = parseFloat(e.sports_fee || 0);
-    const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+    const assignedSportsFee = sportsBaseFee * planMultiplier;
     const registrationFee = parseFloat(e.registration_fee || 0);
     const additionalCharges = parseFloat(e.additional_charges || 0);
     const discount = parseFloat(e.discount || 0);
-    return sum + (sportsFee + registrationFee + additionalCharges - discount);
+    return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
   }, 0);
 
   const oldestEnrollment = cycleEnrollments[0];
@@ -5562,8 +5872,21 @@ export const createPayment = async (academy_id, data) => {
       created_at: { gte: cycleStart }
     }
   });
-  const totalPaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+  const nonKitReceipts = cycleReceipts.filter(r => !(r.remarks && r.remarks.includes('Sports Kit')));
+  const totalPaid = nonKitReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
   const remainingFee = Math.max(0, totalFeesAssigned - totalPaid);
+
+  const netPaymentAmount = paymentAmount - parseFloat(data.extra_amount || 0);
+  if (totalFeesAssigned > 0 && remainingFee <= 0 && netPaymentAmount > 0) {
+    const error = new Error('Student has already paid all fees for this cycle. No further payments can be accepted.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (totalFeesAssigned > 0 && netPaymentAmount > remainingFee) {
+    const error = new Error('Payment amount cannot exceed the remaining fee for this cycle.');
+    error.statusCode = 400;
+    throw error;
+  }
 
   const generatedReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -5833,6 +6156,9 @@ export const updatePaymentStatus = async (
     }
 
     const totalFeesAssigned = cycleEnrollments.reduce((sum, e) => {
+      if (e.final_fee && parseFloat(e.final_fee) > 0) {
+        return sum + parseFloat(e.final_fee);
+      }
       const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
       const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
       const storedSportsFee = parseFloat(e.sports_fee || 0);
@@ -5929,12 +6255,11 @@ export const updatePaymentStatus = async (
       const totalFeesAssigned = cycleEnrollments.reduce((sum, e) => {
         const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
         const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-        const storedSportsFee = parseFloat(e.sports_fee || 0);
-        const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+        const assignedSportsFee = sportsBaseFee * planMultiplier;
         const registrationFee = parseFloat(e.registration_fee || 0);
         const additionalCharges = parseFloat(e.additional_charges || 0);
         const discount = parseFloat(e.discount || 0);
-        return sum + (sportsFee + registrationFee + additionalCharges - discount);
+        return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
       }, 0);
 
       if (newTotalPaid >= totalFeesAssigned) {
@@ -5986,12 +6311,11 @@ export const updatePaymentStatus = async (
       const totalFeesAssigned = cycleEnrollments.reduce((sum, e) => {
         const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
         const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
-        const storedSportsFee = parseFloat(e.sports_fee || 0);
-        const sportsFee = storedSportsFee > 0 ? storedSportsFee : (sportsBaseFee * planMultiplier);
+        const assignedSportsFee = sportsBaseFee * planMultiplier;
         const registrationFee = parseFloat(e.registration_fee || 0);
         const additionalCharges = parseFloat(e.additional_charges || 0);
         const discount = parseFloat(e.discount || 0);
-        return sum + (sportsFee + registrationFee + additionalCharges - discount);
+        return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
       }, 0);
 
       if (totalPaid >= totalFeesAssigned) {
@@ -6178,7 +6502,8 @@ export const getAcademyReport = async (academy_id) => {
       where: activeStudentFilter,
       include: {
         enrollments: {
-          where: { is_active: true }
+          where: { is_active: true },
+          include: { sport: true, duration_plan: true }
         },
         receipts: {
           where: { status: 'COMPLETED' }
@@ -6192,7 +6517,13 @@ export const getAcademyReport = async (academy_id) => {
     activeStudents.forEach(student => {
       // Calculate total fees assigned from active enrollments
       const totalFeeDue = student.enrollments.reduce((sum, e) => {
-        return sum + parseFloat(e.final_fee || 0);
+        const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
+        const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
+        const assignedSportsFee = sportsBaseFee * planMultiplier;
+        const registrationFee = parseFloat(e.registration_fee || 0);
+        const additionalCharges = parseFloat(e.additional_charges || 0);
+        const discount = parseFloat(e.discount || 0);
+        return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
       }, 0);
 
       // Calculate total paid from completed receipts
@@ -7694,6 +8025,10 @@ export const getCurrentCycleEnrollments = (enrollments) => {
   let currentActive = activeEnrollment;
   for (let i = activeIndex - 1; i >= 0; i--) {
     const prev = sorted[i];
+    // If the active enrollment is active, do not group inactive/historical ones
+    if (activeEnrollment.is_active && !prev.is_active) {
+      break;
+    }
     const prevEnd = new Date(prev.plan_end_date);
     const currStart = new Date(currentActive.plan_start_date);
     
@@ -7709,6 +8044,10 @@ export const getCurrentCycleEnrollments = (enrollments) => {
   currentActive = activeEnrollment;
   for (let i = activeIndex + 1; i < sorted.length; i++) {
     const next = sorted[i];
+    // If the active enrollment is active, do not group inactive/historical ones
+    if (activeEnrollment.is_active && !next.is_active) {
+      break;
+    }
     const currEnd = new Date(currentActive.plan_end_date);
     const nextStart = new Date(next.plan_start_date);
     
@@ -7734,12 +8073,13 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
     throw error;
   }
 
-  const { action, duration_plan_id, sport_id, batch_id, plan_start_date, additional_charges, registration_fee } = data;
+  const { action, duration_plan_id, sport_id, batch_id, plan_start_date, additional_charges, registration_fee, discount: rawDiscount } = data;
   let targetPlanId = duration_plan_id ? parseInt(duration_plan_id, 10) : null;
   let targetSportId = sport_id ? parseInt(sport_id, 10) : student.sport_id;
   let targetBatchId = batch_id ? parseInt(batch_id, 10) : student.batch_id;
   const additionalCharges = additional_charges ? parseFloat(additional_charges) : 0;
   const registrationFee = registration_fee ? parseFloat(registration_fee) : 0;
+  const discount = rawDiscount ? parseFloat(rawDiscount) : 0;
 
   const latestEnrollment = await prisma.studentEnrollment.findFirst({
     where: { student_id: studentId, academy_id: academyId },
@@ -7762,61 +8102,27 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
   const finalFee = await getFinalFeeForPlan(targetPlanId, targetSportId);
 
   const result = await prisma.$transaction(async (tx) => {
+    let activeEnrollmentRecord;
     if (action === 'continue' && latestEnrollment) {
-      // Continue Existing Plan: Reactivate the existing enrollment with provided or default start date
-      const planStartDate = plan_start_date ? new Date(plan_start_date) : new Date();
-      const durationPlan = await prisma.durationPlan.findUnique({
-        where: { plan_id: targetPlanId }
-      });
-      
-      let durationDays;
-      if (durationPlan) {
-        if (durationPlan.duration_type === 'DAYS') {
-          durationDays = durationPlan.duration;
-        } else {
-          // MONTHS type: convert to days (1 month = 30 days)
-          durationDays = durationPlan.duration * 30;
-        }
-      } else {
-        durationDays = 30; // Fallback
-      }
-      
-      const newEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
+      // Continue Existing Plan: Reactivate the existing enrollment, keeping dates, paid amount, and fees intact
       const updatedEnrollment = await tx.studentEnrollment.update({
         where: { enrollment_id: latestEnrollment.enrollment_id },
         data: {
           is_active: true,
-          plan_start_date: planStartDate,
-          plan_end_date: newEndDate,
-          next_due_date: newEndDate,
-          batch_id: targetBatchId,
-          paid_amount: 0,
-          created_at: new Date() // Reset creation timestamp to establish a fresh cycle boundary
+          batch_id: targetBatchId
         }
       });
+      activeEnrollmentRecord = updatedEnrollment;
 
       await tx.student.update({
         where: { student_id: studentId },
         data: {
           status: 'ACTIVE',
           auto_deactivated: false,
-          fees_status: 'unpaid'
+          batch_id: targetBatchId,
+          sport_id: targetSportId
         }
       });
-
-      await tx.fee.create({
-        data: {
-          academy_id: academyId,
-          student_id: studentId,
-          amount_due: finalFee,
-          due_date: newEndDate,
-          status: 'PENDING',
-          description: `Plan Reactivation (Continue Existing): ${planStartDate.toLocaleDateString()} to ${newEndDate.toLocaleDateString()}`
-        }
-      });
-
-      return updatedEnrollment;
     } else {
       // Assign New Plan: Create a new enrollment with provided or default values
       await tx.studentEnrollment.updateMany({
@@ -7837,8 +8143,8 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
           registration_fee: registrationFee,
           sports_fee: finalFee,
           additional_charges: additionalCharges,
-          discount: 0,
-          final_fee: finalFee + registrationFee + additionalCharges,
+          discount: discount,
+          final_fee: finalFee + registrationFee + additionalCharges - discount,
           paid_amount: 0,
           plan_start_date: planStartDate,
           plan_end_date: planEndDate,
@@ -7846,13 +8152,16 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
           is_active: true
         }
       });
+      activeEnrollmentRecord = newEnrollment;
 
       await tx.student.update({
         where: { student_id: studentId },
         data: {
           status: 'ACTIVE',
           auto_deactivated: false,
-          fees_status: 'unpaid'
+          fees_status: 'unpaid',
+          batch_id: targetBatchId,
+          sport_id: targetSportId
         }
       });
 
@@ -7860,15 +8169,117 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
         data: {
           academy_id: academyId,
           student_id: studentId,
-          amount_due: finalFee + registrationFee + additionalCharges,
+          amount_due: finalFee + registrationFee + additionalCharges - discount,
           due_date: planEndDate,
           status: 'PENDING',
           description: `Plan Reactivation (New Plan): ${planStartDate.toLocaleDateString()} to ${planEndDate.toLocaleDateString()}`
         }
       });
-
-      return newEnrollment;
     }
+
+    // Apply pending payment atomically if provided
+    if (data.payment) {
+      const payAmount = parseFloat(data.payment.amount || 0);
+      const payExtraAmount = parseFloat(data.payment.extra_amount || 0);
+      const payAmountPaid = parseFloat(data.payment.amount_paid || 0);
+      const netPaymentAmount = payAmount - payExtraAmount;
+
+      const generatedReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const receipt = await tx.receipt.create({
+        data: {
+          receipt_number: generatedReceiptNo,
+          academy_id: academyId,
+          student_id: studentId,
+          amount: payAmount,
+          payment_date: new Date(data.payment.payment_date),
+          method: data.payment.method || 'cash',
+          status: data.payment.status === 'completed' ? 'COMPLETED' : 'PENDING'
+        }
+      });
+
+      if (payExtraAmount > 0) {
+        await tx.student.update({
+          where: { student_id: studentId },
+          data: { advance_balance: { increment: payExtraAmount } }
+        });
+        await tx.studentCreditTransaction.create({
+          data: {
+            student_id: studentId,
+            academy_id: academyId,
+            amount: payExtraAmount,
+            type: 'ADD',
+            reason: 'Advance Payment',
+            reference_type: 'RECEIPT',
+            reference_id: receipt.receipt_id
+          }
+        });
+      }
+
+      if (data.payment.status === 'completed') {
+        const currentActiveEnrollment = activeEnrollmentRecord;
+
+        const allUserEnrollments = await tx.studentEnrollment.findMany({
+          where: { student_id: studentId, academy_id: academyId },
+          include: { sport: true, duration_plan: true }
+        });
+        const modifiedUserEnrollments = allUserEnrollments.map(e => 
+          e.enrollment_id === currentActiveEnrollment.enrollment_id ? currentActiveEnrollment : e
+        );
+
+        const cycleEnrollments = getCurrentCycleEnrollments(modifiedUserEnrollments);
+        let totalFeesAssigned = 0;
+        if (cycleEnrollments.length > 0) {
+          totalFeesAssigned = cycleEnrollments.reduce((sum, e) => {
+            const sportsBaseFee = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
+            const planMultiplier = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
+            const assignedSportsFee = sportsBaseFee * planMultiplier;
+            const registrationFee = parseFloat(e.registration_fee || 0);
+            const additionalCharges = parseFloat(e.additional_charges || 0);
+            const discount = parseFloat(e.discount || 0);
+            return sum + (assignedSportsFee + registrationFee + additionalCharges - discount);
+          }, 0);
+
+          const oldestEnrollment = cycleEnrollments[0];
+          const cycleStart = new Date(oldestEnrollment.created_at.getTime() - 5000);
+
+          const cycleReceipts = await tx.receipt.findMany({
+            where: {
+              student_id: studentId,
+              academy_id: academyId,
+              status: 'COMPLETED',
+              created_at: { gte: cycleStart }
+            }
+          });
+
+          const totalPaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0) + netPaymentAmount;
+
+          let newFeesStatus = 'unpaid';
+          if (totalPaid >= totalFeesAssigned) {
+            newFeesStatus = 'paid';
+          } else if (totalPaid > 0) {
+            newFeesStatus = 'partial';
+          }
+
+          await tx.student.update({
+            where: { student_id: studentId },
+            data: { fees_status: newFeesStatus }
+          });
+
+          const currentPaidAmount = parseFloat(currentActiveEnrollment.paid_amount || 0);
+          const newPaidAmount = currentPaidAmount + netPaymentAmount;
+
+          await tx.studentEnrollment.update({
+            where: { enrollment_id: currentActiveEnrollment.enrollment_id },
+            data: { paid_amount: newPaidAmount }
+          });
+
+          // Also set activeEnrollmentRecord's values in return object
+          activeEnrollmentRecord.paid_amount = newPaidAmount;
+        }
+      }
+    }
+
+    return activeEnrollmentRecord;
   });
 
   await logAudit({
