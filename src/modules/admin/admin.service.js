@@ -5293,9 +5293,17 @@ export const createReceipt = async (academy_id, data) => {
 
   }
 
+  // Guard: reject payment if student is INACTIVE
+  if (student.status !== 'ACTIVE') {
+    const err = new Error('Cannot record a payment for an inactive student. Please reactivate the student first.');
+    err.statusCode = 400;
+    throw err;
+  }
+
 
 
   const year = new Date().getFullYear();
+
 
   const count = await prisma.receipt.count({
 

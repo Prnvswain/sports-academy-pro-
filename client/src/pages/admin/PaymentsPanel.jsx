@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPatch, adminPost } from '../../api/client';
 import { calculateStudentFee, calculateBalance } from '../../utils/fee.util.js';
-import { Wallet, TrendingUp, AlertCircle, CheckCircle, Users, DollarSign, Calendar, Filter, Search, ArrowUpDown, Bell, Zap, Clock, Phone, Settings, XCircle, Package } from 'lucide-react';
+import { Wallet, TrendingUp, AlertCircle, CheckCircle, Users, DollarSign, Calendar, Filter, Search, ArrowUpDown, Bell, Zap, Clock, Phone, Settings, XCircle, Package, UserX, RefreshCw, Zap as ZapIcon, BookOpen, ChevronRight } from 'lucide-react';
 
 const emptyForm = {
   student_id: '',
@@ -76,6 +76,24 @@ export default function AccountsPanel() {
   const [isKitSubmitting, setIsKitSubmitting] = useState(false);
   const [showRecordsFilter, setShowRecordsFilter] = useState(false);
 
+  // Reactivation Modal State
+  const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [pendingPaymentIntent, setPendingPaymentIntent] = useState(null);
+  const [reactivateForm, setReactivateForm] = useState({
+    action: 'continue',
+    duration_plan_id: '',
+    sport_id: '',
+    batch_id: '',
+    plan_start_date: new Date().toISOString().split('T')[0],
+    additional_charges: '',
+    registration_fee: '',
+    discount: ''
+  });
+  const [reactivateBatches, setReactivateBatches] = useState([]);
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [sports, setSports] = useState([]);
+  const [durationPlans, setDurationPlans] = useState([]);
+
   const fetchStudentKits = async (studentId) => {
     setLoadingKits(true);
     try {
@@ -114,10 +132,12 @@ export default function AccountsPanel() {
   const loadData = useCallback(async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [paymentsRes, studentsRes, kitsRes] = await Promise.all([
+      const [paymentsRes, studentsRes, kitsRes, sportsRes, plansRes] = await Promise.all([
         adminGet('/admin/accounts'),
         adminGet('/admin/students'),
-        adminGet('/admin/inventory/kits')
+        adminGet('/admin/inventory/kits'),
+        adminGet('/admin/sports'),
+        adminGet('/admin/duration-plans')
       ]);
 
       const paymentsData = paymentsRes.data?.data || paymentsRes.data || [];
@@ -127,6 +147,8 @@ export default function AccountsPanel() {
       setStudents(Array.isArray(studentsData) ? studentsData : []);
 
       setAvailableKits(kitsRes.data || kitsRes || []);
+      setSports(sportsRes.data || sportsRes || []);
+      setDurationPlans(plansRes.data || plansRes || []);
 
       if (!isBackground) setMessage({ text: '', type: '' });
     } catch (error) {
@@ -425,6 +447,39 @@ export default function AccountsPanel() {
       return;
     }
 
+    // Check if student is INACTIVE — intercept and show reactivation modal
+    const selectedStudentObj = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+    if (selectedStudentObj && selectedStudentObj.status !== 'ACTIVE') {
+      // Preserve payment intent
+      const amountToPay = parseFloat(form.amount || 0);
+      const extraAmt = collectExtra ? parseFloat(form.extra_amount || 0) : 0;
+      setPendingPaymentIntent({
+        student_id: parseInt(form.student_id, 10),
+        amount: amountToPay + extraAmt,
+        extra_amount: extraAmt,
+        amount_paid: amountToPay,
+        payment_date: form.payment_date,
+        method: form.method,
+        status: form.status,
+      });
+      // Pre-fill reactivation form with student's existing enrollment data
+      const enrollments = selectedStudentObj.enrollments || [];
+      const latestEnrollment = enrollments[0];
+      setReactivateForm({
+        action: 'continue',
+        duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
+        sport_id: latestEnrollment?.sport_id?.toString() || selectedStudentObj.sport_id?.toString() || '',
+        batch_id: latestEnrollment?.batch_id?.toString() || selectedStudentObj.batch_id?.toString() || '',
+        plan_start_date: new Date().toISOString().split('T')[0],
+        additional_charges: '',
+        registration_fee: '',
+        discount: ''
+      });
+      setShowReactivateModal(true);
+      setIsSubmitting(false);
+      return;
+    }
+
     const amountToPay = parseFloat(form.amount || 0);
     const extraAmount = collectExtra ? parseFloat(form.extra_amount || 0) : 0;
     const totalAmount = amountToPay + extraAmount;
@@ -452,6 +507,49 @@ export default function AccountsPanel() {
       setMessage({ text: error.message, type: 'error' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleReactivateSubmit = async (e) => {
+    e.preventDefault();
+    const selectedStudentObj = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+    if (!selectedStudentObj) return;
+    setIsReactivating(true);
+    const studentId = selectedStudentObj.student_id || selectedStudentObj.id;
+    try {
+      const payload = {
+        ...reactivateForm,
+        payment: pendingPaymentIntent || undefined
+      };
+      await adminPost(`/admin/students/${studentId}/reactivate`, payload);
+      setMessage({ text: `Student reactivated successfully${pendingPaymentIntent ? ' and payment recorded.' : '.'}`, type: 'success' });
+      setShowReactivateModal(false);
+      setPendingPaymentIntent(null);
+      // Refresh student data and ledger
+      await loadData(false);
+      await loadStudentAccountsData();
+      // Refresh ledger for this student
+      try {
+        const ledgerRes = await adminGet(`/admin/accounts/student-ledger/${form.student_id}`);
+        const ledgerData = ledgerRes.data || {};
+        setStudentFeeData(ledgerData);
+        setForm(prev => ({
+          ...prev,
+          pending_amount: ledgerData.balance_outstanding || 0,
+          amount: ledgerData.balance_outstanding > 0 ? ledgerData.balance_outstanding.toString() : ''
+        }));
+      } catch (_) {}
+      // Clear form if payment was applied
+      if (pendingPaymentIntent) {
+        setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
+        setCollectExtra(false);
+        setStudentSearchTerm('');
+        setStudentFeeData(null);
+      }
+    } catch (error) {
+      setMessage({ text: error.message || 'Reactivation failed.', type: 'error' });
+    } finally {
+      setIsReactivating(false);
     }
   };
 
@@ -971,13 +1069,13 @@ export default function AccountsPanel() {
             </motion.button>
           </div>
 
-          <div className="w-full">
-            {/* RECORD PAYMENT FORM - Premium Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* LEFT COLUMN: Record Payment Form */}
             <motion.form
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.2 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 p-5 space-y-4"
+              className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 p-5 space-y-4"
               onSubmit={handleSubmit}
             >
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/50 justify-between">
@@ -1167,13 +1265,29 @@ export default function AccountsPanel() {
                     </div>
 
                     {selectedStudent.status !== 'ACTIVE' && (
-                      <Link
-                        to="/admin/students"
-                        state={{ reactivateStudentId: selectedStudent.id || selectedStudent.student_id }}
-                        className="px-3 py-1.5 bg-[#84cc16] hover:bg-[#65a30d] text-white rounded-lg text-[10px] font-bold shadow-md shadow-[#84cc16]/10 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const enrollments = selectedStudent.enrollments || [];
+                          const latestEnrollment = enrollments[0];
+                          setReactivateForm({
+                            action: 'continue',
+                            duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
+                            sport_id: latestEnrollment?.sport_id?.toString() || selectedStudent.sport_id?.toString() || '',
+                            batch_id: latestEnrollment?.batch_id?.toString() || selectedStudent.batch_id?.toString() || '',
+                            plan_start_date: new Date().toISOString().split('T')[0],
+                            additional_charges: '',
+                            registration_fee: '',
+                            discount: ''
+                          });
+                          setPendingPaymentIntent(null);
+                          setShowReactivateModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-[#84cc16] hover:bg-[#65a30d] text-white rounded-lg text-[10px] font-bold shadow-md shadow-[#84cc16]/10 transition-all cursor-pointer flex items-center justify-center flex-shrink-0 gap-1"
                       >
+                        <RefreshCw className="w-3 h-3" />
                         Reactivate Plan
-                      </Link>
+                      </button>
                     )}
                   </div>
                 );
@@ -1232,6 +1346,66 @@ export default function AccountsPanel() {
                       <span className="text-[#84cc16] text-lg font-black">₹{parseFloat(form.pending_amount || 0).toFixed(2)}</span>
                     </div>
                   )}
+                </motion.div>
+              )}
+
+              {/* Inactive Student Payment Block */}
+              {paymentType === 'training' && form.student_id && (() => {
+                const sel = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+                return sel && sel.status !== 'ACTIVE';
+              })() && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-rose-50 dark:bg-rose-950/20 border-2 border-rose-200 dark:border-rose-800/50 rounded-xl p-4 space-y-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center flex-shrink-0">
+                      <UserX className="w-4 h-4 text-rose-500" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-rose-700 dark:text-rose-400">Student is Inactive</div>
+                      <div className="text-xs text-rose-600 dark:text-rose-500 mt-0.5">This student must be reactivated before a payment can be applied.</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sel = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+                      const enrollments = sel?.enrollments || [];
+                      const latestEnrollment = enrollments[0];
+                      const amountToPay = parseFloat(form.amount || 0);
+                      const extraAmt = collectExtra ? parseFloat(form.extra_amount || 0) : 0;
+                      if (amountToPay > 0) {
+                        setPendingPaymentIntent({
+                          student_id: parseInt(form.student_id, 10),
+                          amount: amountToPay + extraAmt,
+                          extra_amount: extraAmt,
+                          amount_paid: amountToPay,
+                          payment_date: form.payment_date,
+                          method: form.method,
+                          status: form.status,
+                        });
+                      } else {
+                        setPendingPaymentIntent(null);
+                      }
+                      setReactivateForm({
+                        action: 'continue',
+                        duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
+                        sport_id: latestEnrollment?.sport_id?.toString() || sel?.sport_id?.toString() || '',
+                        batch_id: latestEnrollment?.batch_id?.toString() || sel?.batch_id?.toString() || '',
+                        plan_start_date: new Date().toISOString().split('T')[0],
+                        additional_charges: '',
+                        registration_fee: '',
+                        discount: ''
+                      });
+                      setShowReactivateModal(true);
+                    }}
+                    className="w-full h-10 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-rose-500/20 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Reactivate Student Plan
+                  </button>
                 </motion.div>
               )}
 
@@ -1727,6 +1901,10 @@ export default function AccountsPanel() {
                 )
               ))}
             </motion.form>
+          </div>
+
+          {/* RIGHT COLUMN: Payment Records */}
+          <div className="lg:col-span-7 flex flex-col gap-4">
 
             {/* FILTERS CARD - Premium Design */}
             <motion.div
@@ -1785,8 +1963,6 @@ export default function AccountsPanel() {
                 </div>
               </div>
             </motion.div>
-          </div>
-
           {/* PAYMENT RECORDS TABLE - Premium Design */}
           <motion.div
             id="paymentRecordsSection"
@@ -2109,6 +2285,7 @@ export default function AccountsPanel() {
               </div>
             )}
           </motion.div>
+          </div>
         </>
       ) : (
         <>
@@ -2152,90 +2329,114 @@ export default function AccountsPanel() {
             </motion.div>
           )}
 
-          {/* Student Accounts Section - Premium Card */}
+          {/* Student Accounts Section - 2-column layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* LEFT: filters & controls */}
+          <div className="lg:col-span-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden"
+            >
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
+                    <Filter className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <h3 className="text-sm font-bold text-foreground">Filters & Search</h3>
+                </div>
+                {/* Search */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search student, parent, phone..."
+                    value={studentAccountsSearch}
+                    onChange={(e) => setStudentAccountsSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-xs"
+                  />
+                </div>
+                {/* Sort */}
+                <div className="relative mb-3">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full pl-4 pr-8 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] transition-all duration-300 appearance-none cursor-pointer text-xs"
+                  >
+                    <option value="name">Sort: Name</option>
+                    <option value="highest_due">Sort: Highest Due</option>
+                    <option value="highest_paid">Sort: Highest Paid</option>
+                    <option value="recently_paid">Sort: Recently Paid</option>
+                  </select>
+                  <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                </div>
+                {/* Status Filter Pills */}
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { key: 'all', label: `All (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})` },
+                    { key: 'paid', label: `Paid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})` },
+                    { key: 'unpaid', label: `Unpaid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})` },
+                    { key: 'inactive', label: `Inactive (${studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})` }
+                  ].map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setStudentAccountsFilter(f.key)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 ${studentAccountsFilter === f.key ? 'bg-[#84cc16] text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Quick Guide Card */}
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Quick Guide</span>
+                </div>
+                <div className="space-y-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <div className="flex items-start gap-2">
+                    <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                    <span>Click a student row to expand their payment history and credit details.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                    <span>Use the <strong>Collect Fee</strong> button to jump directly to the Payment tab for that student.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                    <span>Inactive students are shown with a red badge. Reactivate them from the Payment tab.</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+          {/* RIGHT: student table */}
+          <div className="lg:col-span-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
-            className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 mt-4 overflow-hidden"
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+            <div className="p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/30">
                   <Users className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">Student Accounts</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">View student fee status and payment history</p>
+                  <h3 className="text-base font-bold text-foreground">Student Accounts</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Fee status and payment history</p>
                 </div>
               </div>
-
-              {/* Premium Filter Toggle */}
-              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl p-1 border border-slate-200 dark:border-slate-700/50 shadow-sm">
-                <button
-                  onClick={() => setStudentAccountsFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${studentAccountsFilter === 'all'
-                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
-                    }`}
-                >
-                  All ({studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})
-                </button>
-                <button
-                  onClick={() => setStudentAccountsFilter('paid')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${studentAccountsFilter === 'paid'
-                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
-                    }`}
-                >
-                  Paid ({studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})
-                </button>
-                <button
-                  onClick={() => setStudentAccountsFilter('unpaid')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${studentAccountsFilter === 'unpaid'
-                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
-                    }`}
-                >
-                  Unpaid ({studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})
-                </button>
-                <button
-                  onClick={() => setStudentAccountsFilter('inactive')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${studentAccountsFilter === 'inactive'
-                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
-                    }`}
-                >
-                  Inactive ({studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})
-                </button>
-              </div>
-            </div>
-
-            {/* Search and Sort - Premium Design */}
-            <div className="flex flex-col sm:flex-row gap-3 p-4 pb-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by student name, parent name, or phone..."
-                  value={studentAccountsSearch}
-                  onChange={(e) => setStudentAccountsSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
-                />
-              </div>
-              <div className="relative w-full sm:w-40">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full pl-4 pr-8 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm"
-                >
-                  <option value="name">Sort by Name</option>
-                  <option value="highest_due">Highest Due</option>
-                  <option value="highest_paid">Highest Paid</option>
-                  <option value="recently_paid">Recently Paid</option>
-                </select>
-                <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
+              <button
+                type="button"
+                onClick={loadStudentAccountsData}
+                className="text-[10px] font-bold text-slate-400 hover:text-[#84cc16] flex items-center gap-1 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" /> Refresh
+              </button>
             </div>
 
             {/* Student Accounts Table - Premium Design */}
@@ -2759,6 +2960,8 @@ export default function AccountsPanel() {
               </div>
             )}
           </motion.div>
+          </div>{/* end right col */}
+          </div>{/* end 2-col grid */}
         </>
       )}
 
@@ -3016,6 +3219,252 @@ export default function AccountsPanel() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Inline Reactivate Student Plan Modal */}
+      <AnimatePresence>
+        {showReactivateModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowReactivateModal(false); }}
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700/50 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center shadow-md shadow-[#84cc16]/30">
+                    <RefreshCw className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Reactivate Student Plan</h3>
+                    {pendingPaymentIntent && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                        ₹{pendingPaymentIntent.amount?.toFixed(2)} pending payment will be applied after reactivation.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowReactivateModal(false)}
+                  className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-all"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleReactivateSubmit} className="p-5 space-y-4">
+                {/* Student name display */}
+                {(() => {
+                  const sel = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+                  if (!sel) return null;
+                  return (
+                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
+                        {(sel.name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-slate-900 dark:text-slate-100">{sel.name}</div>
+                        <div className="text-[11px] text-rose-500 font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          Inactive
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Action Type */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Reactivation Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'continue', label: 'Continue Existing Plan', desc: 'Keep dates, fees & overdue intact', icon: '🔄' },
+                      { value: 'new_plan', label: 'Assign New Plan', desc: 'Create a fresh fee cycle', icon: '🆕' }
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setReactivateForm(prev => ({ ...prev, action: opt.value }))}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${
+                          reactivateForm.action === opt.value
+                            ? 'border-[#84cc16] bg-[#84cc16]/5 dark:bg-[#84cc16]/10'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="text-base mb-1">{opt.icon}</div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{opt.label}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{opt.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Continue Plan — Plan Start Date */}
+                {reactivateForm.action === 'continue' && (() => {
+                  const sel = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+                  const enrollments = sel?.enrollments || [];
+                  const latestEnrollment = enrollments[0];
+                  if (!latestEnrollment) return <p className="text-xs text-slate-500">No previous enrollment found.</p>;
+                  return (
+                    <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
+                      <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Previous Plan Details</h4>
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                          <span className="text-slate-500 block font-semibold">Sport</span>
+                          <span className="font-medium">{latestEnrollment.sport?.name || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block font-semibold">Duration Plan</span>
+                          <span className="font-medium">{latestEnrollment.duration_plan?.name || '—'}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-500 block font-semibold mb-1">Plan Start Date</span>
+                          <input
+                            type="date"
+                            className="w-full px-3 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:border-[#84cc16]"
+                            value={reactivateForm.plan_start_date}
+                            onChange={e => setReactivateForm(prev => ({ ...prev, plan_start_date: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Assign New Plan fields */}
+                {reactivateForm.action === 'new_plan' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sport <span className="text-red-500">*</span></label>
+                      <select
+                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs appearance-none cursor-pointer"
+                        value={reactivateForm.sport_id}
+                        onChange={async e => {
+                          const sportId = e.target.value;
+                          setReactivateForm(prev => ({ ...prev, sport_id: sportId, batch_id: '' }));
+                          if (sportId) {
+                            try {
+                              const res = await adminGet(`/admin/batches?sport_id=${sportId}`);
+                              setReactivateBatches(res.data || []);
+                            } catch (_) { setReactivateBatches([]); }
+                          } else { setReactivateBatches([]); }
+                        }}
+                        required
+                      >
+                        <option value="">Select Sport...</option>
+                        {sports.map(s => <option key={s.sport_id} value={s.sport_id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Duration Plan <span className="text-red-500">*</span></label>
+                      <select
+                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs appearance-none cursor-pointer"
+                        value={reactivateForm.duration_plan_id}
+                        onChange={e => setReactivateForm(prev => ({ ...prev, duration_plan_id: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select Plan...</option>
+                        {durationPlans.map(p => <option key={p.plan_id} value={p.plan_id}>{p.name} (×{p.multiplier})</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Batch <span className="text-red-500">*</span></label>
+                      <select
+                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs appearance-none cursor-pointer"
+                        value={reactivateForm.batch_id}
+                        onChange={e => setReactivateForm(prev => ({ ...prev, batch_id: e.target.value }))}
+                        required
+                      >
+                        <option value="">Select Batch...</option>
+                        {reactivateBatches.map(b => <option key={b.batch_id} value={b.batch_id}>{b.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Plan Start Date <span className="text-red-500">*</span></label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:border-[#84cc16]"
+                        value={reactivateForm.plan_start_date}
+                        onChange={e => setReactivateForm(prev => ({ ...prev, plan_start_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    {/* Fee preview */}
+                    {reactivateForm.sport_id && reactivateForm.duration_plan_id && (
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-xl space-y-1.5 text-[11px]">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Training Fee:</span>
+                          <span className="font-bold text-emerald-600">
+                            ₹{(
+                              (parseFloat(sports.find(s => String(s.sport_id) === String(reactivateForm.sport_id))?.base_fee || 0) *
+                              parseFloat(durationPlans.find(p => String(p.plan_id) === String(reactivateForm.duration_plan_id))?.multiplier || 1)) +
+                              parseFloat(reactivateForm.registration_fee || 0) +
+                              parseFloat(reactivateForm.additional_charges || 0) -
+                              parseFloat(reactivateForm.discount || 0)
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Pending payment preview */}
+                {pendingPaymentIntent && (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3 text-[11px] space-y-1">
+                    <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5" /> Payment to Apply After Reactivation
+                    </div>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>Amount:</span>
+                      <span className="font-bold text-amber-600">₹{pendingPaymentIntent.amount?.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>Method:</span>
+                      <span className="font-semibold">{pendingPaymentIntent.method || '—'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Buttons */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowReactivateModal(false)}
+                    className="flex-1 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <motion.button
+                    whileHover={{ scale: isReactivating ? 1 : 1.02, y: isReactivating ? 0 : -1 }}
+                    whileTap={{ scale: isReactivating ? 1 : 0.98 }}
+                    type="submit"
+                    disabled={isReactivating}
+                    className="flex-1 h-10 bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white text-xs font-bold rounded-xl shadow-md shadow-[#84cc16]/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                  >
+                    {isReactivating ? (
+                      <><svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Reactivating...</>
+                    ) : (
+                      <><RefreshCw className="w-3.5 h-3.5" />{pendingPaymentIntent ? 'Reactivate & Apply Payment' : 'Reactivate Student'}</>
+                    )}
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
