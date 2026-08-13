@@ -297,10 +297,8 @@ export default function AccountsPanel() {
   };
 
   const getFilteredStudents = () => {
-    let filtered = students;
-    if (studentAccountsFilter !== 'inactive') {
-      filtered = students.filter(s => s.status === 'ACTIVE');
-    }
+    // Show ALL students (active + inactive) in payment search
+    const filtered = students;
     if (!studentSearchTerm) return filtered;
     const searchTerm = studentSearchTerm.toLowerCase();
     return filtered.filter((s) => {
@@ -1069,13 +1067,13 @@ export default function AccountsPanel() {
             </motion.button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_minmax(300px,0.9fr)] gap-4">
             {/* LEFT COLUMN: Record Payment Form */}
             <motion.form
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.2 }}
-              className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 p-5 space-y-4"
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 p-4 space-y-3"
               onSubmit={handleSubmit}
             >
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/50 justify-between">
@@ -1141,7 +1139,7 @@ export default function AccountsPanel() {
                     required
                     autoComplete="off"
                   />
-                  {form.student_id && (
+                  {(form.student_id || studentSearchTerm) && (
                     <button
                       type="button"
                       onClick={handleClearStudent}
@@ -1165,17 +1163,21 @@ export default function AccountsPanel() {
                       }
                       return filteredStudents.map((s, index) => {
                         const name = s?.name || `${s?.first_name || ''} ${s?.last_name || ''}`;
-                        const parentName = s?.parent_name || s?.parentName || '—';
-                        const phone = s?.phone || s?.parent_phone || '—';
                         const isHighlighted = index === highlightedIndex;
                         const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                        const isActive = s?.status === 'ACTIVE';
+                        // Plan / Sport / Batch info
+                        const enrollments = s?.enrollments || [];
+                        const activeEnr = enrollments.find(e => e.status === 'ACTIVE');
+                        const lastEnr = activeEnr || enrollments[0];
+                        const planName = lastEnr?.duration_plan?.name || s?.duration_plan?.name || null;
+                        const sportName = lastEnr?.sport?.name || s?.sport?.name || null;
+                        const batchName = lastEnr?.batch?.name || s?.batch?.name || null;
                         return (
                           <motion.div
                             key={s?.id || s?.student_id}
-                            whileHover={{ scale: 1.02, x: 4 }}
                             transition={{ duration: 0.15 }}
-                            className={`cursor-pointer px-4 py-3 text-xs transition-all duration-150 border-b border-slate-100 dark:border-slate-800/50 last:border-b-0 flex items-center gap-3 ${isHighlighted ? 'bg-[#84cc16]/10 text-[#84cc16]' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-900 dark:text-slate-100'
-                              }`}
+                            className={`cursor-pointer px-3 py-2.5 text-xs transition-all duration-150 border-b border-slate-100 dark:border-slate-800/50 last:border-b-0 flex items-center gap-2.5 ${isHighlighted ? 'bg-[#84cc16]/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
                             onMouseDown={() => {
                               const studentId = s?.id || s?.student_id;
                               setStudentSearchTerm(name);
@@ -1185,19 +1187,24 @@ export default function AccountsPanel() {
                             }}
                             onMouseEnter={() => setHighlightedIndex(index)}
                           >
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#84cc16] to-[#65a30d] flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 shadow-md shadow-[#84cc16]/30">
+                            {/* Avatar */}
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 overflow-hidden ${isActive ? 'bg-gradient-to-br from-[#84cc16] to-[#65a30d]' : 'bg-gradient-to-br from-rose-400 to-rose-600'}`}>
                               {s?.profile_photo ? (
-                                <img src={s.profile_photo} alt={name} className="w-full h-full rounded-2xl object-cover" />
-                              ) : (
-                                initials
-                              )}
+                                <img src={s.profile_photo} alt={name} className="w-full h-full object-cover" />
+                              ) : initials}
                             </div>
+                            {/* Info */}
                             <div className="flex-1 min-w-0">
-                              <div className="font-bold text-sm truncate">{name}</div>
-                              <div className="text-[10px] mt-1 text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">
-                                <span className="flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Parent: {parentName}</span>
-                                <span className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" /> Phone: {phone}</span>
-                                <span className="flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> Batch: {s?.batch?.name || '—'}</span>
+                              <div className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">{name}</div>
+                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0 mt-0.5">
+                                <span className={`text-[10px] font-bold flex items-center gap-0.5 ${isActive ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                  {isActive ? 'Active' : 'Deactivated'}
+                                </span>
+                                {(planName || sportName || batchName) && <span className="text-slate-300 dark:text-slate-600 text-[10px]">|</span>}
+                                {planName && <span className="text-[10px] text-slate-500 dark:text-slate-400">{planName}</span>}
+                                {sportName && <><span className="text-slate-300 dark:text-slate-600 text-[10px]">|</span><span className="text-[10px] text-slate-500 dark:text-slate-400">{sportName}</span></>}
+                                {batchName && <><span className="text-slate-300 dark:text-slate-600 text-[10px]">|</span><span className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[80px]">{batchName}</span></>}
                               </div>
                             </div>
                           </motion.div>
@@ -1220,6 +1227,7 @@ export default function AccountsPanel() {
                 const latestEnrollment = activeEnrollment || enrollments[0];
                 const planName = latestEnrollment?.duration_plan?.name || 'No Plan';
                 const sportName = latestEnrollment?.sport?.name || selectedStudent.sport?.name || 'No Sport';
+                const batchName = latestEnrollment?.batch?.name || selectedStudent.batch?.name || 'No Batch';
 
                 return (
                   <div className="bg-slate-50 dark:bg-slate-900/35 border-2 border-slate-150 dark:border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3 text-xs mt-3 shadow-sm">
@@ -1248,12 +1256,14 @@ export default function AccountsPanel() {
                             }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${selectedStudent.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'
                               }`} />
-                            {selectedStudent.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                            {selectedStudent.status === 'ACTIVE' ? 'Active' : 'Deactivated'}
                           </span>
                           <span className="text-slate-300 dark:text-slate-700">|</span>
                           <span>{planName}</span>
                           <span className="text-slate-300 dark:text-slate-700">|</span>
                           <span>{sportName}</span>
+                          <span className="text-slate-300 dark:text-slate-700">|</span>
+                          <span>{batchName}</span>
                           {parentName && (
                             <>
                               <span className="hidden sm:inline text-slate-300 dark:text-slate-700">|</span>
@@ -1364,8 +1374,7 @@ export default function AccountsPanel() {
                       <UserX className="w-4 h-4 text-rose-500" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-rose-700 dark:text-rose-400">Student is Inactive</div>
-                      <div className="text-xs text-rose-600 dark:text-rose-500 mt-0.5">This student must be reactivated before a payment can be applied.</div>
+                      <div className="text-sm font-bold text-rose-700 dark:text-rose-400">Student is currently deactivated.</div>
                     </div>
                   </div>
                   <button
@@ -1504,7 +1513,7 @@ export default function AccountsPanel() {
                     </div>
                   </div>
 
-                  {form.student_id && (
+                  {form.student_id && studentFeeData && studentFeeData.total_fees_paid >= studentFeeData.total_fees_assigned && (
                     <div className="space-y-3 bg-indigo-50/20 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1904,88 +1913,33 @@ export default function AccountsPanel() {
           </div>
 
           {/* RIGHT COLUMN: Payment Records */}
-          <div className="lg:col-span-7 flex flex-col gap-4">
-
-            {/* FILTERS CARD - Premium Design */}
-            <motion.div
-              style={{ display: 'none' }}
-              className="hidden"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/50">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md shadow-blue-500/30">
-                    <Filter className="w-4 h-4 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground">Filters</h3>
-                </div>
-                <button type="button" className="text-[10px] font-bold text-slate-500 hover:text-[#84cc16] transition-colors cursor-pointer flex items-center gap-1" onClick={clearFilters}>
-                  Clear Filters
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="statusFilter">Status</label>
-                <select id="statusFilter" className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <option value="">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="completed">Completed</option>
-                  <option value="failed">Failed</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="methodFilter">Payment Method</label>
-                <select id="methodFilter" className="w-full pl-4 pr-8 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 appearance-none cursor-pointer text-sm" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
-                  <option value="">All Methods</option>
-                  <option value="upi">UPI</option>
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="online">Online</option>
-                </select>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dateFrom">From Date</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input id="dateFrom" type="date" className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="dateTo">To Date</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input id="dateTo" type="date" className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          {/* PAYMENT RECORDS TABLE - Premium Design */}
+          <div className="flex flex-col gap-3">
+          {/* PAYMENT RECORDS — Compact Card Panel */}
           <motion.div
             id="paymentRecordsSection"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.4 }}
-            className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 mt-4 overflow-hidden transition-all duration-500 ${highlightPaymentRecords ? 'ring-4 ring-amber-500/50 shadow-2xl shadow-amber-500/20' : ''
-              }`}
+            className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden flex flex-col transition-all duration-500 ${highlightPaymentRecords ? 'ring-4 ring-amber-500/50 shadow-2xl shadow-amber-500/20' : ''}`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md shadow-purple-500/30">
-                  <TrendingUp className="w-4 h-4 text-white" />
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md shadow-purple-500/30">
+                  <TrendingUp className="w-3.5 h-3.5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground">Payment Records</h3>
+                <h3 className="text-sm font-bold text-foreground">Payment Records</h3>
+                {filteredPayments.length > 0 && (
+                  <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-full">{filteredPayments.length}</span>
+                )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <input
                     type="text"
-                    className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-sm"
-                    placeholder="Search records globally..."
+                    className="w-32 pl-7 pr-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] transition-all text-xs"
+                    placeholder="Search..."
                     value={globalSearch}
                     onChange={(e) => setGlobalSearch(e.target.value)}
                   />
@@ -1993,36 +1947,33 @@ export default function AccountsPanel() {
                 <button
                   type="button"
                   onClick={() => setShowRecordsFilter(!showRecordsFilter)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-xs font-bold transition-all h-[38px] cursor-pointer ${showRecordsFilter
-                      ? 'bg-[#84cc16] border-[#84cc16] text-white shadow-md shadow-[#84cc16]/20'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    }`}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${showRecordsFilter
+                    ? 'bg-[#84cc16] border-[#84cc16] text-white'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
                 >
-                  <Filter className="w-3.5 h-3.5" />
-                  Filters
-                  {(statusFilter || methodFilter || dateFrom || dateTo) ? (
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                  ) : null}
+                  <Filter className="w-3 h-3" />
+                  Filter
+                  {(statusFilter || methodFilter || dateFrom || dateTo) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-0.5" />
+                  )}
                 </button>
               </div>
             </div>
 
+            {/* Collapsible Filters */}
             <AnimatePresence>
               {showRecordsFilter && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
+                  className="overflow-hidden flex-shrink-0"
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 p-4 bg-slate-50 dark:bg-slate-900/35 border-b border-slate-100 dark:border-slate-800/80 text-xs">
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-900/35 border-b border-slate-100 dark:border-slate-800/80">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
-                      <select
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                      >
+                      <select className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                         <option value="">All Statuses</option>
                         <option value="pending">Pending</option>
                         <option value="completed">Completed</option>
@@ -2031,11 +1982,7 @@ export default function AccountsPanel() {
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Method</label>
-                      <select
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]"
-                        value={methodFilter}
-                        onChange={(e) => setMethodFilter(e.target.value)}
-                      >
+                      <select className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
                         <option value="">All Methods</option>
                         <option value="upi">UPI</option>
                         <option value="cash">Cash</option>
@@ -2046,241 +1993,125 @@ export default function AccountsPanel() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                      />
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">From</label>
+                      <input type="date" className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">End Date</label>
-                      <input
-                        type="date"
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                      />
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">To</label>
+                      <input type="date" className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                     </div>
-                    <div className="flex items-end justify-end">
-                      <button
-                        type="button"
-                        onClick={clearFilters}
-                        className="text-[10px] font-bold text-[#84cc16] hover:text-[#65a30d] h-[32px] px-3 border border-slate-250 dark:border-slate-750 hover:border-[#84cc16] dark:hover:border-[#84cc16] rounded-lg bg-white dark:bg-slate-900 cursor-pointer flex items-center justify-center transition-all"
-                      >
-                        Clear All
-                      </button>
+                    <div className="col-span-2 flex justify-end">
+                      <button type="button" onClick={clearFilters} className="text-[10px] font-bold text-[#84cc16] hover:text-[#65a30d] px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 cursor-pointer transition-all">Clear All</button>
                     </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {loading && payments.length === 0 ? (
-              <div className="p-8 flex items-center justify-center">
-                <Loader />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-full">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Student</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Source</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Amount</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Remarks & Proof</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Payment Date</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Due Date</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Method</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Status</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                      {paginatedPayments.length === 0 ? (
-                        <tr>
-                          <td colSpan="9" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                <Search className="w-6 h-6 text-slate-400" />
-                              </div>
-                              <p className="text-xs">No payments found matching your criteria.</p>
+            {/* Compact Card List with internal scroll */}
+            <div className="flex-1 overflow-y-auto" style={{ maxHeight: '520px' }}>
+              {loading && payments.length === 0 ? (
+                <div className="p-8 flex items-center justify-center"><Loader /></div>
+              ) : paginatedPayments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 px-4 text-slate-400">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2">
+                    <Search className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <p className="text-xs font-medium">No payments found</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                  {paginatedPayments.map((payment, index) => {
+                    const normalizedStatus = (payment?.status || '').toUpperCase();
+                    const currentId = payment?.receipt_id || payment?.id || payment?._id || payment?.payment_id || index;
+                    const isOverdue = normalizedStatus === 'PENDING' && payment?.due_date && new Date(payment.due_date) < new Date();
+                    const studentName = payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`;
+                    const isKit = payment?.remarks && payment.remarks.includes('Sports Kit');
+                    const payDate = payment?.payment_date || payment?.date;
+                    const initials = studentName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                    return (
+                      <motion.div
+                        key={currentId}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.02 }}
+                        className={`px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isOverdue ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {/* Avatar */}
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden">
+                            {payment?.student?.profile_photo ? (
+                              <img src={payment.student.profile_photo} alt={studentName} className="w-full h-full object-cover" />
+                            ) : initials}
+                          </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-1">
+                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{studentName}</span>
+                              <span className="text-sm font-black text-slate-900 dark:text-slate-100 flex-shrink-0">₹{parseFloat(payment?.amount || 0).toLocaleString('en-IN')}</span>
                             </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedPayments.map((payment, index) => {
-                          const normalizedStatus = (payment?.status || '').toUpperCase();
-                          const currentId = payment?.receipt_id || payment?.id || payment?._id || payment?.payment_id || index;
-                          const isOverdue = normalizedStatus === 'PENDING' && payment?.due_date && new Date(payment.due_date) < new Date();
-
-                          return (
-                            <motion.tr
-                              key={currentId}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: index * 0.03 }}
-                              className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
-                            >
-                              <td className="px-4 py-3">
-                                <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">
-                                  {payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex flex-col gap-1">
-                                  {payment?.remarks && payment.remarks.includes('Sports Kit') ? (() => {
-                                    const parsedKit = payment.remarks
-                                      .replace('Sports Kit Payment Received: ', '')
-                                      .replace('Sports Kit Purchased: ', '')
-                                      .replace('Sports Kit Payment: ', '')
-                                      .split(' (Qty:')[0]
-                                      .split(' [Assignment:')[0];
-                                    return (
-                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 w-fit">
-                                        Sports Kit – {parsedKit}
-                                      </span>
-                                    );
-                                  })() : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 w-fit">
-                                      Training Fee
-                                    </span>
-                                  )}
-                                  <span className="text-[9px] text-slate-400">
-                                    Collected by: {payment?.collected_by?.name ? `Coach - ${payment.collected_by.name}` : 'Admin'}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100 text-sm">₹{parseFloat(payment?.amount || 0).toFixed(2)}</td>
-                              <td className="px-4 py-3 max-w-[150px]">
-                                <div className="flex flex-col gap-0.5">
-                                  {payment?.remarks && <span className="text-[10px] text-slate-500 dark:text-slate-400 italic truncate">"{payment.remarks}"</span>}
-                                  {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) ? (
-                                    <motion.button
-                                      whileHover={{ scale: 1.05 }}
-                                      whileTap={{ scale: 0.95 }}
-                                      type="button"
-                                      onClick={() => {
-                                        const proofUrl = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof;
-                                        const fullUrl = proofUrl.startsWith('http') ? proofUrl : `http://localhost:5000/${proofUrl}`;
-                                        setPreviewImage(fullUrl);
-                                      }}
-                                      className="text-[#84cc16] hover:text-[#65a30d] font-bold text-[10px] flex items-center gap-0.5 cursor-pointer transition-colors w-fit"
-                                    >
-                                      <Calendar className="w-2.5 h-2.5" /> View Proof
-                                    </motion.button>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400 italic">No proof</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-[10px]">{payment?.payment_date || payment?.date ? new Date(payment.payment_date || payment.date).toLocaleDateString('en-IN') : '-'}</td>
-                              <td className={`px-4 py-3 text-[10px] ${isOverdue ? 'text-red-500 font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
-                                {payment?.due_date ? new Date(payment.due_date).toLocaleDateString('en-IN') : '-'}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                                  {payment?.method || 'N/A'}
+                            <div className="flex items-center justify-between gap-1 mt-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isKit ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
+                                  {isKit ? 'Kit' : 'Training'}
                                 </span>
-                              </td>
-                              <td className="px-4 py-3">
+                                <span className="text-[9px] text-slate-400">{payDate ? new Date(payDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</span>
+                                {payment?.method && <span className="text-[9px] text-slate-500 dark:text-slate-400 font-medium capitalize">{payment.method}</span>}
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
                                 {isOverdue ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 animate-pulse">
-                                    <AlertCircle className="w-2.5 h-2.5" /> OVERDUE
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 animate-pulse">
+                                    <AlertCircle className="w-2 h-2" /> OD
                                   </span>
                                 ) : normalizedStatus === 'COMPLETED' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                                    <CheckCircle className="w-2.5 h-2.5" /> COMPLETED
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                    <CheckCircle className="w-2 h-2" /> PAID
                                   </span>
                                 ) : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                                    <XCircle className="w-2.5 h-2.5" /> {normalizedStatus}
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                                    <XCircle className="w-2 h-2" /> {normalizedStatus}
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                                    <Clock className="w-2.5 h-2.5" /> {payment?.status || 'PENDING'}
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                                    <Clock className="w-2 h-2" /> PENDING
                                   </span>
                                 )}
-                              </td>
-                              <td className="px-4 py-3 text-right space-x-1.5">
                                 {normalizedStatus !== 'COMPLETED' && (
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    type="button"
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all"
-                                    onClick={() => updateStatus(payment, currentId, 'completed')}
-                                  >
-                                    <CheckCircle className="w-2.5 h-2.5" /> Mark Paid
-                                  </motion.button>
+                                  <button type="button" onClick={() => updateStatus(payment, currentId, 'completed')} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
+                                    <CheckCircle className="w-3 h-3" />
+                                  </button>
                                 )}
                                 {normalizedStatus === 'PENDING' && (
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    type="button"
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md shadow-red-500/30 hover:shadow-red-500/50 transition-all"
-                                    onClick={() => rejectPayment(payment, currentId)}
-                                  >
-                                    <XCircle className="w-2.5 h-2.5" /> Reject
-                                  </motion.button>
+                                  <button type="button" onClick={() => rejectPayment(payment, currentId)} title="Reject" className="w-5 h-5 rounded flex items-center justify-center bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all cursor-pointer">
+                                    <XCircle className="w-3 h-3" />
+                                  </button>
                                 )}
-                              </td>
-                            </motion.tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                                {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) && (
+                                  <button type="button" onClick={() => { const p = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof; setPreviewImage(p.startsWith('http') ? p : `http://localhost:5000/${p}`); }} title="View Proof" className="w-5 h-5 rounded flex items-center justify-center bg-blue-50 hover:bg-blue-500 text-blue-500 hover:text-white transition-all cursor-pointer">
+                                    <Calendar className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Pagination Section - Premium Design */}
-            {filteredPayments.length > 0 && (
-              <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row px-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">
-                  Showing <span className="text-slate-900 dark:text-slate-100 font-bold">{startIndex + 1}</span> to <span className="text-slate-900 dark:text-slate-100 font-bold">{Math.min(endIndex, filteredPayments.length)}</span> of <span className="text-slate-900 dark:text-slate-100 font-bold">{filteredPayments.length}</span> records
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </motion.button>
-                  {getPageNumbers().map((page, index) => (
-                    page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="text-slate-400 px-1.5 text-[10px]">...</span>
-                    ) : (
-                      <motion.button
-                        key={page}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${currentPage === page
-                            ? 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                          }`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </motion.button>
-                    )
-                  ))}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </motion.button>
+            {/* Compact Pagination Footer */}
+            {filteredPayments.length > recordsPerPage && (
+              <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 flex-shrink-0">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  {startIndex + 1}–{Math.min(endIndex, filteredPayments.length)} of {filteredPayments.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-2 py-1 rounded text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1}>‹ Prev</motion.button>
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 px-1">{currentPage} / {totalPages}</span>
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-2 py-1 rounded text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>Next ›</motion.button>
                 </div>
               </div>
             )}
@@ -3310,6 +3141,12 @@ export default function AccountsPanel() {
                       </button>
                     ))}
                   </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 italic bg-slate-50 dark:bg-slate-900/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                    {reactivateForm.action === 'continue' 
+                      ? "Continue Existing Plan keeps the student's existing fee account and payment history."
+                      : "Assign New Plan starts a new fee cycle. Previous payment history remains in the student's records."
+                    }
+                  </p>
                 </div>
 
                 {/* Continue Plan — Plan Start Date */}

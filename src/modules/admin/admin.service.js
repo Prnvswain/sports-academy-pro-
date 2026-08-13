@@ -8201,7 +8201,8 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
           amount: payAmount,
           payment_date: new Date(data.payment.payment_date),
           method: data.payment.method || 'cash',
-          status: data.payment.status === 'completed' ? 'COMPLETED' : 'PENDING'
+          status: data.payment.status === 'completed' ? 'COMPLETED' : 'PENDING',
+          remarks: action === 'continue' ? 'Reactivation (Continue Plan)' : 'Reactivation (New Plan)'
         }
       });
 
