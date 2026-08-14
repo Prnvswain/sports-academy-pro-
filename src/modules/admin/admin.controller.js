@@ -400,6 +400,32 @@ export const resetParentPassword = async (req, res, next) => {
   }
 };
 
+export const sendParentLoginDetails = async (req, res, next) => {
+  try {
+    const { student_id } = req.body;
+    
+    if (!student_id) {
+      const error = new Error('Student ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const result = await adminService.sendParentLoginDetails(
+      req.user.academy_id,
+      student_id,
+      req.user.user_id,
+    );
+    
+    res.json(successResponse(
+      'Login details email sent successfully',
+      result
+    ));
+  } catch (err) {
+    logger.error('Failed to send parent login details', err);
+    next(err);
+  }
+};
+
 export const getAllBatches = async (req, res, next) => {
   try {
     const batches = await adminService.getAllBatches(req.user.academy_id);

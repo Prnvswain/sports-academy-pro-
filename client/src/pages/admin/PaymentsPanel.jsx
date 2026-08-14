@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Loader from '../../components/Loader';
 import { adminGet, adminPatch, adminPost } from '../../api/client';
 import { calculateStudentFee, calculateBalance } from '../../utils/fee.util.js';
-import { Wallet, TrendingUp, AlertCircle, CheckCircle, Users, DollarSign, Calendar, Filter, Search, ArrowUpDown, Bell, Zap, Clock, Phone, Settings, XCircle, Package, UserX, RefreshCw, Zap as ZapIcon, BookOpen, ChevronRight } from 'lucide-react';
+import { Wallet, TrendingUp, AlertCircle, CheckCircle, Users, DollarSign, Calendar, Filter, Search, ArrowUpDown, Bell, Zap, Clock, Phone, Settings, XCircle, Package, UserX, RefreshCw, Zap as ZapIcon, BookOpen, ChevronRight, HelpCircle, Key } from 'lucide-react';
 
 const emptyForm = {
   student_id: '',
@@ -93,6 +93,14 @@ export default function AccountsPanel() {
   const [isReactivating, setIsReactivating] = useState(false);
   const [sports, setSports] = useState([]);
   const [durationPlans, setDurationPlans] = useState([]);
+
+  // Parent Password Management State
+  const [showParentPasswordModal, setShowParentPasswordModal] = useState(false);
+  const [passwordManageStudent, setPasswordManageStudent] = useState(null);
+  const [tempPassword, setTempPassword] = useState('');
+  const [isResettingParentPassword, setIsResettingParentPassword] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [copiedSuccess, setCopiedSuccess] = useState(false);
 
   const fetchStudentKits = async (studentId) => {
     setLoadingKits(true);
@@ -585,6 +593,104 @@ export default function AccountsPanel() {
     await updateStatus(paymentObj, fallbackId, 'rejected', reason || undefined);
   };
 
+  const handleParentPasswordManage = (studentObj) => {
+    setPasswordManageStudent(studentObj);
+    setTempPassword('');
+    setShowResetConfirmation(false);
+    setCopiedSuccess(false);
+    setShowParentPasswordModal(true);
+  };
+
+  const generateTempPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const handleResetAndSendPassword = async () => {
+    if (!passwordManageStudent) return;
+    if (!passwordManageStudent.parent_email && !passwordManageStudent.parent?.email) {
+      setMessage({ text: 'Parent email not available', type: 'error' });
+      return;
+    }
+    setShowResetConfirmation(true);
+  };
+
+  const confirmResetAndSend = async () => {
+    setShowResetConfirmation(false);
+    setIsResettingParentPassword(true);
+    try {
+      const newPwd = generateTempPassword();
+      const payload = {
+        student_id: passwordManageStudent.student_id,
+        new_password: newPwd,
+        send_email: true
+      };
+
+      await adminPost('/admin/students/reset-parent-password', payload);
+      setMessage({ text: 'Temporary password generated and email sent successfully', type: 'success' });
+      setShowParentPasswordModal(false);
+      setPasswordManageStudent(null);
+    } catch (err) {
+      setMessage({ text: err.message || 'Failed to reset password', type: 'error' });
+    } finally {
+      setIsResettingParentPassword(false);
+    }
+  };
+
+  const handleResetPasswordOnly = async () => {
+    if (!passwordManageStudent) return;
+    setIsResettingParentPassword(true);
+    setCopiedSuccess(false);
+    try {
+      const newPwd = generateTempPassword();
+      const payload = {
+        student_id: passwordManageStudent.student_id,
+        new_password: newPwd,
+        send_email: false
+      };
+
+      await adminPost('/admin/students/reset-parent-password', payload);
+      setTempPassword(newPwd);
+      setMessage({ text: 'Password reset successfully. Please copy it below.', type: 'success' });
+    } catch (err) {
+      setMessage({ text: err.message || 'Failed to reset password', type: 'error' });
+    } finally {
+      setIsResettingParentPassword(false);
+    }
+  };
+
+  const handleSendLoginDetails = async () => {
+    if (!passwordManageStudent) return;
+    const parentEmail = passwordManageStudent.parent_email || passwordManageStudent.parent?.email;
+    if (!parentEmail) {
+      setMessage({ text: 'Parent email not available', type: 'error' });
+      return;
+    }
+    setIsResettingParentPassword(true);
+    try {
+      await adminPost('/admin/students/send-parent-login-details', {
+        student_id: passwordManageStudent.student_id
+      });
+      setMessage({ text: 'Login details secure email sent successfully', type: 'success' });
+      setShowParentPasswordModal(false);
+      setPasswordManageStudent(null);
+    } catch (err) {
+      setMessage({ text: err.message || 'Failed to send login details', type: 'error' });
+    } finally {
+      setIsResettingParentPassword(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSuccess(true);
+    setTimeout(() => setCopiedSuccess(false), 2000);
+  };
+
   const calculateStats = () => {
     // Calculate total expected fees from all students' Total Computed Fee (Decided)
     const totalExpectedFees = students.reduce((sum, student) => {
@@ -1067,7 +1173,7 @@ export default function AccountsPanel() {
             </motion.button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_minmax(300px,0.9fr)] gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] gap-4">
             {/* LEFT COLUMN: Record Payment Form */}
             <motion.form
               initial={{ opacity: 0, y: 20 }}
@@ -1273,38 +1379,12 @@ export default function AccountsPanel() {
                         </div>
                       </div>
                     </div>
-
-                    {selectedStudent.status !== 'ACTIVE' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const enrollments = selectedStudent.enrollments || [];
-                          const latestEnrollment = enrollments[0];
-                          setReactivateForm({
-                            action: 'continue',
-                            duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
-                            sport_id: latestEnrollment?.sport_id?.toString() || selectedStudent.sport_id?.toString() || '',
-                            batch_id: latestEnrollment?.batch_id?.toString() || selectedStudent.batch_id?.toString() || '',
-                            plan_start_date: new Date().toISOString().split('T')[0],
-                            additional_charges: '',
-                            registration_fee: '',
-                            discount: ''
-                          });
-                          setPendingPaymentIntent(null);
-                          setShowReactivateModal(true);
-                        }}
-                        className="px-3 py-1.5 bg-[#84cc16] hover:bg-[#65a30d] text-white rounded-lg text-[10px] font-bold shadow-md shadow-[#84cc16]/10 transition-all cursor-pointer flex items-center justify-center flex-shrink-0 gap-1"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Reactivate Plan
-                      </button>
-                    )}
                   </div>
                 );
               })()}
 
               {/* Comprehensive Fee Breakdown - Premium Card */}
-              {paymentType === 'training' && form.student_id && (
+              {form.student_id && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1315,108 +1395,72 @@ export default function AccountsPanel() {
                       <Clock className="w-3 h-3 animate-spin" />
                       Fetching ledger data...
                     </div>
-                  ) : studentFeeData ? (
-                    <>
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                        <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-                          <DollarSign className="w-3 h-3" /> Total Fees Assigned
-                        </span>
-                        <span className="text-slate-900 dark:text-slate-100 font-bold text-sm">₹{studentFeeData.total_fees_assigned?.toFixed(2) || '0.00'}</span>
-                      </div>
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                        <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-                          <CheckCircle className="w-3 h-3 text-[#84cc16]" /> Total Fees Paid
-                        </span>
-                        <span className="text-[#84cc16] font-bold text-sm">₹{studentFeeData.total_fees_paid?.toFixed(2) || '0.00'}</span>
-                      </div>
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                        <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-amber-500" /> Pending Fees
-                        </span>
-                        <span className="text-amber-500 font-bold text-sm">₹{studentFeeData.pending_fees?.toFixed(2) || '0.00'}</span>
-                      </div>
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                        <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
-                          <AlertCircle className="w-3 h-3 text-red-500" /> Overdue Fees
-                        </span>
-                        <span className="text-red-500 font-bold text-sm">₹{studentFeeData.overdue_fees?.toFixed(2) || '0.00'}</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border-2 border-[#84cc16] rounded-xl p-3 shadow-md shadow-[#84cc16]/10">
-                        <span className="text-slate-900 dark:text-slate-100 font-bold flex items-center gap-1.5 text-xs">
-                          <Wallet className="w-4 h-4 text-[#84cc16]" /> Pending Dues Outstanding
-                        </span>
-                        <span className="text-[#84cc16] text-lg font-black">₹{studentFeeData.balance_outstanding?.toFixed(2) || '0.00'}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-900 border-2 border-[#84cc16] rounded-xl p-3 shadow-md shadow-[#84cc16]/10">
-                      <span className="text-slate-900 dark:text-slate-100 font-bold flex items-center gap-1.5 text-xs">
-                        <Wallet className="w-4 h-4 text-[#84cc16]" /> Pending Dues Outstanding
-                      </span>
-                      <span className="text-[#84cc16] text-lg font-black">₹{parseFloat(form.pending_amount || 0).toFixed(2)}</span>
-                    </div>
-                  )}
+                  ) : (() => {
+                    const selStudent = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
+                    const assigned = studentFeeData
+                      ? (studentFeeData.total_fees_assigned || 0)
+                      : parseFloat(selStudent?.total_fee || selStudent?.totalComputedFee || 0);
+                    const paid = studentFeeData
+                      ? (studentFeeData.total_fees_paid || 0)
+                      : parseFloat(selStudent?.paid_amount || 0);
+                    const pending = studentFeeData
+                      ? (studentFeeData.pending_fees || 0)
+                      : parseFloat(selStudent?.due_amount || 0);
+                    const overdue = studentFeeData
+                      ? (studentFeeData.overdue_fees || 0)
+                      : 0;
+                    const outstanding = studentFeeData
+                      ? (studentFeeData.balance_outstanding || 0)
+                      : parseFloat(form.pending_amount || 0);
+                    const creditBal = parseFloat(selStudent?.advance_balance || 0);
+
+                    return (
+                      <>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                            <DollarSign className="w-3 h-3" /> Total Fees Assigned
+                          </span>
+                          <span className="text-slate-900 dark:text-slate-100 font-bold text-sm">₹{assigned.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                            <CheckCircle className="w-3 h-3 text-[#84cc16]" /> Total Fees Paid
+                          </span>
+                          <span className="text-[#84cc16] font-bold text-sm">₹{paid.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                            <Clock className="w-3 h-3 text-amber-500" /> Pending Fees
+                          </span>
+                          <span className="text-amber-500 font-bold text-sm">₹{pending.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <span className="text-slate-600 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
+                            <AlertCircle className="w-3 h-3 text-red-500" /> Overdue Fees
+                          </span>
+                          <span className="text-red-500 font-bold text-sm">₹{overdue.toFixed(2)}</span>
+                        </div>
+                        {creditBal > 0 && (
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                            <span className="text-indigo-650 dark:text-indigo-400 text-xs font-semibold flex items-center gap-1.5">
+                              <Wallet className="w-3 h-3 text-indigo-500" /> Credit Balance
+                            </span>
+                            <span className="text-indigo-650 dark:text-indigo-400 font-bold text-sm">₹{creditBal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between bg-white dark:bg-slate-900 border-2 border-[#84cc16] rounded-xl p-3 shadow-md shadow-[#84cc16]/10">
+                          <span className="text-slate-900 dark:text-slate-100 font-bold flex items-center gap-1.5 text-xs">
+                            <Wallet className="w-4 h-4 text-[#84cc16]" /> Pending Dues Outstanding
+                          </span>
+                          <span className="text-[#84cc16] text-lg font-black">₹{outstanding.toFixed(2)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </motion.div>
               )}
 
-              {/* Inactive Student Payment Block */}
-              {paymentType === 'training' && form.student_id && (() => {
-                const sel = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
-                return sel && sel.status !== 'ACTIVE';
-              })() && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-rose-50 dark:bg-rose-950/20 border-2 border-rose-200 dark:border-rose-800/50 rounded-xl p-4 space-y-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center flex-shrink-0">
-                      <UserX className="w-4 h-4 text-rose-500" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-rose-700 dark:text-rose-400">Student is currently deactivated.</div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sel = students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString());
-                      const enrollments = sel?.enrollments || [];
-                      const latestEnrollment = enrollments[0];
-                      const amountToPay = parseFloat(form.amount || 0);
-                      const extraAmt = collectExtra ? parseFloat(form.extra_amount || 0) : 0;
-                      if (amountToPay > 0) {
-                        setPendingPaymentIntent({
-                          student_id: parseInt(form.student_id, 10),
-                          amount: amountToPay + extraAmt,
-                          extra_amount: extraAmt,
-                          amount_paid: amountToPay,
-                          payment_date: form.payment_date,
-                          method: form.method,
-                          status: form.status,
-                        });
-                      } else {
-                        setPendingPaymentIntent(null);
-                      }
-                      setReactivateForm({
-                        action: 'continue',
-                        duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
-                        sport_id: latestEnrollment?.sport_id?.toString() || sel?.sport_id?.toString() || '',
-                        batch_id: latestEnrollment?.batch_id?.toString() || sel?.batch_id?.toString() || '',
-                        plan_start_date: new Date().toISOString().split('T')[0],
-                        additional_charges: '',
-                        registration_fee: '',
-                        discount: ''
-                      });
-                      setShowReactivateModal(true);
-                    }}
-                    className="w-full h-10 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-rose-500/20 transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Reactivate Student Plan
-                  </button>
-                </motion.div>
-              )}
+
 
               {paymentType === 'training' && form.student_id && parseFloat(form.pending_amount || 0) === 0 ? (
                 // ADD IN ACCOUNT FLOW FOR FULLY PAID STUDENTS
@@ -1910,7 +1954,6 @@ export default function AccountsPanel() {
                 )
               ))}
             </motion.form>
-          </div>
 
           {/* RIGHT COLUMN: Payment Records */}
           <div className="flex flex-col gap-3">
@@ -2117,6 +2160,7 @@ export default function AccountsPanel() {
             )}
           </motion.div>
           </div>
+          </div>
         </>
       ) : (
         <>
@@ -2160,105 +2204,45 @@ export default function AccountsPanel() {
             </motion.div>
           )}
 
-          {/* Student Accounts Section - 2-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* LEFT: filters & controls */}
-          <div className="lg:col-span-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden"
-            >
-              <div className="p-4 border-b border-slate-100 dark:border-slate-700/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
-                    <Filter className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <h3 className="text-sm font-bold text-foreground">Filters & Search</h3>
-                </div>
-                {/* Search */}
-                <div className="relative mb-3">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search student, parent, phone..."
-                    value={studentAccountsSearch}
-                    onChange={(e) => setStudentAccountsSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] focus:ring-4 focus:ring-[#84cc16]/10 transition-all duration-300 text-xs"
-                  />
-                </div>
-                {/* Sort */}
-                <div className="relative mb-3">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full pl-4 pr-8 py-2 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] transition-all duration-300 appearance-none cursor-pointer text-xs"
-                  >
-                    <option value="name">Sort: Name</option>
-                    <option value="highest_due">Sort: Highest Due</option>
-                    <option value="highest_paid">Sort: Highest Paid</option>
-                    <option value="recently_paid">Sort: Recently Paid</option>
-                  </select>
-                  <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                </div>
-                {/* Status Filter Pills */}
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { key: 'all', label: `All (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})` },
-                    { key: 'paid', label: `Paid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})` },
-                    { key: 'unpaid', label: `Unpaid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})` },
-                    { key: 'inactive', label: `Inactive (${studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})` }
-                  ].map(f => (
-                    <button
-                      key={f.key}
-                      onClick={() => setStudentAccountsFilter(f.key)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 ${studentAccountsFilter === f.key ? 'bg-[#84cc16] text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Quick Guide Card */}
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Quick Guide</span>
-                </div>
-                <div className="space-y-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  <div className="flex items-start gap-2">
-                    <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
-                    <span>Click a student row to expand their payment history and credit details.</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
-                    <span>Use the <strong>Collect Fee</strong> button to jump directly to the Payment tab for that student.</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
-                    <span>Inactive students are shown with a red badge. Reactivate them from the Payment tab.</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-          {/* RIGHT: student table */}
-          <div className="lg:col-span-8">
+          {/* Student Accounts Section - Full Width layout */}
+          <div className="w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
             className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden"
           >
-            <div className="p-4 pb-3 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <div className="p-3 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/30">
                   <Users className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Student Accounts</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Fee status and payment history</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-foreground">Student Accounts</h3>
+                    {/* Tooltip Help Circle */}
+                    <div className="relative group cursor-pointer">
+                      <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-indigo-600 transition-colors" />
+                      <div className="absolute left-0 top-5 hidden group-hover:block w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 p-3 rounded-xl shadow-xl text-[11px] text-slate-650 dark:text-slate-400 space-y-1.5 z-40 transition-all">
+                        <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1 mb-1 border-b border-slate-105 dark:border-slate-700/50 pb-1">
+                          <BookOpen className="w-3 h-3 text-[#84cc16]" /> Quick Guide
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                          <span>Click a student row to expand their payment history and credit details.</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                          <span>Use the <strong>Collect Fee</strong> button to jump directly to the Payment tab for that student.</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                          <span>Inactive students are shown with a red badge. Reactivate them from the Payment tab.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Fee status and payment history</p>
                 </div>
               </div>
               <button
@@ -2268,6 +2252,55 @@ export default function AccountsPanel() {
               >
                 <RefreshCw className="w-3 h-3" /> Refresh
               </button>
+            </div>
+
+            {/* Filters Toolbar */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search student, parent, phone..."
+                  value={studentAccountsSearch}
+                  onChange={(e) => setStudentAccountsSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Sort */}
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="pl-3 pr-7 py-1.5 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] appearance-none cursor-pointer text-xs"
+                  >
+                    <option value="name">Sort: Name</option>
+                    <option value="highest_due">Sort: Highest Due</option>
+                    <option value="highest_paid">Sort: Highest Paid</option>
+                    <option value="recently_paid">Sort: Recently Paid</option>
+                  </select>
+                  <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                </div>
+
+                {/* Status Pills */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                  {[
+                    { key: 'all', label: `All (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})` },
+                    { key: 'paid', label: `Paid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})` },
+                    { key: 'unpaid', label: `Unpaid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})` },
+                    { key: 'inactive', label: `Inactive (${studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})` }
+                  ].map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setStudentAccountsFilter(f.key)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 ${studentAccountsFilter === f.key ? 'bg-[#84cc16] text-white shadow-sm' : 'text-slate-650 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Student Accounts Table - Premium Design */}
@@ -2446,6 +2479,16 @@ export default function AccountsPanel() {
                                   >
                                     {isExpanded ? <XCircle className="w-2.5 h-2.5" /> : <Calendar className="w-2.5 h-2.5" />}
                                     {isExpanded ? 'Hide' : 'History'}
+                                  </motion.button>
+                                  <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    type="button"
+                                    onClick={() => handleParentPasswordManage(student)}
+                                    title="Manage Parent Portal Credentials"
+                                    className="p-2 rounded-lg bg-purple-50 text-purple-650 hover:bg-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-900/40 transition-all inline-flex items-center justify-center cursor-pointer"
+                                  >
+                                    <Key className="w-3.5 h-3.5" />
                                   </motion.button>
                                 </td>
                               </motion.tr>
@@ -2791,8 +2834,7 @@ export default function AccountsPanel() {
               </div>
             )}
           </motion.div>
-          </div>{/* end right col */}
-          </div>{/* end 2-col grid */}
+          </div>
         </>
       )}
 
@@ -3050,6 +3092,211 @@ export default function AccountsPanel() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Parent Credentials Management Modal */}
+      <AnimatePresence>
+        {showParentPasswordModal && passwordManageStudent && (() => {
+          const parentName = passwordManageStudent.parent_name || passwordManageStudent.parent?.name || 'N/A';
+          const parentEmail = passwordManageStudent.parent_email || passwordManageStudent.parent?.email || '';
+          const hasEmail = !!parentEmail;
+          const parentObj = passwordManageStudent.parent;
+          const statusVal = parentObj ? (parentObj.is_active ? 'Active' : 'Inactive') : 'No Account';
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              onClick={(e) => { if (e.target === e.currentTarget) setShowParentPasswordModal(false); }}
+            >
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700/50 w-full max-w-md overflow-hidden"
+              >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-4 border-b border-slate-105 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-55 to-purple-65 text-purple-600 flex items-center justify-center shadow-md">
+                      <Key className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">Parent Password Management</h3>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Manage login credentials for portal access</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowParentPasswordModal(false)}
+                    className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-slate-750 dark:hover:text-slate-200 flex items-center justify-center transition-all cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-4 space-y-4">
+                  {/* Account Info Card */}
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                    <div className="font-bold text-[10px] uppercase text-slate-500 tracking-wider mb-1">Parent Account Details</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">Name:</span>
+                      <span className="col-span-2 font-bold text-slate-900 dark:text-slate-100">{parentName}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">Email:</span>
+                      <span className="col-span-2 font-bold text-slate-900 dark:text-slate-100 break-all">
+                        {parentEmail || <span className="text-rose-500 italic font-semibold">Parent email not available</span>}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
+                      <span className="col-span-2">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                          statusVal === 'Active' ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-955/35 text-red-650'
+                        }`}>
+                          {statusVal}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* One-Time Temporary Password Display */}
+                  {tempPassword && (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/15 border-2 border-emerald-500/30 p-3 rounded-xl flex items-center justify-between gap-3 shadow-md shadow-emerald-500/5 animate-pulse">
+                      <div className="space-y-0.5">
+                        <div className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">One-Time Temporary Password</div>
+                        <div className="text-sm font-mono font-black text-slate-900 dark:text-slate-100 tracking-wider">{tempPassword}</div>
+                        <div className="text-[9px] text-emerald-650 dark:text-emerald-500">Copy this password now. It will not be shown again.</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(tempPassword)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          copiedSuccess ? 'bg-emerald-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-emerald-750 hover:bg-emerald-50 border border-emerald-300'
+                        }`}
+                      >
+                        {copiedSuccess ? 'Copied! ✅' : '📋 Copy'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Action Options */}
+                  <div className="space-y-2">
+                    <div className="font-bold text-[10px] uppercase text-slate-500 tracking-wider">Manage Actions</div>
+
+                    {/* Reset & Send */}
+                    <button
+                      type="button"
+                      disabled={isResettingParentPassword || !hasEmail}
+                      onClick={handleResetAndSendPassword}
+                      className="w-full p-3 rounded-xl border border-slate-250 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/50 text-left transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        🔄
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Reset & Send Password</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Generate a new temporary password and send it to parent's email.</div>
+                      </div>
+                    </button>
+
+                    {/* Reset Password (Admin View Only) */}
+                    <button
+                      type="button"
+                      disabled={isResettingParentPassword}
+                      onClick={handleResetPasswordOnly}
+                      className="w-full p-3 rounded-xl border border-slate-250 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/50 text-left transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-955/20 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        📋
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Reset Password (One-Time View)</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Reset password and show one-time temporary password. No email sent.</div>
+                      </div>
+                    </button>
+
+                    {/* Send Login Details */}
+                    <button
+                      type="button"
+                      disabled={isResettingParentPassword || !hasEmail}
+                      onClick={handleSendLoginDetails}
+                      className="w-full p-3 rounded-xl border border-slate-250 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/50 text-left transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-955/20 text-purple-650 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        ✉️
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Send Login Details</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Resend current login email/URL information securely (password hidden).</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-3 border-t border-slate-105 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowParentPasswordModal(false)}
+                    className="px-3.5 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* Reset Confirmation Dialog */}
+      <AnimatePresence>
+        {showResetConfirmation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-800 border border-slate-250 dark:border-slate-700 rounded-xl p-5 shadow-2xl max-w-sm w-full space-y-4"
+            >
+              <div className="flex items-center gap-2 text-rose-500">
+                <AlertCircle className="w-5 h-5" />
+                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Reset parent password?</h4>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                A new temporary password will be generated and sent to the parent's registered email address (<strong>{passwordManageStudent.parent_email || passwordManageStudent.parent?.email}</strong>).
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirmation(false)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmResetAndSend}
+                  className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  Reset & Send
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

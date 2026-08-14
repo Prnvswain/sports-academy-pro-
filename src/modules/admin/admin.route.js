@@ -105,6 +105,7 @@ router.post(
   adminController.createStudent,
 );
 router.post('/students/reset-parent-password', adminController.resetParentPassword);
+router.post('/students/send-parent-login-details', adminController.sendParentLoginDetails);
 router.put(
   '/students/:student_id',
   validate('updateStudent'),

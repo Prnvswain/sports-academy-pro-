@@ -502,58 +502,6 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
           </div>
 
         </div>
-
-
-
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-
-          <div className="flex items-center justify-between text-sm">
-
-            <span className="text-slate-600">Balance Due</span>
-
-            <span className="font-semibold text-slate-800">₹{formatCurrency(balanceInfo.balanceDue)}</span>
-
-          </div>
-
-          <div className="mt-2 flex items-center justify-between text-xs text-rose-700">
-
-            <span>Status</span>
-
-            <span className="font-medium text-rose-700">
-
-              {balanceInfo.balanceDue > 0 ? 'Pending' : 'Paid'}
-
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* Credit Balance Card */}
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-
-          <div className="flex items-center justify-between text-sm">
-
-            <span className="text-slate-600">Balance Due</span>
-
-            <span className="font-semibold text-slate-800">₹{formatCurrency(balanceInfo.balanceDue)}</span>
-
-          </div>
-
-          <div className="mt-2 flex items-center justify-between text-xs text-rose-700">
-
-            <span>Status</span>
-
-            <span className="font-medium text-rose-700">
-
-              {balanceInfo.balanceDue > 0 ? 'Pending' : 'Paid'}
-
-            </span>
-
-          </div>
-
-        </div>
-
         {/* Credit Balance Card */}
         {(studentRecord.advance_balance > 0 || studentData?.student?.advance_balance > 0) && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">

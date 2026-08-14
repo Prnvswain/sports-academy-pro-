@@ -7913,7 +7913,6 @@ export const resetParentPassword = async (academy_id, student_id, new_password, 
   }
 
   // Hash the new password
-  const bcrypt = await import('bcryptjs');
   const saltRounds = 10;
   const password_hash = await bcrypt.hash(new_password, saltRounds);
 
@@ -7951,7 +7950,7 @@ export const resetParentPassword = async (academy_id, student_id, new_password, 
   if (send_email && student.parent.email) {
     try {
       const { sendParentPasswordResetEmail } = await import('../../services/email.service.js');
-      const portalUrl = `${process.env.PARENT_PORTAL_URL || 'http://localhost:3001'}/login`;
+      const portalUrl = `${process.env.PARENT_PORTAL_URL || 'http://localhost:3001'}/parent/login`;
       
       await sendParentPasswordResetEmail(
         student.parent.email,
@@ -7981,6 +7980,69 @@ export const resetParentPassword = async (academy_id, student_id, new_password, 
     email: updatedParent.email,
     must_change_password: updatedParent.must_change_password
   };
+};
+
+export const sendParentLoginDetails = async (academy_id, student_id, admin_user_id) => {
+  const academyId = parseInt(academy_id, 10);
+  const studentId = parseInt(student_id, 10);
+  
+  logger.info('sendParentLoginDetails called', { academy_id: academyId, student_id: studentId });
+
+  // Get student with parent information
+  const student = await prisma.student.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      ...NOT_DELETED
+    },
+    include: {
+      parent: true
+    }
+  });
+
+  if (!student) {
+    const error = new Error('Student not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!student.parent) {
+    const error = new Error('No parent account found for this student');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!student.parent.email) {
+    const error = new Error('Parent email not available');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Send login details email
+  const { sendParentLoginDetailsEmail } = await import('../../services/mail.service.js');
+  const loginUrl = `${process.env.PARENT_PORTAL_URL || 'http://localhost:3000'}/parent/login`;
+  
+  await sendParentLoginDetailsEmail({
+    to: student.parent.email,
+    parent_name: student.parent.name,
+    student_name: student.name,
+    login_url: loginUrl
+  });
+
+  // Log audit
+  await logAudit({
+    academy_id: academyId,
+    actor_type: 'ADMIN',
+    actor_id: admin_user_id,
+    action: 'PARENT_LOGIN_DETAILS_SENT',
+    metadata: {
+      student_id: studentId,
+      parent_id: student.parent.parent_id,
+      parent_email: student.parent.email
+    }
+  });
+
+  return { success: true };
 };
 
 const getPlanDurationDays = async (planId) => {
@@ -8231,11 +8293,7 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
           where: { student_id: studentId, academy_id: academyId },
           include: { sport: true, duration_plan: true }
         });
-        const modifiedUserEnrollments = allUserEnrollments.map(e => 
-          e.enrollment_id === currentActiveEnrollment.enrollment_id ? currentActiveEnrollment : e
-        );
-
-        const cycleEnrollments = getCurrentCycleEnrollments(modifiedUserEnrollments);
+        const cycleEnrollments = getCurrentCycleEnrollments(allUserEnrollments);
         let totalFeesAssigned = 0;
         if (cycleEnrollments.length > 0) {
           totalFeesAssigned = cycleEnrollments.reduce((sum, e) => {
@@ -8256,7 +8314,8 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
               student_id: studentId,
               academy_id: academyId,
               status: 'COMPLETED',
-              created_at: { gte: cycleStart }
+              created_at: { gte: cycleStart },
+              receipt_id: { not: receipt.receipt_id }
             }
           });
 

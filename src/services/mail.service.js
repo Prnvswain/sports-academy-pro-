@@ -480,3 +480,39 @@ export const sendParentChildLinkedEmail = async ({
 
   return sendMail({ to, subject, html, text });
 };
+
+export const sendParentLoginDetailsEmail = async ({
+  to,
+  parent_name,
+  student_name,
+  login_url
+}) => {
+  const subject = 'Your SAMS Parent Portal Login Details';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a56db;">Sports Academy Management System</h2>
+      <p>Hello <strong>${parent_name}</strong>,</p>
+      <p>Here are your SAMS Parent Portal login details linked with your child <strong>${student_name}</strong>:</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Login URL</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;"><a href="${login_url}">${login_url}</a></td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Email / Username</strong></td><td style="padding: 8px; border: 1px solid #e5e7eb;">${to}</td></tr>
+      </table>
+      <p>For security reasons, your current password is encrypted and cannot be displayed. If you have forgotten your password, please click the "Forgot Password" link on the login page to reset it.</p>
+      <p style="color: #6b7280; font-size: 12px;">This is an automated message from SAMS.</p>
+    </div>
+  `;
+
+  const text = [
+    `Hello ${parent_name},`,
+    '',
+    `Here are your SAMS Parent Portal login details linked with your child ${student_name}:`,
+    '',
+    `Login URL: ${login_url}`,
+    `Email / Username: ${to}`,
+    '',
+    'For security reasons, your current password is encrypted and cannot be displayed. If you have forgotten your password, please click the "Forgot Password" link on the login page to reset it.'
+  ].join('\n');
+
+  return sendMail({ to, subject, html, text });
+};
