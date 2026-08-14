@@ -4779,7 +4779,6 @@ export const getStudentsFeeSummary = async (academy_id) => {
       enrollments: {
         where: {
           academy_id: academyId,
-          is_active: true,
         },
         include: {
           duration_plan: true,
@@ -6151,13 +6150,19 @@ export const updatePaymentStatus = async (
 
   // Check if trying to mark as COMPLETED
   if (targetStatus === 'COMPLETED') {
+    const studentRecord = await prisma.student.findUnique({
+      where: { student_id: payment.student_id },
+      select: { status: true }
+    });
+    const isDeactivated = studentRecord && studentRecord.status !== 'ACTIVE';
+
     const enrollments = await prisma.studentEnrollment.findMany({
       where: { student_id: payment.student_id, academy_id: parseInt(academy_id, 10) },
       include: { sport: true, duration_plan: true }
     });
     const cycleEnrollments = getCurrentCycleEnrollments(enrollments);
 
-    if (cycleEnrollments.length === 0) {
+    if (!isDeactivated && cycleEnrollments.length === 0) {
       const error = new Error('No active plan found for this student. No payments can be accepted.');
       error.statusCode = 400;
       throw error;
@@ -6178,7 +6183,7 @@ export const updatePaymentStatus = async (
     }, 0);
 
     const oldestEnrollment = cycleEnrollments[0];
-    const cycleStart = new Date(oldestEnrollment.created_at.getTime() - 5000);
+    const cycleStart = oldestEnrollment ? new Date(oldestEnrollment.created_at.getTime() - 5000) : new Date(0);
     const cycleReceipts = await prisma.receipt.findMany({
       where: {
         student_id: payment.student_id,
@@ -6191,15 +6196,15 @@ export const updatePaymentStatus = async (
     const currentPaidAmount = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
     const remainingFee = Math.max(0, totalFeesAssigned - currentPaidAmount);
 
-    // Only block when there IS a fee assigned AND the cycle is already fully paid
-    if (totalFeesAssigned > 0 && remainingFee <= 0) {
+    // Only block when there IS a fee assigned AND the cycle is already fully paid (and student is active)
+    if (!isDeactivated && totalFeesAssigned > 0 && remainingFee <= 0) {
       const error = new Error('Student has already paid all fees for this cycle. No further payments can be accepted.');
       error.statusCode = 400;
       throw error;
     }
 
-    // Only check overpayment when there IS a fee assigned
-    if (totalFeesAssigned > 0 && Math.round(parseFloat(payment.amount) * 100) / 100 > Math.round(remainingFee * 100) / 100) {
+    // Only check overpayment when there IS a fee assigned (and student is active)
+    if (!isDeactivated && totalFeesAssigned > 0 && Math.round(parseFloat(payment.amount) * 100) / 100 > Math.round(remainingFee * 100) / 100) {
       const error = new Error('Payment amount cannot exceed the remaining fee for this cycle.');
       error.statusCode = 400;
       throw error;
@@ -6238,7 +6243,7 @@ export const updatePaymentStatus = async (
       include: { sport: true, duration_plan: true }
     });
     const cycleEnrollments = getCurrentCycleEnrollments(enrollments);
-    const activeEnrollment = enrollments.find(e => e.is_active) || null;
+    const activeEnrollment = enrollments.find(e => e.is_active) || cycleEnrollments[0] || enrollments[enrollments.length - 1] || null;
     let newFeesStatus = 'unpaid';
 
     if (cycleEnrollments.length > 0) {
@@ -8254,19 +8259,31 @@ export const reactivateStudent = async (academy_id, student_id, data, admin_user
       const payAmountPaid = parseFloat(data.payment.amount_paid || 0);
       const netPaymentAmount = payAmount - payExtraAmount;
 
-      const generatedReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const receipt = await tx.receipt.create({
-        data: {
-          receipt_number: generatedReceiptNo,
-          academy_id: academyId,
-          student_id: studentId,
-          amount: payAmount,
-          payment_date: new Date(data.payment.payment_date),
-          method: data.payment.method || 'cash',
-          status: data.payment.status === 'completed' ? 'COMPLETED' : 'PENDING',
-          remarks: action === 'continue' ? 'Reactivation (Continue Plan)' : 'Reactivation (New Plan)'
-        }
-      });
+      let receipt;
+      if (data.payment.receipt_id) {
+        receipt = await tx.receipt.update({
+          where: { receipt_id: parseInt(data.payment.receipt_id, 10) },
+          data: {
+            status: data.payment.status === 'completed' ? 'COMPLETED' : 'PENDING',
+            approved_by_user_id: admin_user_id,
+            remarks: action === 'continue' ? 'Reactivation (Continue Plan)' : 'Reactivation (New Plan)'
+          }
+        });
+      } else {
+        const generatedReceiptNo = `REC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        receipt = await tx.receipt.create({
+          data: {
+            receipt_number: generatedReceiptNo,
+            academy_id: academyId,
+            student_id: studentId,
+            amount: payAmount,
+            payment_date: new Date(data.payment.payment_date),
+            method: data.payment.method || 'cash',
+            status: data.payment.status === 'completed' ? 'COMPLETED' : 'PENDING',
+            remarks: action === 'continue' ? 'Reactivation (Continue Plan)' : 'Reactivation (New Plan)'
+          }
+        });
+      }
 
       if (payExtraAmount > 0) {
         await tx.student.update({

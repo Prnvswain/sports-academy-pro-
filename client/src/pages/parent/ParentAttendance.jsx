@@ -25,13 +25,13 @@ function AnimatedCounter({ value, duration = 1.5, suffix = '', prefix = '', deci
     }
     const totalFrames = Math.min(Math.floor(duration * 60), 60);
     let frame = 0;
-    
+
     const counter = setInterval(() => {
       frame++;
       const progress = frame / totalFrames;
       const easeVal = progress * (2 - progress);
       const current = easeVal * end;
-      
+
       setCount(current);
       if (frame === totalFrames) {
         setCount(end);
@@ -98,7 +98,7 @@ export default function ParentAttendance() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
-  
+
   // Calendar Month states
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -120,7 +120,7 @@ export default function ParentAttendance() {
       const students = response.data?.students || [];
       const selectedStudent = students.find(s => s.student_id === activeStudent?.student_id) || activeStudent;
       console.log('[ParentAttendance] Selected student from dashboard:', selectedStudent);
-      
+
       if (selectedStudent) {
         setAttendanceData(selectedStudent.student_attendances || []);
         setStudentData({
@@ -153,7 +153,7 @@ export default function ParentAttendance() {
     let longestStreak = 0;
     let tempStreak = 0;
     const sortedAttendance = [...attendanceData].sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     for (let i = 0; i < sortedAttendance.length; i++) {
       if (sortedAttendance[i].status === 'PRESENT') {
         tempStreak++;
@@ -173,7 +173,7 @@ export default function ParentAttendance() {
       const date = new Date(a.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthName = date.toLocaleString('default', { month: 'short' });
-      
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { name: monthName, present: 0, absent: 0, late: 0, total: 0 };
       }
@@ -200,7 +200,7 @@ export default function ParentAttendance() {
     const startOfCurrent = new Date(currentYear, currentMonth, 1);
     const endOfCurrent = new Date(currentYear, currentMonth + 1, 0);
     const totalDays = endOfCurrent.getDate();
-    
+
     // Day of the week startOfCurrent falls on (0 = Sunday, 1 = Monday, etc.)
     const startOffset = startOfCurrent.getDay();
     const days = [];
@@ -215,9 +215,9 @@ export default function ParentAttendance() {
       const date = new Date(currentYear, currentMonth, i);
       const attendance = attendanceData.find(a => {
         const checkDate = new Date(a.date);
-        return checkDate.getDate() === i && 
-               checkDate.getMonth() === currentMonth && 
-               checkDate.getFullYear() === currentYear;
+        return checkDate.getDate() === i &&
+          checkDate.getMonth() === currentMonth &&
+          checkDate.getFullYear() === currentYear;
       });
 
       days.push({
@@ -265,7 +265,7 @@ export default function ParentAttendance() {
   if (loading) return <Loader />;
 
   return (
-    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans p-4 lg:p-8">
+    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans text-left">
       {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -289,10 +289,10 @@ export default function ParentAttendance() {
         </div>
       ) : (
         <div className="space-y-6">
-          
+
           {/* Summary Cards and Ring */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            
+
             {/* Attendance Percentage Ring */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -303,7 +303,7 @@ export default function ParentAttendance() {
                 <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wide">Rate</span>
                 <span className="text-xl font-black text-foreground">{attendanceStats.percentage}%</span>
               </CircularProgressRing>
-              
+
               <div className="space-y-1">
                 <h4 className="text-sm font-black text-foreground">Attendance Rate</h4>
                 <p className="text-[10px] text-muted-foreground font-semibold uppercase">Enrolled session metrics</p>
@@ -343,7 +343,7 @@ export default function ParentAttendance() {
 
           {/* Calendar & Chart grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+
             {/* Calendar grid (2/3 width) */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -409,9 +409,8 @@ export default function ParentAttendance() {
                       key={`day-${day.dayNum}`}
                       onClick={() => hasClick && handleDayClick(day)}
                       disabled={!hasClick}
-                      className={`aspect-square border rounded-xl flex flex-col justify-between p-1.5 text-xs font-bold transition-all relative select-none ${bgClass} ${
-                        hasClick ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'
-                      }`}
+                      className={`aspect-square border rounded-xl flex flex-col justify-between p-1.5 text-xs font-bold transition-all relative select-none ${bgClass} ${hasClick ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'
+                        }`}
                     >
                       <span>{day.dayNum}</span>
                       {attendance && (
@@ -478,27 +477,26 @@ export default function ParentAttendance() {
               >
                 <X className="w-4.5 h-4.5" />
               </button>
-              
+
               <h3 className="text-sm font-black text-foreground">Class Attendance Detail</h3>
-              
+
               <div className="space-y-2.5 pt-2 border-t border-border/40">
                 <div className="flex justify-between border-b border-border/40 pb-2">
                   <span className="text-muted-foreground">Class Date</span>
-                  <span className="font-bold">{new Date(selectedAttendance.date).toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</span>
+                  <span className="font-bold">{new Date(selectedAttendance.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
                 <div className="flex justify-between border-b border-border/40 pb-2">
                   <span className="text-muted-foreground">Check-in Status</span>
-                  <span className={`font-black uppercase ${
-                    selectedAttendance.status === 'PRESENT' ? 'text-primary' : 
-                    selectedAttendance.status === 'LATE' ? 'text-amber-500' : 'text-rose-500'
-                  }`}>
+                  <span className={`font-black uppercase ${selectedAttendance.status === 'PRESENT' ? 'text-primary' :
+                      selectedAttendance.status === 'LATE' ? 'text-amber-500' : 'text-rose-500'
+                    }`}>
                     {selectedAttendance.status}
                   </span>
                 </div>
                 {selectedAttendance.check_in_time && (
                   <div className="flex justify-between border-b border-border/40 pb-2">
                     <span className="text-muted-foreground">Check-in Time</span>
-                    <span className="font-bold">{new Date(selectedAttendance.check_in_time).toLocaleTimeString(undefined, {hour: '2-digit', minute: '2-digit'})}</span>
+                    <span className="font-bold">{new Date(selectedAttendance.check_in_time).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 )}
                 <div className="flex justify-between pb-1">

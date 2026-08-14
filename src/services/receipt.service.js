@@ -98,8 +98,14 @@ export const validatePaymentScreenshot = (file) => {
     };
   }
 
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-  if (!allowedTypes.includes(file.mimetype)) {
+  const isImage = file.mimetype && file.mimetype.startsWith('image/');
+  const isPdf = file.mimetype === 'application/pdf';
+  
+  const ext = file.originalname ? file.originalname.split('.').pop().toLowerCase() : '';
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'webp', 'gif', 'heic', 'heif'];
+  const extMatches = allowedExtensions.includes(ext);
+
+  if (!isImage && !isPdf && !extMatches) {
     return {
       valid: false,
       error: 'Only JPG, JPEG, PNG, and PDF files are allowed'

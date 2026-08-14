@@ -569,7 +569,7 @@ export default function ParentDashboard() {
   const nextDueDate = currentStudent.next_due_date || (dashboardData?.payments?.length && dashboardData.payments[0].due_date) || null;
 
   return (
-    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans p-4 lg:p-8 relative">
+    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans relative text-left">
       
       {/* Top Welcome Panel */}
       <motion.div

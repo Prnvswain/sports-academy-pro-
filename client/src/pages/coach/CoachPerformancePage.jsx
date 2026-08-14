@@ -905,42 +905,7 @@ export default function CoachPerformancePage() {
   return (
     <div className="w-full bg-transparent font-sans p-2 space-y-6 text-left print:bg-white print:p-0">
       
-      {/* 1. Print output layout */}
-      <div className="hidden print:block text-slate-900 bg-white p-6 space-y-6">
-        <div className="border-b-2 border-slate-900 pb-4 text-center">
-          <h1 className="text-2xl font-black uppercase">SAMS SPORTS ACADEMY</h1>
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Athlete Performance Evaluation</h2>
-        </div>
-        {activeStudent && (
-          <div className="space-y-4 text-xs font-semibold">
-            <div className="grid grid-cols-2 gap-4 border border-slate-200 p-4 rounded-xl">
-              <div>Athlete Name: {activeStudent.name}</div>
-              <div>ID: #{activeStudent.student_id}</div>
-              <div>Batch: {activeBatch?.name || '—'}</div>
-              <div>Sport: {activeBatch?.sport?.name || '—'}</div>
-              <div>Rating average: {getStudentMetrics(activeStudent.student_id).avgRating}/10</div>
-            </div>
-            <table className="w-full border-collapse mt-4 text-left">
-              <thead>
-                <tr className="border-b border-slate-300 text-[10px] uppercase text-slate-500">
-                  <th className="py-2">Attribute</th>
-                  <th className="py-2">Category</th>
-                  <th className="py-2">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attributes.map(a => (
-                  <tr key={a.attribute_id} className="border-b border-slate-100">
-                    <td className="py-2">{a.name}</td>
-                    <td className="py-2">{categorizeAttribute(a.name)}</td>
-                    <td className="py-2 font-black">{scores[a.attribute_id] || 'Not Rated'}/10</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+
 
       {/* Regular client layouts */}
       {isCalendarHoliday ? (
@@ -1977,6 +1942,43 @@ export default function CoachPerformancePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 1. Print output layout */}
+      <div className="hidden print:block text-slate-900 bg-white p-6 space-y-6">
+        <div className="border-b-2 border-slate-900 pb-4 text-center">
+          <h1 className="text-2xl font-black uppercase">SAMS SPORTS ACADEMY</h1>
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Athlete Performance Evaluation</h2>
+        </div>
+        {activeStudent && (
+          <div className="space-y-4 text-xs font-semibold">
+            <div className="grid grid-cols-2 gap-4 border border-slate-200 p-4 rounded-xl">
+              <div>Athlete Name: {activeStudent.name}</div>
+              <div>ID: #{activeStudent.student_id}</div>
+              <div>Batch: {activeBatch?.name || '—'}</div>
+              <div>Sport: {activeBatch?.sport?.name || '—'}</div>
+              <div>Rating average: {getStudentMetrics(activeStudent.student_id).avgRating}/10</div>
+            </div>
+            <table className="w-full border-collapse mt-4 text-left">
+              <thead>
+                <tr className="border-b border-slate-300 text-[10px] uppercase text-slate-500">
+                  <th className="py-2">Attribute</th>
+                  <th className="py-2">Category</th>
+                  <th className="py-2">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attributes.map(a => (
+                  <tr key={a.attribute_id} className="border-b border-slate-100">
+                    <td className="py-2">{a.name}</td>
+                    <td className="py-2">{categorizeAttribute(a.name)}</td>
+                    <td className="py-2 font-black">{scores[a.attribute_id] || 'Not Rated'}/10</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

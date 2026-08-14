@@ -8,7 +8,7 @@ import { useActiveStudent } from '../../context/ActiveStudentContext';
 
 export default function ParentFees() {
   const location = useLocation();
-  const { activeStudent, loading: studentLoading } = useActiveStudent();
+  const { activeStudent, loading: studentLoading, reloadStudents } = useActiveStudent();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +61,14 @@ export default function ParentFees() {
   useEffect(() => {
     console.log('[ParentFees] activeStudent changed:', activeStudent);
     fetchSubmissions();
+    if (activeStudent) {
+      const totalFeesAssigned = activeStudent?.total_fees_assigned || 0;
+      const totalFeesPaid = activeStudent?.total_fees_paid || 0;
+      const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
+      setAmount(remainingFee > 0 ? remainingFee.toString() : '0');
+    } else {
+      setAmount('');
+    }
   }, [activeStudent]);
 
   // Keyboard accessibility listeners (ESC to close modals)
@@ -92,16 +100,17 @@ export default function ParentFees() {
     const totalFeesAssigned = activeStudent?.total_fees_assigned || 0;
     const totalFeesPaid = activeStudent?.total_fees_paid || 0;
     const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
+
+    if (remainingFee <= 0) {
+      showBanner('Student has no pending fees. No further payments can be accepted.', 'error');
+      return;
+    }
     
     if (parsedAmount > remainingFee) {
       showBanner(`Payment amount ₹${parsedAmount} exceeds outstanding balance of ₹${remainingFee}`, 'error');
       return;
     }
 
-    if (!transactionNumber.trim()) {
-      showBanner('Please enter transaction reference number.', 'error');
-      return;
-    }
 
     if (!proofFile) {
       showBanner('Please upload payment receipt screenshot proof.', 'error');
@@ -115,31 +124,28 @@ export default function ParentFees() {
       formData.append('amount', amount);
       formData.append('payment_date', new Date().toISOString());
       formData.append('method', paymentMethod);
-      formData.append('transaction_number', transactionNumber);
+      if (transactionNumber.trim()) {
+        formData.append('transaction_number', transactionNumber.trim());
+      }
       formData.append('remarks', remarks);
       formData.append('proof_file', proofFile);
 
-      const token = localStorage.getItem('parent_token');
-      const response = await fetch('/api/v1/parent/payments', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const result = await parentPost('/parent/payments', formData);
 
-      if (response.ok) {
+      if (result) {
         showBanner('Payment logged successfully! Awaiting verification.');
         setAmount('');
         setTransactionNumber('');
         setRemarks('');
         setProofFile(null);
         fetchSubmissions();
-      } else {
-        const errorData = await response.json();
-        showBanner(errorData.message || 'Payment submission failed.', 'error');
+        if (reloadStudents) {
+          await reloadStudents();
+        }
       }
     } catch (error) {
       console.error('Failed to submit payment:', error);
-      showBanner('Unable to connect to server. Please try again.', 'error');
+      showBanner(error?.message || 'Payment submission failed. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -424,15 +430,13 @@ export default function ParentFees() {
 
             {/* Transaction Number */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Transaction Reference Number</label>
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Transaction Reference Number (Optional)</label>
               <input
                 type="text"
-                required
                 value={transactionNumber}
                 onChange={(e) => setTransactionNumber(e.target.value)}
-                placeholder="Min 12 digit UPI Ref / IMPS UTR"
+                placeholder="UPI Ref / IMPS UTR (Optional)"
                 className="input-field text-xs py-2 px-3 bg-card font-mono"
-                minLength={12}
                 maxLength={50}
               />
             </div>
@@ -503,7 +507,7 @@ export default function ParentFees() {
             ) : submissions.length > 0 ? (
               <div className="p-4 space-y-3">
                 {submissions.slice(0, 5).map((sub) => (
-                  <div key={sub.payment_id} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
+                  <div key={sub.receipt_id} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-black text-foreground">₹{parseFloat(sub.amount).toFixed(2)}</span>
                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
@@ -521,13 +525,13 @@ export default function ParentFees() {
                     </div>
                     {sub.status === 'REJECTED' && (
                       <button
-                        onClick={() => setReplacingPaymentId(sub.payment_id)}
+                        onClick={() => setReplacingPaymentId(sub.receipt_id)}
                         className="mt-2 text-[9px] font-bold text-rose-600 hover:text-rose-500 transition-colors"
                       >
                         Replace Proof
                       </button>
                     )}
-                    {replacingPaymentId === sub.payment_id && (
+                    {replacingPaymentId === sub.receipt_id && (
                       <div className="mt-2 space-y-2">
                         <input
                           type="file"
@@ -536,7 +540,7 @@ export default function ParentFees() {
                           className="text-[10px]"
                         />
                         <button
-                          onClick={() => handleReplaceProof(sub.payment_id)}
+                          onClick={() => handleReplaceProof(sub.receipt_id)}
                           disabled={uploadingProof || !proofFileForReplace}
                           className="bg-emerald-500 text-white text-[9px] px-2 py-1 rounded font-bold disabled:opacity-50"
                         >
@@ -611,7 +615,7 @@ export default function ParentFees() {
                       </thead>
                       <tbody className="divide-y divide-border/60 bg-background">
                         {submissions.map((sub) => (
-                          <tr key={sub.payment_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                          <tr key={sub.receipt_id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
                             <td className="py-3 px-4 font-mono font-black text-foreground">{sub.transaction_number}</td>
                             <td className="py-3 px-4 text-foreground font-black text-sm">₹{parseFloat(sub.amount).toLocaleString('en-IN')}</td>
                             <td className="py-3 px-4 text-muted-foreground">{new Date(sub.payment_date || sub.createdAt).toLocaleDateString()}</td>
@@ -630,7 +634,7 @@ export default function ParentFees() {
                               <div className="flex justify-end gap-1.5">
                                 {sub.status === 'APPROVED' && (
                                   <button
-                                    onClick={() => loadReceiptDetails(sub.payment_id)}
+                                    onClick={() => loadReceiptDetails(sub.receipt_id)}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-foreground transition-all duration-200 shadow-sm border border-border/30 dark:border-border/30"
                                     title="View receipt details"
                                   >
@@ -641,17 +645,17 @@ export default function ParentFees() {
                                 
                                 {sub.status === 'REJECTED' && (
                                   <div className="flex gap-2">
-                                    {replacingPaymentId === sub.payment_id ? (
+                                    {replacingPaymentId === sub.receipt_id ? (
                                       <div className="flex items-center gap-1.5">
                                         <input
                                           type="file"
-                                          id={`replace-proof-${sub.payment_id}`}
+                                          id={`replace-proof-${sub.receipt_id}`}
                                           accept="image/*"
                                           onChange={(e) => e.target.files?.length && setProofFileForReplace(e.target.files[0])}
                                           className="hidden"
                                         />
                                         <label
-                                          htmlFor={`replace-proof-${sub.payment_id}`}
+                                          htmlFor={`replace-proof-${sub.receipt_id}`}
                                           className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer border-2 border-dashed transition-all duration-300 ${
                                             proofFileForReplace ? 'border-primary/60 bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/50'
                                           }`}
@@ -659,7 +663,7 @@ export default function ParentFees() {
                                           {proofFileForReplace ? 'File selected' : 'Choose screenshot'}
                                         </label>
                                         <button
-                                          onClick={() => handleReplaceProof(sub.payment_id)}
+                                          onClick={() => handleReplaceProof(sub.receipt_id)}
                                           disabled={uploadingProof || !proofFileForReplace}
                                           className="bg-primary hover:bg-primary/90 text-background text-[10px] px-3 py-1.5 rounded-lg font-black uppercase tracking-wider transition-all shadow-sm disabled:opacity-50"
                                         >
@@ -668,7 +672,7 @@ export default function ParentFees() {
                                       </div>
                                     ) : (
                                       <button
-                                        onClick={() => setReplacingPaymentId(sub.payment_id)}
+                                        onClick={() => setReplacingPaymentId(sub.receipt_id)}
                                         className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all duration-200 shadow-sm"
                                       >
                                         Replace Proof

@@ -54,6 +54,13 @@ export default function SuperAdminLayout() {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  useEffect(() => {
+    document.body.classList.add('super-admin-portal-root');
+    return () => {
+      document.body.classList.remove('super-admin-portal-root');
+    };
+  }, []);
+
   // Track screen width for layout modes
   useEffect(() => {
     const handleResize = () => setScreenWidth(window.innerWidth);

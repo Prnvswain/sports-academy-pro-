@@ -393,7 +393,7 @@ export default function ParentReceipts() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-transparent p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
+    <div className="relative min-h-screen w-full bg-transparent space-y-8 font-sans text-left">
       
       {/* Background Decorators */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-[0.03] dark:opacity-[0.02]">

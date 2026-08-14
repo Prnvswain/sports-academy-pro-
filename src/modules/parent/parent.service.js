@@ -530,12 +530,15 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
     throw error;
   }
 
-  // Validate transaction number
-  const transactionValidation = receiptService.validateTransactionNumber(payload.transaction_number);
-  if (!transactionValidation.valid) {
-    const error = new Error(transactionValidation.error);
-    error.statusCode = 400;
-    throw error;
+  // Validate transaction number if provided
+  let transactionValidation = { valid: true, value: null };
+  if (payload.transaction_number && payload.transaction_number.trim() !== '') {
+    transactionValidation = receiptService.validateTransactionNumber(payload.transaction_number);
+    if (!transactionValidation.valid) {
+      const error = new Error(transactionValidation.error);
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   // Check for duplicate payment with same transaction number
@@ -571,7 +574,6 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
       academy_id: academyId,
       parent_id: parentId,
       is_deleted: false,
-      status: 'ACTIVE',
     },
     include: {
       enrollments: true

@@ -186,6 +186,13 @@ export default function AdminLayout() {
     setAdminUser(decodeJwtPayload(token));
   }, []);
 
+  useEffect(() => {
+    document.body.classList.add('admin-portal-root');
+    return () => {
+      document.body.classList.remove('admin-portal-root');
+    };
+  }, []);
+
   // Load theme colors from backend
   const { updateThemeColors } = useTheme();
   useEffect(() => {

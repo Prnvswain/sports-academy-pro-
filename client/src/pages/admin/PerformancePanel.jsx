@@ -184,6 +184,11 @@ export default function PerformancePanel() {
       });
       
       setStudents(filteredStudents);
+      if (filteredStudents.length > 0) {
+        handleSelectStudentForLayout(filteredStudents[0]);
+      } else {
+        setSelectedStudentForDashboard(null);
+      }
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
       setStudents([]);
@@ -937,1301 +942,9 @@ export default function PerformancePanel() {
     };
   }, [selectedStudentForDashboard, getFilteredStudents]);
 
-  if (loading) {
-    return <Loader />;
-  }
-
-  const filteredBatches = batches.filter((batch) => {
-    if (!selectedSport) return true;
-
-    const targetSportId = String(selectedSport.sport_id || selectedSport.id || '').toLowerCase();
-    const targetSportName = String(selectedSport.name || '').toLowerCase();
-
-    const batchSportId = String(batch.sport_id || batch.sportId || batch.sport?._id || batch.sport?.id || '').toLowerCase();
-    const batchSportName = String(batch.sport?.name || (typeof batch.sport === 'string' ? batch.sport : '') || '').toLowerCase();
-
+  const renderPerformanceView = () => {
     return (
-      (batchSportId && batchSportId === targetSportId) ||
-      (batchSportName && batchSportName === targetSportName) ||
-      batchSportName.includes(targetSportName) ||
-      targetSportName.includes(batchSportName)
-    );
-  });
-
-  return (
-    <motion.div
-      className="relative z-10 mx-auto max-w-7xl space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-    >
-      <div className="space-y-6">
-        {/* Header */}
-        <motion.div
-          className="flex items-center justify-between"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
-              <Activity className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
-                Performance Tracker
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Monitor athlete progress, track metrics & analyze performance data
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 sm:gap-3 flex-wrap relative z-10">
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setShowAnalyticsPanel(!showAnalyticsPanel);
-                if (!showAnalyticsPanel) loadAcademyAnalytics();
-              }}
-              className={`btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
-                showAnalyticsPanel ? 'bg-primary text-white border-primary' : ''
-              }`}
-            >
-              <BarChart2 className="w-4 h-4" /> Analytics
-              {showAnalyticsPanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-            </motion.button>
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setShowTimelinePanel(!showTimelinePanel);
-                if (!showTimelinePanel) loadAssessmentHistory();
-              }}
-              className={`btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
-                showTimelinePanel ? 'bg-primary text-white border-primary' : ''
-              }`}
-            >
-              <Clock className="w-4 h-4" /> History
-              {showTimelinePanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-            </motion.button>
-          </div>
-        </motion.div>
-
-        <AnimatePresence>
-          {message.text && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className={`rounded-xl border p-3.5 text-sm font-semibold flex items-center gap-3 ${
-                message.type === 'success'
-                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
-                  : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/25'
-              }`}
-            >
-              {message.type === 'success'
-                ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                : <XCircle className="w-4 h-4 flex-shrink-0" />
-              }
-              {message.text}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-      {/* Analytics Panel */}
-      <AnimatePresence>
-        {showAnalyticsPanel && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-card border border-border rounded-2xl p-6 shadow-lg"
-          >
-            {/* Analytics Panel Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                <BarChart2 className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Performance Analytics</h3>
-                <p className="text-xs text-muted-foreground">Academy-wide, batch &amp; student insights</p>
-              </div>
-            </div>
-            {/* Analytics Tabs */}
-            <div className="flex gap-1.5 mb-6 bg-surface-secondary/50 p-1.5 rounded-xl w-fit overflow-x-auto">
-              {[
-                { id: 'academy', label: 'Academy', icon: Trophy },
-                { id: 'batch', label: 'Batch', icon: Users, disabled: !selectedBatchId },
-                { id: 'student', label: 'Student', icon: Star, disabled: !selectedStudent },
-              ].map(({ id, label, icon: Icon, disabled }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => !disabled && handleAnalyticsTabChange(id)}
-                  disabled={disabled}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    analyticsTab === id
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {loadingAnalytics ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader />
-              </div>
-            ) : (
-              <>
-                {/* Academy Analytics */}
-                {analyticsTab === 'academy' && (
-                  <div className="space-y-6">
-                    <h4 className="text-sm font-black text-foreground">Academy-Wide Performance Overview</h4>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">👥</span>
-                            <div className="text-xs font-bold text-white/90">Total Students</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring" }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {academyAnalytics?.totalStudents || 0}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">⭐</span>
-                            <div className="text-xs font-bold text-white/90">Average Score</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {academyAnalytics?.averageScore?.toFixed(1) || '0.0'}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">📊</span>
-                            <div className="text-xs font-bold text-white/90">Total Evaluations</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {academyAnalytics?.totalEvaluations || 0}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">🏆</span>
-                            <div className="text-xs font-bold text-white/90">Active Batches</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.3 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {academyAnalytics?.activeBatches || 0}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                    </div>
-                    {academyAnalytics?.topPerformers && academyAnalytics.topPerformers.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-2xl p-5"
-                      >
-                        <h5 className="text-xs font-bold text-emerald-600 mb-4 flex items-center gap-2">
-                          <span className="text-lg">🏅</span> Top Performing Students
-                        </h5>
-                        <div className="space-y-2">
-                          {academyAnalytics.topPerformers.map((student, idx) => (
-                            <motion.div
-                              key={idx}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.5 + idx * 0.1 }}
-                              whileHover={{ scale: 1.01, x: 5 }}
-                              className="flex justify-between items-center p-3 bg-white/50 dark:bg-surface/50 rounded-xl hover:bg-white/80 dark:hover:bg-surface/80 transition-all cursor-pointer"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
-                                  {idx + 1}
-                                </div>
-                                <span className="text-sm font-bold text-foreground">{student.name}</span>
-                              </div>
-                              <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1.5 rounded-full">
-                                {student.averageScore?.toFixed(1)} avg
-                              </span>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-
-                {/* Batch Analytics */}
-                {analyticsTab === 'batch' && (
-                  <div className="space-y-6">
-                    <h4 className="text-sm font-black text-foreground">Batch Performance Analytics</h4>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">📈</span>
-                            <div className="text-xs font-bold text-white/90">Average Score</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring" }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {batchAnalytics?.averageScore?.toFixed(1) || '0.0'}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">👤</span>
-                            <div className="text-xs font-bold text-white/90">Students Evaluated</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {batchAnalytics?.studentsEvaluated || 0}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">🚀</span>
-                            <div className="text-xs font-bold text-white/90">Improvement Rate</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {batchAnalytics?.improvementRate?.toFixed(1) || '0.0'}%
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                    </div>
-                    {batchAnalytics?.attributeBreakdown && Array.isArray(batchAnalytics.attributeBreakdown) && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-2xl p-5"
-                      >
-                        <h5 className="text-xs font-bold text-blue-600 mb-4 flex items-center gap-2">
-                          <span className="text-lg">📊</span> Attribute Performance Breakdown
-                        </h5>
-                        <div className="space-y-4">
-                          {batchAnalytics.attributeBreakdown.map((item, idx) => (
-                            <motion.div
-                              key={item.attribute || idx}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.4 + idx * 0.1 }}
-                            >
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-bold text-foreground">{item.attribute}</span>
-                                <span className="text-sm font-black text-blue-600 bg-blue-500/20 px-3 py-1 rounded-full">
-                                  {item.average || 0}
-                                </span>
-                              </div>
-                              <div className="w-full bg-surface-secondary rounded-full h-3 overflow-hidden">
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${Math.min((item.average / 10) * 100, 100)}%` }}
-                                  transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
-                                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full"
-                                />
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-
-                {/* Student Analytics */}
-                {analyticsTab === 'student' && (
-                  <div className="space-y-6">
-                    <h4 className="text-sm font-black text-foreground">Student Performance Analytics</h4>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">⭐</span>
-                            <div className="text-xs font-bold text-white/90">Overall Average</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring" }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {studentAnalytics?.overallAverage?.toFixed(1) || '0.0'}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">📊</span>
-                            <div className="text-xs font-bold text-white/90">Total Evaluations</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {studentAnalytics?.totalEvaluations || 0}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                      <motion.div
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-5 shadow-lg"
-                      >
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-2xl">📈</span>
-                            <div className="text-xs font-bold text-white/90">Trend</div>
-                          </div>
-                          <motion.div 
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
-                            className="text-3xl font-black text-white"
-                          >
-                            {studentAnalytics?.trend === 'improving' ? '📈' : studentAnalytics?.trend === 'declining' ? '📉' : '➡️'}
-                          </motion.div>
-                        </div>
-                      </motion.div>
-                    </div>
-                    {studentAnalytics?.attributeProgress && Array.isArray(studentAnalytics.attributeProgress) && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-2xl p-5"
-                      >
-                        <h5 className="text-xs font-bold text-emerald-600 mb-4 flex items-center gap-2">
-                          <span className="text-lg">📈</span> Attribute Progress Over Time
-                        </h5>
-                        <div className="space-y-3">
-                          {studentAnalytics.attributeProgress.map((item, idx) => (
-                            <motion.div
-                              key={item.attribute || idx}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.4 + idx * 0.1 }}
-                              whileHover={{ scale: 1.01 }}
-                              className="p-4 bg-white/50 dark:bg-surface/50 rounded-xl hover:bg-white/80 dark:hover:bg-surface/80 transition-all"
-                            >
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-bold text-foreground">{item.attribute}</span>
-                                <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1 rounded-full">
-                                  {item.average} / 10
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                <span className={`font-bold ${item.trend === 'up' ? 'text-emerald-600' : item.trend === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                  {item.trend === 'up' ? '↑ Improving' : item.trend === 'down' ? '↓ Declining' : '→ Stable'}
-                                </span>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-
-                {!academyAnalytics && analyticsTab === 'academy' && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">No academy analytics data available</p>
-                  </div>
-                )}
-                {!batchAnalytics && analyticsTab === 'batch' && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">Select a batch to view analytics</p>
-                  </div>
-                )}
-                {!studentAnalytics && analyticsTab === 'student' && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">Select a student to view analytics</p>
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-
-      {/* Timeline Panel */}
-      <AnimatePresence>
-        {showTimelinePanel && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="bg-card border border-border rounded-2xl p-6 shadow-lg"
-          >
-            {/* Timeline Panel Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-cyan-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Assessment History</h3>
-                <p className="text-xs text-muted-foreground">Filter and review all assessments</p>
-              </div>
-            </div>
-            {/* Timeline Filters */}
-            <div className="mb-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-muted-foreground" /> Filter Assessments
-                </h4>
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.3, type: "spring" }}
-                  className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-3 py-1.5 rounded-full"
-                >
-                  {totalAssessments} assessments
-                </motion.span>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Student ID</label>
-                  <input
-                    type="text"
-                    value={timelineFilters.student_id}
-                    onChange={(e) => handleTimelineFilterChange('student_id', e.target.value)}
-                    placeholder="Enter student ID"
-                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-                  />
-                </motion.div>
-                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Batch ID</label>
-                  <input
-                    type="text"
-                    value={timelineFilters.batch_id}
-                    onChange={(e) => handleTimelineFilterChange('batch_id', e.target.value)}
-                    placeholder="Enter batch ID"
-                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-                  />
-                </motion.div>
-                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Coach ID</label>
-                  <input
-                    type="text"
-                    value={timelineFilters.coach_id}
-                    onChange={(e) => handleTimelineFilterChange('coach_id', e.target.value)}
-                    placeholder="Enter coach ID"
-                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-                  />
-                </motion.div>
-                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Start Date</label>
-                  <input
-                    type="date"
-                    value={timelineFilters.start_date}
-                    onChange={(e) => handleTimelineFilterChange('start_date', e.target.value)}
-                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-                  />
-                </motion.div>
-                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">End Date</label>
-                  <input
-                    type="date"
-                    value={timelineFilters.end_date}
-                    onChange={(e) => handleTimelineFilterChange('end_date', e.target.value)}
-                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-                  />
-                </motion.div>
-              </div>
-              <div className="flex gap-2">
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleApplyFilters}
-                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg"
-                >
-                  Apply Filters
-                </motion.button>
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleResetFilters}
-                  className="bg-surface hover:bg-surface-secondary text-foreground border border-border px-6 py-2.5 rounded-xl text-xs font-bold transition-all"
-                >
-                  Reset
-                </motion.button>
-              </div>
-            </div>
-
-            {/* Assessment Timeline */}
-            {loadingTimeline ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader />
-              </div>
-            ) : assessmentHistory.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-12"
-              >
-                <div className="text-6xl mb-4">📋</div>
-                <h4 className="text-lg font-bold text-foreground mb-2">No Assessments Found</h4>
-                <p className="text-sm text-muted-foreground">Try adjusting your filters to see assessment history</p>
-              </motion.div>
-            ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {assessmentHistory.map((assessment, idx) => (
-                  <motion.div
-                    key={assessment.assessment_id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="bg-surface border border-border rounded-xl overflow-hidden hover:border-emerald-500/50 transition-all"
-                  >
-                    <motion.div
-                      className="p-4 cursor-pointer hover:bg-surface-secondary/50 transition-all"
-                      onClick={() => handleExpandAssessment(assessment)}
-                      whileHover={{ scale: 1.01 }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <motion.div 
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-black text-white shadow-lg"
-                          >
-                            {assessment.student?.name?.charAt(0) || '?'}
-                          </motion.div>
-                          <div>
-                            <div className="text-sm font-bold text-foreground">
-                              {assessment.student?.name || 'Unknown Student'}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                              <span>📅</span>
-                              {new Date(assessment.scored_at).toLocaleDateString()} at {new Date(assessment.scored_at).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">Coach</div>
-                            <div className="text-xs font-bold text-foreground">{assessment.coach?.name || 'Unknown'}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">Batch</div>
-                            <div className="text-xs font-bold text-foreground">{assessment.batch?.name || 'Unknown'}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">Parameters</div>
-                            <div className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-2 py-1 rounded-full">
-                              {assessment.scores?.length || 0}
-                            </div>
-                          </div>
-                          <motion.span
-                            animate={{ rotate: expandedAssessment === assessment.assessment_id ? 180 : 0 }}
-                            className="text-emerald-600 text-lg font-bold"
-                          >
-                            ▼
-                          </motion.span>
-                        </div>
-                      </div>
-                      {assessment.notes && (
-                        <div className="mt-3 pt-3 border-t border-border/50">
-                          <p className="text-xs text-muted-foreground italic bg-surface-secondary/30 p-2 rounded-lg">
-                            💬 "{assessment.notes}"
-                          </p>
-                        </div>
-                      )}
-                    </motion.div>
-                    
-                    {/* Expanded Assessment Details */}
-                    <AnimatePresence>
-                      {expandedAssessment === assessment.assessment_id && expandedAssessment && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="border-t border-border bg-surface-secondary/50 p-4"
-                        >
-                          <h5 className="text-xs font-bold text-foreground mb-4 flex items-center gap-2">
-                            <span className="text-lg">📊</span> Parameter Scores
-                          </h5>
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {expandedAssessment.scores?.map((score, idx) => (
-                              <motion.div
-                                key={idx}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: idx * 0.05 }}
-                                className="bg-surface border border-border rounded-xl p-4 hover:shadow-md transition-all"
-                              >
-                                <div className="flex justify-between items-center mb-3">
-                                  <span className="text-xs font-bold text-foreground">
-                                    {score.attribute?.name || 'Unknown Parameter'}
-                                  </span>
-                                  <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1 rounded-full">
-                                    {score.score}/10
-                                  </span>
-                                </div>
-                                <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${Math.min((score.score / 10) * 100, 100)}%` }}
-                                    transition={{ duration: 0.8, delay: 0.2 }}
-                                    className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-2 rounded-full"
-                                  />
-                                </div>
-                              </motion.div>
-                            ))}
-                          </div>
-                          <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center">
-                            <div className="text-xs text-muted-foreground">
-                              Overall Score: <span className="font-bold text-emerald-600 text-lg">{expandedAssessment.overall_score}/10</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Assessment ID: <span className="font-mono text-xs bg-surface-secondary px-2 py-1 rounded">{assessment.assessment_id}</span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-
-      {/* Pending Attributes Approval Panel */}
-      {pendingAttributes.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-50/80 dark:bg-amber-900/10 border border-amber-300 dark:border-amber-700/50 rounded-2xl p-5 shadow-sm"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Pending Attribute Proposals</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Review and approve custom metrics proposed by coaches</p>
-              </div>
-            </div>
-            <motion.button
-              type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowPendingPanel(!showPendingPanel)}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg"
-            >
-              {showPendingPanel ? 'Collapse' : `Expand (${pendingAttributes.length})`}
-            </motion.button>
-          </div>
-
-          <AnimatePresence>
-            {showPendingPanel && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-3"
-              >
-                {pendingAttributes.map((attr, idx) => (
-                  <motion.div
-                    key={attr.id || attr.attribute_id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    whileHover={{ scale: 1.01 }}
-                    className="bg-white/50 dark:bg-surface/50 border border-border rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-bold text-foreground">{attr.name.replace(/\s*\((Fitness|Technique|Mental)\)$/i, '')}</span>
-                        <motion.span
-                          whileHover={{ scale: 1.05 }}
-                          className="text-xs bg-gradient-to-r from-amber-400 to-orange-400 text-white px-3 py-1 rounded-full font-bold shadow-sm"
-                        >
-                          {attr.sport?.name || 'Global'}
-                        </motion.span>
-                      </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-2 text-left">
-                        <span>👤</span> Proposed by: {attr.requested_by?.name || attr.proposed_by || 'Coach'} · 
-                        <span>📅</span> {attr.created_at ? new Date(attr.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 ml-4">
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleApproveAttribute(attr.id || attr.attribute_id)}
-                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg"
-                      >
-                        ✓ Approve
-                      </motion.button>
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleRejectAttribute(attr.id || attr.attribute_id)}
-                        className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg"
-                      >
-                        ✕ Reject
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-      {!selectedSport ? (
-        <div className="space-y-6">
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3"
-          >
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-foreground">Active Sports Catalog</h3>
-              <p className="text-xs text-muted-foreground">{sports.length} sport{sports.length !== 1 ? 's' : ''} configured</p>
-            </div>
-          </motion.div>
-          {loading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <motion.div 
-                  key={i} 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-gradient-to-br from-surface-secondary to-surface border border-border rounded-2xl p-6"
-                >
-                  <div className="w-16 h-16 bg-gradient-to-br from-surface to-surface-secondary rounded-2xl mb-4 animate-pulse"></div>
-                  <div className="h-5 bg-gradient-to-r from-surface to-surface-secondary rounded-lg mb-2 animate-pulse"></div>
-                  <div className="h-4 bg-gradient-to-r from-surface to-surface-secondary rounded w-2/3 animate-pulse"></div>
-                </motion.div>
-              ))}
-            </div>
-          ) : sports.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-gradient-to-br from-surface-secondary/50 to-surface/50 border border-border rounded-2xl p-16 text-center"
-            >
-              <div className="text-7xl mb-6 animate-bounce">🏆</div>
-              <h4 className="text-xl font-black text-foreground mb-3">No Sports Configured</h4>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">Add sports to start tracking student performance metrics and building comprehensive athlete profiles.</p>
-            </motion.div>
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {sports.map((sport, index) => {
-                const icon = getSportIcon(sport);
-                const gradients = [
-                  'from-emerald-500 to-teal-600',
-                  'from-blue-500 to-indigo-600',
-                  'from-purple-500 to-pink-600',
-                  'from-orange-500 to-amber-600',
-                  'from-cyan-500 to-blue-600',
-                  'from-rose-500 to-red-600',
-                  'from-violet-500 to-purple-600',
-                  'from-lime-500 to-green-600'
-                ];
-                const gradient = gradients[index % gradients.length];
-
-                return (
-                  <motion.button
-                    key={sport.sport_id || sport.id || sport.name || index}
-                    type="button"
-                    onClick={() => handleSportSelect(sport)}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.08 }}
-                    whileHover={{ scale: 1.05, y: -8 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="group relative overflow-hidden bg-gradient-to-br from-surface-secondary to-surface border border-border hover:border-transparent p-6 text-left transition-all duration-300 rounded-2xl shadow-lg hover:shadow-2xl"
-                  >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
-                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-20 rounded-full blur-3xl -mr-16 -mt-16 transition-opacity duration-300`}></div>
-                    <div className="relative z-10">
-                      <motion.div 
-                        whileHover={{ rotate: 10, scale: 1.2 }}
-                        transition={{ duration: 0.3 }}
-                        className="mb-4 inline-block text-4xl"
-                      >
-                        {icon}
-                      </motion.div>
-                      <div className="text-foreground text-lg font-black tracking-tight mb-2">
-                        {sport.name}
-                      </div>
-                      <div className="text-muted-foreground text-xs font-medium flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"></span>
-                        View performance metrics
-                      </div>
-                      <motion.div 
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 0, x: -10 }}
-                        whileHover={{ opacity: 1, x: 0 }}
-                        className="mt-4 flex items-center gap-2 text-xs font-bold text-foreground/70"
-                      >
-                        Explore →
-                      </motion.div>
-                    </div>
-                    <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r ${gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
-                  </motion.button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ) : (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
-          <motion.button
-            type="button"
-            whileHover={{ x: -4 }}
-            onClick={handleBackToAllSports}
-            className="text-muted-foreground hover:text-accent flex items-center gap-2 text-sm font-semibold transition-colors"
-          >
-            <span>←</span> Back to All Sports
-          </motion.button>
-
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-accent/10 to-cyan-500/10 border border-accent/30 rounded-2xl p-6 relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-accent/20 to-cyan-500/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <motion.div 
-                  whileHover={{ rotate: 10, scale: 1.1 }}
-                  className="text-5xl"
-                >
-                  {getSportIcon(selectedSport)}
-                </motion.div>
-                <div>
-                  <h3 className="text-foreground text-2xl sm:text-3xl font-black tracking-tight">
-                    {selectedSport.name}
-                  </h3>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    Select a batch to view student performance metrics
-                  </p>
-                </div>
-              </div>
-              <div className="relative">
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowAttrs(!showAttrs)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-accent border rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 flex items-center gap-2 shadow-lg"
-                >
-                  <span>⚙️</span> View Configured Attributes
-                </motion.button>
-
-                <AnimatePresence>
-                  {showAttrs && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 top-full mt-2 z-50 w-80 bg-surface border border-border shadow-2xl rounded-2xl p-5"
-                    >
-                      <h4 className="text-foreground text-sm font-bold mb-4 border-b border-border/50 pb-3 flex items-center gap-2">
-                        <span className="text-lg">📊</span> Active Evaluation Parameters
-                      </h4>
-                      {attributes.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {attributes.map((attr, idx) => (
-                            <motion.span
-                              key={attr?.id || attr?.name || idx}
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: idx * 0.05 }}
-                              className="bg-gradient-to-r from-accent/10 to-cyan-500/10 border-accent/30 border px-3 py-1.5 rounded-full text-xs font-bold text-foreground"
-                            >
-                              {attr?.name || 'Unknown'}
-                            </motion.span>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-4">
-                          <div className="text-3xl mb-2">📋</div>
-                          <p className="text-muted-foreground text-xs">No attributes configured for this sport.</p>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                
-              </div>
-            </div>
-          </motion.div>
-
-          {loadingBatches ? (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <motion.div 
-                  key={i} 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-gradient-to-br from-surface-secondary to-surface border border-border rounded-2xl p-6"
-                >
-                  <div className="h-6 bg-gradient-to-r from-surface to-surface-secondary rounded-lg mb-3 animate-pulse"></div>
-                  <div className="h-4 bg-gradient-to-r from-surface to-surface-secondary rounded w-2/3 mb-2 animate-pulse"></div>
-                  <div className="h-4 bg-gradient-to-r from-surface to-surface-secondary rounded w-1/2 animate-pulse"></div>
-                </motion.div>
-              ))}
-            </div>
-          ) : filteredBatches.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-gradient-to-br from-surface-secondary/50 to-surface/50 border border-border rounded-2xl p-16 text-center"
-            >
-              <div className="text-7xl mb-6 animate-bounce">📚</div>
-              <h4 className="text-xl font-black text-foreground mb-3">No Training Batches</h4>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">Create training batches for this sport to start tracking student performance metrics.</p>
-            </motion.div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Target className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground">Select Training Batch</h3>
-                    <p className="text-xs text-muted-foreground">{filteredBatches.length} batch{filteredBatches.length !== 1 ? 'es' : ''} available</p>
-                  </div>
-                </motion.div>
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredBatches.map((batch, idx) => {
-                    const gradients = [
-                      'from-emerald-500 to-teal-600',
-                      'from-blue-500 to-indigo-600',
-                      'from-purple-500 to-pink-600',
-                      'from-orange-500 to-amber-600',
-                      'from-cyan-500 to-blue-600',
-                      'from-rose-500 to-red-600'
-                    ];
-                    const gradient = gradients[idx % gradients.length];
-
-                    return (
-                      <motion.button
-                        key={batch.batch_id || batch.id}
-                        type="button"
-                        onClick={() => handleBatchSelect(batch.batch_id || batch.id)}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: idx * 0.08 }}
-                        whileHover={{ scale: 1.03, y: -4 }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`group relative overflow-hidden bg-gradient-to-br from-surface-secondary to-surface border p-6 text-left transition-all duration-300 rounded-2xl shadow-lg hover:shadow-2xl ${
-                          selectedBatchId === (batch.batch_id || batch.id) 
-                            ? 'border-accent ring-2 ring-accent/50 shadow-accent/20' 
-                            : 'border-border hover:border-accent/40'
-                        }`}
-                      >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
-                        <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 rounded-full blur-2xl -mr-12 -mt-12 transition-opacity duration-300`}></div>
-                        <div className="relative z-10">
-                          <div className="text-foreground text-lg font-black tracking-tight mb-3">{batch.name}</div>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"></span>
-                              <span className="font-medium">Students:</span> 
-                              <span className="font-bold text-foreground">{batch.student_count || batch.students?.length || 0}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"></span>
-                              <span className="font-medium">Timings:</span> 
-                              <span className="font-medium text-foreground">{batch.timings || batch.schedule || 'Not specified'}</span>
-                            </div>
-                          </div>
-                          <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 0 }}
-                            whileHover={{ opacity: 1 }}
-                            className="mt-4 flex items-center gap-2 text-xs font-bold text-foreground/60"
-                          >
-                            Select →
-                          </motion.div>
-                        </div>
-                        <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r ${gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {selectedBatchId && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  transition={{ duration: 0.3 }} 
-                  className="bg-gradient-to-br from-surface-secondary/50 to-surface/30 border border-border rounded-2xl p-6 shadow-lg space-y-4"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                        <Users className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-foreground text-base font-bold">
-                          Student Performance Metrics
-                        </h3>
-                        <span className="text-xs text-muted-foreground">
-                          {students.length} student{students.length !== 1 ? 's' : ''} · click to open detailed dashboard
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-medium text-muted-foreground bg-surface-secondary px-3 py-1.5 rounded-full">
-                      {getFilteredStudents.length} shown
-                    </span>
-                  </div>
-
-                  {/* Search bar */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Search by name, ID or mobile…"
-                      value={studentSearchQuery}
-                      onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all"
-                    />
-                  </div>
-
-                  {loadingStudents ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <motion.div 
-                          key={i} 
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: i * 0.05 }}
-                          className="bg-surface border border-border rounded-xl p-4"
-                        >
-                          <div className="h-5 bg-gradient-to-r from-surface-secondary to-surface rounded-lg mb-3 animate-pulse"></div>
-                          <div className="flex gap-2">
-                            {[1, 2, 3, 4].map((j) => (
-                              <div key={j} className="h-7 bg-gradient-to-r from-surface-secondary to-surface rounded flex-1 animate-pulse"></div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : students.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-gradient-to-br from-surface/50 to-surface-secondary/50 border border-dashed border-border rounded-2xl py-16 text-center"
-                    >
-                      <div className="text-7xl mb-6 animate-bounce">👥</div>
-                      <h4 className="text-xl font-black text-foreground mb-3">No Students Enrolled</h4>
-                      <p className="text-sm text-muted-foreground max-w-md mx-auto">Enroll students in this batch to start tracking their performance metrics and building comprehensive athlete profiles.</p>
-                    </motion.div>
-                  ) : getFilteredStudents.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-gradient-to-br from-surface/50 to-surface-secondary/50 border border-dashed border-border rounded-2xl py-16 text-center"
-                    >
-                      <div className="text-7xl mb-6 animate-bounce">🔍</div>
-                      <h4 className="text-xl font-black text-foreground mb-3">No students found</h4>
-                      <p className="text-sm text-muted-foreground max-w-md mx-auto">Try adjusting your search or select a different batch.</p>
-                    </motion.div>
-                  ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {getFilteredStudents.map((student, idx) => {
-                        const isSelected = selectedStudentForDashboard?.student_id === student.student_id;
-                        return (
-                          <motion.div
-                            key={student.student_id || student.id}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: idx * 0.05 }}
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => handleOpenStudentDashboard(student)}
-                            className={`bg-surface border rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all group ${
-                              isSelected
-                                ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-500/10 shadow-md shadow-emerald-500/10'
-                                : 'border-border hover:border-primary/40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 mb-3">
-                              <Avatar
-                                src={student.profile_photo}
-                                name={student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim()}
-                                size="xl"
-                                className="shadow-md ring-2 ring-border"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-foreground truncate text-sm">
-                                  {student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown'}
-                                </h4>
-                                {student.student_id && (
-                                  <p className="text-xs text-muted-foreground font-mono">#{student.student_id}</p>
-                                )}
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                            </div>
-                            <div className="flex gap-1.5 flex-wrap">
-                              {student.age && (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 text-xs font-medium">
-                                  {student.age}y
-                                </span>
-                              )}
-                              {student.gender && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-surface-secondary text-xs text-muted-foreground font-medium">
-                                  {student.gender}
-                                </span>
-                              )}
-                              <span
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenStudentDashboard(student);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium ml-auto cursor-pointer"
-                              >
-                                <TrendingUp className="w-3 h-3" /> View
-                              </span>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </>
-          )}
-        </motion.div>
-      )}
-
-      {/* Student Dashboard Modal */}
-      <ModalWrapper
-        isOpen={showBatchPerformanceModal}
-        onClose={() => {
-          setShowBatchPerformanceModal(false);
-          setSelectedStudentForDashboard(null);
-          setStudentDashboardData(null);
-        }}
-        modalId="batch-performance"
-        contentClassName="bg-white dark:bg-slate-900 border border-border rounded-2xl shadow-2xl max-w-7xl w-full h-[90vh] flex flex-col overflow-hidden"
-      >
+      <>
         {/* Dynamic Sticky Header */}
         {!isManualScoringMode ? (
           /* DEFAULT: Student Performance Metrics Modal Header with Segmented Toggle */
@@ -2339,7 +1052,7 @@ export default function PerformancePanel() {
             <div className="flex items-center gap-3 w-full md:w-auto justify-end">
               <button
                 onClick={() => {
-                  setShowBatchPerformanceModal(false);
+                  setSelectedBatchId(null);
                   setSelectedStudentForDashboard(null);
                   setStudentDashboardData(null);
                 }}
@@ -2445,7 +1158,7 @@ export default function PerformancePanel() {
 
               <button
                 onClick={() => {
-                  setShowBatchPerformanceModal(false);
+                  setSelectedBatchId(null);
                   setSelectedStudentForDashboard(null);
                   setStudentDashboardData(null);
                 }}
@@ -3717,7 +2430,1171 @@ export default function PerformancePanel() {
             </div>
           </div>
         )}
-      </ModalWrapper>
+      </>
+    );
+  };
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  const filteredBatches = batches.filter((batch) => {
+    if (!selectedSport) return true;
+
+    const targetSportId = String(selectedSport.sport_id || selectedSport.id || '').toLowerCase();
+    const targetSportName = String(selectedSport.name || '').toLowerCase();
+
+    const batchSportId = String(batch.sport_id || batch.sportId || batch.sport?._id || batch.sport?.id || '').toLowerCase();
+    const batchSportName = String(batch.sport?.name || (typeof batch.sport === 'string' ? batch.sport : '') || '').toLowerCase();
+
+    return (
+      (batchSportId && batchSportId === targetSportId) ||
+      (batchSportName && batchSportName === targetSportName) ||
+      batchSportName.includes(targetSportName) ||
+      targetSportName.includes(batchSportName)
+    );
+  });
+
+  return (
+    <motion.div
+      className="relative z-10 mx-auto max-w-7xl space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      <div className="space-y-6">
+        {/* Header */}
+        <motion.div
+          className="flex items-center justify-between"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Activity className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                Performance Tracker
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Monitor athlete progress, track metrics & analyze performance data
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 sm:gap-3 flex-wrap relative z-10">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowAnalyticsPanel(!showAnalyticsPanel);
+                if (!showAnalyticsPanel) loadAcademyAnalytics();
+              }}
+              className={`btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                showAnalyticsPanel ? 'bg-primary text-white border-primary' : ''
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" /> Analytics
+              {showAnalyticsPanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowTimelinePanel(!showTimelinePanel);
+                if (!showTimelinePanel) loadAssessmentHistory();
+              }}
+              className={`btn-secondary rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                showTimelinePanel ? 'bg-primary text-white border-primary' : ''
+              }`}
+            >
+              <Clock className="w-4 h-4" /> History
+              {showTimelinePanel && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+            </motion.button>
+          </div>
+        </motion.div>
+
+        <AnimatePresence>
+          {message.text && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className={`rounded-xl border p-3.5 text-sm font-semibold flex items-center gap-3 ${
+                message.type === 'success'
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                  : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/25'
+              }`}
+            >
+              {message.type === 'success'
+                ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                : <XCircle className="w-4 h-4 flex-shrink-0" />
+              }
+              {message.text}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      {/* Analytics Panel */}
+      <AnimatePresence>
+        {showAnalyticsPanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-card border border-border rounded-2xl p-6 shadow-lg"
+          >
+            {/* Analytics Panel Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <BarChart2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Performance Analytics</h3>
+                <p className="text-xs text-muted-foreground">Academy-wide, batch &amp; student insights</p>
+              </div>
+            </div>
+            {/* Analytics Tabs */}
+            <div className="flex gap-1.5 mb-6 bg-surface-secondary/50 p-1.5 rounded-xl w-fit overflow-x-auto">
+              {[
+                { id: 'academy', label: 'Academy', icon: Trophy },
+                { id: 'batch', label: 'Batch', icon: Users, disabled: !selectedBatchId },
+                { id: 'student', label: 'Student', icon: Star, disabled: !selectedStudent },
+              ].map(({ id, label, icon: Icon, disabled }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => !disabled && handleAnalyticsTabChange(id)}
+                  disabled={disabled}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    analyticsTab === id
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {loadingAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader />
+              </div>
+            ) : (
+              <>
+                {/* Academy Analytics */}
+                {analyticsTab === 'academy' && (
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-black text-foreground">Academy-Wide Performance Overview</h4>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">👥</span>
+                            <div className="text-xs font-bold text-white/90">Total Students</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring" }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {academyAnalytics?.totalStudents || 0}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">⭐</span>
+                            <div className="text-xs font-bold text-white/90">Average Score</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {academyAnalytics?.averageScore?.toFixed(1) || '0.0'}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">📊</span>
+                            <div className="text-xs font-bold text-white/90">Total Evaluations</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {academyAnalytics?.totalEvaluations || 0}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">🏆</span>
+                            <div className="text-xs font-bold text-white/90">Active Batches</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.3 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {academyAnalytics?.activeBatches || 0}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    </div>
+                    {academyAnalytics?.topPerformers && academyAnalytics.topPerformers.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-2xl p-5"
+                      >
+                        <h5 className="text-xs font-bold text-emerald-600 mb-4 flex items-center gap-2">
+                          <span className="text-lg">🏅</span> Top Performing Students
+                        </h5>
+                        <div className="space-y-2">
+                          {academyAnalytics.topPerformers.map((student, idx) => (
+                            <motion.div
+                              key={idx}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.5 + idx * 0.1 }}
+                              whileHover={{ scale: 1.01, x: 5 }}
+                              className="flex justify-between items-center p-3 bg-white/50 dark:bg-surface/50 rounded-xl hover:bg-white/80 dark:hover:bg-surface/80 transition-all cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
+                                  {idx + 1}
+                                </div>
+                                <span className="text-sm font-bold text-foreground">{student.name}</span>
+                              </div>
+                              <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1.5 rounded-full">
+                                {student.averageScore?.toFixed(1)} avg
+                              </span>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+
+                {/* Batch Analytics */}
+                {analyticsTab === 'batch' && (
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-black text-foreground">Batch Performance Analytics</h4>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">📈</span>
+                            <div className="text-xs font-bold text-white/90">Average Score</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring" }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {batchAnalytics?.averageScore?.toFixed(1) || '0.0'}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">👤</span>
+                            <div className="text-xs font-bold text-white/90">Students Evaluated</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {batchAnalytics?.studentsEvaluated || 0}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">🚀</span>
+                            <div className="text-xs font-bold text-white/90">Improvement Rate</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {batchAnalytics?.improvementRate?.toFixed(1) || '0.0'}%
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    </div>
+                    {batchAnalytics?.attributeBreakdown && Array.isArray(batchAnalytics.attributeBreakdown) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-2xl p-5"
+                      >
+                        <h5 className="text-xs font-bold text-blue-600 mb-4 flex items-center gap-2">
+                          <span className="text-lg">📊</span> Attribute Performance Breakdown
+                        </h5>
+                        <div className="space-y-4">
+                          {batchAnalytics.attributeBreakdown.map((item, idx) => (
+                            <motion.div
+                              key={item.attribute || idx}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.4 + idx * 0.1 }}
+                            >
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-bold text-foreground">{item.attribute}</span>
+                                <span className="text-sm font-black text-blue-600 bg-blue-500/20 px-3 py-1 rounded-full">
+                                  {item.average || 0}
+                                </span>
+                              </div>
+                              <div className="w-full bg-surface-secondary rounded-full h-3 overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${Math.min((item.average / 10) * 100, 100)}%` }}
+                                  transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
+                                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full"
+                                />
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+
+                {/* Student Analytics */}
+                {analyticsTab === 'student' && (
+                  <div className="space-y-6">
+                    <h4 className="text-sm font-black text-foreground">Student Performance Analytics</h4>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">⭐</span>
+                            <div className="text-xs font-bold text-white/90">Overall Average</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring" }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {studentAnalytics?.overallAverage?.toFixed(1) || '0.0'}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">📊</span>
+                            <div className="text-xs font-bold text-white/90">Total Evaluations</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.1 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {studentAnalytics?.totalEvaluations || 0}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      <motion.div
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-5 shadow-lg"
+                      >
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">📈</span>
+                            <div className="text-xs font-bold text-white/90">Trend</div>
+                          </div>
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.5, type: "spring", delay: 0.2 }}
+                            className="text-3xl font-black text-white"
+                          >
+                            {studentAnalytics?.trend === 'improving' ? '📈' : studentAnalytics?.trend === 'declining' ? '📉' : '➡️'}
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    </div>
+                    {studentAnalytics?.attributeProgress && Array.isArray(studentAnalytics.attributeProgress) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-2xl p-5"
+                      >
+                        <h5 className="text-xs font-bold text-emerald-600 mb-4 flex items-center gap-2">
+                          <span className="text-lg">📈</span> Attribute Progress Over Time
+                        </h5>
+                        <div className="space-y-3">
+                          {studentAnalytics.attributeProgress.map((item, idx) => (
+                            <motion.div
+                              key={item.attribute || idx}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.4 + idx * 0.1 }}
+                              whileHover={{ scale: 1.01 }}
+                              className="p-4 bg-white/50 dark:bg-surface/50 rounded-xl hover:bg-white/80 dark:hover:bg-surface/80 transition-all"
+                            >
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-bold text-foreground">{item.attribute}</span>
+                                <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1 rounded-full">
+                                  {item.average} / 10
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <span className={`font-bold ${item.trend === 'up' ? 'text-emerald-600' : item.trend === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                  {item.trend === 'up' ? '↑ Improving' : item.trend === 'down' ? '↓ Declining' : '→ Stable'}
+                                </span>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+
+                {!academyAnalytics && analyticsTab === 'academy' && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">No academy analytics data available</p>
+                  </div>
+                )}
+                {!batchAnalytics && analyticsTab === 'batch' && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">Select a batch to view analytics</p>
+                  </div>
+                )}
+                {!studentAnalytics && analyticsTab === 'student' && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">Select a student to view analytics</p>
+                  </div>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+
+      {/* Timeline Panel */}
+      <AnimatePresence>
+        {showTimelinePanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-card border border-border rounded-2xl p-6 shadow-lg"
+          >
+            {/* Timeline Panel Header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <Clock className="w-4 h-4 text-cyan-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Assessment History</h3>
+                <p className="text-xs text-muted-foreground">Filter and review all assessments</p>
+              </div>
+            </div>
+            {/* Timeline Filters */}
+            <div className="mb-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground" /> Filter Assessments
+                </h4>
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ duration: 0.3, type: "spring" }}
+                  className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-3 py-1.5 rounded-full"
+                >
+                  {totalAssessments} assessments
+                </motion.span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Student ID</label>
+                  <input
+                    type="text"
+                    value={timelineFilters.student_id}
+                    onChange={(e) => handleTimelineFilterChange('student_id', e.target.value)}
+                    placeholder="Enter student ID"
+                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                  />
+                </motion.div>
+                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Batch ID</label>
+                  <input
+                    type="text"
+                    value={timelineFilters.batch_id}
+                    onChange={(e) => handleTimelineFilterChange('batch_id', e.target.value)}
+                    placeholder="Enter batch ID"
+                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                  />
+                </motion.div>
+                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Coach ID</label>
+                  <input
+                    type="text"
+                    value={timelineFilters.coach_id}
+                    onChange={(e) => handleTimelineFilterChange('coach_id', e.target.value)}
+                    placeholder="Enter coach ID"
+                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                  />
+                </motion.div>
+                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Start Date</label>
+                  <input
+                    type="date"
+                    value={timelineFilters.start_date}
+                    onChange={(e) => handleTimelineFilterChange('start_date', e.target.value)}
+                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                  />
+                </motion.div>
+                <motion.div whileFocus={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">End Date</label>
+                  <input
+                    type="date"
+                    value={timelineFilters.end_date}
+                    onChange={(e) => handleTimelineFilterChange('end_date', e.target.value)}
+                    className="w-full text-sm p-2.5 rounded-xl bg-surface border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                  />
+                </motion.div>
+              </div>
+              <div className="flex gap-2">
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleApplyFilters}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg"
+                >
+                  Apply Filters
+                </motion.button>
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleResetFilters}
+                  className="bg-surface hover:bg-surface-secondary text-foreground border border-border px-6 py-2.5 rounded-xl text-xs font-bold transition-all"
+                >
+                  Reset
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Assessment Timeline */}
+            {loadingTimeline ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader />
+              </div>
+            ) : assessmentHistory.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-12"
+              >
+                <div className="text-6xl mb-4">📋</div>
+                <h4 className="text-lg font-bold text-foreground mb-2">No Assessments Found</h4>
+                <p className="text-sm text-muted-foreground">Try adjusting your filters to see assessment history</p>
+              </motion.div>
+            ) : (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {assessmentHistory.map((assessment, idx) => (
+                  <motion.div
+                    key={assessment.assessment_id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="bg-surface border border-border rounded-xl overflow-hidden hover:border-emerald-500/50 transition-all"
+                  >
+                    <motion.div
+                      className="p-4 cursor-pointer hover:bg-surface-secondary/50 transition-all"
+                      onClick={() => handleExpandAssessment(assessment)}
+                      whileHover={{ scale: 1.01 }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <motion.div 
+                            whileHover={{ scale: 1.1, rotate: 5 }}
+                            className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-sm font-black text-white shadow-lg"
+                          >
+                            {assessment.student?.name?.charAt(0) || '?'}
+                          </motion.div>
+                          <div>
+                            <div className="text-sm font-bold text-foreground">
+                              {assessment.student?.name || 'Unknown Student'}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                              <span>📅</span>
+                              {new Date(assessment.scored_at).toLocaleDateString()} at {new Date(assessment.scored_at).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">Coach</div>
+                            <div className="text-xs font-bold text-foreground">{assessment.coach?.name || 'Unknown'}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">Batch</div>
+                            <div className="text-xs font-bold text-foreground">{assessment.batch?.name || 'Unknown'}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">Parameters</div>
+                            <div className="text-xs font-bold text-emerald-600 bg-emerald-500/20 px-2 py-1 rounded-full">
+                              {assessment.scores?.length || 0}
+                            </div>
+                          </div>
+                          <motion.span
+                            animate={{ rotate: expandedAssessment === assessment.assessment_id ? 180 : 0 }}
+                            className="text-emerald-600 text-lg font-bold"
+                          >
+                            ▼
+                          </motion.span>
+                        </div>
+                      </div>
+                      {assessment.notes && (
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                          <p className="text-xs text-muted-foreground italic bg-surface-secondary/30 p-2 rounded-lg">
+                            💬 "{assessment.notes}"
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                    
+                    {/* Expanded Assessment Details */}
+                    <AnimatePresence>
+                      {expandedAssessment === assessment.assessment_id && expandedAssessment && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="border-t border-border bg-surface-secondary/50 p-4"
+                        >
+                          <h5 className="text-xs font-bold text-foreground mb-4 flex items-center gap-2">
+                            <span className="text-lg">📊</span> Parameter Scores
+                          </h5>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {expandedAssessment.scores?.map((score, idx) => (
+                              <motion.div
+                                key={idx}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="bg-surface border border-border rounded-xl p-4 hover:shadow-md transition-all"
+                              >
+                                <div className="flex justify-between items-center mb-3">
+                                  <span className="text-xs font-bold text-foreground">
+                                    {score.attribute?.name || 'Unknown Parameter'}
+                                  </span>
+                                  <span className="text-sm font-black text-emerald-600 bg-emerald-500/20 px-3 py-1 rounded-full">
+                                    {score.score}/10
+                                  </span>
+                                </div>
+                                <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min((score.score / 10) * 100, 100)}%` }}
+                                    transition={{ duration: 0.8, delay: 0.2 }}
+                                    className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-2 rounded-full"
+                                  />
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center">
+                            <div className="text-xs text-muted-foreground">
+                              Overall Score: <span className="font-bold text-emerald-600 text-lg">{expandedAssessment.overall_score}/10</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Assessment ID: <span className="font-mono text-xs bg-surface-secondary px-2 py-1 rounded">{assessment.assessment_id}</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+
+      {/* Pending Attributes Approval Panel */}
+      {pendingAttributes.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50/80 dark:bg-amber-900/10 border border-amber-300 dark:border-amber-700/50 rounded-2xl p-5 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Pending Attribute Proposals</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Review and approve custom metrics proposed by coaches</p>
+              </div>
+            </div>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowPendingPanel(!showPendingPanel)}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg"
+            >
+              {showPendingPanel ? 'Collapse' : `Expand (${pendingAttributes.length})`}
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {showPendingPanel && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-3"
+              >
+                {pendingAttributes.map((attr, idx) => (
+                  <motion.div
+                    key={attr.id || attr.attribute_id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    whileHover={{ scale: 1.01 }}
+                    className="bg-white/50 dark:bg-surface/50 border border-border rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-bold text-foreground">{attr.name.replace(/\s*\((Fitness|Technique|Mental)\)$/i, '')}</span>
+                        <motion.span
+                          whileHover={{ scale: 1.05 }}
+                          className="text-xs bg-gradient-to-r from-amber-400 to-orange-400 text-white px-3 py-1 rounded-full font-bold shadow-sm"
+                        >
+                          {attr.sport?.name || 'Global'}
+                        </motion.span>
+                      </div>
+                      <p className="text-xs text-muted-foreground flex items-center gap-2 text-left">
+                        <span>👤</span> Proposed by: {attr.requested_by?.name || attr.proposed_by || 'Coach'} · 
+                        <span>📅</span> {attr.created_at ? new Date(attr.created_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleApproveAttribute(attr.id || attr.attribute_id)}
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg"
+                      >
+                        ✓ Approve
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleRejectAttribute(attr.id || attr.attribute_id)}
+                        className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg"
+                      >
+                        ✕ Reject
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      {!selectedSport ? (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Active Sports Catalog</h3>
+              <p className="text-xs text-muted-foreground">{sports.length} sport{sports.length !== 1 ? 's' : ''} configured</p>
+            </div>
+          </motion.div>
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <motion.div 
+                  key={i} 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="bg-gradient-to-br from-surface-secondary to-surface border border-border rounded-2xl p-6"
+                >
+                  <div className="w-16 h-16 bg-gradient-to-br from-surface to-surface-secondary rounded-2xl mb-4 animate-pulse"></div>
+                  <div className="h-5 bg-gradient-to-r from-surface to-surface-secondary rounded-lg mb-2 animate-pulse"></div>
+                  <div className="h-4 bg-gradient-to-r from-surface to-surface-secondary rounded w-2/3 animate-pulse"></div>
+                </motion.div>
+              ))}
+            </div>
+          ) : sports.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-gradient-to-br from-surface-secondary/50 to-surface/50 border border-border rounded-2xl p-16 text-center"
+            >
+              <div className="text-7xl mb-6 animate-bounce">🏆</div>
+              <h4 className="text-xl font-black text-foreground mb-3">No Sports Configured</h4>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">Add sports to start tracking student performance metrics and building comprehensive athlete profiles.</p>
+            </motion.div>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {sports.map((sport, index) => {
+                const icon = getSportIcon(sport);
+                const gradients = [
+                  'from-emerald-500 to-teal-600',
+                  'from-blue-500 to-indigo-600',
+                  'from-purple-500 to-pink-600',
+                  'from-orange-500 to-amber-600',
+                  'from-cyan-500 to-blue-600',
+                  'from-rose-500 to-red-600',
+                  'from-violet-500 to-purple-600',
+                  'from-lime-500 to-green-600'
+                ];
+                const gradient = gradients[index % gradients.length];
+
+                return (
+                  <motion.button
+                    key={sport.sport_id || sport.id || sport.name || index}
+                    type="button"
+                    onClick={() => handleSportSelect(sport)}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.08 }}
+                    whileHover={{ scale: 1.05, y: -8 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="group relative overflow-hidden bg-gradient-to-br from-surface-secondary to-surface border border-border hover:border-transparent p-6 text-left transition-all duration-300 rounded-2xl shadow-lg hover:shadow-2xl"
+                  >
+                    <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-20 rounded-full blur-3xl -mr-16 -mt-16 transition-opacity duration-300`}></div>
+                    <div className="relative z-10">
+                      <motion.div 
+                        whileHover={{ rotate: 10, scale: 1.2 }}
+                        transition={{ duration: 0.3 }}
+                        className="mb-4 inline-block text-4xl"
+                      >
+                        {icon}
+                      </motion.div>
+                      <div className="text-foreground text-lg font-black tracking-tight mb-2">
+                        {sport.name}
+                      </div>
+                      <div className="text-muted-foreground text-xs font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"></span>
+                        View performance metrics
+                      </div>
+                      <motion.div 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 0, x: -10 }}
+                        whileHover={{ opacity: 1, x: 0 }}
+                        className="mt-4 flex items-center gap-2 text-xs font-bold text-foreground/70"
+                      >
+                        Explore →
+                      </motion.div>
+                    </div>
+                    <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r ${gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+          <motion.button
+            type="button"
+            whileHover={{ x: -4 }}
+            onClick={handleBackToAllSports}
+            className="text-muted-foreground hover:text-accent flex items-center gap-2 text-sm font-semibold transition-colors"
+          >
+            <span>←</span> Back to All Sports
+          </motion.button>
+
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-br from-accent/10 to-cyan-500/10 border border-accent/30 rounded-2xl p-6 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-accent/20 to-cyan-500/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <motion.div 
+                  whileHover={{ rotate: 10, scale: 1.1 }}
+                  className="text-5xl"
+                >
+                  {getSportIcon(selectedSport)}
+                </motion.div>
+                <div>
+                  <h3 className="text-foreground text-2xl sm:text-3xl font-black tracking-tight">
+                    {selectedSport.name}
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Select a batch to view student performance metrics
+                  </p>
+                </div>
+              </div>
+              <div className="relative">
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowAttrs(!showAttrs)}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-accent border rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-200 flex items-center gap-2 shadow-lg"
+                >
+                  <span>⚙️</span> View Configured Attributes
+                </motion.button>
+
+                <AnimatePresence>
+                  {showAttrs && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 top-full mt-2 z-50 w-80 bg-surface border border-border shadow-2xl rounded-2xl p-5"
+                    >
+                      <h4 className="text-foreground text-sm font-bold mb-4 border-b border-border/50 pb-3 flex items-center gap-2">
+                        <span className="text-lg">📊</span> Active Evaluation Parameters
+                      </h4>
+                      {attributes.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {attributes.map((attr, idx) => (
+                            <motion.span
+                              key={attr?.id || attr?.name || idx}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: idx * 0.05 }}
+                              className="bg-gradient-to-r from-accent/10 to-cyan-500/10 border-accent/30 border px-3 py-1.5 rounded-full text-xs font-bold text-foreground"
+                            >
+                              {attr?.name || 'Unknown'}
+                            </motion.span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <div className="text-3xl mb-2">📋</div>
+                          <p className="text-muted-foreground text-xs">No attributes configured for this sport.</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
+              </div>
+            </div>
+          </motion.div>
+
+          {loadingBatches ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <motion.div 
+                  key={i} 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="bg-gradient-to-br from-surface-secondary to-surface border border-border rounded-2xl p-6"
+                >
+                  <div className="h-6 bg-gradient-to-r from-surface to-surface-secondary rounded-lg mb-3 animate-pulse"></div>
+                  <div className="h-4 bg-gradient-to-r from-surface to-surface-secondary rounded w-2/3 mb-2 animate-pulse"></div>
+                  <div className="h-4 bg-gradient-to-r from-surface to-surface-secondary rounded w-1/2 animate-pulse"></div>
+                </motion.div>
+              ))}
+            </div>
+          ) : filteredBatches.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-gradient-to-br from-surface-secondary/50 to-surface/50 border border-border rounded-2xl p-16 text-center"
+            >
+              <div className="text-7xl mb-6 animate-bounce">📚</div>
+              <h4 className="text-xl font-black text-foreground mb-3">No Training Batches</h4>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">Create training batches for this sport to start tracking student performance metrics.</p>
+            </motion.div>
+          ) : !selectedBatchId ? (
+              <div className="space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Target className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Select Training Batch</h3>
+                    <p className="text-xs text-muted-foreground">{filteredBatches.length} batch{filteredBatches.length !== 1 ? 'es' : ''} available</p>
+                  </div>
+                </motion.div>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredBatches.map((batch, idx) => {
+                    const gradients = [
+                      'from-emerald-500 to-teal-600',
+                      'from-blue-500 to-indigo-600',
+                      'from-purple-500 to-pink-600',
+                      'from-orange-500 to-amber-600',
+                      'from-cyan-500 to-blue-600',
+                      'from-rose-500 to-red-600'
+                    ];
+                    const gradient = gradients[idx % gradients.length];
+
+                    return (
+                      <motion.button
+                        key={batch.batch_id || batch.id}
+                        type="button"
+                        onClick={() => handleBatchSelect(batch.batch_id || batch.id)}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: idx * 0.08 }}
+                        whileHover={{ scale: 1.03, y: -4 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`group relative overflow-hidden bg-gradient-to-br from-surface-secondary to-surface border p-6 text-left transition-all duration-300 rounded-2xl shadow-lg hover:shadow-2xl ${
+                          selectedBatchId === (batch.batch_id || batch.id) 
+                            ? 'border-accent ring-2 ring-accent/50 shadow-accent/20' 
+                            : 'border-border hover:border-accent/40'
+                        }`}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+                        <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 rounded-full blur-2xl -mr-12 -mt-12 transition-opacity duration-300`}></div>
+                        <div className="relative z-10">
+                          <div className="text-foreground text-lg font-black tracking-tight mb-3">{batch.name}</div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"></span>
+                              <span className="font-medium">Students:</span> 
+                              <span className="font-bold text-foreground">{batch.student_count || batch.students?.length || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"></span>
+                              <span className="font-medium">Timings:</span> 
+                              <span className="font-medium text-foreground">{batch.timings || batch.schedule || 'Not specified'}</span>
+                            </div>
+                          </div>
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0 }}
+                            whileHover={{ opacity: 1 }}
+                            className="mt-4 flex items-center gap-2 text-xs font-bold text-foreground/60"
+                          >
+                            Select →
+                          </motion.div>
+                        </div>
+                        <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r ${gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}></div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+          ) : (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBatchId(null);
+                    setSelectedStudentForDashboard(null);
+                    setStudentDashboardData(null);
+                  }}
+                  className="text-muted-foreground hover:text-accent flex items-center gap-1.5 text-sm font-semibold transition-colors animate-in slide-in-from-left duration-250"
+                >
+                  <span>←</span> Back to Batches
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-border rounded-2xl shadow-xl h-[85vh] flex flex-col overflow-hidden">
+                {renderPerformanceView()}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      
       </div>
 
       {/* Student Side Drawer / History Modal */}

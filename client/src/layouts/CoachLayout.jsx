@@ -140,6 +140,13 @@ function CoachLayoutShell() {
     setCoachUser(decodeJwtPayload(token));
   }, []);
 
+  useEffect(() => {
+    document.body.classList.add('coach-portal-root');
+    return () => {
+      document.body.classList.remove('coach-portal-root');
+    };
+  }, []);
+
   // Load theme colors from backend dynamically
   useEffect(() => {
     const loadThemeColors = async () => {

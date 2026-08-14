@@ -57,6 +57,13 @@ function ParentLayoutShell() {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  useEffect(() => {
+    document.body.classList.add('parent-portal-root');
+    return () => {
+      document.body.classList.remove('parent-portal-root');
+    };
+  }, []);
+
   // Track screen width for layout modes
   useEffect(() => {
     const handleResize = () => setScreenWidth(window.innerWidth);

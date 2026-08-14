@@ -234,6 +234,10 @@ export const recordPayment = async (req, res, next) => {
     const payload = { ...req.body };
 
     if (req.file) {
+      console.log('--- UPLOADED FILE DEBUG ---');
+      console.log('Originalname:', req.file.originalname);
+      console.log('Mimetype:', req.file.mimetype);
+      console.log('Size:', req.file.size);
       payload.proof_url = req.file.path;
       payload.proof_file = req.file;
     }

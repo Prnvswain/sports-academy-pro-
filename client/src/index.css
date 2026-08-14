@@ -409,60 +409,99 @@
   text-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
 }
 
-/* Coach Portal Layout Overscroll Fixes */
-.coach-sidebar-overscroll {
-  position: relative;
-}
-.coach-sidebar-overscroll::before {
+/* Global Viewport Layout - Keep overscroll/bounce active, but extend header and sidebar backgrounds to avoid gaps */
+
+/* Sticky Header Overscroll Extension */
+header.sticky::before,
+.sticky.top-0::before {
   content: '';
   position: absolute;
-  top: -300px;
+  top: -400px;
   left: 0;
   right: 0;
-  height: 300px;
+  height: 400px;
   background: inherit;
-  z-index: 10;
+  z-index: -1;
   pointer-events: none;
 }
 
-.coach-header-overscroll {
-  position: relative;
-  background-color: var(--theme-navbar, #84cc16) !important;
-}
-:root[data-theme='dark'] .coach-header-overscroll {
-  background-color: rgb(15 23 42 / 0.95) !important;
-}
-
-.coach-header-overscroll::before {
+/* Sidebar Overscroll Extensions (Top & Bottom) */
+aside::before {
   content: '';
   position: absolute;
-  top: -300px;
+  top: -400px;
   left: 0;
   right: 0;
-  height: 300px;
-  background: var(--theme-navbar, #84cc16) !important;
-  z-index: 10;
+  height: 400px;
+  background: inherit;
+  z-index: -1;
   pointer-events: none;
 }
-:root[data-theme='dark'] .coach-header-overscroll::before {
-  background: rgb(15 23 42 / 0.95) !important;
+
+aside::after {
+  content: '';
+  position: absolute;
+  bottom: -400px;
+  left: 0;
+  right: 0;
+  height: 400px;
+  background: inherit;
+  z-index: -1;
+  pointer-events: none;
 }
 
-/* Coach Portal Root/Body Styles */
-html.coach-portal-root,
-body.coach-portal-root,
-#root.coach-portal-root {
-  background: linear-gradient(135deg, #EF4444 0%, #F87171 50%, #FFFFFF 100%) !important;
-  overscroll-behavior: none !important;
-  overflow: hidden !important;
+/* Ensure the portal layouts take full viewport space and scale correctly */
+.h-screen {
   height: 100vh !important;
   height: 100dvh !important;
-  width: 100vw !important;
 }
 
-/* In dark mode */
-:root[data-theme='dark'] html.coach-portal-root,
-:root[data-theme='dark'] body.coach-portal-root,
-:root[data-theme='dark'] #root.coach-portal-root {
+.min-h-screen {
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+}
+
+/* Portal and Login Viewport Theme Background Rules */
+body.login-portal-root,
+html:has(body.login-portal-root) {
+  background-color: #0f172a !important;
+  background-image: none !important;
+}
+
+body.parent-portal-root,
+html:has(body.parent-portal-root) {
+  background: linear-gradient(135deg, #2563EB 0%, #60A5FA 50%, #FFFFFF 100%) !important;
+}
+:root[data-theme='dark'] body.parent-portal-root,
+:root[data-theme='dark'] html:has(body.parent-portal-root) {
   background: linear-gradient(135deg, #0f172a 0%, #090d16 50%, #020617 100%) !important;
 }
+
+body.coach-portal-root,
+html:has(body.coach-portal-root) {
+  background: linear-gradient(135deg, #EF4444 0%, #F87171 50%, #FFFFFF 100%) !important;
+}
+:root[data-theme='dark'] body.coach-portal-root,
+:root[data-theme='dark'] html:has(body.coach-portal-root) {
+  background: linear-gradient(135deg, #0f172a 0%, #090d16 50%, #020617 100%) !important;
+}
+
+body.admin-portal-root,
+html:has(body.admin-portal-root) {
+  background: linear-gradient(135deg, #F97316 0%, #FACC15 50%, #FFFFFF 100%) !important;
+}
+:root[data-theme='dark'] body.admin-portal-root,
+:root[data-theme='dark'] html:has(body.admin-portal-root) {
+  background: linear-gradient(135deg, #0f172a 0%, #090d16 50%, #020617 100%) !important;
+}
+
+body.super-admin-portal-root,
+html:has(body.super-admin-portal-root) {
+  background: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #FFFFFF 100%) !important;
+}
+:root[data-theme='dark'] body.super-admin-portal-root,
+:root[data-theme='dark'] html:has(body.super-admin-portal-root) {
+  background: linear-gradient(135deg, #0f172a 0%, #090d16 50%, #020617 100%) !important;
+}
+
+

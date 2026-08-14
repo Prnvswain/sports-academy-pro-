@@ -170,7 +170,7 @@ export default function ParentPerformance() {
   const attendanceRate = studentDashboardData?.dashboard?.attendanceRate || 0;
 
   return (
-    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans p-4 lg:p-8">
+    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans text-left">
       {/* Top Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

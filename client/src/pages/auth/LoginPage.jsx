@@ -55,24 +55,36 @@ const loginOptions = [
     description: 'Academy administrators and staff',
     icon: Building2,
     path: '/login/admin',
-    color: 'text-slate-900',
-    bgColor: 'bg-lime-400',
+    cardBg: 'bg-amber-400 border-amber-400 dark:border-amber-400',
+    iconBg: 'bg-slate-950/10 text-slate-950',
+    titleColor: 'text-slate-950',
+    descColor: 'text-slate-800',
+    linkColor: 'text-slate-950 hover:text-slate-900',
+    arrowColor: 'text-slate-950',
   },
   {
     title: 'Coach',
     description: 'Coaches and trainers',
     icon: User,
     path: '/coach/login',
-    color: 'text-white',
-    bgColor: 'bg-slate-800',
+    cardBg: 'bg-red-500 border-red-500 dark:border-red-500',
+    iconBg: 'bg-white/20 text-white',
+    titleColor: 'text-white',
+    descColor: 'text-red-100',
+    linkColor: 'text-white hover:text-red-100',
+    arrowColor: 'text-white',
   },
   {
     title: 'Parent',
     description: 'Parents and guardians',
     icon: Users,
-    color: 'text-slate-900',
-    bgColor: 'bg-lime-400',
     path: '/parent/login',
+    cardBg: 'bg-blue-600 border-blue-600 dark:border-blue-600',
+    iconBg: 'bg-white/20 text-white',
+    titleColor: 'text-white',
+    descColor: 'text-blue-100',
+    linkColor: 'text-white hover:text-blue-100',
+    arrowColor: 'text-white',
   },
 ];
 
@@ -80,6 +92,13 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleMessage, setGoogleMessage] = useState({ text: '', type: '' });
+
+  useEffect(() => {
+    document.body.classList.add('login-portal-root');
+    return () => {
+      document.body.classList.remove('login-portal-root');
+    };
+  }, []);
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
@@ -167,24 +186,26 @@ export default function LoginPage() {
                 {loginOptions.map((option) => (
                   <Link key={option.path} to={option.path} className="group">
                     <motion.div
-                      whileHover={{ y: -6 }}
-                      /* Reduced p-8 to p-5 */
-                      className={`border-2 border-slate-100 dark:border-slate-700 h-full p-5 transition-all hover:shadow-xl hover:border-lime-500`}
+                      whileHover={{ y: -6, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`border-2 h-full p-5 rounded-2xl transition-all shadow-lg hover:shadow-2xl flex flex-col justify-between ${option.cardBg}`}
                     >
-                      {/* Reduced mb-6 to mb-4, made icon box slightly smaller (h-12 w-12) */}
-                      <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded ${option.bgColor} ${option.color}`}>
-                        <option.icon className="h-6 w-6" />
+                      <div>
+                        {/* Icon Wrapper */}
+                        <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl shadow-inner ${option.iconBg}`}>
+                          <option.icon className="h-6 w-6" />
+                        </div>
+                        {/* Title */}
+                        <h3 className={`mb-2 text-sm font-black uppercase tracking-tight ${option.titleColor}`}>
+                          {option.title}
+                        </h3>
+                        {/* Description */}
+                        <p className={`text-[10px] font-medium mb-4 leading-relaxed ${option.descColor}`}>
+                          {option.description}
+                        </p>
                       </div>
-                      {/* Reduced mb-3 to mb-2 */}
-                      <h3 className="mb-2 text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">
-                        {option.title}
-                      </h3>
-                      {/* Reduced mb-8 to mb-4 */}
-                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-                        {option.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-lime-600">
-                        Login <ArrowRight className="h-4 w-4" />
+                      <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${option.linkColor}`}>
+                        Login <ArrowRight className={`h-4 w-4 transition-transform group-hover:translate-x-1 ${option.arrowColor}`} />
                       </div>
                     </motion.div>
                   </Link>

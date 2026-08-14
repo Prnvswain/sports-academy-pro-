@@ -94,6 +94,23 @@ export default function AccountsPanel() {
   const [sports, setSports] = useState([]);
   const [durationPlans, setDurationPlans] = useState([]);
 
+  useEffect(() => {
+    const fetchBatchesForReactivate = async () => {
+      if (reactivateForm.sport_id) {
+        try {
+          const res = await adminGet(`/admin/batches/available?sport_id=${reactivateForm.sport_id}`);
+          setReactivateBatches(res.data || res || []);
+        } catch (err) {
+          console.error('Failed to fetch batches for reactivation:', err);
+          setReactivateBatches([]);
+        }
+      } else {
+        setReactivateBatches([]);
+      }
+    };
+    fetchBatchesForReactivate();
+  }, [reactivateForm.sport_id]);
+
   // Parent Password Management State
   const [showParentPasswordModal, setShowParentPasswordModal] = useState(false);
   const [passwordManageStudent, setPasswordManageStudent] = useState(null);
@@ -556,6 +573,50 @@ export default function AccountsPanel() {
       setMessage({ text: error.message || 'Reactivation failed.', type: 'error' });
     } finally {
       setIsReactivating(false);
+    }
+  };
+
+  const handleMarkPaidClick = (paymentObj, fallbackId) => {
+    const studentStatus = paymentObj?.student?.status;
+    const isDeactivated = studentStatus && studentStatus !== 'ACTIVE';
+
+    if (isDeactivated) {
+      const targetId = paymentObj?.receipt_id || paymentObj?.id || paymentObj?.payment_id || paymentObj?.paymentId || paymentObj?.PaymentID || paymentObj?._id || paymentObj?.id_payment || fallbackId;
+      setPendingPaymentIntent({
+        receipt_id: targetId,
+        student_id: paymentObj.student_id || paymentObj.student?.student_id || paymentObj.student?.id,
+        amount: parseFloat(paymentObj.amount || 0),
+        extra_amount: 0,
+        amount_paid: parseFloat(paymentObj.amount || 0),
+        payment_date: paymentObj.payment_date || paymentObj.date || new Date().toISOString().split('T')[0],
+        method: paymentObj.method || 'cash',
+        status: 'completed',
+      });
+
+      // Update reactivation modal fields with student's current info
+      const studentId = paymentObj.student_id || paymentObj.student?.student_id || paymentObj.student?.id;
+      setForm(prev => ({
+        ...prev,
+        student_id: studentId.toString()
+      }));
+
+      const selectedStudentObj = students.find(s => (s.id || s.student_id)?.toString() === studentId.toString()) || paymentObj.student;
+      const enrollments = selectedStudentObj?.enrollments || [];
+      const latestEnrollment = enrollments[0];
+
+      setReactivateForm({
+        action: 'continue',
+        duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
+        sport_id: latestEnrollment?.sport_id?.toString() || selectedStudentObj?.sport_id?.toString() || '',
+        batch_id: latestEnrollment?.batch_id?.toString() || selectedStudentObj?.batch_id?.toString() || '',
+        plan_start_date: new Date().toISOString().split('T')[0],
+        additional_charges: '',
+        registration_fee: '',
+        discount: ''
+      });
+      setShowReactivateModal(true);
+    } else {
+      updateStatus(paymentObj, fallbackId, 'completed');
     }
   };
 
@@ -2120,11 +2181,11 @@ export default function AccountsPanel() {
                                   </span>
                                 )}
                                 {normalizedStatus !== 'COMPLETED' && (
-                                  <button type="button" onClick={() => updateStatus(payment, currentId, 'completed')} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
+                                  <button type="button" onClick={() => handleMarkPaidClick(payment, currentId)} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
                                     <CheckCircle className="w-3 h-3" />
                                   </button>
                                 )}
-                                {normalizedStatus === 'PENDING' && (
+                                {!['COMPLETED', 'REJECTED', 'FAILED', 'VOID'].includes(normalizedStatus) && (
                                   <button type="button" onClick={() => rejectPayment(payment, currentId)} title="Reject" className="w-5 h-5 rounded flex items-center justify-center bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all cursor-pointer">
                                     <XCircle className="w-3 h-3" />
                                   </button>
@@ -3436,15 +3497,9 @@ export default function AccountsPanel() {
                       <select
                         className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs appearance-none cursor-pointer"
                         value={reactivateForm.sport_id}
-                        onChange={async e => {
+                        onChange={e => {
                           const sportId = e.target.value;
                           setReactivateForm(prev => ({ ...prev, sport_id: sportId, batch_id: '' }));
-                          if (sportId) {
-                            try {
-                              const res = await adminGet(`/admin/batches?sport_id=${sportId}`);
-                              setReactivateBatches(res.data || []);
-                            } catch (_) { setReactivateBatches([]); }
-                          } else { setReactivateBatches([]); }
                         }}
                         required
                       >
@@ -3524,27 +3579,44 @@ export default function AccountsPanel() {
                 )}
 
                 {/* Buttons */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowReactivateModal(false)}
-                    className="flex-1 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <motion.button
-                    whileHover={{ scale: isReactivating ? 1 : 1.02, y: isReactivating ? 0 : -1 }}
-                    whileTap={{ scale: isReactivating ? 1 : 0.98 }}
-                    type="submit"
-                    disabled={isReactivating}
-                    className="flex-1 h-10 bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white text-xs font-bold rounded-xl shadow-md shadow-[#84cc16]/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
-                  >
-                    {isReactivating ? (
-                      <><svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Reactivating...</>
-                    ) : (
-                      <><RefreshCw className="w-3.5 h-3.5" />{pendingPaymentIntent ? 'Reactivate & Apply Payment' : 'Reactivate Student'}</>
-                    )}
-                  </motion.button>
+                <div className="flex flex-col gap-2 pt-2">
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowReactivateModal(false)}
+                      className="flex-1 h-10 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <motion.button
+                      whileHover={{ scale: isReactivating ? 1 : 1.02, y: isReactivating ? 0 : -1 }}
+                      whileTap={{ scale: isReactivating ? 1 : 0.98 }}
+                      type="submit"
+                      disabled={isReactivating}
+                      className="flex-1 h-10 bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white text-xs font-bold rounded-xl shadow-md shadow-[#84cc16]/30 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                    >
+                      {isReactivating ? (
+                        <><svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Reactivating...</>
+                      ) : (
+                        <><RefreshCw className="w-3.5 h-3.5" />{pendingPaymentIntent ? (pendingPaymentIntent.receipt_id ? 'Reactivate & Mark Paid' : 'Reactivate & Apply Payment') : 'Reactivate Student'}</>
+                      )}
+                    </motion.button>
+                  </div>
+                  {pendingPaymentIntent && pendingPaymentIntent.receipt_id && (
+                    <motion.button
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      type="button"
+                      onClick={() => {
+                        setShowReactivateModal(false);
+                        updateStatus(pendingPaymentIntent, pendingPaymentIntent.receipt_id, 'completed');
+                        setPendingPaymentIntent(null);
+                      }}
+                      className="w-full h-10 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700/80 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all"
+                    >
+                      <span>💸</span> Mark Paid Only
+                    </motion.button>
+                  )}
                 </div>
               </form>
             </motion.div>

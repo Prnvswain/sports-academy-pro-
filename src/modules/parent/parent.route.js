@@ -60,7 +60,7 @@ router.post(
     body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
     body('payment_date').notEmpty().withMessage('Payment date is required').isISO8601(),
     body('method').isIn(['upi', 'bank_transfer', 'neft', 'rtgs', 'imps']).withMessage('Invalid payment method. Only UPI and Bank Transfer are allowed'),
-    body('transaction_number').isLength({ min: 12, max: 50 }).withMessage('Transaction number must be between 12 and 50 characters').matches(/^[a-zA-Z0-9]+$/).withMessage('Transaction number can only contain letters and numbers'),
+    body('transaction_number').optional({ checkFalsy: true }).isLength({ min: 12, max: 50 }).withMessage('Transaction number must be between 12 and 50 characters').matches(/^[a-zA-Z0-9]+$/).withMessage('Transaction number can only contain letters and numbers'),
     body('remarks').optional().isString(),
   ],
   validationErrorHandler,

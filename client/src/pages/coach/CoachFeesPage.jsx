@@ -32,7 +32,7 @@ export function CoachFeeCollection({ students = [] }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [remarks, setRemarks] = useState('');
   const [proofFile, setProofFile] = useState(null);
 
@@ -327,6 +327,7 @@ export function CoachFeeCollection({ students = [] }) {
         payload.append('student_id', parseInt(selectedStudentId, 10));
         payload.append('amount', parseFloat(amount));
         payload.append('method', paymentMethod.toLowerCase());
+        payload.append('payment_date', new Date().toISOString());
         if (remarks) {
           payload.append('remarks', remarks);
         }
@@ -336,6 +337,7 @@ export function CoachFeeCollection({ students = [] }) {
           student_id: parseInt(selectedStudentId, 10),
           amount: parseFloat(amount),
           method: paymentMethod.toLowerCase(),
+          payment_date: new Date().toISOString(),
           remarks: remarks,
         };
       }
@@ -662,7 +664,7 @@ export function CoachFeeCollection({ students = [] }) {
               <div>
                 <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Payment Method</label>
                 <div className="grid grid-cols-2 gap-2.5">
-                  {['Cash', 'UPI', 'Online', 'Cheque'].map((method) => (
+                  {['Cash', 'Cheque'].map((method) => (
                     <button
                       key={method}
                       type="button"

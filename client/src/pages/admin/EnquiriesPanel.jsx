@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Copy, QrCode, Plus, CheckCircle, Download } from 'lucide-react';
 import { adminGet, adminPost, adminPut, adminDelete } from '../../api/client';
 import { QRCodeCanvas } from 'qrcode.react';
 import StandardModal from '../../components/StandardModal';
@@ -94,6 +94,7 @@ export default function EnquiriesPanel() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // QR code ref for download
   const qrCodeRef = useRef(null);
@@ -539,6 +540,8 @@ export default function EnquiriesPanel() {
     navigator.clipboard
       .writeText(formUrl)
       .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
         showToast('Form link copied to clipboard!', 'success');
       })
       .catch(() => {
@@ -627,33 +630,45 @@ export default function EnquiriesPanel() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        <div className="flex flex-wrap items-center gap-2 relative z-10 w-full sm:w-auto justify-end mt-4 sm:mt-0">
           <motion.button 
             whileHover={{ scale: 1.02 }} 
             whileTap={{ scale: 0.98 }}
             onClick={handleCopyFormLink} 
-            className="btn-secondary flex-1 md:flex-none border-border/50 bg-surface/50 backdrop-blur-md hover:bg-surface"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-foreground flex items-center justify-center gap-2 h-10 transition-all duration-200 cursor-pointer flex-1 sm:flex-none"
           >
-            🔗 Copy Link
+            {copied ? (
+              <>
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <span className="text-emerald-500 font-extrabold">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4 text-muted-foreground" />
+                <span>Copy Link</span>
+              </>
+            )}
           </motion.button>
           <motion.button 
             whileHover={{ scale: 1.02 }} 
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowQRModal(true)} 
-            className="btn-secondary flex-1 md:flex-none border-border/50 bg-surface/50 backdrop-blur-md hover:bg-surface"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-foreground flex items-center justify-center gap-2 h-10 transition-all duration-200 cursor-pointer flex-1 sm:flex-none"
           >
-            📱 QR Code
+            <QrCode className="w-4 h-4 text-muted-foreground" />
+            <span>QR Code</span>
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(var(--color-accent-primary), 0.3)" }} 
+            whileHover={{ scale: 1.02 }} 
             whileTap={{ scale: 0.98 }}
             onClick={() => {
               resetForm();
               setShowAddModal(true);
             }}
-            className="btn-primary flex-1 md:flex-none bg-gradient-to-r from-primary to-accent-hover border-transparent"
+            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 h-10 transition-all duration-200 shadow-md shadow-emerald-500/10 cursor-pointer flex-1 sm:flex-none"
           >
-            + Add Enquiry
+            <Plus className="w-4 h-4 text-white" />
+            <span>Add Enquiry</span>
           </motion.button>
         </div>
       </motion.div>
@@ -1826,34 +1841,35 @@ export default function EnquiriesPanel() {
         subtitle="Scan to submit a new remote enquiry"
         size="sm"
         footer={
-          <div className="flex gap-3">
+          <div className="flex gap-3 w-full">
             <button
               type="button"
               onClick={handleDownloadQR}
-              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition"
+              className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer h-10 shadow-md shadow-emerald-500/10"
             >
-              Download PNG Graphic
+              <Download className="w-4 h-4 text-white" />
+              <span>Download PNG Graphic</span>
             </button>
           </div>
         }
       >
-              <div className="flex flex-col items-center text-center">
-                <div className="bg-emerald-100 dark:bg-emerald-950/30 p-3 rounded-full mb-4">
-                  <span className="text-2xl">📱</span>
-                </div>
+        <div className="flex flex-col items-center text-center p-2">
+          <div className="bg-emerald-100 dark:bg-emerald-950/40 p-4 rounded-full mb-4 text-emerald-600 flex items-center justify-center">
+            <QrCode className="w-6 h-6" />
+          </div>
 
-                <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-slate-200 dark:border-slate-700 ring-1 ring-slate-200 dark:ring-slate-700">
-                  {typeof window !== 'undefined' && (
-                    <QRCodeCanvas
-                      value={`${window.location.origin}/enquiry-form${academyId ? `?academy_id=${academyId}` : ''}`}
-                      size={200}
-                      level="H"
-                      includeMargin={false}
-                      fgColor="#0a0f0d" 
-                    />
-                  )}
-                </div>
-              </div>
+          <div ref={qrCodeRef} className="rounded-2xl bg-white p-5 shadow-lg border-4 border-slate-200 dark:border-slate-700 ring-1 ring-slate-200 dark:ring-slate-700 transition-all duration-300 hover:scale-105">
+            {typeof window !== 'undefined' && (
+              <QRCodeCanvas
+                value={`${window.location.origin}/enquiry-form${academyId ? `?academy_id=${academyId}` : ''}`}
+                size={200}
+                level="H"
+                includeMargin={false}
+                fgColor="#0a0f0d" 
+              />
+            )}
+          </div>
+        </div>
       </StandardModal>
     </motion.div>
   );

@@ -11,6 +11,13 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
+  useEffect(() => {
+    document.body.classList.add('login-portal-root');
+    return () => {
+      document.body.classList.remove('login-portal-root');
+    };
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));

@@ -108,7 +108,7 @@ export default function ParentAnnouncements() {
     : announcements;
 
   return (
-    <div className="space-y-6 w-full max-w-4xl mx-auto font-sans p-4 lg:p-8">
+    <div className="space-y-6 w-full max-w-4xl mx-auto font-sans text-left">
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}

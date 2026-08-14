@@ -12,6 +12,13 @@ export default function CoachLogin() {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
+    document.body.classList.add('login-portal-root');
+    return () => {
+      document.body.classList.remove('login-portal-root');
+    };
+  }, []);
+
+  useEffect(() => {
     if (getCoachToken()) {
       navigate('/coach/dashboard', { replace: true });
     }

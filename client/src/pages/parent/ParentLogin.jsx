@@ -15,6 +15,13 @@ export default function ParentLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    document.body.classList.add('login-portal-root');
+    return () => {
+      document.body.classList.remove('login-portal-root');
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');

@@ -124,7 +124,7 @@ export default function ParentProfile() {
   const enrolledStudents = profileData.students || [];
 
   return (
-    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans p-4 lg:p-8">
+    <div className="space-y-6 w-full max-w-7xl mx-auto font-sans text-left">
       {/* Header section */}
       <motion.div
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/50 pb-4"
