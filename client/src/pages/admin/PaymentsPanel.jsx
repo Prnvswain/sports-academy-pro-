@@ -32,6 +32,21 @@ export default function AccountsPanel() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
+  // Derived state to determine if selected student is eligible for advance credit
+  const selectedStudentObj = form.student_id ? students.find(s => (s.id || s.student_id)?.toString() === form.student_id.toString()) : null;
+  const isInactive = !!(selectedStudentObj && selectedStudentObj.status !== 'ACTIVE');
+
+  const isCreditEligible = (() => {
+    if (!selectedStudentObj) return false;
+    const isActiveStudent = !isInactive;
+    const hasActivePlan = selectedStudentObj.enrollments?.some(e => e.is_active);
+    const currentCyclePaid = studentFeeData ? (studentFeeData.total_fees_paid || 0) : 0;
+    const currentCycleTotal = studentFeeData ? (studentFeeData.total_fees_assigned || 0) : 0;
+    const currentCycleDue = studentFeeData ? (studentFeeData.balance_outstanding || 0) : 0;
+    const isFullyPaid = studentFeeData && (currentCyclePaid >= currentCycleTotal) && (currentCycleDue === 0);
+    return isActiveStudent && hasActivePlan && isFullyPaid;
+  })();
+
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -437,9 +452,8 @@ export default function AccountsPanel() {
     }
 
     setIsSubmitting(true);
-    const isFullyPaid = form.student_id && parseFloat(form.pending_amount || 0) === 0;
 
-    if (isFullyPaid) {
+    if (isCreditEligible) {
       const extraAmount = parseFloat(form.extra_amount || 0);
       if (isNaN(extraAmount) || extraAmount <= 0) {
         setMessage({ text: 'Please enter a valid extra amount', type: 'error' });
@@ -561,7 +575,7 @@ export default function AccountsPanel() {
           pending_amount: ledgerData.balance_outstanding || 0,
           amount: ledgerData.balance_outstanding > 0 ? ledgerData.balance_outstanding.toString() : ''
         }));
-      } catch (_) {}
+      } catch (_) { }
       // Clear form if payment was applied
       if (pendingPaymentIntent) {
         setForm({ ...emptyForm, payment_date: new Date().toISOString().split('T')[0] });
@@ -1159,8 +1173,8 @@ export default function AccountsPanel() {
           <button
             onClick={() => setActiveTab('payments')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'payments'
-                ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
+              ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+              : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
               }`}
           >
             <DollarSign className="w-3.5 h-3.5" />
@@ -1169,8 +1183,8 @@ export default function AccountsPanel() {
           <button
             onClick={() => setActiveTab('students')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'students'
-                ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
+              ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+              : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
               }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -1262,8 +1276,8 @@ export default function AccountsPanel() {
                     setKitPaymentAmount('');
                   }}
                   className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1.5 ${paymentType === 'training'
-                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
+                    ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                     }`}
                 >
                   Training Fee
@@ -1277,8 +1291,8 @@ export default function AccountsPanel() {
                     }
                   }}
                   className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1.5 ${paymentType === 'kit'
-                      ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
+                    ? 'bg-white dark:bg-slate-700 text-[#84cc16] shadow-md shadow-black/5'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-700/30'
                     }`}
                 >
                   <Package className="w-3.5 h-3.5" />
@@ -1335,7 +1349,7 @@ export default function AccountsPanel() {
                         const isActive = s?.status === 'ACTIVE';
                         // Plan / Sport / Batch info
                         const enrollments = s?.enrollments || [];
-                        const activeEnr = enrollments.find(e => e.status === 'ACTIVE');
+                        const activeEnr = enrollments.find(e => e.is_active);
                         const lastEnr = activeEnr || enrollments[0];
                         const planName = lastEnr?.duration_plan?.name || s?.duration_plan?.name || null;
                         const sportName = lastEnr?.sport?.name || s?.sport?.name || null;
@@ -1390,7 +1404,7 @@ export default function AccountsPanel() {
                 const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
                 const enrollments = selectedStudent.enrollments || [];
-                const activeEnrollment = enrollments.find(e => e.status === 'ACTIVE');
+                const activeEnrollment = enrollments.find(e => e.is_active);
                 const latestEnrollment = activeEnrollment || enrollments[0];
                 const planName = latestEnrollment?.duration_plan?.name || 'No Plan';
                 const sportName = latestEnrollment?.sport?.name || selectedStudent.sport?.name || 'No Sport';
@@ -1418,8 +1432,8 @@ export default function AccountsPanel() {
                         <div className="font-bold text-slate-850 dark:text-slate-200 text-sm">{name}</div>
                         <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
                           <span className={`inline-flex items-center gap-1 font-bold ${selectedStudent.status === 'ACTIVE'
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-rose-600 dark:text-rose-400'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-rose-600 dark:text-rose-400'
                             }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${selectedStudent.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'
                               }`} />
@@ -1523,7 +1537,42 @@ export default function AccountsPanel() {
 
 
 
-              {paymentType === 'training' && form.student_id && parseFloat(form.pending_amount || 0) === 0 ? (
+              {form.student_id && isInactive ? (
+                // REACTIVATE STUDENT FLOW FOR INACTIVE STUDENTS
+                <div className="space-y-4 pt-2">
+                  <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 p-4 rounded-xl border border-rose-100 dark:border-rose-900/50 text-xs font-semibold space-y-2 shadow-sm">
+                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px]">
+                      <UserX className="w-4 h-4 text-rose-500" /> Student Status: Inactive
+                    </div>
+                    <div>This student's plan is currently inactive. You must reactivate the student before recording payments or adding credit.</div>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: isSubmitting ? 1 : 1.02, y: isSubmitting ? 0 : -2 }}
+                    whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                    type="button"
+                    onClick={() => {
+                      const enrollments = selectedStudentObj?.enrollments || [];
+                      const latestEnrollment = enrollments[0];
+                      setReactivateForm({
+                        action: 'continue',
+                        duration_plan_id: latestEnrollment?.duration_plan_id?.toString() || '',
+                        sport_id: latestEnrollment?.sport_id?.toString() || selectedStudentObj?.sport_id?.toString() || '',
+                        batch_id: latestEnrollment?.batch_id?.toString() || selectedStudentObj?.batch_id?.toString() || '',
+                        plan_start_date: new Date().toISOString().split('T')[0],
+                        additional_charges: '',
+                        registration_fee: '',
+                        discount: ''
+                      });
+                      setShowReactivateModal(true);
+                    }}
+                    className="w-full h-11 mt-3 text-sm font-bold bg-rose-600 hover:bg-rose-700 flex items-center justify-center gap-2 rounded-xl transition-all duration-300 text-white shadow-lg shadow-rose-600/20 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Reactivate Student
+                  </motion.button>
+                </div>
+              ) : paymentType === 'training' && form.student_id && isCreditEligible ? (
                 // ADD IN ACCOUNT FLOW FOR FULLY PAID STUDENTS
                 <div className="space-y-4 pt-2">
                   <div className="bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 p-3.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 text-[11px] font-semibold space-y-1.5 shadow-sm">
@@ -1618,7 +1667,7 @@ export default function AccountsPanel() {
                     </div>
                   </div>
 
-                  {form.student_id && studentFeeData && studentFeeData.total_fees_paid >= studentFeeData.total_fees_assigned && (
+                  {form.student_id && isCreditEligible && (
                     <div className="space-y-3 bg-indigo-50/20 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1743,8 +1792,8 @@ export default function AccountsPanel() {
                     type="submit"
                     disabled={isSubmitting || parseFloat(form.pending_amount || 0) <= 0}
                     className={`w-full h-11 mt-3 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 rounded-xl transition-all duration-300 ${parseFloat(form.pending_amount || 0) <= 0
-                        ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
-                        : 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50'
+                      ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed shadow-none'
+                      : 'bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-lg shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50'
                       }`}
                   >
                     {isSubmitting ? (
@@ -1795,10 +1844,10 @@ export default function AccountsPanel() {
                                   }
                                 }}
                                 className={`p-2.5 rounded-xl border text-[11px] transition-all flex justify-between items-center cursor-pointer ${isSelected
-                                    ? 'bg-[#84cc16]/10 border-[#84cc16] shadow-sm'
-                                    : unpaidAmt > 0
-                                      ? 'bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-955/15 dark:hover:bg-amber-955/25 border-amber-200/50 dark:border-amber-900/30'
-                                      : 'bg-slate-50/50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 opacity-70'
+                                  ? 'bg-[#84cc16]/10 border-[#84cc16] shadow-sm'
+                                  : unpaidAmt > 0
+                                    ? 'bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-955/15 dark:hover:bg-amber-955/25 border-amber-200/50 dark:border-amber-900/30'
+                                    : 'bg-slate-50/50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 opacity-70'
                                   }`}
                               >
                                 <div className="space-y-0.5">
@@ -2016,211 +2065,211 @@ export default function AccountsPanel() {
               ))}
             </motion.form>
 
-          {/* RIGHT COLUMN: Payment Records */}
-          <div className="flex flex-col gap-3">
-          {/* PAYMENT RECORDS — Compact Card Panel */}
-          <motion.div
-            id="paymentRecordsSection"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-            className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden flex flex-col transition-all duration-500 ${highlightPaymentRecords ? 'ring-4 ring-amber-500/50 shadow-2xl shadow-amber-500/20' : ''}`}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md shadow-purple-500/30">
-                  <TrendingUp className="w-3.5 h-3.5 text-white" />
-                </div>
-                <h3 className="text-sm font-bold text-foreground">Payment Records</h3>
-                {filteredPayments.length > 0 && (
-                  <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-full">{filteredPayments.length}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                  <input
-                    type="text"
-                    className="w-32 pl-7 pr-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] transition-all text-xs"
-                    placeholder="Search..."
-                    value={globalSearch}
-                    onChange={(e) => setGlobalSearch(e.target.value)}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowRecordsFilter(!showRecordsFilter)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${showRecordsFilter
-                    ? 'bg-[#84cc16] border-[#84cc16] text-white'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <Filter className="w-3 h-3" />
-                  Filter
-                  {(statusFilter || methodFilter || dateFrom || dateTo) && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-0.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Collapsible Filters */}
-            <AnimatePresence>
-              {showRecordsFilter && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden flex-shrink-0"
-                >
-                  <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-900/35 border-b border-slate-100 dark:border-slate-800/80">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
-                      <select className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="">All Statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="completed">Completed</option>
-                        <option value="failed">Failed</option>
-                      </select>
+            {/* RIGHT COLUMN: Payment Records */}
+            <div className="flex flex-col gap-3">
+              {/* PAYMENT RECORDS — Compact Card Panel */}
+              <motion.div
+                id="paymentRecordsSection"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden flex flex-col transition-all duration-500 ${highlightPaymentRecords ? 'ring-4 ring-amber-500/50 shadow-2xl shadow-amber-500/20' : ''}`}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md shadow-purple-500/30">
+                      <TrendingUp className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Method</label>
-                      <select className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
-                        <option value="">All Methods</option>
-                        <option value="upi">UPI</option>
-                        <option value="cash">Cash</option>
-                        <option value="card">Card</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="online">Online</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">From</label>
-                      <input type="date" className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">To</label>
-                      <input type="date" className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                    </div>
-                    <div className="col-span-2 flex justify-end">
-                      <button type="button" onClick={clearFilters} className="text-[10px] font-bold text-[#84cc16] hover:text-[#65a30d] px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 cursor-pointer transition-all">Clear All</button>
-                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Payment Records</h3>
+                    {filteredPayments.length > 0 && (
+                      <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-full">{filteredPayments.length}</span>
+                    )}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Compact Card List with internal scroll */}
-            <div className="flex-1 overflow-y-auto" style={{ maxHeight: '520px' }}>
-              {loading && payments.length === 0 ? (
-                <div className="p-8 flex items-center justify-center"><Loader /></div>
-              ) : paginatedPayments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 px-4 text-slate-400">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2">
-                    <Search className="w-5 h-5 text-slate-400" />
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                      <input
+                        type="text"
+                        className="w-32 pl-7 pr-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] transition-all text-xs"
+                        placeholder="Search..."
+                        value={globalSearch}
+                        onChange={(e) => setGlobalSearch(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRecordsFilter(!showRecordsFilter)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${showRecordsFilter
+                        ? 'bg-[#84cc16] border-[#84cc16] text-white'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      <Filter className="w-3 h-3" />
+                      Filter
+                      {(statusFilter || methodFilter || dateFrom || dateTo) && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-0.5" />
+                      )}
+                    </button>
                   </div>
-                  <p className="text-xs font-medium">No payments found</p>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {paginatedPayments.map((payment, index) => {
-                    const normalizedStatus = (payment?.status || '').toUpperCase();
-                    const currentId = payment?.receipt_id || payment?.id || payment?._id || payment?.payment_id || index;
-                    const isOverdue = normalizedStatus === 'PENDING' && payment?.due_date && new Date(payment.due_date) < new Date();
-                    const studentName = payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`;
-                    const isKit = payment?.remarks && payment.remarks.includes('Sports Kit');
-                    const payDate = payment?.payment_date || payment?.date;
-                    const initials = studentName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-                    return (
-                      <motion.div
-                        key={currentId}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.02 }}
-                        className={`px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isOverdue ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          {/* Avatar */}
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden">
-                            {payment?.student?.profile_photo ? (
-                              <img src={payment.student.profile_photo} alt={studentName} className="w-full h-full object-cover" />
-                            ) : initials}
-                          </div>
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline justify-between gap-1">
-                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{studentName}</span>
-                              <span className="text-sm font-black text-slate-900 dark:text-slate-100 flex-shrink-0">₹{parseFloat(payment?.amount || 0).toLocaleString('en-IN')}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-1 mt-0.5">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isKit ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
-                                  {isKit ? 'Kit' : 'Training'}
-                                </span>
-                                <span className="text-[9px] text-slate-400">{payDate ? new Date(payDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</span>
-                                {payment?.method && <span className="text-[9px] text-slate-500 dark:text-slate-400 font-medium capitalize">{payment.method}</span>}
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                {isOverdue ? (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 animate-pulse">
-                                    <AlertCircle className="w-2 h-2" /> OD
-                                  </span>
-                                ) : normalizedStatus === 'COMPLETED' ? (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                                    <CheckCircle className="w-2 h-2" /> PAID
-                                  </span>
-                                ) : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                                    <XCircle className="w-2 h-2" /> {normalizedStatus}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                                    <Clock className="w-2 h-2" /> PENDING
-                                  </span>
-                                )}
-                                {normalizedStatus !== 'COMPLETED' && (
-                                  <button type="button" onClick={() => handleMarkPaidClick(payment, currentId)} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
-                                    <CheckCircle className="w-3 h-3" />
-                                  </button>
-                                )}
-                                {!['COMPLETED', 'REJECTED', 'FAILED', 'VOID'].includes(normalizedStatus) && (
-                                  <button type="button" onClick={() => rejectPayment(payment, currentId)} title="Reject" className="w-5 h-5 rounded flex items-center justify-center bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all cursor-pointer">
-                                    <XCircle className="w-3 h-3" />
-                                  </button>
-                                )}
-                                {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) && (
-                                  <button type="button" onClick={() => { const p = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof; setPreviewImage(p.startsWith('http') ? p : `http://localhost:5000/${p}`); }} title="View Proof" className="w-5 h-5 rounded flex items-center justify-center bg-blue-50 hover:bg-blue-500 text-blue-500 hover:text-white transition-all cursor-pointer">
-                                    <Calendar className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+
+                {/* Collapsible Filters */}
+                <AnimatePresence>
+                  {showRecordsFilter && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden flex-shrink-0"
+                    >
+                      <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-900/35 border-b border-slate-100 dark:border-slate-800/80">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
+                          <select className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                          </select>
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Method</label>
+                          <select className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
+                            <option value="">All Methods</option>
+                            <option value="upi">UPI</option>
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="online">Online</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">From</label>
+                          <input type="date" className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">To</label>
+                          <input type="date" className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#84cc16]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                        </div>
+                        <div className="col-span-2 flex justify-end">
+                          <button type="button" onClick={clearFilters} className="text-[10px] font-bold text-[#84cc16] hover:text-[#65a30d] px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 cursor-pointer transition-all">Clear All</button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-            {/* Compact Pagination Footer */}
-            {filteredPayments.length > recordsPerPage && (
-              <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 flex-shrink-0">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                  {startIndex + 1}–{Math.min(endIndex, filteredPayments.length)} of {filteredPayments.length}
-                </span>
-                <div className="flex items-center gap-1">
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-2 py-1 rounded text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1}>‹ Prev</motion.button>
-                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 px-1">{currentPage} / {totalPages}</span>
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-2 py-1 rounded text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>Next ›</motion.button>
+                {/* Compact Card List with internal scroll */}
+                <div className="flex-1 overflow-y-auto" style={{ maxHeight: '520px' }}>
+                  {loading && payments.length === 0 ? (
+                    <div className="p-8 flex items-center justify-center"><Loader /></div>
+                  ) : paginatedPayments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 px-4 text-slate-400">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2">
+                        <Search className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-xs font-medium">No payments found</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                      {paginatedPayments.map((payment, index) => {
+                        const normalizedStatus = (payment?.status || '').toUpperCase();
+                        const currentId = payment?.receipt_id || payment?.id || payment?._id || payment?.payment_id || index;
+                        const isOverdue = normalizedStatus === 'PENDING' && payment?.due_date && new Date(payment.due_date) < new Date();
+                        const studentName = payment?.student?.name || payment?.student_name || `Student #${payment?.student_id}`;
+                        const isKit = payment?.remarks && payment.remarks.includes('Sports Kit');
+                        const payDate = payment?.payment_date || payment?.date;
+                        const initials = studentName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                        return (
+                          <motion.div
+                            key={currentId}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.02 }}
+                            className={`px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isOverdue ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              {/* Avatar */}
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden">
+                                {payment?.student?.profile_photo ? (
+                                  <img src={payment.student.profile_photo} alt={studentName} className="w-full h-full object-cover" />
+                                ) : initials}
+                              </div>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-baseline justify-between gap-1">
+                                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{studentName}</span>
+                                  <span className="text-sm font-black text-slate-900 dark:text-slate-100 flex-shrink-0">₹{parseFloat(payment?.amount || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-1 mt-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isKit ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
+                                      {isKit ? 'Kit' : 'Training'}
+                                    </span>
+                                    <span className="text-[9px] text-slate-400">{payDate ? new Date(payDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</span>
+                                    {payment?.method && <span className="text-[9px] text-slate-500 dark:text-slate-400 font-medium capitalize">{payment.method}</span>}
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    {isOverdue ? (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 animate-pulse">
+                                        <AlertCircle className="w-2 h-2" /> OD
+                                      </span>
+                                    ) : normalizedStatus === 'COMPLETED' ? (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                        <CheckCircle className="w-2 h-2" /> PAID
+                                      </span>
+                                    ) : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                                        <XCircle className="w-2 h-2" /> {normalizedStatus}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                                        <Clock className="w-2 h-2" /> PENDING
+                                      </span>
+                                    )}
+                                    {normalizedStatus !== 'COMPLETED' && (
+                                      <button type="button" onClick={() => handleMarkPaidClick(payment, currentId)} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
+                                        <CheckCircle className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    {!['COMPLETED', 'REJECTED', 'FAILED', 'VOID'].includes(normalizedStatus) && (
+                                      <button type="button" onClick={() => rejectPayment(payment, currentId)} title="Reject" className="w-5 h-5 rounded flex items-center justify-center bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all cursor-pointer">
+                                        <XCircle className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) && (
+                                      <button type="button" onClick={() => { const p = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof; setPreviewImage(p.startsWith('http') ? p : `http://localhost:5000/${p}`); }} title="View Proof" className="w-5 h-5 rounded flex items-center justify-center bg-blue-50 hover:bg-blue-500 text-blue-500 hover:text-white transition-all cursor-pointer">
+                                        <Calendar className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-          </motion.div>
-          </div>
+
+                {/* Compact Pagination Footer */}
+                {filteredPayments.length > recordsPerPage && (
+                  <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 flex-shrink-0">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                      {startIndex + 1}–{Math.min(endIndex, filteredPayments.length)} of {filteredPayments.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-2 py-1 rounded text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1}>‹ Prev</motion.button>
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 px-1">{currentPage} / {totalPages}</span>
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-2 py-1 rounded text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>Next ›</motion.button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </div>
           </div>
         </>
       ) : (
@@ -2267,634 +2316,634 @@ export default function AccountsPanel() {
 
           {/* Student Accounts Section - Full Width layout */}
           <div className="w-full">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden"
-          >
-            <div className="p-3 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/30">
-                  <Users className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-foreground">Student Accounts</h3>
-                    {/* Tooltip Help Circle */}
-                    <div className="relative group cursor-pointer">
-                      <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-indigo-600 transition-colors" />
-                      <div className="absolute left-0 top-5 hidden group-hover:block w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 p-3 rounded-xl shadow-xl text-[11px] text-slate-650 dark:text-slate-400 space-y-1.5 z-40 transition-all">
-                        <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1 mb-1 border-b border-slate-105 dark:border-slate-700/50 pb-1">
-                          <BookOpen className="w-3 h-3 text-[#84cc16]" /> Quick Guide
-                        </div>
-                        <div className="flex items-start gap-1">
-                          <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
-                          <span>Click a student row to expand their payment history and credit details.</span>
-                        </div>
-                        <div className="flex items-start gap-1">
-                          <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
-                          <span>Use the <strong>Collect Fee</strong> button to jump directly to the Payment tab for that student.</span>
-                        </div>
-                        <div className="flex items-start gap-1">
-                          <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
-                          <span>Inactive students are shown with a red badge. Reactivate them from the Payment tab.</span>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-black/5 border border-slate-100 dark:border-slate-700/50 overflow-hidden"
+            >
+              <div className="p-3 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/30">
+                    <Users className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-foreground">Student Accounts</h3>
+                      {/* Tooltip Help Circle */}
+                      <div className="relative group cursor-pointer">
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-indigo-600 transition-colors" />
+                        <div className="absolute left-0 top-5 hidden group-hover:block w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 p-3 rounded-xl shadow-xl text-[11px] text-slate-650 dark:text-slate-400 space-y-1.5 z-40 transition-all">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1 mb-1 border-b border-slate-105 dark:border-slate-700/50 pb-1">
+                            <BookOpen className="w-3 h-3 text-[#84cc16]" /> Quick Guide
+                          </div>
+                          <div className="flex items-start gap-1">
+                            <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                            <span>Click a student row to expand their payment history and credit details.</span>
+                          </div>
+                          <div className="flex items-start gap-1">
+                            <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                            <span>Use the <strong>Collect Fee</strong> button to jump directly to the Payment tab for that student.</span>
+                          </div>
+                          <div className="flex items-start gap-1">
+                            <ChevronRight className="w-3 h-3 mt-0.5 text-[#84cc16] flex-shrink-0" />
+                            <span>Inactive students are shown with a red badge. Reactivate them from the Payment tab.</span>
+                          </div>
                         </div>
                       </div>
                     </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Fee status and payment history</p>
                   </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Fee status and payment history</p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={loadStudentAccountsData}
-                className="text-[10px] font-bold text-slate-400 hover:text-[#84cc16] flex items-center gap-1 transition-colors"
-              >
-                <RefreshCw className="w-3 h-3" /> Refresh
-              </button>
-            </div>
-
-            {/* Filters Toolbar */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search student, parent, phone..."
-                  value={studentAccountsSearch}
-                  onChange={(e) => setStudentAccountsSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs"
-                />
+                <button
+                  type="button"
+                  onClick={loadStudentAccountsData}
+                  className="text-[10px] font-bold text-slate-400 hover:text-[#84cc16] flex items-center gap-1 transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" /> Refresh
+                </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                {/* Sort */}
-                <div className="relative">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="pl-3 pr-7 py-1.5 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] appearance-none cursor-pointer text-xs"
-                  >
-                    <option value="name">Sort: Name</option>
-                    <option value="highest_due">Sort: Highest Due</option>
-                    <option value="highest_paid">Sort: Highest Paid</option>
-                    <option value="recently_paid">Sort: Recently Paid</option>
-                  </select>
-                  <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+              {/* Filters Toolbar */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search student, parent, phone..."
+                    value={studentAccountsSearch}
+                    onChange={(e) => setStudentAccountsSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs"
+                  />
                 </div>
 
-                {/* Status Pills */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700/50">
-                  {[
-                    { key: 'all', label: `All (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})` },
-                    { key: 'paid', label: `Paid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})` },
-                    { key: 'unpaid', label: `Unpaid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})` },
-                    { key: 'inactive', label: `Inactive (${studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})` }
-                  ].map(f => (
-                    <button
-                      key={f.key}
-                      onClick={() => setStudentAccountsFilter(f.key)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 ${studentAccountsFilter === f.key ? 'bg-[#84cc16] text-white shadow-sm' : 'text-slate-650 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Sort */}
+                  <div className="relative">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="pl-3 pr-7 py-1.5 rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] appearance-none cursor-pointer text-xs"
                     >
-                      {f.label}
-                    </button>
-                  ))}
+                      <option value="name">Sort: Name</option>
+                      <option value="highest_due">Sort: Highest Due</option>
+                      <option value="highest_paid">Sort: Highest Paid</option>
+                      <option value="recently_paid">Sort: Recently Paid</option>
+                    </select>
+                    <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                  </div>
+
+                  {/* Status Pills */}
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                    {[
+                      { key: 'all', label: `All (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted).length || 0})` },
+                      { key: 'paid', label: `Paid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'paid').length || 0})` },
+                      { key: 'unpaid', label: `Unpaid (${studentAccountsData?.students?.filter(s => s.status === 'ACTIVE' && !s.is_deleted && s.fee_status === 'unpaid').length || 0})` },
+                      { key: 'inactive', label: `Inactive (${studentAccountsData?.students?.filter(s => s.status !== 'ACTIVE' || s.is_deleted).length || 0})` }
+                    ].map(f => (
+                      <button
+                        key={f.key}
+                        onClick={() => setStudentAccountsFilter(f.key)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 ${studentAccountsFilter === f.key ? 'bg-[#84cc16] text-white shadow-sm' : 'text-slate-650 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Student Accounts Table - Premium Design */}
-            {loadingStudentAccounts ? (
-              <div className="p-8 flex items-center justify-center">
-                <Loader message="Loading student accounts..." />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-full">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Student</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Parent</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Progress</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Amount</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Paid</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Due</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Credit</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Last Paid</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Status</th>
-                        <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                      {(() => {
-                        console.log('[StudentAccounts Render] studentAccountsData:', studentAccountsData);
-                        console.log('[StudentAccounts Render] studentAccountsData.students:', studentAccountsData?.students);
-                        console.log('[StudentAccounts Render] Array.isArray(studentAccountsData.students):', Array.isArray(studentAccountsData?.students));
+              {/* Student Accounts Table - Premium Design */}
+              {loadingStudentAccounts ? (
+                <div className="p-8 flex items-center justify-center">
+                  <Loader message="Loading student accounts..." />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="min-w-full">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Student</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Parent</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Progress</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Amount</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Paid</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Due</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Credit</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Last Paid</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Status</th>
+                          <th className="px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                        {(() => {
+                          console.log('[StudentAccounts Render] studentAccountsData:', studentAccountsData);
+                          console.log('[StudentAccounts Render] studentAccountsData.students:', studentAccountsData?.students);
+                          console.log('[StudentAccounts Render] Array.isArray(studentAccountsData.students):', Array.isArray(studentAccountsData?.students));
 
-                        const studentsList = studentAccountsData?.students || [];
-                        const filteredStudents = studentsList.filter((student) => {
-                          const feeStatus = student.fee_status || 'unpaid';
-                          const isActive = student.status === 'ACTIVE' && !student.is_deleted;
+                          const studentsList = studentAccountsData?.students || [];
+                          const filteredStudents = studentsList.filter((student) => {
+                            const feeStatus = student.fee_status || 'unpaid';
+                            const isActive = student.status === 'ACTIVE' && !student.is_deleted;
 
-                          // Filter by tab status
-                          if (studentAccountsFilter === 'inactive') {
-                            if (isActive) return false;
-                          } else {
-                            // Tab is 'all', 'paid', or 'unpaid' -> hide inactive/deactivated students
-                            if (!isActive) return false;
+                            // Filter by tab status
+                            if (studentAccountsFilter === 'inactive') {
+                              if (isActive) return false;
+                            } else {
+                              // Tab is 'all', 'paid', or 'unpaid' -> hide inactive/deactivated students
+                              if (!isActive) return false;
 
-                            if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
-                            if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
-                          }
+                              if (studentAccountsFilter === 'paid' && feeStatus !== 'paid') return false;
+                              if (studentAccountsFilter === 'unpaid' && feeStatus !== 'unpaid') return false;
+                            }
 
-                          // Filter by search term
-                          if (studentAccountsSearch) {
-                            const searchLower = studentAccountsSearch.toLowerCase();
-                            const name = student.name || '';
-                            const parentName = student.parent_name || '';
-                            const phone = student.phone || '';
+                            // Filter by search term
+                            if (studentAccountsSearch) {
+                              const searchLower = studentAccountsSearch.toLowerCase();
+                              const name = student.name || '';
+                              const parentName = student.parent_name || '';
+                              const phone = student.phone || '';
 
+                              return (
+                                name.toLowerCase().includes(searchLower) ||
+                                parentName.toLowerCase().includes(searchLower) ||
+                                phone.includes(searchLower)
+                              );
+                            }
+
+                            return true;
+                          });
+
+                          const sortedStudents = getSortedStudents(filteredStudents);
+
+                          if (sortedStudents.length === 0) {
                             return (
-                              name.toLowerCase().includes(searchLower) ||
-                              parentName.toLowerCase().includes(searchLower) ||
-                              phone.includes(searchLower)
+                              <tr>
+                                <td colSpan="9" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
+                                  <div className="flex flex-col items-center gap-2">
+                                    <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                      <Search className="w-6 h-6 text-slate-400" />
+                                    </div>
+                                    <p className="text-xs">No students found</p>
+                                  </div>
+                                </td>
+                              </tr>
                             );
                           }
 
-                          return true;
-                        });
+                          return sortedStudents.map((student, index) => {
+                            const totalAmount = student.total_fee || 0;
+                            const paidAmount = student.paid_amount || 0;
+                            const dueAmount = student.due_amount || 0;
+                            const lastPaidDate = student.last_paid_date;
+                            const feeStatus = student.fee_status || 'unpaid';
+                            const paymentProgress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+                            const isExpanded = expandedStudentId === student.student_id;
+                            const isDeactivated = student.status === 'INACTIVE' || student.is_deleted;
 
-                        const sortedStudents = getSortedStudents(filteredStudents);
+                            // Check if student is overdue (has due amount and no recent payment)
+                            const isOverdue = dueAmount > 0 && lastPaidDate && new Date(lastPaidDate) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-                        if (sortedStudents.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan="9" className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 font-medium">
-                                <div className="flex flex-col items-center gap-2">
-                                  <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                    <Search className="w-6 h-6 text-slate-400" />
-                                  </div>
-                                  <p className="text-xs">No students found</p>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return sortedStudents.map((student, index) => {
-                          const totalAmount = student.total_fee || 0;
-                          const paidAmount = student.paid_amount || 0;
-                          const dueAmount = student.due_amount || 0;
-                          const lastPaidDate = student.last_paid_date;
-                          const feeStatus = student.fee_status || 'unpaid';
-                          const paymentProgress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
-                          const isExpanded = expandedStudentId === student.student_id;
-                          const isDeactivated = student.status === 'INACTIVE' || student.is_deleted;
-
-                          // Check if student is overdue (has due amount and no recent payment)
-                          const isOverdue = dueAmount > 0 && lastPaidDate && new Date(lastPaidDate) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-                          return (
-                            <React.Fragment key={student.student_id || index}>
-                              <motion.tr
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.03 }}
-                                className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isDeactivated ? 'opacity-70' : ''} ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
-                              >
-                                <td className="px-4 py-3">
-                                  <div className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
-                                    {student.name || '—'}
-                                    {isDeactivated && (
-                                      <span className="inline-flex items-center rounded-full bg-red-50 dark:bg-red-950/40 px-2 py-0.5 text-[8px] font-bold text-red-600 dark:text-red-400 border border-red-200/50 dark:border-red-900/50 uppercase tracking-wider">
-                                        Inactive
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                                    {student.phone || '—'}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-300">
-                                  {student.parent_name || '—'}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="w-full">
-                                    <div className="flex items-center justify-between text-[10px] mb-1">
-                                      <span className="text-slate-600 dark:text-slate-400 font-bold">{paymentProgress.toFixed(0)}%</span>
-                                    </div>
-                                    <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                      <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${paymentProgress}%` }}
-                                        transition={{ duration: 0.5, delay: index * 0.05 }}
-                                        className={`h-full rounded-full ${paymentProgress === 100 ? 'bg-gradient-to-r from-[#84cc16] to-[#65a30d]' : 'bg-gradient-to-r from-amber-500 to-amber-600'}`}
-                                      />
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100">
-                                  ₹{parseFloat(totalAmount || 0).toFixed(2)}
-                                </td>
-                                <td className="px-4 py-3 text-xs font-bold text-[#84cc16]">
-                                  ₹{parseFloat(paidAmount || 0).toFixed(2)}
-                                </td>
-                                <td className="px-4 py-3 text-xs font-bold text-amber-500">
-                                  ₹{parseFloat(dueAmount || 0).toFixed(2)}
-                                </td>
-                                <td className="px-4 py-3 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                                  ₹{parseFloat(student.advance_balance || 0).toFixed(2)}
-                                </td>
-                                <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
-                                  {formatDate(lastPaidDate)}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${feeStatus === 'paid'
-                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                                        : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                                      }`}
-                                  >
-                                    {feeStatus === 'paid' ? <CheckCircle className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
-                                    {feeStatus}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 space-x-1.5">
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    type="button"
-                                    onClick={() => quickCollectFee(student)}
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all"
-                                  >
-                                    <DollarSign className="w-2.5 h-2.5" /> Quick Collect
-                                  </motion.button>
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    type="button"
-                                    onClick={() => toggleStudentExpansion(student.student_id)}
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-                                  >
-                                    {isExpanded ? <XCircle className="w-2.5 h-2.5" /> : <Calendar className="w-2.5 h-2.5" />}
-                                    {isExpanded ? 'Hide' : 'History'}
-                                  </motion.button>
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    type="button"
-                                    onClick={() => handleParentPasswordManage(student)}
-                                    title="Manage Parent Portal Credentials"
-                                    className="p-2 rounded-lg bg-purple-50 text-purple-650 hover:bg-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-900/40 transition-all inline-flex items-center justify-center cursor-pointer"
-                                  >
-                                    <Key className="w-3.5 h-3.5" />
-                                  </motion.button>
-                                </td>
-                              </motion.tr>
-                              {isExpanded && (
+                            return (
+                              <React.Fragment key={student.student_id || index}>
                                 <motion.tr
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: index * 0.03 }}
+                                  className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isDeactivated ? 'opacity-70' : ''} ${isOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
                                 >
-                                  <td colSpan="10" className="px-4 py-4 bg-slate-50 dark:bg-slate-900/30">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
-
-                                      {/* Left Column: Fee Summary & History */}
-                                      <div className="space-y-4">
-                                        <div>
-                                          <h4 className="font-bold text-slate-950 dark:text-white text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider">
-                                            <DollarSign className="w-3.5 h-3.5 text-[#84cc16]" /> Fee Summary
-                                          </h4>
-                                          <div className="grid grid-cols-3 gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                            <div className="text-center">
-                                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Total Fee</div>
-                                              <div className="font-bold text-slate-900 dark:text-slate-100 text-xs mt-0.5">₹{parseFloat(totalAmount || 0).toFixed(2)}</div>
-                                            </div>
-                                            <div className="text-center border-x border-slate-100 dark:border-slate-700">
-                                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Paid</div>
-                                              <div className="font-bold text-[#84cc16] text-xs mt-0.5">₹{parseFloat(paidAmount || 0).toFixed(2)}</div>
-                                            </div>
-                                            <div className="text-center">
-                                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Due</div>
-                                              <div className="font-bold text-amber-500 text-xs mt-0.5">₹{parseFloat(dueAmount || 0).toFixed(2)}</div>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        {/* Sports Kit Fees Summary */}
-                                        <div className="mt-4">
-                                          <h4 className="font-bold text-slate-950 dark:text-white text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider">
-                                            <Package className="w-3.5 h-3.5 text-amber-500" /> Sports Kit Fees Summary
-                                          </h4>
-                                          {student.sports_kit_assignments && student.sports_kit_assignments.length > 0 ? (
-                                            <div className="space-y-2 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                                              {student.sports_kit_assignments.map((assignment, idx) => (
-                                                <div key={assignment.assignment_id || idx} className="flex justify-between items-center text-xs pb-1.5 border-b last:border-b-0 border-slate-100 dark:border-slate-700/50">
-                                                  <div>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200">{assignment.kit?.name}</span>
-                                                    <span className="text-[10px] text-slate-400 block">Qty: {assignment.quantity} · Sport: {assignment.kit?.sport?.name || '—'}</span>
-                                                  </div>
-                                                  <div className="text-right">
-                                                    <span className="font-bold text-slate-900 dark:text-slate-100">Total: ₹{parseFloat(assignment.total_amount || 0).toFixed(2)}</span>
-                                                    <div className="text-[10px] space-x-2">
-                                                      <span className="text-emerald-600 font-medium">Paid: ₹{parseFloat(assignment.paid_amount || 0).toFixed(2)}</span>
-                                                      <span className="text-amber-500 font-medium">Due: ₹{parseFloat(assignment.due_amount || 0).toFixed(2)}</span>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <p className="text-slate-400 dark:text-slate-500 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">No sports kits assigned</p>
-                                          )}
-                                        </div>
-
-                                        <div className="space-y-2 mt-4">
-                                          <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
-                                            <Calendar className="w-3.5 h-3.5 text-[#84cc16]" /> Payment History
-                                          </h4>
-                                          {student.receipts && student.receipts.length > 0 ? (() => {
-                                            const hasCycleMeta = student.receipts.some(r => r.is_current_cycle !== undefined);
-                                            const currentCycleReceipts = hasCycleMeta ? student.receipts.filter(r => r.is_current_cycle) : student.receipts;
-                                            const previousCycleReceipts = hasCycleMeta ? student.receipts.filter(r => !r.is_current_cycle) : [];
-
-                                            const renderReceipt = (receipt, idx) => (
-                                              <div key={receipt.receipt_id || idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                <div className="flex items-center gap-2">
-                                                  <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
-                                                    <DollarSign className="w-3 h-3 text-[#84cc16]" />
-                                                  </div>
-                                                  <div>
-                                                    <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
-                                                    {parseFloat(receipt.discount || 0) > 0 && (
-                                                      <span className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">(Discount: ₹{parseFloat(receipt.discount).toFixed(0)})</span>
-                                                    )}
-                                                    <span className="text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
-                                                  </div>
-                                                </div>
-                                                <div className="text-slate-600 dark:text-slate-400 font-bold flex items-center gap-1.5">
-                                                  <span className={`px-1.5 py-0.5 rounded text-[8px] uppercase ${(receipt.status || '').toUpperCase() === 'COMPLETED'
-                                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                                                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
-                                                    }`}>{receipt.status || 'N/A'}</span>
-                                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[8px] uppercase">{receipt.method || 'cash'}</span>
-                                                  {receipt.remarks && (
-                                                    <span className="text-slate-400 max-w-[100px] truncate" title={receipt.remarks}>— {receipt.remarks}</span>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            );
-
-                                            return (
-                                              <div className="max-h-[280px] overflow-y-auto space-y-3 pr-1">
-                                                {/* Current Cycle */}
-                                                <div>
-                                                  <div className="flex items-center gap-1.5 mb-1.5">
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#84cc16]/15 text-[#65a30d] dark:text-[#84cc16] border border-[#84cc16]/30">
-                                                      ✦ Current Cycle
-                                                    </span>
-                                                  </div>
-                                                  {currentCycleReceipts.length > 0 ? (
-                                                    <div className="space-y-1.5">
-                                                      {currentCycleReceipts.map((r, idx) => renderReceipt(r, idx))}
-                                                    </div>
-                                                  ) : (
-                                                    <p className="text-slate-400 dark:text-slate-500 text-[10px] italic px-2">No payments in current cycle yet</p>
-                                                  )}
-                                                </div>
-
-                                                {/* Previous Cycles */}
-                                                {previousCycleReceipts.length > 0 && (
-                                                  <div>
-                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                                        ◇ Previous Cycles
-                                                      </span>
-                                                    </div>
-                                                    <div className="space-y-1.5 opacity-70">
-                                                      {previousCycleReceipts.map((r, idx) => renderReceipt(r, idx))}
-                                                    </div>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            );
-                                          })() : (
-                                            <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No payment history available</p>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      {/* Right Column: Advance Credit */}
-                                      <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-700 md:pl-6 pt-4 md:pt-0">
-                                        <div className="flex items-center justify-between">
-                                          <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
-                                            <TrendingUp className="w-3.5 h-3.5 text-indigo-600" /> Advance Credit
-                                          </h4>
-                                          <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
-                                            Available Balance: ₹{parseFloat(student.advance_balance || 0).toFixed(2)}
-                                          </div>
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
-                                              setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: false }));
-                                              setAddCreditData({ amount: '', reason: '' });
-                                            }}
-                                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors"
-                                          >
-                                            + Add Credit
-                                          </button>
-                                          <button
-                                            type="button"
-                                            disabled={parseFloat(student.advance_balance || 0) <= 0}
-                                            onClick={() => {
-                                              setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
-                                              setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }));
-                                              setUseCreditData({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
-                                            }}
-                                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                          >
-                                            - Use Credit
-                                          </button>
-                                        </div>
-
-                                        {/* Add Credit Form */}
-                                        {showAddCreditForm[student.student_id] && (
-                                          <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            className="bg-indigo-50/55 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 space-y-3"
-                                          >
-                                            <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Add Advance Credit Balance</div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                              <input
-                                                type="number"
-                                                placeholder="Amount (₹)"
-                                                className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                value={addCreditData.amount}
-                                                onChange={(e) => setAddCreditData({ ...addCreditData, amount: e.target.value })}
-                                              />
-                                              <input
-                                                type="text"
-                                                placeholder="Reason/Remarks"
-                                                className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                value={addCreditData.reason}
-                                                onChange={(e) => setAddCreditData({ ...addCreditData, reason: e.target.value })}
-                                              />
-                                            </div>
-                                            <div className="flex gap-2 justify-end">
-                                              <button
-                                                type="button"
-                                                onClick={() => setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }))}
-                                                className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold"
-                                              >
-                                                Cancel
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleAddCredit(student.student_id)}
-                                                className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[9px] font-bold"
-                                              >
-                                                Save
-                                              </button>
-                                            </div>
-                                          </motion.div>
-                                        )}
-
-                                        {/* Use Credit Form */}
-                                        {showUseCreditForm[student.student_id] && (
-                                          <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            className="bg-indigo-50/55 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 space-y-3"
-                                          >
-                                            <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Consume Credit Balance</div>
-                                            <div className="grid grid-cols-3 gap-2">
-                                              <div>
-                                                <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Use For</label>
-                                                <select
-                                                  className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                  value={useCreditData.use_for}
-                                                  onChange={(e) => setUseCreditData({ ...useCreditData, use_for: e.target.value, reference_id: '' })}
-                                                >
-                                                  <option value="KIT">Sports Kit</option>
-                                                  <option value="PLAN">Duration Plan</option>
-                                                  <option value="OTHER">Other Charges</option>
-                                                </select>
-                                              </div>
-                                              <div>
-                                                <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Amount (₹)</label>
-                                                <input
-                                                  type="number"
-                                                  placeholder="Amount"
-                                                  className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                  value={useCreditData.amount}
-                                                  onChange={(e) => setUseCreditData({ ...useCreditData, amount: e.target.value })}
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Reference ID</label>
-                                                {useCreditData.use_for === 'PLAN' ? (
-                                                  <select
-                                                    className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                    value={useCreditData.reference_id}
-                                                    onChange={(e) => setUseCreditData({ ...useCreditData, reference_id: e.target.value })}
-                                                  >
-                                                    <option value="">Select Plan</option>
-                                                    {(student.enrollments || []).map((enr, idx) => (
-                                                      <option key={idx} value={enr.enrollment_id}>
-                                                        {enr.batch?.sport?.name || 'Sport'} (Due: ₹{(enr.final_fee - enr.paid_amount).toFixed(0)})
-                                                      </option>
-                                                    ))}
-                                                  </select>
-                                                ) : (
-                                                  <input
-                                                    type="text"
-                                                    placeholder="ID / Code"
-                                                    className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                    value={useCreditData.reference_id}
-                                                    onChange={(e) => setUseCreditData({ ...useCreditData, reference_id: e.target.value })}
-                                                  />
-                                                )}
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <input
-                                                type="text"
-                                                placeholder="Description / Remarks"
-                                                className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
-                                                value={useCreditData.reason}
-                                                onChange={(e) => setUseCreditData({ ...useCreditData, reason: e.target.value })}
-                                              />
-                                            </div>
-                                            <div className="flex gap-2 justify-end">
-                                              <button
-                                                type="button"
-                                                onClick={() => setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: false }))}
-                                                className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold"
-                                              >
-                                                Cancel
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleUseCredit(student.student_id)}
-                                                className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[9px] font-bold"
-                                              >
-                                                Apply
-                                              </button>
-                                            </div>
-                                          </motion.div>
-                                        )}
-
-                                        {/* Credit History Table */}
-                                        <div className="space-y-2">
-                                          <div className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">Credit History</div>
-                                          {creditLoading[student.student_id] ? (
-                                            <div className="text-[10px] text-slate-400 py-2">Loading credit transactions...</div>
-                                          ) : creditHistories[student.student_id]?.transactions && creditHistories[student.student_id].transactions.length > 0 ? (
-                                            <div className="max-h-[160px] overflow-y-auto pr-1 space-y-1.5">
-                                              {creditHistories[student.student_id].transactions.map((tx, idx) => (
-                                                <div key={idx} className="flex items-center justify-between text-[9px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                  <div className="flex items-center gap-1.5">
-                                                    <span className={`font-bold ${tx.type === 'ADD' ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                                      {tx.type === 'ADD' ? '+' : '—'} ₹{parseFloat(tx.amount).toFixed(2)}
-                                                    </span>
-                                                    <span className="text-slate-500 dark:text-slate-400 truncate max-w-[130px] font-medium" title={tx.reason}>{tx.reason}</span>
-                                                  </div>
-                                                  <div className="text-slate-400 flex items-center gap-1">
-                                                    {tx.reference_type && (
-                                                      <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-[7px] uppercase font-bold text-slate-500">{tx.reference_type}</span>
-                                                    )}
-                                                    <span>{formatDate(tx.created_at)}</span>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No credit history available</p>
-                                          )}
-                                        </div>
-                                      </div>
-
+                                  <td className="px-4 py-3">
+                                    <div className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
+                                      {student.name || '—'}
+                                      {isDeactivated && (
+                                        <span className="inline-flex items-center rounded-full bg-red-50 dark:bg-red-950/40 px-2 py-0.5 text-[8px] font-bold text-red-600 dark:text-red-400 border border-red-200/50 dark:border-red-900/50 uppercase tracking-wider">
+                                          Inactive
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                      {student.phone || '—'}
                                     </div>
                                   </td>
+                                  <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-300">
+                                    {student.parent_name || '—'}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="w-full">
+                                      <div className="flex items-center justify-between text-[10px] mb-1">
+                                        <span className="text-slate-600 dark:text-slate-400 font-bold">{paymentProgress.toFixed(0)}%</span>
+                                      </div>
+                                      <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <motion.div
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${paymentProgress}%` }}
+                                          transition={{ duration: 0.5, delay: index * 0.05 }}
+                                          className={`h-full rounded-full ${paymentProgress === 100 ? 'bg-gradient-to-r from-[#84cc16] to-[#65a30d]' : 'bg-gradient-to-r from-amber-500 to-amber-600'}`}
+                                        />
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs font-bold text-slate-900 dark:text-slate-100">
+                                    ₹{parseFloat(totalAmount || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs font-bold text-[#84cc16]">
+                                    ₹{parseFloat(paidAmount || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs font-bold text-amber-500">
+                                    ₹{parseFloat(dueAmount || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                    ₹{parseFloat(student.advance_balance || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
+                                    {formatDate(lastPaidDate)}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${feeStatus === 'paid'
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                        : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                                        }`}
+                                    >
+                                      {feeStatus === 'paid' ? <CheckCircle className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
+                                      {feeStatus}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 space-x-1.5">
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      type="button"
+                                      onClick={() => quickCollectFee(student)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-[#84cc16] to-[#65a30d] text-white shadow-md shadow-[#84cc16]/30 hover:shadow-[#84cc16]/50 transition-all"
+                                    >
+                                      <DollarSign className="w-2.5 h-2.5" /> Quick Collect
+                                    </motion.button>
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      type="button"
+                                      onClick={() => toggleStudentExpansion(student.student_id)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                                    >
+                                      {isExpanded ? <XCircle className="w-2.5 h-2.5" /> : <Calendar className="w-2.5 h-2.5" />}
+                                      {isExpanded ? 'Hide' : 'History'}
+                                    </motion.button>
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      type="button"
+                                      onClick={() => handleParentPasswordManage(student)}
+                                      title="Manage Parent Portal Credentials"
+                                      className="p-2 rounded-lg bg-purple-50 text-purple-650 hover:bg-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-900/40 transition-all inline-flex items-center justify-center cursor-pointer"
+                                    >
+                                      <Key className="w-3.5 h-3.5" />
+                                    </motion.button>
+                                  </td>
                                 </motion.tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
+                                {isExpanded && (
+                                  <motion.tr
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                  >
+                                    <td colSpan="10" className="px-4 py-4 bg-slate-50 dark:bg-slate-900/30">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+
+                                        {/* Left Column: Fee Summary & History */}
+                                        <div className="space-y-4">
+                                          <div>
+                                            <h4 className="font-bold text-slate-950 dark:text-white text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                                              <DollarSign className="w-3.5 h-3.5 text-[#84cc16]" /> Fee Summary
+                                            </h4>
+                                            <div className="grid grid-cols-3 gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                              <div className="text-center">
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Total Fee</div>
+                                                <div className="font-bold text-slate-900 dark:text-slate-100 text-xs mt-0.5">₹{parseFloat(totalAmount || 0).toFixed(2)}</div>
+                                              </div>
+                                              <div className="text-center border-x border-slate-100 dark:border-slate-700">
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Paid</div>
+                                                <div className="font-bold text-[#84cc16] text-xs mt-0.5">₹{parseFloat(paidAmount || 0).toFixed(2)}</div>
+                                              </div>
+                                              <div className="text-center">
+                                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Due</div>
+                                                <div className="font-bold text-amber-500 text-xs mt-0.5">₹{parseFloat(dueAmount || 0).toFixed(2)}</div>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Sports Kit Fees Summary */}
+                                          <div className="mt-4">
+                                            <h4 className="font-bold text-slate-950 dark:text-white text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                                              <Package className="w-3.5 h-3.5 text-amber-500" /> Sports Kit Fees Summary
+                                            </h4>
+                                            {student.sports_kit_assignments && student.sports_kit_assignments.length > 0 ? (
+                                              <div className="space-y-2 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                {student.sports_kit_assignments.map((assignment, idx) => (
+                                                  <div key={assignment.assignment_id || idx} className="flex justify-between items-center text-xs pb-1.5 border-b last:border-b-0 border-slate-100 dark:border-slate-700/50">
+                                                    <div>
+                                                      <span className="font-bold text-slate-800 dark:text-slate-200">{assignment.kit?.name}</span>
+                                                      <span className="text-[10px] text-slate-400 block">Qty: {assignment.quantity} · Sport: {assignment.kit?.sport?.name || '—'}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                      <span className="font-bold text-slate-900 dark:text-slate-100">Total: ₹{parseFloat(assignment.total_amount || 0).toFixed(2)}</span>
+                                                      <div className="text-[10px] space-x-2">
+                                                        <span className="text-emerald-600 font-medium">Paid: ₹{parseFloat(assignment.paid_amount || 0).toFixed(2)}</span>
+                                                        <span className="text-amber-500 font-medium">Due: ₹{parseFloat(assignment.due_amount || 0).toFixed(2)}</span>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <p className="text-slate-400 dark:text-slate-500 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm text-center">No sports kits assigned</p>
+                                            )}
+                                          </div>
+
+                                          <div className="space-y-2 mt-4">
+                                            <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                                              <Calendar className="w-3.5 h-3.5 text-[#84cc16]" /> Payment History
+                                            </h4>
+                                            {student.receipts && student.receipts.length > 0 ? (() => {
+                                              const hasCycleMeta = student.receipts.some(r => r.is_current_cycle !== undefined);
+                                              const currentCycleReceipts = hasCycleMeta ? student.receipts.filter(r => r.is_current_cycle) : student.receipts;
+                                              const previousCycleReceipts = hasCycleMeta ? student.receipts.filter(r => !r.is_current_cycle) : [];
+
+                                              const renderReceipt = (receipt, idx) => (
+                                                <div key={receipt.receipt_id || idx} className="flex items-center justify-between text-[10px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                  <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded bg-[#84cc16]/10 flex items-center justify-center">
+                                                      <DollarSign className="w-3 h-3 text-[#84cc16]" />
+                                                    </div>
+                                                    <div>
+                                                      <span className="font-bold text-slate-900 dark:text-slate-100">₹{parseFloat(receipt.amount).toFixed(2)}</span>
+                                                      {parseFloat(receipt.discount || 0) > 0 && (
+                                                        <span className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">(Discount: ₹{parseFloat(receipt.discount).toFixed(0)})</span>
+                                                      )}
+                                                      <span className="text-slate-400 ml-1.5">{formatDate(receipt.payment_date)}</span>
+                                                    </div>
+                                                  </div>
+                                                  <div className="text-slate-600 dark:text-slate-400 font-bold flex items-center gap-1.5">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[8px] uppercase ${(receipt.status || '').toUpperCase() === 'COMPLETED'
+                                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                                      }`}>{receipt.status || 'N/A'}</span>
+                                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[8px] uppercase">{receipt.method || 'cash'}</span>
+                                                    {receipt.remarks && (
+                                                      <span className="text-slate-400 max-w-[100px] truncate" title={receipt.remarks}>— {receipt.remarks}</span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+
+                                              return (
+                                                <div className="max-h-[280px] overflow-y-auto space-y-3 pr-1">
+                                                  {/* Current Cycle */}
+                                                  <div>
+                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#84cc16]/15 text-[#65a30d] dark:text-[#84cc16] border border-[#84cc16]/30">
+                                                        ✦ Current Cycle
+                                                      </span>
+                                                    </div>
+                                                    {currentCycleReceipts.length > 0 ? (
+                                                      <div className="space-y-1.5">
+                                                        {currentCycleReceipts.map((r, idx) => renderReceipt(r, idx))}
+                                                      </div>
+                                                    ) : (
+                                                      <p className="text-slate-400 dark:text-slate-500 text-[10px] italic px-2">No payments in current cycle yet</p>
+                                                    )}
+                                                  </div>
+
+                                                  {/* Previous Cycles */}
+                                                  {previousCycleReceipts.length > 0 && (
+                                                    <div>
+                                                      <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                                          ◇ Previous Cycles
+                                                        </span>
+                                                      </div>
+                                                      <div className="space-y-1.5 opacity-70">
+                                                        {previousCycleReceipts.map((r, idx) => renderReceipt(r, idx))}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })() : (
+                                              <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No payment history available</p>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Right Column: Advance Credit */}
+                                        <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-700 md:pl-6 pt-4 md:pt-0">
+                                          <div className="flex items-center justify-between">
+                                            <h4 className="font-bold text-slate-950 dark:text-white text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                                              <TrendingUp className="w-3.5 h-3.5 text-indigo-600" /> Advance Credit
+                                            </h4>
+                                            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                                              Available Balance: ₹{parseFloat(student.advance_balance || 0).toFixed(2)}
+                                            </div>
+                                          </div>
+
+                                          <div className="flex gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
+                                                setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: false }));
+                                                setAddCreditData({ amount: '', reason: '' });
+                                              }}
+                                              className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors"
+                                            >
+                                              + Add Credit
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={parseFloat(student.advance_balance || 0) <= 0}
+                                              onClick={() => {
+                                                setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
+                                                setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }));
+                                                setUseCreditData({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
+                                              }}
+                                              className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                              - Use Credit
+                                            </button>
+                                          </div>
+
+                                          {/* Add Credit Form */}
+                                          {showAddCreditForm[student.student_id] && (
+                                            <motion.div
+                                              initial={{ opacity: 0, height: 0 }}
+                                              animate={{ opacity: 1, height: 'auto' }}
+                                              className="bg-indigo-50/55 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 space-y-3"
+                                            >
+                                              <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Add Advance Credit Balance</div>
+                                              <div className="grid grid-cols-2 gap-2">
+                                                <input
+                                                  type="number"
+                                                  placeholder="Amount (₹)"
+                                                  className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                  value={addCreditData.amount}
+                                                  onChange={(e) => setAddCreditData({ ...addCreditData, amount: e.target.value })}
+                                                />
+                                                <input
+                                                  type="text"
+                                                  placeholder="Reason/Remarks"
+                                                  className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                  value={addCreditData.reason}
+                                                  onChange={(e) => setAddCreditData({ ...addCreditData, reason: e.target.value })}
+                                                />
+                                              </div>
+                                              <div className="flex gap-2 justify-end">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }))}
+                                                  className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold"
+                                                >
+                                                  Cancel
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleAddCredit(student.student_id)}
+                                                  className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[9px] font-bold"
+                                                >
+                                                  Save
+                                                </button>
+                                              </div>
+                                            </motion.div>
+                                          )}
+
+                                          {/* Use Credit Form */}
+                                          {showUseCreditForm[student.student_id] && (
+                                            <motion.div
+                                              initial={{ opacity: 0, height: 0 }}
+                                              animate={{ opacity: 1, height: 'auto' }}
+                                              className="bg-indigo-50/55 dark:bg-indigo-950/10 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-900/30 space-y-3"
+                                            >
+                                              <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Consume Credit Balance</div>
+                                              <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                  <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Use For</label>
+                                                  <select
+                                                    className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                    value={useCreditData.use_for}
+                                                    onChange={(e) => setUseCreditData({ ...useCreditData, use_for: e.target.value, reference_id: '' })}
+                                                  >
+                                                    <option value="KIT">Sports Kit</option>
+                                                    <option value="PLAN">Duration Plan</option>
+                                                    <option value="OTHER">Other Charges</option>
+                                                  </select>
+                                                </div>
+                                                <div>
+                                                  <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Amount (₹)</label>
+                                                  <input
+                                                    type="number"
+                                                    placeholder="Amount"
+                                                    className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                    value={useCreditData.amount}
+                                                    onChange={(e) => setUseCreditData({ ...useCreditData, amount: e.target.value })}
+                                                  />
+                                                </div>
+                                                <div>
+                                                  <label className="text-[8px] font-bold text-slate-500 block mb-0.5">Reference ID</label>
+                                                  {useCreditData.use_for === 'PLAN' ? (
+                                                    <select
+                                                      className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                      value={useCreditData.reference_id}
+                                                      onChange={(e) => setUseCreditData({ ...useCreditData, reference_id: e.target.value })}
+                                                    >
+                                                      <option value="">Select Plan</option>
+                                                      {(student.enrollments || []).map((enr, idx) => (
+                                                        <option key={idx} value={enr.enrollment_id}>
+                                                          {enr.batch?.sport?.name || 'Sport'} (Due: ₹{(enr.final_fee - enr.paid_amount).toFixed(0)})
+                                                        </option>
+                                                      ))}
+                                                    </select>
+                                                  ) : (
+                                                    <input
+                                                      type="text"
+                                                      placeholder="ID / Code"
+                                                      className="input-field py-1 px-1.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                      value={useCreditData.reference_id}
+                                                      onChange={(e) => setUseCreditData({ ...useCreditData, reference_id: e.target.value })}
+                                                    />
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <div>
+                                                <input
+                                                  type="text"
+                                                  placeholder="Description / Remarks"
+                                                  className="input-field py-1 px-2.5 h-8 text-[10px] w-full bg-white dark:bg-slate-900"
+                                                  value={useCreditData.reason}
+                                                  onChange={(e) => setUseCreditData({ ...useCreditData, reason: e.target.value })}
+                                                />
+                                              </div>
+                                              <div className="flex gap-2 justify-end">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: false }))}
+                                                  className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold"
+                                                >
+                                                  Cancel
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleUseCredit(student.student_id)}
+                                                  className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[9px] font-bold"
+                                                >
+                                                  Apply
+                                                </button>
+                                              </div>
+                                            </motion.div>
+                                          )}
+
+                                          {/* Credit History Table */}
+                                          <div className="space-y-2">
+                                            <div className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">Credit History</div>
+                                            {creditLoading[student.student_id] ? (
+                                              <div className="text-[10px] text-slate-400 py-2">Loading credit transactions...</div>
+                                            ) : creditHistories[student.student_id]?.transactions && creditHistories[student.student_id].transactions.length > 0 ? (
+                                              <div className="max-h-[160px] overflow-y-auto pr-1 space-y-1.5">
+                                                {creditHistories[student.student_id].transactions.map((tx, idx) => (
+                                                  <div key={idx} className="flex items-center justify-between text-[9px] bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                    <div className="flex items-center gap-1.5">
+                                                      <span className={`font-bold ${tx.type === 'ADD' ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                        {tx.type === 'ADD' ? '+' : '—'} ₹{parseFloat(tx.amount).toFixed(2)}
+                                                      </span>
+                                                      <span className="text-slate-500 dark:text-slate-400 truncate max-w-[130px] font-medium" title={tx.reason}>{tx.reason}</span>
+                                                    </div>
+                                                    <div className="text-slate-400 flex items-center gap-1">
+                                                      {tx.reference_type && (
+                                                        <span className="px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-[7px] uppercase font-bold text-slate-500">{tx.reference_type}</span>
+                                                      )}
+                                                      <span>{formatDate(tx.created_at)}</span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <p className="text-slate-500 dark:text-slate-400 text-[10px] italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">No credit history available</p>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                      </div>
+                                    </td>
+                                  </motion.tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
-          </motion.div>
+              )}
+            </motion.div>
           </div>
         </>
       )}
@@ -3219,9 +3268,8 @@ export default function AccountsPanel() {
                     <div className="grid grid-cols-3 gap-2">
                       <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
                       <span className="col-span-2">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                          statusVal === 'Active' ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-955/35 text-red-650'
-                        }`}>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusVal === 'Active' ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-955/35 text-red-650'
+                          }`}>
                           {statusVal}
                         </span>
                       </span>
@@ -3239,9 +3287,8 @@ export default function AccountsPanel() {
                       <button
                         type="button"
                         onClick={() => copyToClipboard(tempPassword)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                          copiedSuccess ? 'bg-emerald-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-emerald-750 hover:bg-emerald-50 border border-emerald-300'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${copiedSuccess ? 'bg-emerald-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-emerald-750 hover:bg-emerald-50 border border-emerald-300'
+                          }`}
                       >
                         {copiedSuccess ? 'Copied! ✅' : '📋 Copy'}
                       </button>
@@ -3368,7 +3415,7 @@ export default function AccountsPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-6"
             onClick={(e) => { if (e.target === e.currentTarget) setShowReactivateModal(false); }}
           >
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -3378,6 +3425,7 @@ export default function AccountsPanel() {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700/50 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-700/50">
@@ -3437,11 +3485,10 @@ export default function AccountsPanel() {
                         key={opt.value}
                         type="button"
                         onClick={() => setReactivateForm(prev => ({ ...prev, action: opt.value }))}
-                        className={`p-3 rounded-xl border-2 text-left transition-all ${
-                          reactivateForm.action === opt.value
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${reactivateForm.action === opt.value
                             ? 'border-[#84cc16] bg-[#84cc16]/5 dark:bg-[#84cc16]/10'
                             : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
+                          }`}
                       >
                         <div className="text-base mb-1">{opt.icon}</div>
                         <div className="text-xs font-bold text-slate-800 dark:text-slate-200">{opt.label}</div>
@@ -3450,7 +3497,7 @@ export default function AccountsPanel() {
                     ))}
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 italic bg-slate-50 dark:bg-slate-900/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                    {reactivateForm.action === 'continue' 
+                    {reactivateForm.action === 'continue'
                       ? "Continue Existing Plan keeps the student's existing fee account and payment history."
                       : "Assign New Plan starts a new fee cycle. Previous payment history remains in the student's records."
                     }
@@ -3549,7 +3596,7 @@ export default function AccountsPanel() {
                           <span className="font-bold text-emerald-600">
                             ₹{(
                               (parseFloat(sports.find(s => String(s.sport_id) === String(reactivateForm.sport_id))?.base_fee || 0) *
-                              parseFloat(durationPlans.find(p => String(p.plan_id) === String(reactivateForm.duration_plan_id))?.multiplier || 1)) +
+                                parseFloat(durationPlans.find(p => String(p.plan_id) === String(reactivateForm.duration_plan_id))?.multiplier || 1)) +
                               parseFloat(reactivateForm.registration_fee || 0) +
                               parseFloat(reactivateForm.additional_charges || 0) -
                               parseFloat(reactivateForm.discount || 0)
