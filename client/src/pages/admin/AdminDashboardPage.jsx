@@ -48,7 +48,7 @@ import {
   Legend
 } from 'recharts';
 import Loader from '../../components/Loader';
-import { adminGet } from '../../api/client';
+import { adminGet, adminPost } from '../../api/client';
 
 function formatCurrency(value) {
   const num = parseFloat(value);
@@ -91,6 +91,11 @@ export default function AnalyticsPanel() {
   const [coachLocationLogs, setCoachLocationLogs] = useState([]);
   const [batchSessions, setBatchSessions] = useState([]);
   const [calendarStats, setCalendarStats] = useState(null);
+  const [expiryReminders, setExpiryReminders] = useState([]);
+  const [expiryLoading, setExpiryLoading] = useState(false);
+  const [activeExpiryTab, setActiveExpiryTab] = useState('EXPIRING_SOON');
+  const [showAllExpiryModal, setShowAllExpiryModal] = useState(false);
+  const [reminingStudentId, setReminingStudentId] = useState(null);
 
   useEffect(() => {
     const impersonationToken = localStorage.getItem('impersonation_token');
@@ -147,7 +152,8 @@ export default function AnalyticsPanel() {
         coachLogsData,
         sessionsData,
         academyRes,
-        calendarRes
+        calendarRes,
+        expiryRemindersRes
       ] = await Promise.all([
         safeFetch(adminGet('/admin/analytics'), {}),
         safeFetch(adminGet('/admin/students'), []),
@@ -162,7 +168,8 @@ export default function AnalyticsPanel() {
         safeFetch(adminGet('/admin/gps/coach-location-logs'), []),
         safeFetch(adminGet('/admin/batch-sessions'), []),
         safeFetch(adminGet('/admin/academy'), null),
-        safeFetch(adminGet('/admin/calendar/dashboard'), null)
+        safeFetch(adminGet('/admin/calendar/dashboard'), null),
+        safeFetch(adminGet('/admin/dashboard/expiry-reminders'), [])
       ]);
 
       setRawMetrics(analyticsData);
@@ -194,6 +201,8 @@ export default function AnalyticsPanel() {
       if (calendarRes) {
         setCalendarStats(calendarRes);
       }
+
+      setExpiryReminders(expiryRemindersRes || []);
     } catch (err) {
       setError(err.message || 'Failed to sync academy analytics logs.');
     } finally {
@@ -1117,7 +1126,8 @@ export default function AnalyticsPanel() {
 
               {/* TAB 1: OVERVIEW */}
               {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                   {/* Daily Attendance Trend */}
                   <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
@@ -1230,7 +1240,232 @@ export default function AnalyticsPanel() {
                     </button>
                   </div>
                 </div>
-              )}
+
+                {/* --- NEW SECTION: Plan Expiry & Renewal Reminders --- */}
+                <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4 mt-6">
+                  <div className="flex justify-between items-center pb-2 border-b border-border">
+                    <div>
+                      <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-500" /> Plan Expiry & Renewal Reminders
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground font-bold">Track and remind students whose plans are expiring soon or expired.</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      {expiryReminders.length} Total
+                    </span>
+                  </div>
+
+                  {/* Expiry Sub-Tabs */}
+                  <div className="flex gap-2 border-b border-border/40 pb-2 overflow-x-auto">
+                    {[
+                      { id: 'EXPIRING_SOON', label: 'Expiring Soon (10d)', color: 'border-yellow-500 text-yellow-600' },
+                      { id: 'GRACE_PERIOD', label: 'Grace Period (2d)', color: 'border-orange-500 text-orange-600' },
+                      { id: 'DEACTIVATION_PENDING', label: 'Deactivation Pending', color: 'border-rose-400 text-rose-500' },
+                      { id: 'RECENTLY_DEACTIVATED', label: 'Recently Deactivated', color: 'border-rose-600 text-rose-700' }
+                    ].map(tab => {
+                      const count = expiryReminders.filter(r => r.expiry_status === tab.id).length;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveExpiryTab(tab.id)}
+                          className={`px-3 py-1.5 text-[11px] font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                            activeExpiryTab === tab.id
+                              ? `${tab.color.split(' ')[0]} text-foreground font-black`
+                              : 'border-transparent text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {tab.label}
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-muted font-bold text-muted-foreground">
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reminders List */}
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    {expiryReminders.filter(r => r.expiry_status === activeExpiryTab).length === 0 ? (
+                      <div className="py-8 text-center text-xs text-muted-foreground font-bold">
+                        No students currently in this category.
+                      </div>
+                    ) : (
+                      expiryReminders
+                        .filter(r => r.expiry_status === activeExpiryTab)
+                        .slice(0, 5)
+                        .map(rem => (
+                          <div key={rem.student_id} className="flex justify-between items-center p-3 bg-muted/30 border border-border/40 rounded-xl hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center font-bold text-xs overflow-hidden border border-border">
+                                {rem.photo ? (
+                                  <img src={rem.photo} alt={rem.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  rem.name.split(' ').map(n => n[0]).join('').toUpperCase()
+                                )}
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-black text-foreground">{rem.name}</h4>
+                                <p className="text-[10px] text-muted-foreground font-bold">
+                                  {rem.sport} • {rem.batch} • Coach: {rem.coach} • Parent: {rem.parent}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="text-[10px] font-bold text-foreground">Plan: {rem.current_plan}</p>
+                                <p className="text-[9px] text-muted-foreground font-bold">
+                                  Expiry: {rem.expiry_date ? new Date(rem.expiry_date).toLocaleDateString() : 'N/A'}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                  rem.expiry_status === 'EXPIRING_SOON' ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20' :
+                                  rem.expiry_status === 'GRACE_PERIOD' ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20' :
+                                  rem.expiry_status === 'DEACTIVATION_PENDING' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                                  'bg-rose-600/10 text-rose-700 border border-rose-600/20'
+                                }`}>
+                                  {rem.expiry_status === 'EXPIRING_SOON' ? `${rem.days_remaining}d Left` :
+                                   rem.expiry_status === 'GRACE_PERIOD' ? `${rem.days_remaining} Grace Days` :
+                                   rem.expiry_status === 'DEACTIVATION_PENDING' ? 'Deactivation Pending' :
+                                   'Deactivated'}
+                                </span>
+                                {rem.expiry_status !== 'RECENTLY_DEACTIVATED' && (
+                                  <button
+                                    disabled={reminingStudentId === rem.student_id}
+                                    onClick={async () => {
+                                      if (window.confirm("Send renewal reminder to the student's parent and assigned coach?")) {
+                                        setReminingStudentId(rem.student_id);
+                                        try {
+                                          const res = await adminPost(`/admin/students/${rem.student_id}/send-renewal-reminder`);
+                                          alert(res.message || 'Renewal reminder sent successfully!');
+                                          const updated = await adminGet('/admin/dashboard/expiry-reminders');
+                                          setExpiryReminders(updated.data || updated || []);
+                                        } catch (err) {
+                                          alert(err.message || 'Failed to send reminder.');
+                                        } finally {
+                                          setReminingStudentId(null);
+                                        }
+                                      }
+                                    }}
+                                    className="text-[9px] font-black bg-primary text-primary-foreground hover:bg-primary/90 px-2 py-1 rounded transition-colors"
+                                  >
+                                    {rem.last_reminder_sent_at 
+                                      ? `Resend (Last: ${new Date(rem.last_reminder_sent_at).toLocaleDateString()})` 
+                                      : 'Send Reminder'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+
+                  {expiryReminders.length > 5 && (
+                    <div className="text-center pt-2">
+                      <button
+                        onClick={() => setShowAllExpiryModal(true)}
+                        className="text-[11px] font-black text-primary hover:underline"
+                      >
+                        View All Categories & Roster
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* View All Expiry Reminders Modal */}
+                {showAllExpiryModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-card border border-border w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl flex flex-col shadow-xl">
+                      <div className="p-5 border-b border-border flex justify-between items-center">
+                        <div>
+                          <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                            <Clock className="w-5 h-5 text-amber-500" /> Plan Expiry & Renewal Reminders
+                          </h3>
+                          <p className="text-xs text-muted-foreground font-bold">Manage plan renewals, grace periods, and manual reminders.</p>
+                        </div>
+                        <button
+                          onClick={() => setShowAllExpiryModal(false)}
+                          className="text-xs font-bold text-muted-foreground hover:text-foreground bg-muted hover:bg-muted-secondary px-3 py-1.5 rounded-xl transition-all"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      
+                      <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {expiryReminders.map(rem => (
+                            <div key={rem.student_id} className="flex justify-between items-center p-3 bg-muted/30 border border-border/40 rounded-xl hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center font-bold text-xs overflow-hidden border border-border">
+                                  {rem.photo ? (
+                                    <img src={rem.photo} alt={rem.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    rem.name.split(' ').map(n => n[0]).join('').toUpperCase()
+                                  )}
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-foreground">{rem.name}</h4>
+                                  <p className="text-[10px] text-muted-foreground font-bold">
+                                    {rem.sport} • {rem.batch} • Coach: {rem.coach} • Parent: {rem.parent}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right">
+                                  <p className="text-[10px] font-bold text-foreground">Plan: {rem.current_plan}</p>
+                                  <p className="text-[9px] text-muted-foreground font-bold">
+                                    Expiry: {rem.expiry_date ? new Date(rem.expiry_date).toLocaleDateString() : 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                    rem.expiry_status === 'EXPIRING_SOON' ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20' :
+                                    rem.expiry_status === 'GRACE_PERIOD' ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20' :
+                                    rem.expiry_status === 'DEACTIVATION_PENDING' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                                    'bg-rose-600/10 text-rose-700 border border-rose-600/20'
+                                  }`}>
+                                    {rem.expiry_status === 'EXPIRING_SOON' ? `${rem.days_remaining}d Left` :
+                                     rem.expiry_status === 'GRACE_PERIOD' ? `${rem.days_remaining} Grace Days` :
+                                     rem.expiry_status === 'DEACTIVATION_PENDING' ? 'Deactivation Pending' :
+                                     'Deactivated'}
+                                  </span>
+                                  {rem.expiry_status !== 'RECENTLY_DEACTIVATED' && (
+                                    <button
+                                      disabled={reminingStudentId === rem.student_id}
+                                      onClick={async () => {
+                                        if (window.confirm("Send renewal reminder to the student's parent and assigned coach?")) {
+                                          setReminingStudentId(rem.student_id);
+                                          try {
+                                            const res = await adminPost(`/admin/students/${rem.student_id}/send-renewal-reminder`);
+                                            alert(res.message || 'Renewal reminder sent successfully!');
+                                            const updated = await adminGet('/admin/dashboard/expiry-reminders');
+                                            setExpiryReminders(updated.data || updated || []);
+                                          } catch (err) {
+                                            alert(err.message || 'Failed to send reminder.');
+                                          } finally {
+                                            setReminingStudentId(null);
+                                          }
+                                        }
+                                      }}
+                                      className="text-[9px] font-black bg-primary text-primary-foreground hover:bg-primary/90 px-2 py-1 rounded transition-colors"
+                                    >
+                                      {rem.last_reminder_sent_at 
+                                        ? `Resend (Last: ${new Date(rem.last_reminder_sent_at).toLocaleDateString()})` 
+                                        : 'Send Reminder'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
               {/* TAB 2: ATTENDANCE */}
               {activeTab === 'attendance' && (

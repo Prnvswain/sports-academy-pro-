@@ -167,10 +167,13 @@ export default function AcademyCalendar({ role }) {
     try {
       const res = await coachGet('/coach/batches');
       if (res?.success) {
-        setCoachBatches(res.data || []);
+        setCoachBatches(res.data?.batches || res.data || []);
+      } else {
+        setCoachBatches([]);
       }
     } catch (err) {
       console.error('Failed to load coach batches:', err);
+      setCoachBatches([]);
     }
   };
 
@@ -1503,7 +1506,7 @@ export default function AcademyCalendar({ role }) {
                         className="w-full mt-1 px-3 py-2.5 border border-slate-250 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
                       >
                         <option value="">-- Choose Batch --</option>
-                        {coachBatches.map(b => (
+                        {(Array.isArray(coachBatches) ? coachBatches : []).map(b => (
                           <option key={b.batch_id} value={b.batch_id}>{b.name} ({b.sport?.name || 'General'})</option>
                         ))}
                       </select>
@@ -1601,7 +1604,7 @@ export default function AcademyCalendar({ role }) {
                         className="w-full mt-1 px-3 py-2.5 border border-slate-250 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
                       >
                         <option value="">-- Choose Batch --</option>
-                        {coachBatches.map(b => (
+                        {(Array.isArray(coachBatches) ? coachBatches : []).map(b => (
                           <option key={b.batch_id} value={b.batch_id}>{b.name} ({b.sport?.name || 'General'})</option>
                         ))}
                       </select>

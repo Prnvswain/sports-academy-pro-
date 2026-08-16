@@ -17,7 +17,7 @@ export const getNotifications = async (req, res, next) => {
   try {
     const notifications = await notificationsService.getNotifications(
       req.user.academy_id,
-      req.user.user_id,
+      req.user.user_id || (req.user.role === 'PARENT' ? req.user.id : null),
       req.user.coach_id
     );
     res.json(successResponse('Notifications retrieved', notifications));
@@ -39,7 +39,7 @@ export const markAllAsRead = async (req, res, next) => {
   try {
     const result = await notificationsService.markAllAsRead(
       req.user.academy_id,
-      req.user.user_id,
+      req.user.user_id || (req.user.role === 'PARENT' ? req.user.id : null),
       req.user.coach_id
     );
     res.json(successResponse('All notifications marked as read', result));
@@ -52,7 +52,7 @@ export const getUnreadCount = async (req, res, next) => {
   try {
     const result = await notificationsService.getUnreadCount(
       req.user.academy_id,
-      req.user.user_id,
+      req.user.user_id || (req.user.role === 'PARENT' ? req.user.id : null),
       req.user.coach_id
     );
     res.json(successResponse('Unread count retrieved', result));

@@ -88,7 +88,7 @@ export default function CoachStudentsPage() {
       ]);
       
       setStudents(Array.isArray(studentsResult.data?.students) ? studentsResult.data.students : []);
-      setBatches(Array.isArray(batchesResult.data) ? batchesResult.data : Array.isArray(batchesResult.data?.data) ? batchesResult.data.data : []);
+      setBatches(batchesResult.data?.batches || (Array.isArray(batchesResult.data) ? batchesResult.data : (Array.isArray(batchesResult.data?.data) ? batchesResult.data.data : [])));
       setSports(Array.isArray(sportsResult.data) ? sportsResult.data : Array.isArray(sportsResult.data?.data) ? sportsResult.data.data : []);
       
       // Calculate statistics

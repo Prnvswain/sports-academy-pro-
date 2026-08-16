@@ -607,6 +607,7 @@ model Parent {
   academy  Academy   @relation(fields: [academy_id], references: [academy_id], onDelete: Cascade, map: "parents_academy_id_fk")
 
   students Student[]
+  submitted_receipts Receipt[] @relation("ReceiptSubmittedByParent")
 
 
 
@@ -1232,6 +1233,9 @@ model Receipt {
   created_by_user_id    Int?
 
   pdf_url               String?
+  recorded_by           String?       @db.VarChar(50)
+  recorded_by_name      String?       @db.VarChar(255)
+  submitted_by_parent_id Int?
 
   created_at            DateTime      @default(now())
 
@@ -1248,6 +1252,8 @@ model Receipt {
   collected_by Coach?  @relation("ReceiptCollectedBy", fields: [collected_by_coach_id], references: [coach_id], map: "receipts_collected_by_fk")
 
   created_by   User?   @relation("ReceiptCreatedBy", fields: [created_by_user_id], references: [user_id], map: "receipts_created_by_fk")
+
+  submitted_by_parent Parent? @relation("ReceiptSubmittedByParent", fields: [submitted_by_parent_id], references: [parent_id], map: "receipts_submitted_by_parent_fk")
 
 
 

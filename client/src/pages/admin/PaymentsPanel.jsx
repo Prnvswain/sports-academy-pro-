@@ -72,6 +72,7 @@ export default function AccountsPanel() {
 
   // Image Modal Preview State
   const [previewImage, setPreviewImage] = useState(null);
+  const [selectedPaymentDetails, setSelectedPaymentDetails] = useState(null);
 
   // Drawer/Modal State for Summary Cards
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1009,6 +1010,27 @@ export default function AccountsPanel() {
       default:
         return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
+  };
+
+  const getRecordedByRoleText = (payment) => {
+    if (payment?.recorded_by) {
+      const role = payment.recorded_by.toUpperCase();
+      if (role === 'ADMIN') return 'Admin';
+      if (role === 'COACH') return 'Coach';
+      if (role === 'PARENT') return 'Parent';
+      return payment.recorded_by;
+    }
+    if (payment?.created_by_user_id) return 'Admin';
+    if (payment?.collected_by_coach_id) return 'Coach';
+    return 'Parent';
+  };
+
+  const getRecordedByNameText = (payment) => {
+    if (payment?.recorded_by_name) return payment.recorded_by_name;
+    if (payment?.created_by?.name) return payment.created_by.name;
+    if (payment?.collected_by?.name) return payment.collected_by.name;
+    if (payment?.student?.parent_name) return payment.student.parent_name;
+    return 'N/A';
   };
 
   const clearFilters = () => {
@@ -2249,63 +2271,84 @@ export default function AccountsPanel() {
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.02 }}
-                            className={`px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isOverdue ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}
+                            className={`px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors border-b border-slate-100 dark:border-slate-800/50 last:border-b-0 ${isOverdue ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}
                           >
-                            <div className="flex items-center gap-2.5">
-                              {/* Avatar */}
-                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden">
-                                {payment?.student?.profile_photo ? (
-                                  <img src={payment.student.profile_photo} alt={studentName} className="w-full h-full object-cover" />
-                                ) : initials}
-                              </div>
-                              {/* Info */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-baseline justify-between gap-1">
-                                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{studentName}</span>
-                                  <span className="text-sm font-black text-slate-900 dark:text-slate-100 flex-shrink-0">₹{parseFloat(payment?.amount || 0).toLocaleString('en-IN')}</span>
+                            <div className="flex items-center justify-between gap-4">
+                              {/* Left side: Avatar + Info */}
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {/* Avatar */}
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0 overflow-hidden">
+                                  {payment?.student?.profile_photo ? (
+                                    <img src={payment.student.profile_photo} alt={studentName} className="w-full h-full object-cover" />
+                                  ) : initials}
                                 </div>
-                                <div className="flex items-center justify-between gap-1 mt-0.5">
+                                {/* Details text */}
+                                <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isKit ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
-                                      {isKit ? 'Kit' : 'Training'}
+                                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{studentName}</span>
+                                    <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>
+                                    <span className={`text-[9px] font-bold ${isKit ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{isKit ? 'Kit' : 'Training'}</span>
+                                    {payment?.method && (
+                                      <>
+                                        <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>
+                                        <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase">{payment.method}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="text-[9px] text-slate-450 dark:text-slate-400 mt-0.5">
+                                    Recorded by: <span className="font-semibold text-slate-700 dark:text-slate-300">{getRecordedByRoleText(payment)} — {getRecordedByNameText(payment)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right side: Amount + Status + Action buttons */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="text-right min-w-[70px]">
+                                  <div className="text-xs font-black text-slate-900 dark:text-slate-100">₹{parseFloat(payment?.amount || 0).toLocaleString('en-IN')}</div>
+                                  <div className="text-[9px] text-slate-400 mt-0.5">{payDate ? new Date(payDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</div>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  {/* Status badge */}
+                                  {isOverdue ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-red-100 dark:bg-red-900/30 text-red-650 dark:text-red-400 animate-pulse">
+                                      OD
                                     </span>
-                                    <span className="text-[9px] text-slate-400">{payDate ? new Date(payDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}</span>
-                                    {payment?.method && <span className="text-[9px] text-slate-500 dark:text-slate-400 font-medium capitalize">{payment.method}</span>}
-                                  </div>
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    {isOverdue ? (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 animate-pulse">
-                                        <AlertCircle className="w-2 h-2" /> OD
-                                      </span>
-                                    ) : normalizedStatus === 'COMPLETED' ? (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-                                        <CheckCircle className="w-2 h-2" /> PAID
-                                      </span>
-                                    ) : normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED' ? (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                                        <XCircle className="w-2 h-2" /> {normalizedStatus}
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                                        <Clock className="w-2 h-2" /> PENDING
-                                      </span>
-                                    )}
-                                    {normalizedStatus !== 'COMPLETED' && (
-                                      <button type="button" onClick={() => handleMarkPaidClick(payment, currentId)} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
-                                        <CheckCircle className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                    {!['COMPLETED', 'REJECTED', 'FAILED', 'VOID'].includes(normalizedStatus) && (
-                                      <button type="button" onClick={() => rejectPayment(payment, currentId)} title="Reject" className="w-5 h-5 rounded flex items-center justify-center bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all cursor-pointer">
-                                        <XCircle className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                    {(payment?.proof_url || payment?.attachmentUrl || payment?.receipt_image || payment?.proof) && (
-                                      <button type="button" onClick={() => { const p = payment.proof_url || payment.attachmentUrl || payment.receipt_image || payment.proof; setPreviewImage(p.startsWith('http') ? p : `http://localhost:5000/${p}`); }} title="View Proof" className="w-5 h-5 rounded flex items-center justify-center bg-blue-50 hover:bg-blue-500 text-blue-500 hover:text-white transition-all cursor-pointer">
-                                        <Calendar className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
+                                  ) : (normalizedStatus === 'COMPLETED' || normalizedStatus === 'PAID' || normalizedStatus === 'APPROVED') ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                      PAID
+                                    </span>
+                                  ) : (normalizedStatus === 'FAILED' || normalizedStatus === 'REJECTED') ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-red-100 dark:bg-red-900/30 text-red-650 dark:text-red-400">
+                                      REJECTED
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                                      PENDING
+                                    </span>
+                                  )}
+
+                                  {/* Action buttons */}
+                                  {normalizedStatus !== 'COMPLETED' && normalizedStatus !== 'PAID' && normalizedStatus !== 'APPROVED' && (
+                                    <button type="button" onClick={() => handleMarkPaidClick(payment, currentId)} title="Mark Paid" className="w-5 h-5 rounded flex items-center justify-center bg-[#84cc16]/10 hover:bg-[#84cc16] text-[#84cc16] hover:text-white transition-all cursor-pointer">
+                                      <CheckCircle className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  {!['COMPLETED', 'PAID', 'APPROVED', 'REJECTED', 'FAILED', 'VOID'].includes(normalizedStatus) && (
+                                    <button type="button" onClick={() => rejectPayment(payment, currentId)} title="Reject" className="w-5 h-5 rounded flex items-center justify-center bg-red-100 hover:bg-red-500 text-red-500 hover:text-white transition-all cursor-pointer">
+                                      <XCircle className="w-3 h-3" />
+                                    </button>
+                                  )}
+
+                                  {/* View Details Chevron Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedPaymentDetails(payment)}
+                                    title="View Details"
+                                    className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-[#84cc16] hover:text-white text-slate-500 dark:text-slate-400 transition-all cursor-pointer"
+                                  >
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -3751,6 +3794,187 @@ export default function AccountsPanel() {
               </form>
             </motion.div>
           </motion.div>
+        )}
+
+        {selectedPaymentDetails && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-xl overflow-hidden rounded-2xl flex flex-col shadow-2xl my-8 text-left"
+            >
+              {/* Modal Header */}
+              <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-[#84cc16]" /> Payment Submission Details
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                    Record ID: #{selectedPaymentDetails.receipt_id || selectedPaymentDetails.id}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedPaymentDetails(null)}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-850 dark:hover:text-slate-250 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 overflow-y-auto space-y-4 max-h-[70vh] text-left text-xs font-bold text-slate-700 dark:text-slate-300">
+                {/* 1. Submitter Identity Details */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-150 dark:border-slate-800 space-y-2.5">
+                  <div className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-500 tracking-wider border-b border-slate-150 dark:border-slate-800 pb-1 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> Submitter &amp; Student Context
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Student Name</span>
+                      <span className="text-xs font-extrabold text-slate-900 dark:text-slate-100">
+                        {selectedPaymentDetails.student?.name || selectedPaymentDetails.student_name || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Submitted/Recorded By</span>
+                      <span className="text-xs font-extrabold text-slate-900 dark:text-slate-100">
+                        {getRecordedByRoleText(selectedPaymentDetails)} — {getRecordedByNameText(selectedPaymentDetails)}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] text-slate-400 block">Contact Email</span>
+                      <span className="text-xs font-medium text-slate-900 dark:text-slate-200 break-all">
+                        {selectedPaymentDetails.submitted_by_parent?.email || selectedPaymentDetails.student?.parent?.email || selectedPaymentDetails.student?.parent_email || selectedPaymentDetails.collected_by?.email || 'Not provided'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Contact Phone</span>
+                      <span className="text-xs font-medium text-slate-900 dark:text-slate-200">
+                        {selectedPaymentDetails.submitted_by_parent?.phone || selectedPaymentDetails.student?.parent?.phone || selectedPaymentDetails.student?.parent_phone || selectedPaymentDetails.collected_by?.phone_number || 'Not provided'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Submission Date/Time</span>
+                      <span className="text-xs font-medium text-slate-900 dark:text-slate-200">
+                        {selectedPaymentDetails.created_at ? new Date(selectedPaymentDetails.created_at).toLocaleString('en-IN') : 'Not provided'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Payment Submission Breakdown */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-150 dark:border-slate-800 space-y-2.5">
+                  <div className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-500 tracking-wider border-b border-slate-150 dark:border-slate-800 pb-1 flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5" /> Financial Details
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Amount</span>
+                      <span className="text-sm font-black text-slate-900 dark:text-slate-100">
+                        ₹{parseFloat(selectedPaymentDetails.amount || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Payment Method</span>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase">
+                        {selectedPaymentDetails.method || 'Not provided'}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] text-slate-400 block">Transaction Reference Number</span>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 font-mono select-all">
+                        {selectedPaymentDetails.transaction_number || 'Not provided'}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] text-slate-400 block">Remarks / Notes</span>
+                      <span className="text-xs font-medium text-slate-900 dark:text-slate-200 whitespace-pre-wrap">
+                        {selectedPaymentDetails.remarks || 'Not provided'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Attachment / Proof Preview */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-150 dark:border-slate-800 space-y-2.5">
+                  <div className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-500 tracking-wider border-b border-slate-150 dark:border-slate-800 pb-1 flex items-center gap-1">
+                    <Package className="w-3.5 h-3.5" /> Receipt Attachment Proof
+                  </div>
+                  {(() => {
+                    const proofUrl = selectedPaymentDetails.proof_url || selectedPaymentDetails.payment_screenshot_url || selectedPaymentDetails.proof;
+                    if (!proofUrl) {
+                      return <div className="text-xs font-medium text-slate-400 dark:text-slate-500 py-1">Not provided</div>;
+                    }
+                    const fullProofUrl = proofUrl.startsWith('http') ? proofUrl : `http://localhost:5000/${proofUrl}`;
+                    return (
+                      <div className="space-y-3 pt-1">
+                        <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/30 flex items-center justify-center">
+                          <img
+                            src={fullProofUrl}
+                            alt="Payment Receipt Attachment Proof"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <a
+                            href={fullProofUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-2 px-3 rounded-lg text-center text-[10px] font-black bg-[#84cc16] hover:bg-[#65a30d] text-white transition-colors uppercase tracking-wider"
+                          >
+                            Open in New Tab
+                          </a>
+                          <a
+                            href={fullProofUrl}
+                            download
+                            className="flex-1 py-2 px-3 rounded-lg text-center text-[10px] font-black border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors uppercase tracking-wider"
+                          >
+                            Download Proof
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 4. Approval details */}
+                <div className="bg-slate-50/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-150 dark:border-slate-800 space-y-2.5">
+                  <div className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-500 tracking-wider border-b border-slate-150 dark:border-slate-800 pb-1 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Approval Log
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Approval Status</span>
+                      <span className="text-xs font-black uppercase text-slate-900 dark:text-slate-100">
+                        {selectedPaymentDetails.status || 'Not provided'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Approved/Rejected By</span>
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100">
+                        {selectedPaymentDetails.approved_by?.name || 'Not provided'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Approval Date/Time</span>
+                      <span className="text-xs font-medium text-slate-900 dark:text-slate-200">
+                        {selectedPaymentDetails.status !== 'PENDING' && selectedPaymentDetails.status !== 'PENDING_VERIFICATION' && selectedPaymentDetails.updated_at 
+                          ? new Date(selectedPaymentDetails.updated_at).toLocaleString('en-IN') 
+                          : 'Not provided'}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[10px] text-slate-400 block">Admin Remarks / Rejection Reason</span>
+                      <span className="text-xs font-medium text-slate-900 dark:text-slate-200">
+                        {selectedPaymentDetails.rejected_reason || 'Not provided'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

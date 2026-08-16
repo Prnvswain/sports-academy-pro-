@@ -57,7 +57,7 @@ export const deleteKit = async (req, res, next) => {
 export const assignKit = async (req, res, next) => {
   try {
     const { kit_id } = req.params;
-    const assignment = await kitsService.assignKit(req.user.academy_id, kit_id, req.body);
+    const assignment = await kitsService.assignKit(req.user.academy_id, kit_id, req.body, req.user.user_id);
     const response = successResponse('Sports kit assigned successfully', assignment);
     if (assignment && assignment.warning) {
       response.warning = assignment.warning;
@@ -81,7 +81,7 @@ export const returnKit = async (req, res, next) => {
 export const updatePaymentStatus = async (req, res, next) => {
   try {
     const { assignment_id } = req.params;
-    const assignment = await kitsService.updatePaymentStatus(req.user.academy_id, assignment_id, req.body);
+    const assignment = await kitsService.updatePaymentStatus(req.user.academy_id, assignment_id, req.body, req.user.user_id);
     res.json(successResponse('Kit payment status updated successfully', assignment));
   } catch (err) {
     next(err);

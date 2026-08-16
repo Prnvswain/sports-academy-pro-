@@ -26,7 +26,7 @@ import {
 import Loader from '../../components/Loader';
 import Avatar from '../../components/Avatar';
 import { useCoachBatches } from '../../context/CoachBatchesContext';
-import { coachGet } from '../../api/client';
+import { coachGet, coachPost } from '../../api/client';
 import { useState, useEffect, useMemo } from 'react';
 import {
   ResponsiveContainer,
@@ -66,6 +66,26 @@ export default function CoachDashboardPage() {
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [calendarStats, setCalendarStats] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [expiryReminders, setExpiryReminders] = useState([]);
+  const [expiryLoading, setExpiryLoading] = useState(false);
+  const [reminingStudentId, setReminingStudentId] = useState(null);
+
+  useEffect(() => {
+    const loadExpiryReminders = async () => {
+      try {
+        setExpiryLoading(true);
+        const result = await coachGet('/coach/dashboard/expiry-reminders');
+        if (result?.success) {
+          setExpiryReminders(result.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load coach expiry reminders:', err);
+      } finally {
+        setExpiryLoading(false);
+      }
+    };
+    loadExpiryReminders();
+  }, []);
 
   useEffect(() => {
     const loadCalendarStats = async () => {
@@ -637,6 +657,79 @@ export default function CoachDashboardPage() {
               </button>
             </motion.div>
           )}
+
+          {/* --- NEW CARD: Students Requiring Renewal --- */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm text-left">
+            <div className="flex items-center justify-between border-b border-border pb-2.5">
+              <h3 className="text-xs font-black uppercase text-foreground tracking-wide flex items-center gap-2">
+                <Clock className="w-4.5 h-4.5 text-amber-500" /> Trainees Requiring Renewal
+              </h3>
+              <span className="badge bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-black uppercase px-2 py-0.5">
+                {expiryReminders.length} Due
+              </span>
+            </div>
+
+            {expiryLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+              </div>
+            ) : expiryReminders.length === 0 ? (
+              <div className="text-center py-6 text-xs text-muted-foreground font-bold border border-dashed border-border rounded-xl">
+                ✓ All trainee plans active & healthy
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {expiryReminders.map(rem => (
+                  <div key={rem.student_id} className="p-3 bg-muted/30 border border-border/40 rounded-xl space-y-2 hover:bg-muted/50 transition-all">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <h4 className="text-xs font-black text-foreground">{rem.name}</h4>
+                        <p className="text-[10px] text-muted-foreground font-bold">
+                          {rem.sport} • {rem.batch}
+                        </p>
+                      </div>
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
+                        rem.expiry_status === 'EXPIRING_SOON' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400' :
+                        rem.expiry_status === 'GRACE_PERIOD' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400' :
+                        'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-455'
+                      }`}>
+                        {rem.expiry_status === 'EXPIRING_SOON' ? `${rem.days_remaining}d Left` :
+                         rem.expiry_status === 'GRACE_PERIOD' ? `${rem.days_remaining} Grace Days` :
+                         'Deactivation Pending'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold pt-1 border-t border-border/20">
+                      <span>Expiry: {rem.expiry_date ? new Date(rem.expiry_date).toLocaleDateString() : 'N/A'}</span>
+                      <button
+                        disabled={reminingStudentId === rem.student_id}
+                        onClick={async () => {
+                          if (window.confirm("Send renewal reminder to the student's parent?")) {
+                            setReminingStudentId(rem.student_id);
+                            try {
+                              const res = await coachPost(`/coach/students/${rem.student_id}/send-renewal-reminder`);
+                              alert(res.message || 'Renewal reminder sent successfully!');
+                              const updated = await coachGet('/coach/dashboard/expiry-reminders');
+                              setExpiryReminders(updated.data || updated || []);
+                            } catch (err) {
+                              alert(err.message || 'Failed to send reminder.');
+                            } finally {
+                              setReminingStudentId(null);
+                            }
+                          }
+                        }}
+                        className="text-[9px] font-black bg-primary text-primary-foreground hover:bg-primary/90 px-2 py-1 rounded transition-colors"
+                      >
+                        {rem.last_reminder_sent_at 
+                          ? `Resend (Last: ${new Date(rem.last_reminder_sent_at).toLocaleDateString()})` 
+                          : 'Send Reminder'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           
           {/* Quick Operations grid */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">

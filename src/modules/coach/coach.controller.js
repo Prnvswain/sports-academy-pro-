@@ -1,5 +1,6 @@
 import * as coachService from './coach.service.js';
 import * as adminService from '../admin/admin.service.js';
+import * as feesService from '../fees/fees.service.js';
 import { successResponse } from '../../utils/response.js';
 
 export const getMyBatches = async (req, res, next) => {
@@ -312,6 +313,29 @@ export const getGpsSettings = async (req, res, next) => {
   try {
     const settings = await coachService.getGpsSettings(req.user.academy_id);
     res.json(successResponse('GPS settings retrieved', settings));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getExpiryReminders = async (req, res, next) => {
+  try {
+    const reminders = await feesService.getExpiryRemindersForCoach(req.user.coach_id, req.user.academy_id);
+    res.json(successResponse('Plan expiry reminders retrieved successfully', reminders));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendRenewalReminder = async (req, res, next) => {
+  try {
+    const result = await feesService.sendManualRenewalReminder(
+      req.user.academy_id,
+      req.params.student_id,
+      req.user.role,
+      req.user.coach_id
+    );
+    res.json(successResponse(result.message, result));
   } catch (err) {
     next(err);
   }

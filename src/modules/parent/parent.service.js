@@ -282,6 +282,7 @@ export const getParentChildren = async (parent_id) => {
                 },
               },
               sport: true,
+              coach: true,
             },
           },
           fees: true,
@@ -642,6 +643,11 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
   // Generate receipt number
   const receiptNumber = await receiptService.generateReceiptNumber(academyId);
 
+  const parentRecord = await prisma.parent.findUnique({
+    where: { parent_id: parentId }
+  });
+  const parentName = parentRecord ? parentRecord.name : student.parent_name;
+
   const receipt = await prisma.receipt.create({
     data: {
       receipt_number: receiptNumber,
@@ -654,6 +660,9 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
       transaction_number: transactionValidation.value,
       payment_screenshot_url: payload.proof_url || null,
       remarks: payload.remarks || null,
+      recorded_by: 'PARENT',
+      recorded_by_name: parentName,
+      submitted_by_parent_id: parentId,
     },
     include: {
       student: {

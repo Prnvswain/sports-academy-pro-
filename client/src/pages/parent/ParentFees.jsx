@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
-import { CheckCircle, Wallet, Clock, AlertCircle, FileText, Check, UploadCloud, Receipt, X, Printer, IndianRupee, CreditCard } from 'lucide-react';
+import { CheckCircle, Wallet, Clock, AlertCircle, FileText, Check, UploadCloud, Receipt, X, Printer, IndianRupee, CreditCard, User, Calendar, Trophy } from 'lucide-react';
 import Loader from '../../components/Loader';
 import { parentGet, parentPatch, parentPost } from '../../api/client';
 import { useActiveStudent } from '../../context/ActiveStudentContext';
 
 export default function ParentFees() {
   const location = useLocation();
-  const { activeStudent, loading: studentLoading, reloadStudents } = useActiveStudent();
+  const { activeStudent, students, switchStudent, loading: studentLoading, reloadStudents } = useActiveStudent();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -110,7 +110,6 @@ export default function ParentFees() {
       showBanner(`Payment amount ₹${parsedAmount} exceeds outstanding balance of ₹${remainingFee}`, 'error');
       return;
     }
-
 
     if (!proofFile) {
       showBanner('Please upload payment receipt screenshot proof.', 'error');
@@ -273,9 +272,126 @@ export default function ParentFees() {
     }
   };
 
+  const getInitials = (name) => {
+    if (!name) return 'ST';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getAge = (dob) => {
+    if (!dob) return '—';
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const getRemainingPlanDays = (endDateStr) => {
+    if (!endDateStr) return 'N/A';
+    const end = new Date(endDateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    const diffTime = end - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) return `${diffDays} days remaining`;
+    if (diffDays === 0) return 'Ends today';
+    return 'Expired';
+  };
+
+  const getDetailedPlanStatus = (student) => {
+    if (!student) return 'No Plan';
+    if (student.status === 'INACTIVE' && student.auto_deactivated) {
+      return 'Plan Expired — Student Deactivated';
+    }
+    const enrollments = student.enrollments || [];
+    const activeEnrollment = enrollments.find(e => e.is_active) || enrollments[0];
+    if (!activeEnrollment || !activeEnrollment.plan_end_date) {
+      return 'Plan Active';
+    }
+    const expiryTime = new Date(activeEnrollment.plan_end_date).getTime();
+    const nowTime = new Date().getTime();
+    const diffTime = expiryTime - nowTime;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 0 && diffDays <= 10) {
+      return 'Plan Expiring Soon';
+    } else if (diffDays <= 0) {
+      const graceEnd = expiryTime + 2 * 24 * 60 * 60 * 1000;
+      if (nowTime < graceEnd) {
+        return 'Plan Expired — Grace Period';
+      } else {
+        return 'Plan Expired — Student Deactivated';
+      }
+    }
+    return 'Plan Active';
+  };
+
+  const getDetailedPlanStatusColor = (statusLabel) => {
+    switch (statusLabel) {
+      case 'Plan Active':
+        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+      case 'Plan Expiring Soon':
+        return 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 animate-pulse';
+      case 'Plan Expired — Grace Period':
+        return 'bg-orange-500/10 text-orange-600 border border-orange-500/20';
+      case 'Plan Expired — Student Deactivated':
+        return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+      default:
+        return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
+    }
+  };
+
   const totalFeesAssigned = activeStudent?.total_fees_assigned || 0;
   const totalFeesPaid = activeStudent?.total_fees_paid || 0;
   const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
+
+  const activeEnrollments = activeStudent?.enrollments?.filter(e => e.is_active) || [];
+
+  const displayEnrollments = activeEnrollments.length > 0
+    ? activeEnrollments
+    : activeStudent
+      ? [{
+          sport: activeStudent.sport,
+          batch: activeStudent.batch,
+          coach: null,
+          duration_plan: null,
+          plan_start_date: null,
+          plan_end_date: null
+        }]
+      : [];
+
+  const feeSummary = activeEnrollments.length > 0 ? activeEnrollments.reduce((acc, e) => {
+    const base = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
+    const mult = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
+    const assigned = base * mult;
+    const reg = parseFloat(e.registration_fee || 0);
+    const add = parseFloat(e.additional_charges || 0);
+    const disc = parseFloat(e.discount || 0);
+    
+    acc.baseFee += base;
+    acc.assignedFee += assigned;
+    acc.regFee += reg;
+    acc.addCharges += add;
+    acc.discount += disc;
+    acc.totalFee += (assigned + reg + add - disc);
+    return acc;
+  }, { baseFee: 0, assignedFee: 0, regFee: 0, addCharges: 0, discount: 0, totalFee: 0 }) : {
+    baseFee: 0,
+    assignedFee: 0,
+    regFee: 0,
+    addCharges: 0,
+    discount: 0,
+    totalFee: activeStudent?.total_fees_assigned || 0
+  };
 
   if (studentLoading) return <Loader />;
 
@@ -335,238 +451,456 @@ export default function ParentFees() {
         )}
       </AnimatePresence>
 
-      <div className="grid xl:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: PAYMENT FORM */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="xl:col-span-8 bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative"
+      {/* Child Switcher Selector */}
+      {students.length > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card border border-border rounded-2xl p-4 shadow-sm"
         >
-          <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
-          <div className="p-5 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/10">
-            <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Log Offline Payment
-            </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-black uppercase text-muted-foreground tracking-wider">Select Child</h3>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Switch view to manage fees for a different child</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {students.map((student) => {
+                const isSelected = student.student_id === activeStudent?.student_id;
+                return (
+                  <button
+                    key={student.student_id}
+                    type="button"
+                    onClick={() => switchStudent(student)}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs font-black transition-all ${
+                      isSelected
+                        ? 'bg-primary border-primary text-white shadow-md shadow-primary/25'
+                        : 'bg-card text-foreground border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-slate-200/50 flex items-center justify-center overflow-hidden shrink-0 text-[10px] font-black text-slate-700">
+                      {student.profile_photo || student.photo ? (
+                        <img
+                          src={student.profile_photo || student.photo}
+                          alt={student.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getInitials(student.name)
+                      )}
+                    </div>
+                    <span>{student.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        </motion.div>
+      )}
 
-          <form onSubmit={handleSubmitPayment} className="p-6 space-y-5 bg-card text-left">
-            {/* Fee Summary */}
-            {activeStudent && (
-              <div className="grid grid-cols-2 gap-2.5 text-left">
-                <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
-                  <p className="text-[9px] font-black uppercase text-muted-foreground">Total Fee</p>
-                  <p className="text-sm font-black text-foreground mt-0.5">₹{totalFeesAssigned.toFixed(2)}</p>
+      <div className="grid xl:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: STUDENT PROFILE & ENROLLMENT & FEE CONTEXT */}
+        <div className="xl:col-span-7 space-y-6">
+          {activeStudent && (
+            <>
+              {/* Student Profile Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative p-6"
+              >
+                <span className="absolute top-0 left-0 w-full h-1 bg-primary"></span>
+                <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-start text-center sm:text-left">
+                  {/* Photo Section */}
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center shadow-md overflow-hidden shrink-0 border border-border">
+                    {activeStudent.profile_photo || activeStudent.photo ? (
+                      <img
+                        src={activeStudent.profile_photo || activeStudent.photo}
+                        alt={activeStudent.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl font-black text-white">{getInitials(activeStudent.name)}</span>
+                    )}
+                  </div>
+                  
+                  {/* Info Details */}
+                  <div className="flex-1 space-y-2.5 w-full">
+                    <div>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <h2 className="text-xl font-extrabold text-foreground tracking-tight">{activeStudent.name}</h2>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                          getDetailedPlanStatusColor(getDetailedPlanStatus(activeStudent))
+                        }`}>
+                          {getDetailedPlanStatus(activeStudent)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Student Profile</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-left pt-2 border-t border-border/60">
+                      <div>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Student ID</span>
+                        <span className="text-xs font-bold text-foreground font-mono">#{activeStudent.student_id}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Age</span>
+                        <span className="text-xs font-bold text-foreground">{getAge(activeStudent.dob)} years</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Parent Name</span>
+                        <span className="text-xs font-bold text-foreground">{activeStudent.parent_name || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Joining Date</span>
+                        <span className="text-xs font-bold text-foreground">
+                          {activeStudent.joining_date ? new Date(activeStudent.joining_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
-                  <p className="text-[9px] font-black uppercase text-muted-foreground">Paid</p>
-                  <p className="text-sm font-black text-emerald-600">₹{totalFeesPaid.toFixed(2)}</p>
+              </motion.div>
+
+              {/* Current Enrollment Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-card border border-border rounded-2xl shadow-sm p-6 space-y-4"
+              >
+                <div>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Current Enrollment Details</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Active sports, plans, and coaches linked to this profile</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
-                  <p className="text-[9px] font-black uppercase text-muted-foreground">Pending</p>
-                  <p className="text-sm font-black text-amber-600">₹{remainingFee.toFixed(2)}</p>
+
+                <div className="space-y-4">
+                  {displayEnrollments.map((enrollment, index) => {
+                    const remainingStr = getRemainingPlanDays(enrollment.plan_end_date);
+                    const remainingStatusColor = remainingStr === 'Expired'
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                      : remainingStr === 'Ends today'
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+
+                    return (
+                      <div key={index} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-border space-y-3 relative overflow-hidden text-left">
+                        <span className="absolute top-0 left-0 w-1 h-full bg-primary"></span>
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <h4 className="text-sm font-black text-foreground">{enrollment.sport?.name || 'Sports Enrollment'}</h4>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase mt-0.5">Sport Plan</p>
+                          </div>
+                          {enrollment.plan_end_date && (
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${remainingStatusColor}`}>
+                              {remainingStr}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                          <div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase block">Current Batch</span>
+                            <span className="font-bold text-foreground">{enrollment.batch?.name || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase block">Coach</span>
+                            <span className="font-bold text-foreground">{enrollment.coach?.name || 'Not Assigned'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase block">Duration Plan</span>
+                            <span className="font-bold text-foreground">
+                              {enrollment.duration_plan?.name 
+                                ? `${enrollment.duration_plan.name} (${enrollment.duration_plan.months || 0} Month Plan)` 
+                                : 'N/A'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase block">Plan Period</span>
+                            <span className="font-bold text-foreground">
+                              {enrollment.plan_start_date 
+                                ? `${new Date(enrollment.plan_start_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} to ${new Date(enrollment.plan_end_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                                : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
-                  <p className="text-[9px] font-black uppercase text-muted-foreground">Batch</p>
-                  <p className="text-sm font-black text-foreground mt-0.5">{activeStudent.batch?.name || '—'}</p>
+              </motion.div>
+
+              {/* Fee Summary Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-card border border-border rounded-2xl shadow-sm p-6 space-y-4"
+              >
+                <div>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Fee Summary Breakdown</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Calculation summary for the active fee cycle</p>
                 </div>
-                
-                {remainingFee > 0 && (
-                  <div className="col-span-2 bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex justify-between items-center mt-1 text-xs font-bold">
-                    <span className="text-rose-600 uppercase text-[9px] font-black">Total Due Amount</span>
-                    <span className="text-rose-600 text-base font-black">₹{remainingFee.toFixed(2)}</span>
+
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
+                    <span className="text-muted-foreground font-bold">Sports Base Fee</span>
+                    <span className="font-bold text-foreground">₹{feeSummary.baseFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
+                    <span className="text-muted-foreground font-bold">Assigned Sports Fee <span className="text-[10px] text-muted-foreground/60">(Base × Plan Multiplier)</span></span>
+                    <span className="font-bold text-foreground">₹{feeSummary.assignedFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
+                    <span className="text-muted-foreground font-bold">Registration Fee</span>
+                    <span className="font-bold text-foreground">₹{feeSummary.regFee.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
+                    <span className="text-muted-foreground font-bold">Additional Charges</span>
+                    <span className="font-bold text-foreground">₹{feeSummary.addCharges.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
+                    <span className="text-muted-foreground font-bold">Discount Applied</span>
+                    <span className="font-bold text-rose-500">-₹{feeSummary.discount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/80 pt-1">
+                    <span className="text-foreground font-black uppercase text-[10px]">Total Cycle Fee</span>
+                    <span className="font-black text-foreground">₹{totalFeesAssigned.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50 text-emerald-600">
+                    <span className="font-bold">Total Paid in Cycle</span>
+                    <span className="font-extrabold">₹{totalFeesPaid.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm pt-2 text-rose-600">
+                    <span className="font-black uppercase text-[11px]">Outstanding Cycle Balance</span>
+                    <span className="font-black text-base">₹{remainingFee.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3.5 flex gap-2.5 items-start mt-2 text-left">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-amber-600 uppercase text-[9px] font-black block">Cycle Payment Status</span>
+                    <span className="text-xs font-bold text-foreground mt-0.5 block">
+                      This payment is specifically logged for the student's **CURRENT** active billing cycle.
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: PAYMENT FORM */}
+        <div className="xl:col-span-5 space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4 }}
+            className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative"
+          >
+            <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
+            <div className="p-5 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/10">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+                <CreditCard className="w-4 h-4" />
+                Log Offline Payment
+              </h3>
+            </div>
+
+            <form onSubmit={handleSubmitPayment} className="p-6 space-y-5 bg-card text-left">
+              {activeStudent && (
+                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 flex justify-between items-center text-xs font-bold">
+                  <span className="text-rose-600 uppercase text-[9px] font-black">Outstanding Balance</span>
+                  <span className="text-rose-600 text-base font-black">₹{remainingFee.toFixed(2)}</span>
+                </div>
+              )}
+
+              {/* Payment Method */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Payment Method</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[
+                    { value: 'upi', label: 'UPI' },
+                    { value: 'bank_transfer', label: 'Bank Transfer' }
+                  ].map((method) => (
+                    <button
+                      key={method.value}
+                      type="button"
+                      onClick={() => setPaymentMethod(method.value)}
+                      className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all ${
+                        paymentMethod === method.value
+                          ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                          : 'bg-card text-foreground border-border hover:border-emerald-450'
+                      }`}
+                    >
+                      {method.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Collection Amount</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-foreground font-black">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="input-field pl-7 py-2.5 text-sm font-black"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const numVal = parseFloat(val);
+                      if (numVal < 0) setAmount('0');
+                      else setAmount(val);
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Transaction Number */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Transaction Reference Number</label>
+                <input
+                  type="text"
+                  value={transactionNumber}
+                  onChange={(e) => setTransactionNumber(e.target.value)}
+                  placeholder="UPI Ref / IMPS UTR"
+                  className="input-field text-xs py-2 px-3 bg-card font-mono"
+                  maxLength={50}
+                />
+              </div>
+
+              {/* Attachment Proof */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Receipt Attachment (Required)</label>
+                <div className="relative border border-dashed border-border hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-900/10 rounded-xl p-3.5 text-center cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={handleFileChange}
+                    required={!proofFile}
+                  />
+                  <span className="text-[11px] font-bold text-muted-foreground">📸 Upload transaction receipt screenshot</span>
+                </div>
+                {proofFile && (
+                  <div className="mt-2 text-[10px] font-bold text-emerald-500 bg-emerald-500/5 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg truncate">
+                    {proofFile.name}
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Payment Method */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Payment Method</label>
-              <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { value: 'upi', label: 'UPI' },
-                  { value: 'bank_transfer', label: 'Bank Transfer' }
-                ].map((method) => (
-                  <button
-                    key={method.value}
-                    type="button"
-                    onClick={() => setPaymentMethod(method.value)}
-                    className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all ${
-                      paymentMethod === method.value
-                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                        : 'bg-card text-foreground border-border hover:border-emerald-450'
-                    }`}
-                  >
-                    {method.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Amount */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Collection Amount</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-foreground font-black">₹</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="input-field pl-7 py-2.5 text-sm font-black"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const numVal = parseFloat(val);
-                    if (numVal < 0) setAmount('0');
-                    else setAmount(val);
-                  }}
-                  required
+              {/* Remarks */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Remarks / Notes</label>
+                <textarea
+                  className="input-field text-xs py-2 px-3 bg-card resize-none"
+                  rows={2}
+                  placeholder="Reference number or notes..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
                 />
               </div>
+
+              <button
+                type="submit"
+                disabled={submitting || remainingFee <= 0}
+                className="btn btn-primary w-full py-3.5 text-xs uppercase tracking-wider font-black flex justify-center items-center gap-1.5"
+              >
+                {submitting ? 'Submitting...' : 'Submit Payment'}
+              </button>
+            </form>
+          </motion.div>
+
+          {/* RECENT SUBMISSIONS LOG */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative"
+          >
+            <span className="absolute top-0 left-0 w-full h-1 bg-blue-500"></span>
+            <div className="p-5 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/10">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Recent Submissions
+              </h3>
             </div>
 
-            {/* Transaction Number */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Transaction Reference Number (Optional)</label>
-              <input
-                type="text"
-                value={transactionNumber}
-                onChange={(e) => setTransactionNumber(e.target.value)}
-                placeholder="UPI Ref / IMPS UTR (Optional)"
-                className="input-field text-xs py-2 px-3 bg-card font-mono"
-                maxLength={50}
-              />
-            </div>
-
-            {/* Attachment Proof */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Receipt Attachment (Required)</label>
-              <div className="relative border border-dashed border-border hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-900/10 rounded-xl p-3.5 text-center cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  onChange={handleFileChange}
-                  required={!proofFile}
-                />
-                <span className="text-[11px] font-bold text-muted-foreground">📸 Upload transaction receipt screenshot</span>
-              </div>
-              {proofFile && (
-                <div className="mt-2 text-[10px] font-bold text-emerald-500 bg-emerald-500/5 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg truncate">
-                  {proofFile.name}
+            <div className="p-0 min-h-[300px]">
+              {loading && submissions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-xs font-bold text-muted-foreground">
+                  <div className="w-6 h-6 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-3"></div>
+                  Syncing transactions...
+                </div>
+              ) : submissions.length > 0 ? (
+                <div className="p-4 space-y-3">
+                  {submissions.slice(0, 5).map((sub) => (
+                    <div key={sub.receipt_id} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black text-foreground">₹{parseFloat(sub.amount).toFixed(2)}</span>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                          sub.status === 'APPROVED' || sub.status === 'VERIFIED'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : sub.status === 'REJECTED'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                        }`}>
+                          {sub.status}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {new Date(sub.payment_date || sub.createdAt).toLocaleDateString()}
+                      </div>
+                      {sub.status === 'REJECTED' && (
+                        <button
+                          onClick={() => setReplacingPaymentId(sub.receipt_id)}
+                          className="mt-2 text-[9px] font-bold text-rose-600 hover:text-rose-500 transition-colors"
+                        >
+                          Replace Proof
+                        </button>
+                      )}
+                      {replacingPaymentId === sub.receipt_id && (
+                        <div className="mt-2 space-y-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => e.target.files?.length && setProofFileForReplace(e.target.files[0])}
+                            className="text-[10px]"
+                          />
+                          <button
+                            onClick={() => handleReplaceProof(sub.receipt_id)}
+                            disabled={uploadingProof || !proofFileForReplace}
+                            className="bg-emerald-500 text-white text-[9px] px-2 py-1 rounded font-bold disabled:opacity-50"
+                          >
+                            Upload
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {submissions.length > 5 && (
+                    <button
+                      onClick={() => setShowReceiptsModal(true)}
+                      className="w-full text-center text-[10px] font-bold text-primary hover:underline font-bold"
+                    >
+                      View All {submissions.length} Payments
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-xs font-bold text-muted-foreground">
+                  <FileText className="w-8 h-8 mb-2 opacity-50" />
+                  No payments submitted yet
                 </div>
               )}
             </div>
-
-            {/* Remarks */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Remarks / Notes</label>
-              <textarea
-                className="input-field text-xs py-2 px-3 bg-card resize-none"
-                rows={2}
-                placeholder="Reference number or notes..."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting || remainingFee <= 0}
-              className="btn btn-primary w-full py-3.5 text-xs uppercase tracking-wider font-black flex justify-center items-center gap-1.5"
-            >
-              {submitting ? 'Submitting...' : 'Submit Payment'}
-            </button>
-          </form>
-        </motion.div>
-
-        {/* RIGHT COLUMN: RECENT SUBMISSIONS LOG */}
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="xl:col-span-4 bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative"
-        >
-          <span className="absolute top-0 left-0 w-full h-1 bg-blue-500"></span>
-          <div className="p-5 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/10">
-            <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Recent Submissions
-            </h3>
-          </div>
-
-          <div className="p-0 min-h-[400px]">
-            {loading && submissions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-xs font-bold text-muted-foreground">
-                <div className="w-6 h-6 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-3"></div>
-                Syncing transactions...
-              </div>
-            ) : submissions.length > 0 ? (
-              <div className="p-4 space-y-3">
-                {submissions.slice(0, 5).map((sub) => (
-                  <div key={sub.receipt_id} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-3 border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-black text-foreground">₹{parseFloat(sub.amount).toFixed(2)}</span>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                        sub.status === 'APPROVED' || sub.status === 'VERIFIED'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                          : sub.status === 'REJECTED'
-                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                      }`}>
-                        {sub.status}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {new Date(sub.payment_date || sub.createdAt).toLocaleDateString()}
-                    </div>
-                    {sub.status === 'REJECTED' && (
-                      <button
-                        onClick={() => setReplacingPaymentId(sub.receipt_id)}
-                        className="mt-2 text-[9px] font-bold text-rose-600 hover:text-rose-500 transition-colors"
-                      >
-                        Replace Proof
-                      </button>
-                    )}
-                    {replacingPaymentId === sub.receipt_id && (
-                      <div className="mt-2 space-y-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => e.target.files?.length && setProofFileForReplace(e.target.files[0])}
-                          className="text-[10px]"
-                        />
-                        <button
-                          onClick={() => handleReplaceProof(sub.receipt_id)}
-                          disabled={uploadingProof || !proofFileForReplace}
-                          className="bg-emerald-500 text-white text-[9px] px-2 py-1 rounded font-bold disabled:opacity-50"
-                        >
-                          Upload
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {submissions.length > 5 && (
-                  <button
-                    onClick={() => setShowReceiptsModal(true)}
-                    className="w-full text-center text-[10px] font-bold text-primary hover:underline"
-                  >
-                    View All {submissions.length} Payments
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-xs font-bold text-muted-foreground">
-                <FileText className="w-8 h-8 mb-2 opacity-50" />
-                No payments submitted yet
-              </div>
-            )}
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
 
       {/* RECEIPTS LOG MODAL */}

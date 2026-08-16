@@ -3353,22 +3353,25 @@ export const recordCoachPayment = async (coach_id, academy_id, payload) => {
   // Generate receipt number
   const receiptNumber = await receiptService.generateReceiptNumber(academyId);
 
-  const receipt = await prisma.receipt.create({
+  const coachRecord = await prisma.coach.findUnique({
+    where: { coach_id: coachId }
+  });
+  const coachName = coachRecord ? coachRecord.name : 'Coach';
 
+  const receipt = await prisma.receipt.create({
     data: {
       receipt_number: receiptNumber,
       academy_id: academyId,
-
       student_id: studentId,
       amount,
       payment_date: payload.payment_date ? new Date(payload.payment_date) : new Date(),
       method: payload.method,
       status: 'PAID', // Coach offline payments are immediately marked as PAID
       remarks: payload.remarks || null,
-
       proof_url: payload.proof_url || null,
-
-      collected_by_coach_id: coachId
+      collected_by_coach_id: coachId,
+      recorded_by: 'COACH',
+      recorded_by_name: coachName,
     },
     include: {
       student: {

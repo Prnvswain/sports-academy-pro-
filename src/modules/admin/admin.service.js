@@ -2764,6 +2764,26 @@ export const getAllStudents = async (academy_id) => {
 
 
 
+    const reminders = await prisma.notification.findMany({
+      where: {
+        academy_id: parseInt(academy_id, 10),
+        metadata: {
+          contains: `"type":"MANUAL_REMINDER"`
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const reminderMap = {};
+    reminders.forEach(r => {
+      try {
+        const meta = JSON.parse(r.metadata);
+        if (meta.student_id && !reminderMap[meta.student_id]) {
+          reminderMap[meta.student_id] = r.created_at;
+        }
+      } catch (e) {}
+    });
+
     // Add direct batch, sport, and attendance summary properties
 
     const studentsWithBatch = students.map(student => {
@@ -2777,6 +2797,8 @@ export const getAllStudents = async (academy_id) => {
         batch: activeEnrollment?.batch || null,
 
         sport: activeEnrollment?.sport || null,
+
+        last_reminder_sent_at: reminderMap[student.student_id] || null,
 
         attendance_summary: attendanceMap[student.student_id] || {
 
@@ -3535,7 +3557,10 @@ export const createStudent = async (academy_id, data) => {
           payment_date: new Date(),
           method: data.payment_method || 'cash',
           status: 'COMPLETED',
-          remarks: 'Advance Payment (Added to Account Credit)'
+          remarks: 'Advance Payment (Added to Account Credit)',
+          recorded_by: 'ADMIN',
+          recorded_by_name: data.admin_user_name || 'Admin',
+          created_by_user_id: data.created_by_user_id ? parseInt(data.created_by_user_id, 10) : null,
         }
       });
 
@@ -5033,12 +5058,22 @@ export const addStudentCredit = async (academy_id, student_id, data) => {
   };
 };
 
-export const useStudentCredit = async (academy_id, student_id, data) => {
+export const useStudentCredit = async (academy_id, student_id, data, admin_user_id = null) => {
   const academyId = parseInt(academy_id, 10);
   const studentId = parseInt(student_id, 10);
   const amount = parseFloat(data.amount);
   const useFor = data.use_for; // 'KIT' or 'PLAN' or 'OTHER'
   const referenceId = data.reference_id ? parseInt(data.reference_id, 10) : null;
+
+  let adminName = 'Admin';
+  if (admin_user_id) {
+    const adminUser = await prisma.user.findUnique({
+      where: { user_id: parseInt(admin_user_id, 10) }
+    });
+    if (adminUser) {
+      adminName = adminUser.name;
+    }
+  }
 
   if (isNaN(amount) || amount <= 0) {
     const error = new Error('Invalid debit amount');
@@ -5152,6 +5187,9 @@ export const useStudentCredit = async (academy_id, student_id, data) => {
             method: 'CREDIT',
             status: 'COMPLETED',
             remarks: data.reason || `Credit applied to Plan Enrollment`,
+            recorded_by: 'ADMIN',
+            recorded_by_name: adminName,
+            created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
           },
         });
       }
@@ -5165,11 +5203,21 @@ export const useStudentCredit = async (academy_id, student_id, data) => {
   };
 };
 
-export const applyCreditToFees = async (academy_id, student_id, data) => {
+export const applyCreditToFees = async (academy_id, student_id, data, admin_user_id = null) => {
   const academyId = parseInt(academy_id, 10);
   const studentId = parseInt(student_id, 10);
   const amount = parseFloat(data.amount);
   const pendingFees = parseFloat(data.pending_fees || 0);
+
+  let adminName = 'Admin';
+  if (admin_user_id) {
+    const adminUser = await prisma.user.findUnique({
+      where: { user_id: parseInt(admin_user_id, 10) }
+    });
+    if (adminUser) {
+      adminName = adminUser.name;
+    }
+  }
 
   if (isNaN(amount) || amount <= 0) {
     const error = new Error('Invalid credit amount');
@@ -5280,6 +5328,9 @@ export const applyCreditToFees = async (academy_id, student_id, data) => {
         method: 'CREDIT',
         status: 'COMPLETED',
         remarks: 'Credit applied to pending fees',
+        recorded_by: 'ADMIN',
+        recorded_by_name: adminName,
+        created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
       },
     });
 
@@ -5314,21 +5365,39 @@ export const getReceipts = async (academy_id) => {
     },
 
     include: {
-
-      student: true,
-
-      collected_by: {
-
-        select: {
-
-          coach_id: true,
-
-          name: true
-
+      student: {
+        include: {
+          parent: true,
         }
-
+      },
+      collected_by: {
+        select: {
+          coach_id: true,
+          name: true,
+          email: true,
+          phone_number: true,
+        }
+      },
+      created_by: {
+        select: {
+          user_id: true,
+          name: true,
+        }
+      },
+      approved_by: {
+        select: {
+          user_id: true,
+          name: true,
+        }
+      },
+      submitted_by_parent: {
+        select: {
+          parent_id: true,
+          name: true,
+          email: true,
+          phone: true,
+        }
       }
-
     },
 
     orderBy: { payment_date: 'desc' },
@@ -5343,9 +5412,18 @@ export const getReceipts = async (academy_id) => {
 
 
 
-export const createReceipt = async (academy_id, data) => {
+export const createReceipt = async (academy_id, data, admin_user_id = null) => {
 
   const academyId = parseInt(academy_id, 10);
+  let adminName = 'Admin';
+  if (admin_user_id) {
+    const adminUser = await prisma.user.findUnique({
+      where: { user_id: parseInt(admin_user_id, 10) }
+    });
+    if (adminUser) {
+      adminName = adminUser.name;
+    }
+  }
 
 
 
@@ -5465,6 +5543,9 @@ export const createReceipt = async (academy_id, data) => {
 
       remarks: data.remarks || (creditFromPayment > 0 ? `Advance Credit: ₹${creditFromPayment.toFixed(2)}` : null),
 
+      recorded_by: 'ADMIN',
+      recorded_by_name: adminName,
+      created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
     },
 
     include: {
@@ -5810,8 +5891,17 @@ export const getRevenueSummary = async (academy_id) => {
 
 
 
-export const createPayment = async (academy_id, data) => {
+export const createPayment = async (academy_id, data, admin_user_id = null) => {
   const academyId = parseInt(academy_id, 10);
+  let adminName = 'Admin';
+  if (admin_user_id) {
+    const adminUser = await prisma.user.findUnique({
+      where: { user_id: parseInt(admin_user_id, 10) }
+    });
+    if (adminUser) {
+      adminName = adminUser.name;
+    }
+  }
   const student = await getStudentForAcademy(academyId, data.student_id);
 
 
@@ -5883,7 +5973,10 @@ export const createPayment = async (academy_id, data) => {
         payment_date: new Date(data.payment_date || new Date()),
         method: data.method || 'cash',
         status: 'COMPLETED',
-        remarks: `Sports Kit Payment: ${assignment.kit.name} (Qty: ${assignment.quantity}) [Assignment: ${assignmentId}]`
+        remarks: `Sports Kit Payment: ${assignment.kit.name} (Qty: ${assignment.quantity}) [Assignment: ${assignmentId}]`,
+        recorded_by: 'ADMIN',
+        recorded_by_name: adminName,
+        created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
       }
     });
 
@@ -5982,6 +6075,9 @@ export const createPayment = async (academy_id, data) => {
 
     status: data.status === 'completed' ? 'COMPLETED' : 'PENDING',
 
+    recorded_by: 'ADMIN',
+    recorded_by_name: adminName,
+    created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
   };
 
   let receipt;

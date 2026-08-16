@@ -1,5 +1,6 @@
 import * as adminService from './admin.service.js';
 import * as coachService from '../coach/coach.service.js';
+import * as feesService from '../fees/fees.service.js';
 import { successResponse } from '../../utils/response.js';
 import logger from '../../utils/logger.js';
 
@@ -253,6 +254,8 @@ export const createStudent = async (req, res, next) => {
     const student = await adminService.createStudent(req.user.academy_id, {
       ...req.body,
       converted_by_name: req.user.name || req.user.email || 'Admin',
+      created_by_user_id: req.user.user_id,
+      admin_user_name: req.user.name || 'Admin',
     });
     res.status(201).json(successResponse('Student created successfully', student));
   } catch (err) {
@@ -564,7 +567,7 @@ export const addStudentCredit = async (req, res, next) => {
 
 export const useStudentCredit = async (req, res, next) => {
   try {
-    const result = await adminService.useStudentCredit(req.user.academy_id, req.params.student_id, req.body);
+    const result = await adminService.useStudentCredit(req.user.academy_id, req.params.student_id, req.body, req.user.user_id);
     res.status(200).json(successResponse('Credit used successfully', result));
   } catch (err) {
     logger.error('Failed to use student credit', err);
@@ -574,7 +577,7 @@ export const useStudentCredit = async (req, res, next) => {
 
 export const applyCreditToFees = async (req, res, next) => {
   try {
-    const result = await adminService.applyCreditToFees(req.user.academy_id, req.params.student_id, req.body);
+    const result = await adminService.applyCreditToFees(req.user.academy_id, req.params.student_id, req.body, req.user.user_id);
     res.status(200).json(successResponse('Credit applied to fees successfully', result));
   } catch (err) {
     logger.error('Failed to apply credit to fees', err);
@@ -584,7 +587,7 @@ export const applyCreditToFees = async (req, res, next) => {
 
 export const createReceipt = async (req, res, next) => {
   try {
-    const receipt = await adminService.createReceipt(req.user.academy_id, req.body);
+    const receipt = await adminService.createReceipt(req.user.academy_id, req.body, req.user.user_id);
     res.status(201).json(successResponse('Receipt created successfully', receipt));
   } catch (err) {
     next(err);
@@ -611,7 +614,7 @@ export const getRevenueSummary = async (req, res, next) => {
 
 export const createPayment = async (req, res, next) => {
   try {
-    const payment = await adminService.createPayment(req.user.academy_id, req.body);
+    const payment = await adminService.createPayment(req.user.academy_id, req.body, req.user.user_id);
     res.status(201).json(successResponse('Payment created successfully', payment));
   } catch (err) {
     logger.error('Failed to create payment', err);
@@ -779,6 +782,29 @@ export const endBatchSession = async (req, res, next) => {
       session_id: req.params.session_id,
       error: err.message
     });
+    next(err);
+  }
+};
+
+export const getExpiryReminders = async (req, res, next) => {
+  try {
+    const reminders = await feesService.getExpiryRemindersForAdmin(req.user.academy_id);
+    res.json(successResponse('Plan expiry reminders retrieved successfully', reminders));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendRenewalReminder = async (req, res, next) => {
+  try {
+    const result = await feesService.sendManualRenewalReminder(
+      req.user.academy_id,
+      req.params.student_id,
+      req.user.role,
+      null
+    );
+    res.json(successResponse(result.message, result));
+  } catch (err) {
     next(err);
   }
 };

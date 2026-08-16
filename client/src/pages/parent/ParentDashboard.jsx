@@ -379,6 +379,56 @@ export default function ParentDashboard() {
   const planStart = currentStudent.plan_start_date;
   const planEnd = currentStudent.plan_expiry_date;
   
+  const planStatus = useMemo(() => {
+    if (!currentStudent || !currentStudent.enrollments || currentStudent.enrollments.length === 0) {
+      return { label: 'No Plan', color: 'bg-slate-500/10 text-slate-700 border-slate-500/20', description: 'No active plan assigned.' };
+    }
+    
+    if (currentStudent.status === 'INACTIVE' && currentStudent.auto_deactivated) {
+      return {
+        label: 'Plan Expired — Deactivated',
+        color: 'bg-rose-500/10 text-rose-600 border border-rose-500/20',
+        description: 'Your child\'s plan has expired and the grace period has ended. The student has been temporarily deactivated.'
+      };
+    }
+    
+    const activeEnrollment = currentStudent.enrollments.find(e => e.is_active) || currentStudent.enrollments[0];
+    if (!activeEnrollment || !activeEnrollment.plan_end_date) {
+      return { label: 'Plan Active', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', description: 'Plan is active.' };
+    }
+
+    const expiryTime = new Date(activeEnrollment.plan_end_date).getTime();
+    const nowTime = new Date().getTime();
+    const diffTime = expiryTime - nowTime;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0 && diffDays <= 10) {
+      return {
+        label: 'Plan Expiring Soon',
+        color: 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20',
+        description: `Your child's current plan will expire in ${diffDays} days. Please renew to continue training.`
+      };
+    } else if (diffDays <= 0) {
+      const graceEnd = expiryTime + 2 * 24 * 60 * 60 * 1000;
+      if (nowTime < graceEnd) {
+        const graceDays = Math.ceil((graceEnd - nowTime) / (1000 * 60 * 60 * 24));
+        return {
+          label: 'Plan Expired — Grace Period',
+          color: 'bg-orange-500/10 text-orange-600 border border-orange-500/20 animate-pulse',
+          description: `Plan expired. Grace period remaining: ${graceDays} day(s) before automatic deactivation.`
+        };
+      } else {
+        return {
+          label: 'Plan Expired — Deactivated',
+          color: 'bg-rose-500/10 text-rose-600 border border-rose-500/20',
+          description: 'Your child\'s plan has expired and the grace period has ended. The student has been temporarily deactivated.'
+        };
+      }
+    }
+
+    return { label: 'Plan Active', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', description: 'Plan is active.' };
+  }, [currentStudent]);
+
   const daysRemaining = useMemo(() => {
     if (!planEnd) return 0;
     const diff = new Date(planEnd) - new Date();
@@ -586,6 +636,35 @@ export default function ParentDashboard() {
           </p>
         </div>
       </motion.div>
+
+      {/* Renewal Status Banner */}
+      {planStatus && planStatus.label !== 'Plan Active' && (
+        <motion.div
+          initial={{ opacity: 0, y: -15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 border rounded-2xl shadow-sm no-print ${planStatus.color}`}
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <div>
+                <h3 className="font-extrabold text-sm flex items-center gap-1.5">
+                  {planStatus.label}
+                </h3>
+                <p className="text-xs font-bold mt-0.5 opacity-90">
+                  {planStatus.description}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/parent/fees')}
+              className="text-[10px] font-black uppercase tracking-wider bg-foreground text-background px-3 py-1.5 rounded-full shrink-0 hover:opacity-90 transition-opacity"
+            >
+              Renew Plan / Pay Fees
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Live class indicator session banner */}
       {studentActiveSession && (

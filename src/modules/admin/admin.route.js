@@ -130,6 +130,7 @@ router.put('/students/:student_id/pause', adminController.pauseStudentPlan);
 router.put('/students/:student_id/resume', adminController.resumeStudentPlan);
 router.post('/students/:student_id/reactivate', adminController.reactivateStudent);
 router.post('/students/:student_id/renew', adminController.renewStudent);
+router.post('/students/:student_id/send-renewal-reminder', adminController.sendRenewalReminder);
 router.post('/students/:student_id/change-plan', adminController.changeStudentPlan);
 router.delete('/students/:student_id', adminController.deleteStudent);
 
@@ -221,6 +222,7 @@ router.post('/fees/send-reminders', feesController.sendOverdueFeeReminders);
 /* ─── INTEL REPORTS & ANALYTICS ─────────────────────────────────────────── */
 router.get('/analytics', adminController.getAcademyReport);
 router.get('/dashboard', adminController.getAcademyReport);
+router.get('/dashboard/expiry-reminders', adminController.getExpiryReminders);
 
 /* ─── PERFORMANCE TRACKER ──────────────────────────────────────────────────── */
 // Backward compatibility layer: Admin routes delegate to Performance module

@@ -56,7 +56,9 @@ export default function CoachCreateAnnouncement() {
         coachGet('/coach/batches'),
         coachGet('/coach/sports')
       ]);
-      if (batchesRes?.data) setBatches(batchesRes.data);
+      if (batchesRes?.data) {
+        setBatches(batchesRes.data.batches || (Array.isArray(batchesRes.data) ? batchesRes.data : []));
+      }
       if (sportsRes?.data) setSports(sportsRes.data);
     } catch (error) {
       console.error('Failed to fetch dropdown data:', error);
@@ -266,7 +268,7 @@ export default function CoachCreateAnnouncement() {
               required
             >
               <option value="">Select a batch</option>
-              {batches.map(batch => (
+              {(Array.isArray(batches) ? batches : []).map(batch => (
                 <option key={batch.batch_id} value={batch.batch_id}>{batch.name}</option>
               ))}
             </select>

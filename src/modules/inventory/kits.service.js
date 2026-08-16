@@ -234,12 +234,22 @@ export const deleteKit = async (academy_id, kit_id) => {
 };
 
 // Assign a kit to a student
-export const assignKit = async (academy_id, kit_id, data) => {
+export const assignKit = async (academy_id, kit_id, data, admin_user_id = null) => {
   const academyId = parseInt(academy_id, 10);
   const kitId = parseInt(kit_id, 10);
   const studentId = parseInt(data.student_id, 10);
   const quantity = parseInt(data.quantity || 1, 10);
   const discount = parseFloat(data.discount || 0);
+
+  let adminName = 'Admin';
+  if (admin_user_id) {
+    const adminUser = await prisma.user.findUnique({
+      where: { user_id: parseInt(admin_user_id, 10) }
+    });
+    if (adminUser) {
+      adminName = adminUser.name;
+    }
+  }
 
   // Check student
   const student = await prisma.student.findFirst({
@@ -349,7 +359,10 @@ export const assignKit = async (academy_id, kit_id, data) => {
           payment_date: issueDate,
           method: data.payment_method || 'cash',
           status: 'COMPLETED',
-          remarks: `Sports Kit Purchased: ${kit.name} (Qty: ${quantity})`
+          remarks: `Sports Kit Purchased: ${kit.name} (Qty: ${quantity})`,
+          recorded_by: 'ADMIN',
+          recorded_by_name: adminName,
+          created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
         }
       });
     }
@@ -529,9 +542,19 @@ export const returnKit = async (academy_id, assignment_id) => {
 };
 
 // Update Payment Status (Unpaid -> Paid)
-export const updatePaymentStatus = async (academy_id, assignment_id, data) => {
+export const updatePaymentStatus = async (academy_id, assignment_id, data, admin_user_id = null) => {
   const academyId = parseInt(academy_id, 10);
   const assignmentId = parseInt(assignment_id, 10);
+
+  let adminName = 'Admin';
+  if (admin_user_id) {
+    const adminUser = await prisma.user.findUnique({
+      where: { user_id: parseInt(admin_user_id, 10) }
+    });
+    if (adminUser) {
+      adminName = adminUser.name;
+    }
+  }
 
   const assignment = await prisma.sportsKitAssignment.findFirst({
     where: { assignment_id: assignmentId, academy_id: academyId },
@@ -584,7 +607,10 @@ export const updatePaymentStatus = async (academy_id, assignment_id, data) => {
         payment_date: new Date(),
         method: data.payment_method || 'cash',
         status: 'COMPLETED',
-        remarks: `Sports Kit Payment Received: ${assignment.kit.name}`
+        remarks: `Sports Kit Payment Received: ${assignment.kit.name}`,
+        recorded_by: 'ADMIN',
+        recorded_by_name: adminName,
+        created_by_user_id: admin_user_id ? parseInt(admin_user_id, 10) : null,
       }
     });
 
@@ -982,6 +1008,11 @@ export const assignKitFromCoach = async (academy_id, coach_id, kit_id, data) => 
   const discount = parseFloat(data.discount || 0);
   const unitPrice = parseFloat(data.unit_price || 0);
 
+  const coachRecord = await prisma.coach.findUnique({
+    where: { coach_id: coachId }
+  });
+  const coachName = coachRecord ? coachRecord.name : 'Coach';
+
   // Find the coach's active assignment for this kit
   const coachAssignment = await prisma.coachKitAssignment.findFirst({
     where: { academy_id: academyId, coach_id: coachId, kit_id: kitId, status: 'ACTIVE' }
@@ -1062,7 +1093,10 @@ export const assignKitFromCoach = async (academy_id, coach_id, kit_id, data) => 
           payment_date: issueDate,
           method: data.payment_method || 'cash',
           status: 'COMPLETED',
-          remarks: `Sports Kit Purchased: ${kit.name} (Qty: ${quantity})`
+          remarks: `Sports Kit Purchased: ${kit.name} (Qty: ${quantity})`,
+          recorded_by: 'COACH',
+          recorded_by_name: coachName,
+          collected_by_coach_id: coachId,
         }
       });
     }
@@ -1189,6 +1223,11 @@ export const updateCoachStudentPaymentStatus = async (academy_id, coach_id, assi
   const coachId = parseInt(coach_id, 10);
   const assignmentId = parseInt(assignment_id, 10);
 
+  const coachRecord = await prisma.coach.findUnique({
+    where: { coach_id: coachId }
+  });
+  const coachName = coachRecord ? coachRecord.name : 'Coach';
+
   const assignment = await prisma.sportsKitAssignment.findFirst({
     where: {
       assignment_id: assignmentId,
@@ -1246,7 +1285,10 @@ export const updateCoachStudentPaymentStatus = async (academy_id, coach_id, assi
         payment_date: new Date(),
         method: data.payment_method || 'cash',
         status: 'COMPLETED',
-        remarks: `Sports Kit Payment Received: ${assignment.kit.name}`
+        remarks: `Sports Kit Payment Received: ${assignment.kit.name}`,
+        recorded_by: 'COACH',
+        recorded_by_name: coachName,
+        collected_by_coach_id: coachId,
       }
     });
 

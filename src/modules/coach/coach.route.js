@@ -102,4 +102,7 @@ router.get('/performance/students/:studentId', performanceController.getStudentP
 router.post('/performance/scores', checkCalendarLock('PERFORMANCE'), validationErrorHandler, performanceController.createScore);
 router.post('/performance/weekly-performance', checkCalendarLock('PERFORMANCE'), validationErrorHandler, performanceController.submitWeeklyPerformance);
 
+router.get('/dashboard/expiry-reminders', coachController.getExpiryReminders);
+router.post('/students/:student_id/send-renewal-reminder', coachController.sendRenewalReminder);
+
 export default router;
