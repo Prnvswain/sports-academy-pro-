@@ -1528,6 +1528,67 @@ export default function AccountsPanel() {
                             <Wallet className="w-4 h-4 text-[#84cc16]" /> Pending Dues Outstanding
                           </span>
                           <span className="text-[#84cc16] text-lg font-black">₹{outstanding.toFixed(2)}</span>
+                          {(() => {
+                            const activePlan = selStudent?.enrollments?.find(
+                              (e) => e.is_active && (!e.plan_end_date || new Date(e.plan_end_date) >= new Date())
+                            );
+                            if (!activePlan) return null;
+
+                            const sportsFee = parseFloat(activePlan.sports_fee || 0);
+                            const registrationFee = parseFloat(activePlan.registration_fee || 0);
+                            const additionalCharges = parseFloat(activePlan.additional_charges || 0);
+                            const discount = parseFloat(activePlan.discount || 0);
+                            
+                            const currentPlanTotal = sportsFee + registrationFee + additionalCharges - discount;
+                            const currentPlanPaid = parseFloat(activePlan.paid_amount || 0);
+                            const currentPlanDue = Math.max(0, currentPlanTotal - currentPlanPaid);
+
+                            const showUseCredit = currentPlanDue === 0 && currentPlanPaid >= currentPlanTotal && creditBal > 0;
+
+                            if (!showUseCredit) return null;
+
+                            return (
+                              <motion.button
+                                whileHover={{ scale: 1.02, y: -1 }}
+                                whileTap={{ scale: 0.98 }}
+                                type="button"
+                                onClick={async () => {
+                                  if (window.confirm(`Are you sure you want to apply ₹${creditBal.toFixed(2)} from available credit?`)) {
+                                    try {
+                                      setIsSubmitting(true);
+                                      const res = await adminPost(`/admin/accounts/students/${form.student_id}/use-credit-fees`, {
+                                        amount: creditBal,
+                                        pending_fees: outstanding
+                                      });
+                                      if (res?.success || res?.status === 'success') {
+                                        setMessage({ text: 'Credit applied successfully to pending dues!', type: 'success' });
+                                        await loadData(false);
+                                        await loadStudentAccountsData();
+                                        const ledgerRes = await adminGet(`/admin/accounts/student-ledger/${form.student_id}`);
+                                        const ledgerData = ledgerRes.data || {};
+                                        setStudentFeeData(ledgerData);
+                                        setForm(prev => ({
+                                          ...prev,
+                                          pending_amount: ledgerData.balance_outstanding || 0,
+                                          amount: ledgerData.balance_outstanding > 0 ? ledgerData.balance_outstanding.toString() : ''
+                                        }));
+                                      } else {
+                                        setMessage({ text: res?.message || 'Failed to apply credit', type: 'error' });
+                                      }
+                                    } catch (err) {
+                                      setMessage({ text: err.message || 'Failed to apply credit', type: 'error' });
+                                    } finally {
+                                      setIsSubmitting(false);
+                                    }
+                                  }
+                                }}
+                                className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/10 cursor-pointer border-0"
+                              >
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                Use Account Credit (₹{creditBal.toFixed(2)})
+                              </motion.button>
+                            );
+                          })()}
                         </div>
                       </>
                     );
@@ -2758,18 +2819,40 @@ export default function AccountsPanel() {
                                             >
                                               + Add Credit
                                             </button>
-                                            <button
-                                              type="button"
-                                              disabled={parseFloat(student.advance_balance || 0) <= 0}
-                                              onClick={() => {
-                                                setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
-                                                setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }));
-                                                setUseCreditData({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
-                                              }}
-                                              className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                              - Use Credit
-                                            </button>
+                                            {(() => {
+                                              const creditBal = parseFloat(student.advance_balance || 0);
+                                              const activePlan = student.enrollments?.find(
+                                                (e) => e.is_active && (!e.plan_end_date || new Date(e.plan_end_date) >= new Date())
+                                              );
+                                              if (!activePlan) return null;
+
+                                              const sportsFee = parseFloat(activePlan.sports_fee || 0);
+                                              const registrationFee = parseFloat(activePlan.registration_fee || 0);
+                                              const additionalCharges = parseFloat(activePlan.additional_charges || 0);
+                                              const discount = parseFloat(activePlan.discount || 0);
+                                              
+                                              const currentPlanTotal = sportsFee + registrationFee + additionalCharges - discount;
+                                              const currentPlanPaid = parseFloat(activePlan.paid_amount || 0);
+                                              const currentPlanDue = Math.max(0, currentPlanTotal - currentPlanPaid);
+
+                                              const canUseCredit = currentPlanDue === 0 && currentPlanPaid >= currentPlanTotal && creditBal > 0;
+
+                                              if (!canUseCredit) return null;
+
+                                              return (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setShowUseCreditForm(prev => ({ ...prev, [student.student_id]: !prev[student.student_id] }));
+                                                    setShowAddCreditForm(prev => ({ ...prev, [student.student_id]: false }));
+                                                    setUseCreditData({ amount: '', use_for: 'KIT', reason: '', reference_id: '' });
+                                                  }}
+                                                  className="flex-1 py-1.5 rounded-lg text-[10px] font-bold border-2 border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                  - Use Credit
+                                                </button>
+                                              );
+                                            })()}
                                           </div>
 
                                           {/* Add Credit Form */}

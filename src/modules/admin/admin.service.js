@@ -3297,295 +3297,300 @@ export const createStudent = async (academy_id, data) => {
 
   const primaryBatchId = batchIds.length > 0 ? parseInt(batchIds[0], 10) : null;
 
-  if (primaryBatchId) {
-    const batch = await prisma.batch.findFirst({
-      where: {
-        batch_id: primaryBatchId,
-        academy_id: academyId,
-        status: 'ACTIVE',
-      },
-      include: {
-        _count: {
-          select: { students: true },
-        },
-      },
-    });
-
-    if (!batch) {
-      const error = new Error('Batch not found');
-      error.statusCode = 404;
-      throw error;
-    }
-
-    if (batch.max_capacity !== null && batch._count.students >= batch.max_capacity) {
-      const error = new Error('Batch is at full capacity');
+  if (data.advance_amount !== undefined && data.advance_amount !== null) {
+    const adv = parseFloat(data.advance_amount);
+    if (isNaN(adv) || adv < 0) {
+      const error = new Error('Advance amount cannot be negative');
       error.statusCode = 400;
       throw error;
     }
   }
 
-
-
-  // Create student record
-
-  const student = await prisma.student.create({
-
-    data: {
-
-      academy_id: academyId,
-
-      parent_id: parent_id,
-
-      name: data.name,
-
-      first_name: data.first_name || null,
-
-      middle_name: data.middle_name || null,
-
-      last_name: data.last_name || null,
-
-      phone: data.phone || null,
-
-      dob: data.dob ? new Date(data.dob) : null,
-
-      age: calculatedAge,
-
-      category: calculatedCategory,
-
-      profile_photo: data.profile_photo || null,
-
-      gender: normalizeGender(data.gender),
-
-      sport_id: sportIds.length > 0 ? parseInt(sportIds[0], 10) : null, // Primary sport for backward compatibility
-
-      batch_id: primaryBatchId,
-
-      blood_group: data.blood_group,
-
-      parent_name: data.parent_name || null,
-
-      parent_email: parentEmail,
-
-      parent_phone: data.parent_phone || null,
-
-      joining_date: data.joining_date ? new Date(data.joining_date) : new Date(),
-
-      fees_status: data.fees_status || 'unpaid',
-
-      status: 'ACTIVE',
-
-      auto_deactivate_on_due: autoDeactivateOnDue,
-
-      auto_deactivated: false,
-
-      height: data.height ? Number(data.height) : null,
-
-      weight: data.weight ? Number(data.weight) : null,
-
-    },
-
-    include: { batch: true, sport: true, parent: true },
-
-  });
-
-
-
-  // Create enrollment records for each sport
-
-  if (sportIds.length > 0) {
-
-    const enrollmentData = sportIds.map((sportId, index) => {
-
-      const sportWithFee = sportsWithFees.find((s) => s.sport_id === parseInt(sportId, 10));
-
-      const sportBaseFee = sportWithFee ? parseFloat(sportWithFee.base_fee) : 0;
-
-
-
-      return {
-
-        academy_id: academyId,
-
-        student_id: student.student_id,
-
-        sport_id: parseInt(sportId, 10),
-
-        duration_plan_id: durationPlanId,
-
-        batch_id: index === 0 && primaryBatchId ? primaryBatchId : null, // Only first sport gets batch
-
-        registration_fee: index === 0 ? registrationFee : 0, // Registration fee only for primary enrollment
-
-        sports_fee: sportBaseFee * planMultiplier,
-
-        additional_charges: index === 0 ? additionalCharges : 0,
-
-        discount: index === 0 ? discount : 0,
-
-        final_fee: index === 0 ? finalFee : sportBaseFee * planMultiplier,
-
-        next_due_date: index === 0 ? nextDueDate : null,
-
-        plan_start_date: index === 0 ? planStartDate : null,
-
-        plan_end_date: index === 0 ? planEndDate : null,
-
-        is_active: true,
-
-      };
-
-    });
-
-
-
-    await prisma.studentEnrollment.createMany({
-
-      data: enrollmentData,
-
-    });
-
-  }
-
-
-
-  // Link enquiry if enquiry_id is provided
-
-  if (data.enquiry_id) {
-
-    const enquiryId = parseInt(data.enquiry_id, 10);
-
-    try {
-
-      const enquiry = await prisma.enquiry.findFirst({
-
+  const studentResult = await prisma.$transaction(async (tx) => {
+    if (primaryBatchId) {
+      const batch = await tx.batch.findFirst({
         where: {
-
-          enquiry_id: enquiryId,
-
+          batch_id: primaryBatchId,
           academy_id: academyId,
-
+          status: 'ACTIVE',
         },
-
+        include: {
+          _count: {
+            select: { students: true },
+          },
+        },
       });
 
-
-
-      if (enquiry && enquiry.status !== 'CONVERTED') {
-        const convertedAt = new Date();
-        const auditFooter = [
-          '',
-          '---',
-          `[CONVERTED] Student ID: ${student.student_id}`,
-          `Converted At: ${convertedAt.toISOString()}`,
-          data.converted_by_name ? `Converted By: ${data.converted_by_name}` : null
-        ]
-          .filter(Boolean)
-          .join('\n');
-
-        const updatedNotes = enquiry.notes ? `${enquiry.notes}${auditFooter}` : auditFooter.trim();
-
-        // Build update data safely
-        const enquiryUpdateData = {
-          status: 'CONVERTED',
-          converted_to_student_id: student.student_id,
-          notes: updatedNotes,
-        };
-
-        await prisma.enquiry.update({
-          where: { enquiry_id: enquiryId },
-          data: enquiryUpdateData,
-        });
-
-        // Carry over profile photo if available on enquiry in the future
-        if (enquiry.profile_photo && !student.profile_photo) {
-          await prisma.student.update({
-            where: { student_id: student.student_id },
-            data: { profile_photo: enquiry.profile_photo }
-          });
-        }
-
-        logger.info('Enquiry marked as converted and linked to student', {
-          enquiry_id: enquiryId,
-          student_id: student.student_id,
-        });
+      if (!batch) {
+        const error = new Error('Batch not found');
+        error.statusCode = 404;
+        throw error;
       }
 
-    } catch (enquiryError) {
-
-      logger.error('Failed to link enquiry to student during conversion', {
-
-        error: enquiryError.message,
-
-        enquiry_id: enquiryId,
-
-        student_id: student.student_id,
-
-      });
-
+      if (batch.max_capacity !== null && batch._count.students >= batch.max_capacity) {
+        const error = new Error('Batch is at full capacity');
+        error.statusCode = 400;
+        throw error;
+      }
     }
 
-  }
+    // Create student record
+    const student = await tx.student.create({
+      data: {
+        academy_id: academyId,
+        parent_id: parent_id,
+        name: data.name,
+        first_name: data.first_name || null,
+        middle_name: data.middle_name || null,
+        last_name: data.last_name || null,
+        phone: data.phone || null,
+        dob: data.dob ? new Date(data.dob) : null,
+        age: calculatedAge,
+        category: calculatedCategory,
+        profile_photo: data.profile_photo || null,
+        gender: normalizeGender(data.gender),
+        sport_id: sportIds.length > 0 ? parseInt(sportIds[0], 10) : null, // Primary sport for backward compatibility
+        batch_id: primaryBatchId,
+        blood_group: data.blood_group,
+        parent_name: data.parent_name || null,
+        parent_email: parentEmail,
+        parent_phone: data.parent_phone || null,
+        joining_date: data.joining_date ? new Date(data.joining_date) : new Date(),
+        fees_status: data.fees_status || 'unpaid',
+        status: 'ACTIVE',
+        auto_deactivate_on_due: autoDeactivateOnDue,
+        auto_deactivated: false,
+        height: data.height ? Number(data.height) : null,
+        weight: data.weight ? Number(data.weight) : null,
+      },
+      include: { batch: true, sport: true, parent: true },
+    });
 
+    // Create enrollment records for each sport
+    if (sportIds.length > 0) {
+      const enrollmentData = sportIds.map((sportId, index) => {
+        const sportWithFee = sportsWithFees.find((s) => s.sport_id === parseInt(sportId, 10));
+        const sportBaseFee = sportWithFee ? parseFloat(sportWithFee.base_fee) : 0;
 
+        return {
+          academy_id: academyId,
+          student_id: student.student_id,
+          sport_id: parseInt(sportId, 10),
+          duration_plan_id: durationPlanId,
+          batch_id: index === 0 && primaryBatchId ? primaryBatchId : null, // Only first sport gets batch
+          registration_fee: index === 0 ? registrationFee : 0, // Registration fee only for primary enrollment
+          sports_fee: sportBaseFee * planMultiplier,
+          additional_charges: index === 0 ? additionalCharges : 0,
+          discount: index === 0 ? discount : 0,
+          final_fee: index === 0 ? finalFee : sportBaseFee * planMultiplier,
+          next_due_date: index === 0 ? nextDueDate : null,
+          plan_start_date: index === 0 ? planStartDate : null,
+          plan_end_date: index === 0 ? planEndDate : null,
+          is_active: true,
+        };
+      });
+
+      await tx.studentEnrollment.createMany({
+        data: enrollmentData,
+      });
+    }
+
+    // Link enquiry if enquiry_id is provided
+    if (data.enquiry_id) {
+      const enquiryId = parseInt(data.enquiry_id, 10);
+      try {
+        const enquiry = await tx.enquiry.findFirst({
+          where: {
+            enquiry_id: enquiryId,
+            academy_id: academyId,
+          },
+        });
+
+        if (enquiry && enquiry.status !== 'CONVERTED') {
+          const convertedAt = new Date();
+          const auditFooter = [
+            '',
+            '---',
+            `[CONVERTED] Student ID: ${student.student_id}`,
+            `Converted At: ${convertedAt.toISOString()}`,
+            data.converted_by_name ? `Converted By: ${data.converted_by_name}` : null
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          const updatedNotes = enquiry.notes ? `${enquiry.notes}${auditFooter}` : auditFooter.trim();
+
+          await tx.enquiry.update({
+            where: { enquiry_id: enquiryId },
+            data: {
+              status: 'CONVERTED',
+              converted_to_student_id: student.student_id,
+              notes: updatedNotes,
+            },
+          });
+
+          if (enquiry.profile_photo && !student.profile_photo) {
+            await tx.student.update({
+              where: { student_id: student.student_id },
+              data: { profile_photo: enquiry.profile_photo }
+            });
+          }
+        }
+      } catch (enquiryError) {
+        logger.error('Failed to link enquiry to student during conversion inside tx', enquiryError);
+      }
+    }
+
+    // Sports Kit Assignments
+    if (data.kits && Array.isArray(data.kits)) {
+      for (const item of data.kits) {
+        const kitId = parseInt(item.kit_id, 10);
+        const qty = parseInt(item.quantity || 1, 10);
+
+        if (isNaN(qty) || qty < 1) {
+          throw new Error('Sports kit quantity must be at least 1');
+        }
+
+        const kit = await tx.sportsKit.findFirst({
+          where: { kit_id: kitId, academy_id: academyId }
+        });
+
+        if (!kit) {
+          throw new Error(`Sports kit with ID ${kitId} not found`);
+        }
+        if (kit.status !== 'ACTIVE') {
+          throw new Error(`Sports kit "${kit.name}" is currently inactive`);
+        }
+        if (kit.available_qty < qty) {
+          throw new Error(`Insufficient stock for "${kit.name}". Available: ${kit.available_qty}, Requested: ${qty}`);
+        }
+        if (kit.sport_id !== sportIds[0]) {
+          throw new Error(`Sports kit "${kit.name}" does not belong to the selected sport`);
+        }
+
+        const totalAmount = parseFloat(kit.selling_price) * qty;
+
+        // Decrease stock
+        await tx.sportsKit.update({
+          where: { kit_id: kitId },
+          data: {
+            available_qty: { decrement: qty },
+            assigned_qty: { increment: qty }
+          }
+        });
+
+        // Create assignment
+        const assignment = await tx.sportsKitAssignment.create({
+          data: {
+            academy_id: academyId,
+            kit_id: kitId,
+            student_id: student.student_id,
+            status: 'ACTIVE',
+            payment_status: 'UNPAID',
+            payment_mode: 'FEE',
+            quantity: qty,
+            unit_price: kit.selling_price,
+            total_amount: totalAmount,
+            remarks: 'Assigned during student creation'
+          }
+        });
+
+        // Create Fee entry
+        const kitFee = await tx.fee.create({
+          data: {
+            academy_id: academyId,
+            student_id: student.student_id,
+            amount_due: totalAmount,
+            due_date: planStartDate || new Date(),
+            status: 'PENDING',
+            description: `Sports Kit Charge: ${kit.name} (Qty: ${qty})`
+          }
+        });
+
+        // Link Fee to Assignment
+        await tx.sportsKitAssignment.update({
+          where: { assignment_id: assignment.assignment_id },
+          data: { fee_id: kitFee.fee_id }
+        });
+      }
+    }
+
+    // Advance Payment / Account Credit
+    if (data.advance_amount && parseFloat(data.advance_amount) > 0) {
+      const advanceAmt = parseFloat(data.advance_amount);
+      const year = new Date().getFullYear();
+      const count = await tx.receipt.count({
+        where: { academy_id: academyId, receipt_number: { startsWith: `REC-${year}` } }
+      });
+      const receiptNumber = `REC-${year}-${String(count + 1).padStart(3, '0')}`;
+
+      const receipt = await tx.receipt.create({
+        data: {
+          receipt_number: receiptNumber,
+          academy_id: academyId,
+          student_id: student.student_id,
+          amount: advanceAmt,
+          discount: 0,
+          additional_charges: 0,
+          payment_date: new Date(),
+          method: data.payment_method || 'cash',
+          status: 'COMPLETED',
+          remarks: 'Advance Payment (Added to Account Credit)'
+        }
+      });
+
+      // Update student advance balance
+      await tx.student.update({
+        where: { student_id: student.student_id },
+        data: { advance_balance: { increment: advanceAmt } }
+      });
+
+      // Create credit transaction
+      await tx.studentCreditTransaction.create({
+        data: {
+          student_id: student.student_id,
+          academy_id: academyId,
+          amount: advanceAmt,
+          type: 'ADD',
+          reason: 'Advance Payment during student creation',
+          reference_type: 'RECEIPT',
+          reference_id: receipt.receipt_id
+        }
+      });
+    }
+
+    return student;
+  });
 
   await logAudit({
-
     academy_id: academyId,
-
     actor_type: 'ADMIN',
-
     action: 'STUDENT_CREATED',
-
     entity_type: 'Student',
-
-    entity_id: student.student_id,
-
+    entity_id: studentResult.student_id,
   });
-
-
 
   logger.info('Student created with enrollments', {
-
-    student_id: student.student_id,
-
+    student_id: studentResult.student_id,
     academy_id: academyId,
-
     sport_count: sportIds.length,
-
   });
 
-
-
   // Return student with enrollments
-
   return prisma.student.findUnique({
-
-    where: { student_id: student.student_id },
-
+    where: { student_id: studentResult.student_id },
     include: {
-
       batch: true,
-
       sport: true,
-
       enrollments: {
-
         include: {
-
           sport: true,
-
           duration_plan: true,
-
           batch: true,
-
         },
-
         where: { is_active: true },
-
       },
-
     },
-
   });
 
 };
@@ -5055,6 +5060,38 @@ export const useStudentCredit = async (academy_id, student_id, data) => {
     throw error;
   }
 
+  const activeEnrollment = await prisma.studentEnrollment.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      is_active: true,
+      OR: [
+        { plan_end_date: null },
+        { plan_end_date: { gte: new Date() } }
+      ]
+    }
+  });
+
+  if (!activeEnrollment) {
+    const error = new Error('No active plan found to apply/use credit.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const sportsFee = parseFloat(activeEnrollment.sports_fee || 0);
+  const registrationFee = parseFloat(activeEnrollment.registration_fee || 0);
+  const additionalCharges = parseFloat(activeEnrollment.additional_charges || 0);
+  const discount = parseFloat(activeEnrollment.discount || 0);
+  const totalPlanFee = sportsFee + registrationFee + additionalCharges - discount;
+  const totalPlanPaid = parseFloat(activeEnrollment.paid_amount || 0);
+  const currentPlanDue = Math.max(0, totalPlanFee - totalPlanPaid);
+
+  if (currentPlanDue > 0) {
+    const error = new Error('Cannot use account credit because the current active plan still has outstanding dues');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const updatedStudent = await prisma.$transaction(async (tx) => {
     // 1. Decrement balance
     const updated = await tx.student.update({
@@ -5150,6 +5187,38 @@ export const applyCreditToFees = async (academy_id, student_id, data) => {
   const currentBalance = parseFloat(student.advance_balance || 0);
   if (currentBalance < amount) {
     const error = new Error(`Insufficient credit. Available balance: ₹${currentBalance.toFixed(2)}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const activeEnrollment = await prisma.studentEnrollment.findFirst({
+    where: {
+      student_id: studentId,
+      academy_id: academyId,
+      is_active: true,
+      OR: [
+        { plan_end_date: null },
+        { plan_end_date: { gte: new Date() } }
+      ]
+    }
+  });
+
+  if (!activeEnrollment) {
+    const error = new Error('No active plan found to apply/use credit.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const sportsFee = parseFloat(activeEnrollment.sports_fee || 0);
+  const registrationFee = parseFloat(activeEnrollment.registration_fee || 0);
+  const additionalCharges = parseFloat(activeEnrollment.additional_charges || 0);
+  const discount = parseFloat(activeEnrollment.discount || 0);
+  const totalPlanFee = sportsFee + registrationFee + additionalCharges - discount;
+  const totalPlanPaid = parseFloat(activeEnrollment.paid_amount || 0);
+  const currentPlanDue = Math.max(0, totalPlanFee - totalPlanPaid);
+
+  if (currentPlanDue > 0) {
+    const error = new Error('Cannot use account credit because the current active plan still has outstanding dues');
     error.statusCode = 400;
     throw error;
   }

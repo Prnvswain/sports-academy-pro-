@@ -638,24 +638,7 @@ export default function StudentsPanel() {
     emptyForm,
   );
 
-  // Restore conversion state from local storage draft if available on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('sams_draft_student_form');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.convertEnquiry) {
-          setConvertEnquiry(parsed.convertEnquiry);
-          setConvertEnquiryId(parsed.enquiry_id || parsed.convertEnquiry.id || parsed.convertEnquiry.enquiry_id);
-          if (parsed.profile_photo) {
-            setPhotoPreview(parsed.profile_photo);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load convertEnquiry from draft:', e);
-    }
-  }, []);
+
 
 
 
@@ -863,6 +846,18 @@ export default function StudentsPanel() {
 
   const [photoPreview, setPhotoPreview] = useState(null);
 
+  const [availableKits, setAvailableKits] = useState([]);
+  const [selectedKits, setSelectedKits] = useState([]);
+  const [loadingKits, setLoadingKits] = useState(false);
+  const [payAdvance, setPayAdvance] = useState(false);
+  const [advanceAmount, setAdvanceAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+
+  const kitTotal = (selectedKits || []).reduce(
+    (sum, item) => sum + (parseFloat(item.selling_price || 0) * (item.quantity || 0)),
+    0
+  );
+
   const [studentListTab, setStudentListTab] = useState('active'); // 'active' or 'deactivated'
   const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [reactivateForm, setReactivateForm] = useState({ 
@@ -927,7 +922,62 @@ export default function StudentsPanel() {
   const [batchSearchQuery, setBatchSearchQuery] = useState('');
 
   const [isBatchesDropdownOpen, setIsBatchesDropdownOpen] = useState(false);
+  // Restore conversion state from local storage draft if available on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sams_draft_student_form');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.convertEnquiry) {
+          setConvertEnquiry(parsed.convertEnquiry);
+          setConvertEnquiryId(parsed.enquiry_id || parsed.convertEnquiry.id || parsed.convertEnquiry.enquiry_id);
+        }
+        if (parsed.profile_photo) {
+          setPhotoPreview(parsed.profile_photo);
+        }
+        if (parsed.selectedSports) {
+          setSelectedSports(parsed.selectedSports);
+        }
+        if (parsed.selectedKits) {
+          setSelectedKits(parsed.selectedKits);
+        }
+        if (parsed.payAdvance !== undefined) {
+          setPayAdvance(parsed.payAdvance);
+        }
+        if (parsed.advanceAmount !== undefined) {
+          setAdvanceAmount(parsed.advanceAmount);
+        }
+        if (parsed.paymentMethod) {
+          setPaymentMethod(parsed.paymentMethod);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load convertEnquiry from draft:', e);
+    }
+  }, []);
 
+  // Fetch kits for selected sport
+  useEffect(() => {
+    if (selectedSports && selectedSports.length > 0) {
+      const sportId = selectedSports[0];
+      const fetchKits = async () => {
+        setLoadingKits(true);
+        try {
+          const res = await adminGet(`/admin/inventory/kits?sport_id=${sportId}`);
+          setAvailableKits(res?.data || res || []);
+        } catch (err) {
+          console.error('Failed to fetch kits for sport', err);
+          setAvailableKits([]);
+        } finally {
+          setLoadingKits(false);
+        }
+      };
+      fetchKits();
+    } else {
+      setAvailableKits([]);
+      setSelectedKits([]);
+    }
+  }, [selectedSports]);
 
 
   const loadData = useCallback(async () => {
@@ -1408,9 +1458,9 @@ export default function StudentsPanel() {
 
     const registrationFee = parseFloat(form?.registration_fee || form?.registrationFee || 0) || 0;
 
-    const additionalCharges =
+    const manualCharges = parseFloat(form?.additional_charges || form?.additionalCharges || 0) || 0;
 
-      parseFloat(form?.additional_charges || form?.additionalCharges || 0) || 0;
+    const additionalCharges = manualCharges + kitTotal;
 
     const discount = parseFloat(form?.discount || 0) || 0;
 
@@ -1495,20 +1545,34 @@ export default function StudentsPanel() {
 
 
     if (!isValid) {
-
       return;
-
     }
 
+    if (payAdvance) {
+      const adv = parseFloat(advanceAmount);
+      if (isNaN(adv) || adv <= 0) {
+        alert('Please enter a valid positive advance amount.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
+    for (const kit of selectedKits) {
+      if (!kit.quantity || kit.quantity < 1) {
+        alert(`Please specify a valid quantity for ${kit.name}.`);
+        setIsSubmitting(false);
+        return;
+      }
+      if (kit.quantity > kit.available_qty) {
+        alert(`Quantity for ${kit.name} cannot exceed available stock (${kit.available_qty}).`);
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     try {
-
       const feeBreakdown = calculateLiveFee();
-
       const fullName = `${form.firstName} ${form.middleName} ${form.lastName}`.trim();
-
-
 
       // Handle profile photo - convert to base64 if file is selected
       let profilePhotoData = null;
@@ -1523,95 +1587,62 @@ export default function StudentsPanel() {
         profilePhotoData = form.profile_photo;
       }
 
-
-
       let batchIdsValue = form.batch_ids ? form.batch_ids.map(id => parseInt(id, 10)) : [];
 
       console.log('[handleSubmit] batch_ids value:', {
-
         form_batch_ids: form.batch_ids,
-
         parsed_batch_ids: batchIdsValue,
-
       });
 
-
-
       const payload = {
-
         name: fullName,
-
         first_name: form.firstName.trim() || undefined,
-
         middle_name: form.middleName.trim() || undefined,
-
         last_name: form.lastName.trim() || undefined,
-
         phone: form.phone.trim() || undefined,
-
         dob: form.dob,
-
         age: calculateAgeFromDOB(form.dob),
-
         gender: form.gender,
-
         blood_group: form.bloodGroup || form.blood_group || undefined,
-
         height: form.height ? parseFloat(form.height) : undefined,
-
         weight: form.weight ? parseFloat(form.weight) : undefined,
-
         parent_name: form.parent_name.trim() || undefined,
-
         parent_email: form.parent_email.trim(),
-
         parent_phone: form.parent_phone.trim() || undefined,
-
         profile_photo: profilePhotoData,
-
         sport_ids: selectedSports.map((id) => parseInt(id, 10)),
-
         batch_ids: batchIdsValue,
-
         duration_plan_id: form.duration_plan_id ? parseInt(form.duration_plan_id, 10) : undefined,
-
         registration_fee: parseFloat(form.registrationFee || form.registration_fee || 0),
-
         additional_charges: parseFloat(form.additionalCharges || form.additional_charges || 0),
-
         discount: parseFloat(form.discount || 0),
-
         joining_date: form.joining_date,
-
         auto_deactivate_on_due: form.auto_deactivate_on_due,
-
         enquiry_id: convertEnquiryId || undefined,
-
+        kits: selectedKits.map(item => ({
+          kit_id: item.kit_id,
+          quantity: item.quantity
+        })),
+        advance_amount: payAdvance ? (parseFloat(advanceAmount) || 0) : 0,
+        payment_method: payAdvance ? paymentMethod : undefined,
       };
-
-
 
       console.log('[handleSubmit] Request payload:', payload);
 
-
-
       const result = await adminPost('/admin/students', payload);
 
-
-
       console.log('[handleSubmit] Response:', {
-
         status: 201,
-
         data: result,
-
       });
-
-
 
       setMessage({ text: result.message, type: 'success' });
       clearDraft();
       setSelectedSports([]);
+      setSelectedKits([]);
+      setPayAdvance(false);
+      setAdvanceAmount('');
+      setPaymentMethod('cash');
       setFieldErrors({});
       setShowAddStudentModal(false);
       setConvertEnquiryId(null);
@@ -4876,7 +4907,12 @@ export default function StudentsPanel() {
             ...form,
             convertEnquiry,
             enquiry_id: convertEnquiryId,
-            profile_photo: photoPreview
+            profile_photo: photoPreview,
+            selectedSports,
+            selectedKits,
+            payAdvance,
+            advanceAmount,
+            paymentMethod
           };
           localStorage.setItem('sams_draft_student_form', JSON.stringify(draftData));
           setMessage({ text: 'Student profile draft saved successfully!', type: 'success' });
@@ -5071,8 +5107,6 @@ export default function StudentsPanel() {
 
         </div>
 
-
-
         {/* Profile Photo */}
 
         <div className="mb-4 mt-4">
@@ -5096,69 +5130,71 @@ export default function StudentsPanel() {
             className="input-field"
 
             onChange={(e) => {
-
               const file = e.target.files[0];
-
               if (file) {
-
                 const allowedTypes = [
-
                   'image/jpeg',
-
                   'image/jpg',
-
                   'image/png',
-
                   'image/gif',
-
                   'image/webp',
-
                 ];
-
                 if (!allowedTypes.includes(file.type)) {
-
                   setFieldError(
-
                     'profile_photo',
-
                     'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-
                   );
-
+                  setPhotoPreview(null);
                   e.target.value = '';
-
                   return;
-
                 }
-
                 if (file.size > 5 * 1024 * 1024) {
-
                   alert('File size exceeds the 5MB limit. Please choose a smaller file.');
-
+                  setPhotoPreview(null);
                   e.target.value = '';
-
                   return;
-
                 }
-
                 clearFieldError('profile_photo');
-
                 setForm({ ...form, profile_photo: file });
 
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  setPhotoPreview(ev.target.result);
+                };
+                reader.readAsDataURL(file);
               }
-
             }}
-
           />
 
           <p className="text-muted mt-1 text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
 
-          {fieldErrors.profile_photo && (
-
-            <p className="mt-1 text-xs text-red-500">{fieldErrors.profile_photo}</p>
-
+          {photoPreview && (
+            <div className="mt-2.5 flex items-center gap-3">
+              <div className="relative w-16 h-16 rounded-full border-2 border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-sm">
+                <img
+                  src={photoPreview}
+                  alt="Profile Preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <button
+                type="button"
+                className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-955/20 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                onClick={() => {
+                  setPhotoPreview(null);
+                  setForm({ ...form, profile_photo: null });
+                  const fileInput = document.getElementById('profilePhoto');
+                  if (fileInput) fileInput.value = '';
+                }}
+              >
+                Remove Photo
+              </button>
+            </div>
           )}
 
+          {fieldErrors.profile_photo && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.profile_photo}</p>
+          )}
         </div>
 
 
@@ -5923,6 +5959,230 @@ export default function StudentsPanel() {
 
 
 
+        {/* Sports Kit Assignment Section */}
+
+        {selectedSports.length > 0 && (
+
+          <div className="mt-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/10 space-y-4">
+
+            <h4 className="text-sm font-bold text-slate-850 dark:text-slate-200 flex items-center gap-2">
+
+              📦 Sports Kit Assignment
+
+            </h4>
+
+
+
+            {loadingKits ? (
+
+              <p className="text-xs text-slate-500 italic">Loading kits for selected sport...</p>
+
+            ) : availableKits.length === 0 ? (
+
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-100 dark:border-amber-900/40">
+
+                ⚠️ No kits available for this sport.
+
+              </p>
+
+            ) : (
+
+              <div className="space-y-3">
+
+                {/* Selected Kits List */}
+
+                {selectedKits.map((item, idx) => (
+
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-250 dark:border-slate-800 shadow-sm text-xs">
+
+                    <div className="flex-1">
+
+                      <span className="font-bold text-slate-900 dark:text-white block">{item.name}</span>
+
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Unit Price: ₹{parseFloat(item.selling_price).toFixed(2)} | Stock: {item.available_qty}</span>
+
+                    </div>
+
+                    <div className="flex items-center gap-3">
+
+                      <div className="flex items-center border border-slate-250 dark:border-slate-800 rounded-lg overflow-hidden h-8 bg-slate-50 dark:bg-slate-950">
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => {
+
+                            const newKits = [...selectedKits];
+
+                            if (newKits[idx].quantity > 1) {
+
+                              newKits[idx].quantity -= 1;
+
+                              setSelectedKits(newKits);
+
+                            }
+
+                          }}
+
+                          className="px-2 h-full text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-800 font-bold cursor-pointer"
+
+                        >
+
+                          -
+
+                        </button>
+
+                        <span className="px-3 text-slate-900 dark:text-white font-semibold">{item.quantity}</span>
+
+                        <button
+
+                          type="button"
+
+                          onClick={() => {
+
+                            const newKits = [...selectedKits];
+
+                            if (newKits[idx].quantity < item.available_qty) {
+
+                              newKits[idx].quantity += 1;
+
+                              setSelectedKits(newKits);
+
+                            } else {
+
+                              alert(`Cannot assign more than available stock (${item.available_qty} units).`);
+
+                            }
+
+                          }}
+
+                          className="px-2 h-full text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-800 font-bold cursor-pointer"
+
+                        >
+
+                          +
+
+                        </button>
+
+                      </div>
+
+                      <div className="text-right min-w-[70px]">
+
+                        <span className="font-bold text-slate-900 dark:text-white">₹{(parseFloat(item.selling_price) * item.quantity).toFixed(2)}</span>
+
+                      </div>
+
+                      <button
+
+                        type="button"
+
+                        onClick={() => setSelectedKits(selectedKits.filter((_, i) => i !== idx))}
+
+                        className="text-red-500 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 p-1.5 rounded-lg border border-transparent hover:border-red-200 dark:hover:border-red-900/50 transition-all font-bold cursor-pointer"
+
+                      >
+
+                        ✕
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+
+
+                {/* Add Another Kit Dropdown selector */}
+
+                {availableKits.filter(kit => !selectedKits.some(sk => sk.kit_id === (kit.id || kit.kit_id))).length > 0 ? (
+
+                  <div className="flex gap-2">
+
+                    <select
+
+                      className="input-field py-1.5 px-3 text-xs flex-1 bg-white dark:bg-slate-900"
+
+                      value=""
+
+                      onChange={(e) => {
+
+                        const kitId = parseInt(e.target.value, 10);
+
+                        if (!kitId) return;
+
+                        const kitObj = availableKits.find(k => (k.id || k.kit_id) === kitId);
+
+                        if (kitObj) {
+
+                          setSelectedKits([
+
+                            ...selectedKits,
+
+                            {
+
+                              kit_id: kitId,
+
+                              name: kitObj.name,
+
+                              selling_price: parseFloat(kitObj.selling_price),
+
+                              available_qty: kitObj.available_qty,
+
+                              quantity: 1
+
+                            }
+
+                          ]);
+
+                        }
+
+                      }}
+
+                    >
+
+                      <option value="">+ Add Sports Kit Assignment...</option>
+
+                      {availableKits
+
+                        .filter(kit => !selectedKits.some(sk => sk.kit_id === (kit.id || kit.kit_id)))
+
+                        .map(kit => (
+
+                          <option key={kit.id || kit.kit_id} value={kit.id || kit.kit_id} disabled={kit.available_qty <= 0}>
+
+                            {kit.name} (Price: ₹{parseFloat(kit.selling_price).toFixed(0)} | Stock: {kit.available_qty}) {kit.available_qty <= 0 ? '[OUT OF STOCK]' : ''}
+
+                          </option>
+
+                        ))
+
+                      }
+
+                    </select>
+
+                  </div>
+
+                ) : selectedKits.length > 0 ? (
+
+                  <p className="text-[10px] text-slate-500 italic">All available kits for this sport have been added.</p>
+
+                ) : null}
+
+              </div>
+
+            )}
+
+          </div>
+
+        )}
+
+
+
+        {/* Advance Payment Section */}
+
         {/* Financial Fields */}
 
         <div className="grid gap-4 sm:grid-cols-3 mt-4">
@@ -5981,9 +6241,25 @@ export default function StudentsPanel() {
 
               className="input-field"
 
-              value={form.additional_charges}
+              value={(parseFloat(form.additional_charges || 0) + kitTotal) || ''}
 
-              onChange={updateField}
+              onChange={(e) => {
+
+                const val = e.target.value;
+
+                const parsedVal = parseFloat(val) || 0;
+
+                const manual = Math.max(0, parsedVal - kitTotal);
+
+                setForm(prev => ({
+
+                  ...prev,
+
+                  additional_charges: val === '' ? '' : manual
+
+                }));
+
+              }}
 
               placeholder="0"
 
@@ -6027,95 +6303,309 @@ export default function StudentsPanel() {
 
 
 
-        {/* Live Fee Preview Card */}
+        {/* Compact Dynamic Fee Summary near the bottom of the form */}
 
-        <div className="mt-4 rounded-lg border-2 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/20 p-4">
+        <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
 
-          <h4 className="mb-3 font-bold text-emerald-700 dark:text-emerald-400">Live Fee Preview</h4>
+          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
 
-          <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+            First Month Fee Summary
 
-            <div className="flex justify-between">
+          </h4>
 
-              <span>Sports Base Fee:</span>
 
-              <span className="font-semibold text-slate-900 dark:text-white">
 
-                ₹{formatCurrency(calculateLiveFee().totalSportsFee)}
+          {(() => {
 
-              </span>
+            const feeBreakdown = calculateLiveFee();
 
-            </div>
+            const trainingFee = feeBreakdown.sportsFeeWithMultiplier;
 
-            <div className="flex justify-between">
+            const regFee = feeBreakdown.registrationFee;
 
-              <span>Plan Multiplier:</span>
+            const addFee = feeBreakdown.additionalCharges;
 
-              <span className="font-semibold text-slate-900 dark:text-white">{calculateLiveFee().multiplier}x</span>
+            const discount = feeBreakdown.discount;
 
-            </div>
+            
 
-            <div className="flex justify-between">
+            const firstMonthTotal = feeBreakdown.finalFee;
 
-              <span>Assigned Sports Fee:</span>
+            const advPay = payAdvance ? (parseFloat(advanceAmount) || 0) : 0;
 
-              <span className="font-semibold text-slate-900 dark:text-white">
+            const amountPaidNow = advPay;
 
-                ₹{formatCurrency(calculateLiveFee().sportsFeeWithMultiplier)}
+            const accountCredit = advPay;
 
-              </span>
+            const remainingDue = Math.max(0, firstMonthTotal - amountPaidNow);
 
-            </div>
 
-            <div className="flex justify-between">
 
-              <span>Registration Fee:</span>
+            return (
 
-              <span className="font-semibold text-slate-900 dark:text-white">
+              <div className="space-y-2 text-xs">
 
-                ₹{formatCurrency(calculateLiveFee().registrationFee)}
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
 
-              </span>
+                  <span>Training Fee ({feeBreakdown.multiplier}x Plan):</span>
 
-            </div>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
 
-            <div className="flex justify-between">
+                    ₹{formatCurrency(trainingFee)}
 
-              <span>Additional Charges:</span>
+                  </span>
 
-              <span className="font-semibold text-slate-900 dark:text-white">
+                </div>
 
-                ₹{formatCurrency(calculateLiveFee().additionalCharges)}
 
-              </span>
 
-            </div>
+                {regFee > 0 && (
 
-            <div className="flex justify-between">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
 
-              <span>Discount:</span>
+                    <span>Registration Fee:</span>
 
-              <span className="font-semibold text-rose-600 dark:text-rose-400">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
 
-                -₹{formatCurrency(calculateLiveFee().discount)}
+                      ₹{formatCurrency(regFee)}
 
-              </span>
+                    </span>
 
-            </div>
+                  </div>
 
-            <div className="mt-2 flex justify-between border-t border-emerald-200 dark:border-emerald-900/50 pt-2">
+                )}
 
-              <span className="font-bold text-slate-900 dark:text-white">Training Fee:</span>
 
-              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
 
-                ₹{formatCurrency(calculateLiveFee().finalFee)}
+                {addFee > 0 && (
 
-              </span>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
 
-            </div>
+                    <span>Additional Fee:</span>
+
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+
+                      ₹{formatCurrency(addFee)}
+
+                    </span>
+
+                  </div>
+
+                )}
+
+
+
+                {discount > 0 && (
+
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+
+                    <span>Discount:</span>
+
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+
+                      -₹{formatCurrency(discount)}
+
+                    </span>
+
+                  </div>
+
+                )}
+
+
+
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between font-bold text-slate-900 dark:text-white">
+
+                  <span>First Month Total:</span>
+
+                  <span>₹{formatCurrency(firstMonthTotal)}</span>
+
+                </div>
+
+
+
+                {advPay > 0 && (
+
+                  <>
+
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+
+                      <span>Advance Payment:</span>
+
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+
+                        ₹{formatCurrency(advPay)}
+
+                      </span>
+
+                    </div>
+
+                    <div className="flex justify-between text-indigo-600 dark:text-indigo-400">
+
+                      <span>Account Credit Added:</span>
+
+                      <span className="font-semibold">
+
+                        ₹{formatCurrency(accountCredit)}
+
+                      </span>
+
+                    </div>
+
+                  </>
+
+                )}
+
+
+
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+
+                  <span>Amount Paid Now:</span>
+
+                  <span>₹{formatCurrency(amountPaidNow)}</span>
+
+                </div>
+
+
+
+                <div className="flex justify-between font-bold text-slate-900 dark:text-white">
+
+                  <span>Remaining First Month Due:</span>
+
+                  <span className={remainingDue > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
+
+                    ₹{formatCurrency(remainingDue)}
+
+                  </span>
+
+                </div>
+
+              </div>
+
+            );
+
+          })()}
+
+        </div>
+
+
+
+        {/* Advance Payment Section */}
+
+        <div className="mt-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/10 space-y-4">
+
+          <div className="flex items-center gap-2">
+
+            <input
+
+              id="payAdvanceCheckbox"
+
+              type="checkbox"
+
+              className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
+
+              checked={payAdvance}
+
+              onChange={(e) => {
+
+                setPayAdvance(e.target.checked);
+
+                if (!e.target.checked) {
+
+                  setAdvanceAmount('');
+
+                }
+
+              }}
+
+            />
+
+            <label htmlFor="payAdvanceCheckbox" className="text-sm font-bold text-slate-800 dark:text-slate-200 select-none cursor-pointer">
+
+              💳 Pay Advance / Add Credit to Student Account
+
+            </label>
 
           </div>
+
+
+
+          {payAdvance && (
+
+            <div className="grid gap-4 sm:grid-cols-2 animate-fadeIn">
+
+              <div>
+
+                <label className="label" htmlFor="advanceAmountInput">
+
+                  Advance Amount (₹)
+
+                </label>
+
+                <input
+
+                  id="advanceAmountInput"
+
+                  type="number"
+
+                  min="0.01"
+
+                  step="0.01"
+
+                  className="input-field"
+
+                  placeholder="Enter advance amount"
+
+                  value={advanceAmount}
+
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+
+                  required
+
+                />
+
+              </div>
+
+
+
+              <div>
+
+                <label className="label" htmlFor="advancePaymentMethod">
+
+                  Payment Method
+
+                </label>
+
+                <select
+
+                  id="advancePaymentMethod"
+
+                  className="input-field"
+
+                  value={paymentMethod}
+
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+
+                >
+
+                  <option value="cash">Cash</option>
+
+                  <option value="upi">UPI</option>
+
+                  <option value="card">Card</option>
+
+                  <option value="bank_transfer">Bank Transfer</option>
+
+                  <option value="cheque">Cheque</option>
+
+                  <option value="online">Online</option>
+
+                </select>
+
+              </div>
+
+            </div>
+
+          )}
 
         </div>
 
@@ -6146,7 +6636,12 @@ export default function StudentsPanel() {
                 ...form,
                 convertEnquiry,
                 enquiry_id: convertEnquiryId,
-                profile_photo: photoPreview
+                profile_photo: photoPreview,
+                selectedSports,
+                selectedKits,
+                payAdvance,
+                advanceAmount,
+                paymentMethod
               };
               localStorage.setItem('sams_draft_student_form', JSON.stringify(draftData));
               setMessage({ text: 'Student profile draft saved successfully!', type: 'success' });
@@ -6202,6 +6697,11 @@ export default function StudentsPanel() {
                 setConvertEnquiry(null);
                 setConvertEnquiryId(null);
                 setPhotoPreview(null);
+                setSelectedSports([]);
+                setSelectedKits([]);
+                setPayAdvance(false);
+                setAdvanceAmount('');
+                setPaymentMethod('cash');
                 setShowClearConfirm(false);
               }}
               className="flex-1 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition"

@@ -403,8 +403,8 @@ export default function AdminLayout() {
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${collapsedForNav
-                ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
-                : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
+              ? 'bg-transparent text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
+              : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
               }`}
             whileHover={{ scale: 1.05, y: -1 }}
             whileTap={{ scale: 0.98 }}
@@ -419,8 +419,8 @@ export default function AdminLayout() {
           <motion.button
             type="button"
             className={`w-full flex justify-center items-center gap-2 rounded-2xl text-sm py-2.5 font-bold transition-all duration-300 ${collapsedForNav
-                ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
-                : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
+              ? 'text-slate-400 hover:bg-slate-800/80 hover:text-white hover:shadow-lg hover:shadow-black/20'
+              : 'border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-800/80 hover:text-white hover:border-slate-600 hover:shadow-lg hover:shadow-black/20'
               }`}
             onClick={handleLogout}
             whileHover={{ scale: 1.05, y: -1 }}
