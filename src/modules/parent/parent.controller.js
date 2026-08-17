@@ -136,6 +136,17 @@ export const getChildDetails = async (req, res, next) => {
       });
     }
 
+    const seenEnrollments = new Set();
+    const uniqueEnrollments = [];
+    (child.enrollments || []).forEach(e => {
+      const key = `${e.sport_id}-${e.batch_id}-${e.duration_plan_id}-${e.plan_start_date ? new Date(e.plan_start_date).getTime() : ''}-${e.plan_end_date ? new Date(e.plan_end_date).getTime() : ''}-${e.is_active}`;
+      if (!seenEnrollments.has(key)) {
+        seenEnrollments.add(key);
+        uniqueEnrollments.push(e);
+      }
+    });
+    child.enrollments = uniqueEnrollments;
+
     const activeEnrollment = child.enrollments.find(e => e.is_active) || null;
     let total_fees_assigned = 0;
     let total_fees_paid = 0;

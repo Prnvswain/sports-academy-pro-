@@ -98,14 +98,14 @@ export function CoachDailyNotes({ students = [] }) {
     <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden relative text-left">
       <span className="absolute top-0 left-0 w-full h-1 bg-emerald-500"></span>
       <div className="p-5 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/10">
-        <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Log Athlete Daily Progress</h3>
+        <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Log Student Daily Progress</h3>
         <p className="text-[10px] text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">Notes written here are automatically emailed to parents</p>
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-5">
         {/* Select Student */}
         <div className="relative">
-          <label className="block text-xs font-bold text-muted-foreground mb-1">Search Athlete</label>
+          <label className="block text-xs font-bold text-muted-foreground mb-1">Search Student</label>
           <input
             type="text"
             className="input-field text-xs py-2 px-3 w-full"
@@ -306,7 +306,7 @@ export function CoachFeeCollection({ students = [] }) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-muted-foreground mb-1">Select Athlete *</label>
+            <label className="block text-xs font-bold text-muted-foreground mb-1">Select Student *</label>
             <select
               name="student_id"
               className="input-field text-xs py-2.5 px-3 bg-card w-full"

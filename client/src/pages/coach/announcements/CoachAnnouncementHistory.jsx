@@ -130,7 +130,7 @@ export default function CoachAnnouncementHistory() {
               Announcements
             </h1>
             <p className="text-muted-foreground mt-1">
-              Manage and broadcast announcement alerts to parents and athletes.
+              Manage and broadcast announcement alerts to parents and students.
             </p>
           </div>
         </div>

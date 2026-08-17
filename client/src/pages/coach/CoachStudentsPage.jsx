@@ -465,7 +465,7 @@ export default function CoachStudentsPage() {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl font-black tracking-tight text-foreground">{stats.boys}</h3>
-            <div className="text-[10px] text-muted-foreground font-bold mt-1">Male trainees</div>
+            <div className="text-[10px] text-muted-foreground font-bold mt-1">Male students</div>
           </div>
         </motion.div>
         
@@ -483,7 +483,7 @@ export default function CoachStudentsPage() {
           </div>
           <div className="mt-3">
             <h3 className="text-2xl font-black tracking-tight text-foreground">{stats.girls}</h3>
-            <div className="text-[10px] text-muted-foreground font-bold mt-1">Female trainees</div>
+            <div className="text-[10px] text-muted-foreground font-bold mt-1">Female students</div>
           </div>
         </motion.div>
       </motion.section>

@@ -297,6 +297,17 @@ export const getParentChildren = async (parent_id) => {
   if (!parent) return [];
 
   return parent.students.map(student => {
+    const seenEnrollments = new Set();
+    const uniqueEnrollments = [];
+    (student.enrollments || []).forEach(e => {
+      const key = `${e.sport_id}-${e.batch_id}-${e.duration_plan_id}-${e.plan_start_date ? new Date(e.plan_start_date).getTime() : ''}-${e.plan_end_date ? new Date(e.plan_end_date).getTime() : ''}-${e.is_active}`;
+      if (!seenEnrollments.has(key)) {
+        seenEnrollments.add(key);
+        uniqueEnrollments.push(e);
+      }
+    });
+    student.enrollments = uniqueEnrollments;
+
     const cycleEnrollments = getCurrentCycleEnrollments(student.enrollments || []);
     let total_fees_assigned = 0;
     let total_fees_paid = 0;

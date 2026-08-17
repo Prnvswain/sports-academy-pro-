@@ -913,7 +913,7 @@ export function CoachFeeCollection({ students = [] }) {
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden text-left mt-6">
             <div className="p-5 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-black text-foreground">Athletes Accounts Directory</h3>
+                <h3 className="text-base font-black text-foreground">Student Accounts Directory</h3>
                 <p className="text-[10px] text-muted-foreground mt-0.5 font-bold uppercase tracking-wider">Sync payments ledger by active filter queries</p>
               </div>
               

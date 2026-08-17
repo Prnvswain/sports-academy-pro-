@@ -496,7 +496,7 @@ export default function CoachDashboardPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 mt-2.5 text-[10px] text-muted-foreground font-bold uppercase">
                             <div>🕒 Time: <span className="text-foreground">{batch.timing}</span></div>
                             <div>🏛️ Venue: <span className="text-foreground">{batch.sport?.sport_center || 'Arena A'}</span></div>
-                            <div>👥 Trainees: <span className="text-foreground">{batch.students?.length || 0}</span></div>
+                            <div>👥 Students: <span className="text-foreground">{batch.students?.length || 0}</span></div>
                             <div>⏳ Duration: <span className="text-foreground">1.5 Hrs</span></div>
                           </div>
                         </div>
@@ -530,11 +530,11 @@ export default function CoachDashboardPage() {
             )}
           </div>
 
-          {/* Trainee Directory Summary Table */}
+          {/* Student Directory Summary Table */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-sm font-black uppercase text-foreground tracking-wide flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-primary" /> Active Trainees Directory
+                <GraduationCap className="w-5 h-5 text-primary" /> Active Students Directory
               </h3>
               <button onClick={() => navigate('/coach/students')} className="text-xs font-black uppercase text-primary hover:underline flex items-center gap-1">
                 Directory <ChevronRight className="w-3 h-3" />
@@ -662,7 +662,7 @@ export default function CoachDashboardPage() {
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm text-left">
             <div className="flex items-center justify-between border-b border-border pb-2.5">
               <h3 className="text-xs font-black uppercase text-foreground tracking-wide flex items-center gap-2">
-                <Clock className="w-4.5 h-4.5 text-amber-500" /> Trainees Requiring Renewal
+                <Clock className="w-4.5 h-4.5 text-amber-500" /> Students Requiring Renewal
               </h3>
               <span className="badge bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-black uppercase px-2 py-0.5">
                 {expiryReminders.length} Due
@@ -675,7 +675,7 @@ export default function CoachDashboardPage() {
               </div>
             ) : expiryReminders.length === 0 ? (
               <div className="text-center py-6 text-xs text-muted-foreground font-bold border border-dashed border-border rounded-xl">
-                ✓ All trainee plans active & healthy
+                ✓ All student plans active & healthy
               </div>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
@@ -741,7 +741,7 @@ export default function CoachDashboardPage() {
                 { label: 'Attendance', icon: '📝', path: '/coach/attendance' },
                 { label: 'Grades', icon: '📈', path: '/coach/performance' },
                 { label: 'Collect Dues', icon: '💳', path: '/coach/fees' },
-                { label: 'Trainees', icon: '👥', path: '/coach/students' },
+                { label: 'Students', icon: '👥', path: '/coach/students' },
                 { label: 'Gear Desk', icon: '📦', path: '/coach/inventory' },
                 { label: 'Broadcast', icon: '📣', path: '/coach/announcements' }
               ].map((act, idx) => (
@@ -786,7 +786,7 @@ export default function CoachDashboardPage() {
             {/* 2. Performance overview */}
             <div className="bg-card border border-border rounded-2xl p-4.5 shadow-sm space-y-3">
               <div className="flex justify-between items-center border-b border-border pb-2">
-                <span className="font-black uppercase text-[10px] text-muted-foreground tracking-widest">Athlete Grades</span>
+                <span className="font-black uppercase text-[10px] text-muted-foreground tracking-widest">Student Grades</span>
                 <span className="text-xs font-black text-primary">Avg: ★ {performanceAverage}</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">

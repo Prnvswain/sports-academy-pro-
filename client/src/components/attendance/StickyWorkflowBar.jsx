@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Lock, MapPin, ClipboardCheck, Play, Square, Loader2 } from 'lucide-react';
 
@@ -70,15 +72,45 @@ function scrollToSection(id) {
 }
 
 export default function StickyWorkflowBar({ batchName, allDone, ...props }) {
-  return (
+  const [leftOffset, setLeftOffset] = useState(0);
+  const [barWidth, setBarWidth] = useState('100%');
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      const asideElement = document.querySelector('aside');
+      if (asideElement && window.innerWidth >= 1024) {
+        const rect = asideElement.getBoundingClientRect();
+        setLeftOffset(rect.width);
+        setBarWidth(`calc(100% - ${rect.width}px)`);
+      } else {
+        setLeftOffset(0);
+        setBarWidth('100%');
+      }
+    };
+
+    updateDimensions();
+    const interval = setInterval(updateDimensions, 100);
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, []);
+
+  return createPortal(
     <motion.div
       key="sticky-workflow"
       initial={{ opacity: 0, y: 80 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 80 }}
       transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-      className="fixed bottom-0 left-0 w-full z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_32px_rgba(0,0,0,0.10)]"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed bottom-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_32px_rgba(0,0,0,0.15)]"
+      style={{ 
+        left: `${leftOffset}px`,
+        width: barWidth,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
     >
       {/* Batch label strip */}
       <div className="max-w-5xl mx-auto px-3 pt-2 pb-0 flex items-center gap-2">
@@ -243,6 +275,7 @@ export default function StickyWorkflowBar({ batchName, allDone, ...props }) {
           );
         })}
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }

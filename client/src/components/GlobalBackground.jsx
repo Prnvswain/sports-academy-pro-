@@ -8,7 +8,7 @@ export default function GlobalBackground({ overrideColor }) {
     : 'linear-gradient(135deg, #F97316 0%, #FACC15 50%, #FFFFFF 100%)');
 
   return (
-    <div className="absolute inset-0 -z-10 bg-slate-50 dark:bg-slate-950 select-none pointer-events-none overflow-visible">
+    <div className="absolute inset-0 -z-10 bg-slate-50 dark:bg-slate-950 select-none pointer-events-none overflow-visible print:hidden">
       {/* Gradient top covering the hero + curve area */}
       <div className="w-full h-[calc(40dvh+12rem)] relative overflow-hidden" style={{ background: bg }}>
         {/* Curve cutout at the bottom filled with body background color */}

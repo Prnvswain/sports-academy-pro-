@@ -392,7 +392,8 @@ export const getAttendanceReportData = async (academy_id, filters = {}) => {
             }
           }
         }
-      }
+      },
+      coach: true
     },
     orderBy: { date: 'desc' }
   });
@@ -437,14 +438,41 @@ export const getAttendanceReportData = async (academy_id, filters = {}) => {
   ];
   
   const table = {
-    headers: ['Student Name', 'Batch', 'Sport', 'Status', 'Date'],
-    rows: attendances.map(a => [
-      a.student.name,
-      a.batch.name,
-      a.student.enrollments[0]?.sport?.name || '—',
-      a.status,
-      new Date(a.date).toLocaleDateString()
-    ])
+    headers: [
+      'Student Name',
+      'Student ID',
+      'Sport',
+      'Batch',
+      'Coach',
+      'Date',
+      'Attendance Status',
+      'Check-in Time',
+      'Location Verification'
+    ],
+    rows: attendances.map(a => {
+      const studentIdStr = a.student.student_id ? `ST-${String(a.student.student_id).padStart(4, '0')}` : '—';
+      const coachName = a.coach?.name || a.batch?.coaches?.[0]?.coach?.name || '—';
+      
+      const checkInTime = (a.status === 'PRESENT' || a.status === 'LATE') && a.created_at
+        ? new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '—';
+        
+      const locationVerifiedStr = a.location_verified && a.latitude && a.longitude
+        ? `Verified (${parseFloat(a.latitude).toFixed(4)}, ${parseFloat(a.longitude).toFixed(4)})` 
+        : '—';
+        
+      return [
+        a.student.name,
+        studentIdStr,
+        a.student.enrollments[0]?.sport?.name || a.batch?.sport?.name || '—',
+        a.batch.name,
+        coachName,
+        new Date(a.date).toLocaleDateString('en-IN'),
+        a.status,
+        checkInTime,
+        locationVerifiedStr
+      ];
+    })
   };
   
   return { summary, charts, table };

@@ -141,6 +141,7 @@ export default function CoachAttendancePage() {
 
       if (attendance) {
         setCoachAttendanceMarked(true);
+        setStep2AttendanceMarked(attendance.status === 'PRESENT' || attendance.status === 'present');
         setCoachAttendanceStatus({
           status: attendance.status,
           remarks: attendance.remarks,
@@ -159,6 +160,7 @@ export default function CoachAttendancePage() {
         }
       } else {
         setCoachAttendanceMarked(false);
+        setStep2AttendanceMarked(false);
         setCoachAttendanceStatus(null);
         setSelectedCoachStatus('PRESENT');
         setGpsVerified(false);
@@ -169,6 +171,7 @@ export default function CoachAttendancePage() {
     } catch (error) {
       if (error.message.includes('No attendance record found')) {
         setCoachAttendanceMarked(false);
+        setStep2AttendanceMarked(false);
         setCoachAttendanceStatus(null);
         setSelectedCoachStatus('PRESENT');
         setGpsVerified(false);
@@ -420,16 +423,7 @@ export default function CoachAttendancePage() {
       setMessage({ text: result.message || 'Attendance marked successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
 
-      if (selectedBatch.students) {
-        const initialAttendance = {};
-        const initialRemarks = {};
-        selectedBatch.students.forEach((student) => {
-          initialAttendance[student.student_id] = 'PRESENT';
-          initialRemarks[student.student_id] = '';
-        });
-        setAttendanceMap(initialAttendance);
-        setRemarksMap(initialRemarks);
-      }
+      await fetchTodayStudentAttendance();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -508,16 +502,7 @@ export default function CoachAttendancePage() {
       setMessage({ text: result.message || 'Coach attendance marked successfully', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 4000);
 
-      if (selectedBatch.students) {
-        const initialAttendance = {};
-        const initialRemarks = {};
-        selectedBatch.students.forEach((student) => {
-          initialAttendance[student.student_id] = 'PRESENT';
-          initialRemarks[student.student_id] = '';
-        });
-        setAttendanceMap(initialAttendance);
-        setRemarksMap(initialRemarks);
-      }
+      await fetchTodayStudentAttendance();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -525,8 +510,10 @@ export default function CoachAttendancePage() {
     }
   };
 
-  const handleStudentAttendanceChange = (studentId, status) => {
+  const handleStudentAttendanceChange = async (studentId, status) => {
     setAttendanceMap((prev) => ({ ...prev, [studentId]: status }));
+    const remarks = remarksMap[studentId] || '';
+    await saveSingleStudentAttendance(studentId, status, remarks);
   };
 
   const handleStudentRemarksChange = (studentId, remarks) => {
@@ -580,6 +567,7 @@ export default function CoachAttendancePage() {
       });
       setShowAutoMarkConfirm(false);
       setTimeout(() => setMessage({ text: '', type: '' }), 5000);
+      await fetchTodayStudentAttendance();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
     } finally {
@@ -593,23 +581,32 @@ export default function CoachAttendancePage() {
 
   const fetchTodayStudentAttendance = async () => {
     if (!selectedBatchId || !attendanceDate) return;
+    const currentBatchId = selectedBatchId;
     try {
       const result = await coachGet(`/coach/attendance?batch_id=${selectedBatchId}&date=${attendanceDate}`);
+      
+      // If the selected batch has changed in the meantime, ignore this stale result
+      if (selectedBatchId !== currentBatchId) return;
+
       const existingRecords = result.data || [];
 
       const initialAttendance = {};
       const initialRemarks = {};
 
       selectedBatch?.students?.forEach((student) => {
-        initialAttendance[student.student_id] = 'PRESENT';
-        initialRemarks[student.student_id] = '';
+        const studentIdKey = student.student_id || student.id;
+        if (studentIdKey) {
+          initialAttendance[studentIdKey] = 'PRESENT';
+          initialRemarks[studentIdKey] = '';
+        }
       });
 
-      // Only load DRAFT attendance, ignore FINAL (locked) records
+      // Hydrate with all saved backend attendance records (DRAFT or FINAL)
       existingRecords.forEach((record) => {
-        if (record.student_id && record.submission_status === 'DRAFT') {
-          initialAttendance[record.student_id] = record.status || 'PRESENT';
-          initialRemarks[record.student_id] = record.remarks || '';
+        const recordStudentId = record.student_id || record.studentId;
+        if (recordStudentId) {
+          initialAttendance[recordStudentId] = record.status || 'PRESENT';
+          initialRemarks[recordStudentId] = record.remarks || '';
         }
       });
 
@@ -635,6 +632,7 @@ export default function CoachAttendancePage() {
           remarks: remarks || ''
         }]
       });
+      await fetchTodayStudentAttendance();
     } catch (error) {
       console.error('Failed to save student attendance:', error);
       setMessage({ text: `Failed to save attendance: ${error.message}`, type: 'error' });
@@ -684,7 +682,7 @@ export default function CoachAttendancePage() {
 
   const handleEndBatch = async () => {
     if (!selectedBatch) return;
-    if (!window.confirm('Are you sure you want to finalize trainee attendance and end the session? This will lock all records.')) return;
+    if (!window.confirm('Are you sure you want to finalize student attendance and end the session? This will lock all records.')) return;
 
     setSessionLoading(true);
     setMessage({ text: '', type: '' });
@@ -763,6 +761,19 @@ export default function CoachAttendancePage() {
     if (selectedBatchId && selectedBatch) {
       fetchTodayStudentAttendance();
     }
+
+    const handleFocus = () => {
+      if (selectedBatchId && selectedBatch) {
+        fetchTodayStudentAttendance();
+        fetchTodayCoachAttendance();
+        fetchActiveSessions();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [selectedBatchId, selectedBatch]);
 
   const viewVariants = {
@@ -802,7 +813,7 @@ export default function CoachAttendancePage() {
   const step3Complete = isAttendanceLocked || hasCompletedSession;
 
   return (
-    <div className="w-full bg-transparent font-sans p-2 pb-24 space-y-6">
+    <div className="w-full bg-transparent font-sans p-2 pb-36 space-y-6">
 
       {/* Toast Notification */}
       <AnimatePresence>
@@ -851,7 +862,7 @@ export default function CoachAttendancePage() {
                     Coach Attendance
                   </h1>
                   <p className="text-muted-foreground mt-1">
-                    Today: {new Date().toDateString()} • Verify coordinates, check-in, and start trainee roll calls
+                    Today: {new Date().toDateString()} • Verify coordinates, check-in, and start student roll calls
                   </p>
                 </div>
               </div>
@@ -912,7 +923,7 @@ export default function CoachAttendancePage() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{batch.students_count || batch.students?.length || 0} Trainees</span>
+                          <span>{batch.students_count || batch.students?.length || 0} Students</span>
                         </div>
                       </div>
                     </motion.div>
@@ -934,8 +945,8 @@ export default function CoachAttendancePage() {
                 {[
                   { step: '1', title: 'GPS Location Pin', body: 'Capture GPS coordinates on your phone. Requires being within the sport center bounds.' },
                   { step: '2', title: 'Mark Check-In', body: 'Select Present/Absent to record your self-attendance logs.' },
-                  { step: '3', title: 'Start Training Timer', body: 'Initiate batch session which triggers trainee roll list.' },
-                  { step: '4', title: 'Trainee Roll Call', body: 'Submit and end session to lock and notify parents automatically.' }
+                  { step: '3', title: 'Start Training Timer', body: 'Initiate batch session which triggers student roll list.' },
+                  { step: '4', title: 'Student Roll Call', body: 'Submit and end session to lock and notify parents automatically.' }
                 ].map((item, idx) => (
                   <div key={idx} className="space-y-2 relative">
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-sm">
@@ -1002,7 +1013,7 @@ export default function CoachAttendancePage() {
                   step2Complete ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' : 'bg-surface text-slate-500'
                 }`}>
                 <span className="w-5 h-5 rounded-full bg-current text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-black">3</span>
-                <span>Trainee Roll</span>
+                <span>Student Roll</span>
               </div>
             </div>
 
@@ -1238,7 +1249,7 @@ export default function CoachAttendancePage() {
                     </h3>
                     <p className="text-xs text-muted-foreground font-bold mt-1">
                       {hasActiveSession
-                        ? `Timer started. Trainee attendance list is active below. • Elapsed: ${formatTime(elapsedTime)}`
+                        ? `Timer started. Student attendance list is active below. • Elapsed: ${formatTime(elapsedTime)}`
                         : 'Your check-in is complete. GPS location is locked. Click below to start timer.'
                       }
                     </p>
@@ -1322,7 +1333,7 @@ export default function CoachAttendancePage() {
                 </div>
 
                 <div className="text-left border-t border-border pt-5">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Trainee Roster Status</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Student Roster Status</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <div className="flex items-center justify-between border-b border-border pb-1.5 mb-2">
@@ -1413,7 +1424,7 @@ export default function CoachAttendancePage() {
               </div>
             )}
 
-            {/* STEP 3: Trainee Roll Call list card */}
+            {/* STEP 3: Student Roll Call list card */}
             {coachAttendanceMarked && hasActiveSession && !isAttendanceLocked && (
               <div id="section-batch-checkin" className="space-y-6">
                 {selectedBatch.students?.length > 0 ? (
@@ -1442,8 +1453,8 @@ export default function CoachAttendancePage() {
                 ) : (
                   <div className="card border border-dashed border-border bg-card shadow-sm rounded-2xl p-12 text-center">
                     <span className="text-4xl opacity-50 block mb-4">👥</span>
-                    <h4 className="text-lg font-bold text-foreground mb-1">No Trainees Registered</h4>
-                    <p className="text-muted-foreground text-xs font-semibold">Trainee accounts need to be enrolled in this batch by admins.</p>
+                    <h4 className="text-lg font-bold text-foreground mb-1">No Students Registered</h4>
+                    <p className="text-muted-foreground text-xs font-semibold">Student accounts need to be enrolled in this batch by admins.</p>
                   </div>
                 )}
 

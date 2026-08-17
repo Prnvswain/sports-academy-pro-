@@ -385,7 +385,7 @@ export default function CoachPerformancePage() {
   // Compute live analytics
   const computedStats = useMemo(() => {
     const totalBatches = batches.length;
-    const totalAthletes = allStudentsDetailed.length;
+    const totalStudents = allStudentsDetailed.length;
 
     // Evaluated today
     const todayStr = new Date().toISOString().split('T')[0];
@@ -397,7 +397,7 @@ export default function CoachPerformancePage() {
     const evaluatedToday = evaluatedTodaySet.size;
 
     // Pending evaluations
-    const pendingEvaluations = Math.max(0, totalAthletes - evaluatedToday);
+    const pendingEvaluations = Math.max(0, totalStudents - evaluatedToday);
 
     // Average Performance score
     const totalScoreVal = globalScores.reduce((acc, s) => acc + s.score, 0);
@@ -423,24 +423,24 @@ export default function CoachPerformancePage() {
       .map(([id, data]) => {
         const student = allStudentsDetailed.find(s => s.student_id === parseInt(id));
         return {
-          name: student ? student.name : `Athlete #${id}`,
+          name: student ? student.name : `Student #${id}`,
           avg: data.sum / data.count
         };
       })
       .sort((a, b) => b.avg - a.avg);
 
-    const bestPerformingAthlete = sortedRankings.length > 0 ? sortedRankings[0].name : '—';
-    const lowestPerformingAthlete = sortedRankings.length > 0 ? sortedRankings[sortedRankings.length - 1].name : '—';
+    const bestPerformingStudent = sortedRankings.length > 0 ? sortedRankings[0].name : '—';
+    const lowestPerformingStudent = sortedRankings.length > 0 ? sortedRankings[sortedRankings.length - 1].name : '—';
 
     return {
       totalBatches,
-      totalAthletes,
+      totalStudents,
       evaluatedToday,
       pendingEvaluations,
       averagePerformance,
       attendanceToday,
-      bestPerformingAthlete,
-      lowestPerformingAthlete
+      bestPerformingStudent,
+      lowestPerformingStudent
     };
   }, [batches, allStudentsDetailed, globalScores]);
 
@@ -720,7 +720,7 @@ export default function CoachPerformancePage() {
     if (nextPending) {
       requestNavigation({ type: 'student', studentId: nextPending.student_id });
     } else {
-      flash('All trainee evaluations in this batch have been completed!');
+      flash('All student evaluations in this batch have been completed!');
     }
   };
 
@@ -954,7 +954,7 @@ export default function CoachPerformancePage() {
                   : activeAction === 'analytics' 
                     ? `Performance graphs, ratings trends, and metrics radar for ${activeStudent?.name || 'student'}.`
                     : activeBatchId 
-                      ? `Evaluate athlete ratings, view rosters, and track progress for ${activeBatch?.name || 'batch'}.`
+                      ? `Evaluate student ratings, view rosters, and track progress for ${activeBatch?.name || 'batch'}.`
                       : 'Assess student performance, evaluate fitness metrics, and request parameter additions.'}
               </p>
             </div>
@@ -1015,14 +1015,14 @@ export default function CoachPerformancePage() {
           </div>
         )}
 
-        {/* Athlete Profile row details if evaluate / analytics is active */}
+        {/* Student Profile row details if evaluate / analytics is active */}
         {activeStudent && (
           <div className="flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/10 border border-border/80 rounded-xl p-3 text-left">
             <Avatar src={activeStudent.profile_photo} name={activeStudent.name} size="lg" className="shrink-0" />
             <div className="grid grid-cols-2 md:grid-cols-6 gap-x-6 gap-y-1.5 flex-1 min-w-0 font-bold text-xs">
               <div className="col-span-2">
                 <h3 className="font-extrabold text-sm text-foreground truncate">{activeStudent.name}</h3>
-                <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 block">Athlete ID: #{activeStudent.student_id}</span>
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5 block">Student ID: #{activeStudent.student_id}</span>
               </div>
               <div>
                 <span className="text-slate-450 block text-[9px] uppercase">Sport</span>
@@ -1049,13 +1049,13 @@ export default function CoachPerformancePage() {
           <div className="grid grid-cols-2 lg:grid-cols-8 gap-3 text-left">
             {[
               { label: 'Total Batches', val: computedStats.totalBatches, icon: '📂' },
-              { label: 'Total Athletes', val: computedStats.totalAthletes, icon: '👥' },
+              { label: 'Total Students', val: computedStats.totalStudents, icon: '👥' },
               { label: 'Evaluated Today', val: computedStats.evaluatedToday, icon: '✅', color: 'text-emerald-500' },
               { label: 'Pending Evals', val: computedStats.pendingEvaluations, icon: '⏳', color: 'text-amber-500' },
               { label: 'Avg Rating', val: computedStats.averagePerformance, icon: '⭐' },
               { label: 'Attendance Today', val: computedStats.attendanceToday, icon: '📅' },
-              { label: 'Top Performer', val: computedStats.bestPerformingAthlete, icon: '🏆', color: 'text-emerald-505' },
-              { label: 'Needs Attention', val: computedStats.lowestPerformingAthlete, icon: '⚠️', color: 'text-rose-505' }
+              { label: 'Top Performer', val: computedStats.bestPerformingStudent, icon: '🏆', color: 'text-emerald-505' },
+              { label: 'Needs Attention', val: computedStats.lowestPerformingStudent, icon: '⚠️', color: 'text-rose-505' }
             ].map((s, idx) => (
               <motion.div
                 key={idx}
@@ -1509,7 +1509,7 @@ export default function CoachPerformancePage() {
                 value={remarks}
                 onChange={(e) => handleRemarksChange(e.target.value)}
                 disabled={submitting || dailyLock?.locked}
-                placeholder="Detail trainee progress, tactical recommendations, notes, etc..."
+                placeholder="Detail student progress, tactical recommendations, notes, etc..."
                 rows={3}
                 className="input-field text-xs p-3.5 bg-card w-full font-bold focus:ring-2 focus:ring-primary/20 outline-none resize-y"
               />
@@ -1521,7 +1521,7 @@ export default function CoachPerformancePage() {
                   onChange={(e) => setAutoNavigateNext(e.target.checked)}
                   className="rounded border-border text-primary focus:ring-primary/20 w-3.5 h-3.5 cursor-pointer"
                 />
-                <label htmlFor="autoNav" className="cursor-pointer">Automatically navigate to next athlete after saving score</label>
+                <label htmlFor="autoNav" className="cursor-pointer">Automatically navigate to next student after saving score</label>
               </div>
             </div>
 
@@ -1565,7 +1565,7 @@ export default function CoachPerformancePage() {
               
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-5">
                 <h3 className="text-sm font-black uppercase text-foreground border-b border-border pb-2 flex items-center justify-between">
-                  <span>Athlete Overview Analytics</span>
+                  <span>Student Overview Analytics</span>
                   <button onClick={handlePrintStudentReport} className="btn btn-secondary text-xs py-1 px-3 flex gap-1 items-center">
                     <Printer className="w-3.5 h-3.5" /> Print Report
                   </button>
@@ -1581,7 +1581,7 @@ export default function CoachPerformancePage() {
                             <PolarGrid stroke="#444" />
                             <PolarAngleAxis dataKey="subject" stroke="#888" fontSize={8} />
                             <PolarRadiusAxis angle={30} domain={[0, 10]} stroke="#444" fontSize={8} />
-                            <Radar name="Athlete" dataKey="A" stroke="#84cc16" fill="#84cc16" fillOpacity={0.4} />
+                            <Radar name="Student" dataKey="A" stroke="#84cc16" fill="#84cc16" fillOpacity={0.4} />
                           </RadarChart>
                         </ResponsiveContainer>
                       </div>
@@ -1633,7 +1633,7 @@ export default function CoachPerformancePage() {
                           <XAxis type="number" dataKey="attendance" name="Attendance" unit="%" stroke="#888" fontSize={9} />
                           <YAxis type="number" dataKey="rating" name="Rating" unit="/10" domain={[0, 10]} stroke="#888" fontSize={9} />
                           <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                          <Scatter name="Roster Athletes" data={getScatterData()} fill="#84cc16" />
+                          <Scatter name="Roster Students" data={getScatterData()} fill="#84cc16" />
                         </ScatterChart>
                       </ResponsiveContainer>
                     </div>
@@ -1664,7 +1664,7 @@ export default function CoachPerformancePage() {
 
             <div className="space-y-4">
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm text-left space-y-4">
-                <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2">Trainee Strengths & weaknesses</h3>
+                <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest border-b border-border pb-2">Student Strengths & weaknesses</h3>
                 <div className="space-y-3 font-semibold text-xs">
                   <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                     <span className="text-[9px] uppercase tracking-wider font-black text-emerald-600 block mb-0.5">Primary Strength Area</span>
@@ -1947,12 +1947,12 @@ export default function CoachPerformancePage() {
       <div className="hidden print:block text-slate-900 bg-white p-6 space-y-6">
         <div className="border-b-2 border-slate-900 pb-4 text-center">
           <h1 className="text-2xl font-black uppercase">SAMS SPORTS ACADEMY</h1>
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Athlete Performance Evaluation</h2>
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Student Performance Evaluation</h2>
         </div>
         {activeStudent && (
           <div className="space-y-4 text-xs font-semibold">
             <div className="grid grid-cols-2 gap-4 border border-slate-200 p-4 rounded-xl">
-              <div>Athlete Name: {activeStudent.name}</div>
+              <div>Student Name: {activeStudent.name}</div>
               <div>ID: #{activeStudent.student_id}</div>
               <div>Batch: {activeBatch?.name || '—'}</div>
               <div>Sport: {activeBatch?.sport?.name || '—'}</div>

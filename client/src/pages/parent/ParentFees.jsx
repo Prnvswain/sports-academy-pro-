@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { CheckCircle, Wallet, Clock, AlertCircle, FileText, Check, UploadCloud, Receipt, X, Printer, IndianRupee, CreditCard, User, Calendar, Trophy } from 'lucide-react';
@@ -25,6 +25,7 @@ export default function ParentFees() {
   const [modalReceipt, setModalReceipt] = useState(null);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
   const [showReceiptsModal, setShowReceiptsModal] = useState(false);
+  const [showPreviousPlans, setShowPreviousPlans] = useState(false);
 
   // Auto-open receipts modal from notification redirect
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function ParentFees() {
   useEffect(() => {
     console.log('[ParentFees] activeStudent changed:', activeStudent);
     fetchSubmissions();
+    setShowPreviousPlans(false);
     if (activeStudent) {
       const totalFeesAssigned = activeStudent?.total_fees_assigned || 0;
       const totalFeesPaid = activeStudent?.total_fees_paid || 0;
@@ -354,12 +356,47 @@ export default function ParentFees() {
   const totalFeesPaid = activeStudent?.total_fees_paid || 0;
   const remainingFee = Math.max(0, totalFeesAssigned - totalFeesPaid);
 
-  const activeEnrollments = activeStudent?.enrollments?.filter(e => e.is_active) || [];
+  const { currentEnrollments, previousEnrollments } = useMemo(() => {
+    const rawEnrollments = activeStudent?.enrollments || [];
+    
+    // 1. Separate raw active and inactive enrollments
+    const rawActive = rawEnrollments.filter(e => e.is_active);
+    const rawInactive = rawEnrollments.filter(e => !e.is_active);
+    
+    // 2. Deduplicate active enrollments
+    const seenActive = new Set();
+    const currentList = [];
+    for (const e of rawActive) {
+      const key = `${e.sport_id || e.sport?.sport_id}-${e.batch_id || e.batch?.batch_id}-${e.duration_plan_id || e.duration_plan?.plan_id}-${e.plan_start_date}-${e.plan_end_date}`;
+      if (!seenActive.has(key)) {
+        seenActive.add(key);
+        currentList.push(e);
+      }
+    }
+    
+    // 3. Deduplicate inactive enrollments
+    const seenInactive = new Set();
+    const previousList = [];
+    for (const e of rawInactive) {
+      const key = `${e.sport_id || e.sport?.sport_id}-${e.batch_id || e.batch?.batch_id}-${e.duration_plan_id || e.duration_plan?.plan_id}-${e.plan_start_date}-${e.plan_end_date}`;
+      // Ensure it is not already in the active list (by key) and not duplicated in the inactive list
+      if (!seenActive.has(key) && !seenInactive.has(key)) {
+        seenInactive.add(key);
+        previousList.push(e);
+      }
+    }
+    
+    return {
+      currentEnrollments: currentList,
+      previousEnrollments: previousList
+    };
+  }, [activeStudent]);
 
-  const displayEnrollments = activeEnrollments.length > 0
-    ? activeEnrollments
+  const displayEnrollments = currentEnrollments.length > 0
+    ? currentEnrollments
     : activeStudent
       ? [{
+          enrollment_id: 'fallback',
           sport: activeStudent.sport,
           batch: activeStudent.batch,
           coach: null,
@@ -369,7 +406,7 @@ export default function ParentFees() {
         }]
       : [];
 
-  const feeSummary = activeEnrollments.length > 0 ? activeEnrollments.reduce((acc, e) => {
+  const feeSummary = currentEnrollments.length > 0 ? currentEnrollments.reduce((acc, e) => {
     const base = parseFloat(e.sport?.base_fee || e.sports_base_fee || 0);
     const mult = parseFloat(e.duration_plan?.multiplier || e.plan_multiplier || 1);
     const assigned = base * mult;
@@ -583,7 +620,7 @@ export default function ParentFees() {
                         : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
 
                     return (
-                      <div key={index} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-border space-y-3 relative overflow-hidden text-left">
+                      <div key={enrollment.enrollment_id || index} className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-border space-y-3 relative overflow-hidden text-left">
                         <span className="absolute top-0 left-0 w-1 h-full bg-primary"></span>
                         <div className="flex justify-between items-start gap-4">
                           <div>
@@ -626,6 +663,79 @@ export default function ParentFees() {
                       </div>
                     );
                   })}
+
+                  {/* Previous Plans Collapsible */}
+                  {previousEnrollments.length > 0 && (
+                    <div className="space-y-4 pt-2">
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setShowPreviousPlans(!showPreviousPlans)}
+                          className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 border border-border bg-card hover:bg-slate-50 dark:hover:bg-slate-800 text-muted-foreground hover:text-foreground shadow-sm animate-fade-in"
+                        >
+                          {showPreviousPlans ? 'Hide Previous Plans' : 'View Previous Plans'}
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {showPreviousPlans && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-4 overflow-hidden pt-2"
+                          >
+                            <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest pl-2">Previous Plans</h4>
+                            <div className="space-y-4">
+                              {previousEnrollments.map((enrollment, index) => {
+                                return (
+                                  <div key={enrollment.enrollment_id || index} className="bg-slate-100/50 dark:bg-slate-900/20 rounded-xl p-4 border border-border/80 space-y-3 relative overflow-hidden text-left opacity-75">
+                                    <span className="absolute top-0 left-0 w-1 h-full bg-slate-450"></span>
+                                    <div className="flex justify-between items-start gap-4">
+                                      <div>
+                                        <h4 className="text-sm font-black text-muted-foreground">{enrollment.sport?.name || 'Sports Enrollment'}</h4>
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase mt-0.5">Expired Plan</p>
+                                      </div>
+                                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border bg-slate-105 text-slate-500 dark:bg-slate-800 border-slate-200">
+                                        Expired
+                                      </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                                      <div>
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Batch</span>
+                                        <span className="font-bold">{enrollment.batch?.name || 'N/A'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Coach</span>
+                                        <span className="font-bold">{enrollment.coach?.name || 'Not Assigned'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Duration Plan</span>
+                                        <span className="font-bold">
+                                          {enrollment.duration_plan?.name 
+                                            ? `${enrollment.duration_plan.name} (${enrollment.duration_plan.months || 0} Month Plan)` 
+                                            : 'N/A'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase block">Plan Period</span>
+                                        <span className="font-bold">
+                                          {enrollment.plan_start_date 
+                                            ? `${new Date(enrollment.plan_start_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} to ${new Date(enrollment.plan_end_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                                            : 'N/A'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </div>
               </motion.div>
 

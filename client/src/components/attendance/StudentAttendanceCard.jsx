@@ -19,7 +19,7 @@ export default function StudentAttendanceCard({
   if (!students || students.length === 0) {
     return (
       <div className="p-8 text-center bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-        <p className="text-slate-500 dark:text-slate-400 font-bold">No trainees registered in this batch</p>
+        <p className="text-slate-500 dark:text-slate-400 font-bold">No students registered in this batch</p>
       </div>
     );
   }
@@ -55,7 +55,7 @@ export default function StudentAttendanceCard({
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search trainees..."
+            placeholder="Search students..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
@@ -100,7 +100,7 @@ export default function StudentAttendanceCard({
       {!readOnly && (
         <div className="px-5 flex flex-wrap gap-2 items-center justify-between">
           <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Apply bulk status to filtered trainees:
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Apply bulk status to filtered students:
           </span>
           <div className="flex gap-2">
             <button
@@ -131,14 +131,14 @@ export default function StudentAttendanceCard({
         </div>
       )}
 
-      {/* Trainees Table */}
+      {/* Students Table */}
       <div className="px-5 pb-5">
         <div className="overflow-x-auto">
           <div className="min-w-[900px]">
             <AnimatePresence initial={false}>
               {filteredStudents.length === 0 ? (
                 <div className="p-8 text-center bg-slate-50 dark:bg-slate-950/30 rounded-xl border border-dashed border-slate-200">
-                  <p className="text-slate-400 text-xs font-semibold">No trainees match the search filter criteria.</p>
+                  <p className="text-slate-400 text-xs font-semibold">No students match the search filter criteria.</p>
                 </div>
               ) : (
                 <table className="w-full">
