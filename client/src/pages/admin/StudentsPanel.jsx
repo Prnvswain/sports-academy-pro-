@@ -711,14 +711,46 @@ export default function StudentsPanel() {
 
       case 'phone':
 
+        if (!value || value.trim() === '') {
+          error = 'Phone number is required';
+        } else if (!/^[0-9]{10}$/.test(value)) {
+          error = 'Phone number must be 10 digits';
+        }
+
+        break;
+
       case 'parent_phone':
 
         if (value && !/^[0-9]{10}$/.test(value)) {
-
           error = 'Phone number must be 10 digits';
-
         }
 
+        break;
+
+      case 'gender':
+        if (!value || value.trim() === '') {
+          error = 'Gender is required';
+        }
+        break;
+
+      case 'blood_group':
+        if (!value || value.trim() === '') {
+          error = 'Blood group is required';
+        }
+        break;
+
+      case 'parent_name':
+        if (!value || value.trim() === '') {
+          error = 'Parent name is required';
+        }
+        break;
+
+      case 'parent_phone':
+        if (!value || value.trim() === '') {
+          error = 'Parent phone number is required';
+        } else if (!/^[0-9]{10}$/.test(value)) {
+          error = 'Phone number must be 10 digits';
+        }
         break;
 
       case 'dob':
@@ -1534,9 +1566,19 @@ export default function StudentsPanel() {
 
     const isDobValid = validateField('dob', form.dob);
 
+    const isGenderValid = validateField('gender', form.gender);
+
+    const isPhoneValid = validateField('phone', form.phone);
+
+    const isBloodGroupValid = validateField('blood_group', form.blood_group);
+
+    const isParentNameValid = validateField('parent_name', form.parent_name);
+
+    const isParentPhoneValid = validateField('parent_phone', form.parent_phone);
 
 
-    if (!isFirstNameValid || !isLastNameValid || !isParentEmailValid || !isDobValid) {
+
+    if (!isFirstNameValid || !isLastNameValid || !isParentEmailValid || !isDobValid || !isGenderValid || !isPhoneValid || !isBloodGroupValid || !isParentNameValid || !isParentPhoneValid) {
 
       isValid = false;
 
@@ -1545,6 +1587,15 @@ export default function StudentsPanel() {
 
 
     if (!isValid) {
+      setIsSubmitting(false);
+      
+      // Scroll to first error field
+      const firstErrorField = document.querySelector('.input-field.border-red-500');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstErrorField.focus();
+      }
+      
       return;
     }
 
@@ -5045,7 +5096,7 @@ export default function StudentsPanel() {
 
           <div>
             <label className="label flex items-center justify-between" htmlFor="firstName">
-              <span>First Name</span>
+              <span>First Name <span className="text-red-500">*</span></span>
               {convertEnquiry && (
                 <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
                   Imported
@@ -5084,7 +5135,7 @@ export default function StudentsPanel() {
 
           <div>
             <label className="label flex items-center justify-between" htmlFor="lastName">
-              <span>Last Name</span>
+              <span>Last Name <span className="text-red-500">*</span></span>
               {convertEnquiry && (
                 <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
                   Imported
@@ -5226,7 +5277,7 @@ export default function StudentsPanel() {
 
             <label className="label" htmlFor="studentDob">
 
-              Date of Birth
+              Date of Birth <span className="text-red-500">*</span>
 
             </label>
 
@@ -5308,7 +5359,7 @@ export default function StudentsPanel() {
 
           <div>
             <label className="label flex items-center justify-between" htmlFor="studentGender">
-              <span>Gender</span>
+              <span>Gender <span className="text-red-500">*</span></span>
               {convertEnquiry && (
                 <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
                   Imported
@@ -5322,11 +5373,16 @@ export default function StudentsPanel() {
 
               name="gender"
 
-              className="input-field"
+              className={`input-field ${fieldErrors.gender ? 'border-red-500' : ''}`}
 
               value={form.gender}
 
-              onChange={updateField}
+              onChange={(e) => {
+                setForm({ ...form, gender: e.target.value });
+                clearFieldError('gender');
+              }}
+
+              onBlur={() => validateField('gender', form.gender)}
 
               required
 
@@ -5339,6 +5395,10 @@ export default function StudentsPanel() {
               <option value="Other">Other</option>
 
             </select>
+
+            {fieldErrors.gender && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.gender}</p>
+            )}
 
           </div>
 
@@ -5416,7 +5476,7 @@ export default function StudentsPanel() {
 
           <div>
             <label className="label flex items-center justify-between" htmlFor="studentPhone">
-              <span>Phone</span>
+              <span>Phone <span className="text-red-500">*</span></span>
               {convertEnquiry && (
                 <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
                   Imported
@@ -5522,7 +5582,7 @@ export default function StudentsPanel() {
 
           <label className="label" htmlFor="studentBlood">
 
-            Blood Group
+            Blood Group <span className="text-red-500">*</span>
 
           </label>
 
@@ -5532,11 +5592,18 @@ export default function StudentsPanel() {
 
             name="blood_group"
 
-            className="input-field"
+            className={`input-field ${fieldErrors.blood_group ? 'border-red-500' : ''}`}
 
             value={form.blood_group}
 
-            onChange={updateField}
+            onChange={(e) => {
+              setForm({ ...form, blood_group: e.target.value });
+              clearFieldError('blood_group');
+            }}
+
+            onBlur={() => validateField('blood_group', form.blood_group)}
+
+            required
 
           >
 
@@ -5554,6 +5621,10 @@ export default function StudentsPanel() {
 
           </select>
 
+          {fieldErrors.blood_group && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.blood_group}</p>
+          )}
+
         </div>
 
 
@@ -5562,7 +5633,7 @@ export default function StudentsPanel() {
 
         <div className="mb-4">
           <label className="label flex items-center justify-between" htmlFor="parentName">
-            <span>Parent Name</span>
+            <span>Parent Name <span className="text-red-500">*</span></span>
             {convertEnquiry && (
               <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
                 Imported
@@ -5572,15 +5643,23 @@ export default function StudentsPanel() {
           <input
             id="parentName"
             name="parent_name"
-            className="input-field"
+            className={`input-field ${fieldErrors.parent_name ? 'border-red-500' : ''}`}
             value={form.parent_name}
-            onChange={updateField}
+            onChange={(e) => {
+              setForm({ ...form, parent_name: e.target.value });
+              clearFieldError('parent_name');
+            }}
+            onBlur={() => validateField('parent_name', form.parent_name)}
+            required
           />
+          {fieldErrors.parent_name && (
+            <p className="mt-1 text-xs text-red-500">{fieldErrors.parent_name}</p>
+          )}
         </div>
 
         <div className="mb-4">
           <label className="label flex items-center justify-between" htmlFor="parentEmail">
-            <span>Parent Email</span>
+            <span>Parent Email <span className="text-red-500">*</span></span>
             {convertEnquiry && (
               <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
                 Imported
@@ -5624,9 +5703,19 @@ export default function StudentsPanel() {
 
         <div className="mb-4">
 
-          <label className="label" htmlFor="parentPhone">
+          <label className="label flex items-center justify-between" htmlFor="parentPhone">
 
-            Parent Phone
+            <span>Parent Phone <span className="text-red-500">*</span></span>
+
+            {convertEnquiry && (
+
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded font-semibold border border-emerald-100 dark:border-emerald-900/50">
+
+                Imported
+
+              </span>
+
+            )}
 
           </label>
 
@@ -5652,6 +5741,8 @@ export default function StudentsPanel() {
 
             onBlur={() => validateField('parent_phone', form.parent_phone)}
 
+            required
+
           />
 
           {fieldErrors.parent_phone && (
@@ -5668,7 +5759,7 @@ export default function StudentsPanel() {
 
         <div className="relative mb-4">
 
-          <label className="label">Search & Select Sport</label>
+          <label className="label">Search & Select Sport <span className="text-red-500">*</span></label>
 
           <div className="relative">
 
@@ -6324,7 +6415,7 @@ export default function StudentsPanel() {
 
         {/* Compact Dynamic Fee Summary near the bottom of the form */}
 
-        <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
+        <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-4">
 
           <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
 
@@ -6332,176 +6423,110 @@ export default function StudentsPanel() {
 
           </h4>
 
-
-
           {(() => {
-
             const feeBreakdown = calculateLiveFee();
-
             const trainingFee = feeBreakdown.sportsFeeWithMultiplier;
-
             const regFee = feeBreakdown.registrationFee;
-
             const addFee = feeBreakdown.additionalCharges;
-
             const discount = feeBreakdown.discount;
-
-            
-
             const firstMonthTotal = feeBreakdown.finalFee;
-
             const advPay = payAdvance ? (parseFloat(advanceAmount) || 0) : 0;
-
-            const amountPaidNow = advPay;
-
             const accountCredit = advPay;
-
-            const remainingDue = Math.max(0, firstMonthTotal - amountPaidNow);
-
-
+            const remainingDue = Math.max(0, firstMonthTotal - advPay);
 
             return (
-
               <div className="space-y-2 text-xs">
-
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
-
-                  <span>Training Fee ({feeBreakdown.multiplier}x Plan):</span>
-
+                  <span>Training Fee (1× Plan):</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-
                     ₹{formatCurrency(trainingFee)}
-
                   </span>
-
                 </div>
-
-
 
                 {regFee > 0 && (
-
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
-
-                    <span>Registration Fee:</span>
-
+                    <span>Registration Fee (one-time):</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-
                       ₹{formatCurrency(regFee)}
-
                     </span>
-
                   </div>
-
                 )}
-
-
 
                 {addFee > 0 && (
-
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
-
-                    <span>Additional Fee:</span>
-
+                    <span>Additional Charges (one-time):</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-
                       ₹{formatCurrency(addFee)}
-
                     </span>
-
                   </div>
-
                 )}
-
-
 
                 {discount > 0 && (
-
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
-
                     <span>Discount:</span>
-
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-
                       -₹{formatCurrency(discount)}
-
                     </span>
-
                   </div>
-
                 )}
-
-
 
                 <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between font-bold text-slate-900 dark:text-white">
-
                   <span>First Month Total:</span>
-
                   <span>₹{formatCurrency(firstMonthTotal)}</span>
-
                 </div>
-
-
 
                 {advPay > 0 && (
-
                   <>
-
                     <div className="flex justify-between text-slate-600 dark:text-slate-400">
-
-                      <span>Advance Payment:</span>
-
+                      <span>Amount Paid Now:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-
                         ₹{formatCurrency(advPay)}
-
                       </span>
-
                     </div>
-
                     <div className="flex justify-between text-indigo-600 dark:text-indigo-400">
-
                       <span>Account Credit Added:</span>
-
                       <span className="font-semibold">
-
                         ₹{formatCurrency(accountCredit)}
-
                       </span>
-
                     </div>
-
                   </>
-
                 )}
 
-
-
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-
-                  <span>Amount Paid Now:</span>
-
-                  <span>₹{formatCurrency(amountPaidNow)}</span>
-
-                </div>
-
-
-
                 <div className="flex justify-between font-bold text-slate-900 dark:text-white">
-
                   <span>Remaining First Month Due:</span>
-
                   <span className={remainingDue > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
-
                     ₹{formatCurrency(remainingDue)}
-
                   </span>
-
                 </div>
-
               </div>
-
             );
+          })()}
 
+          {/* Continuation/Renewal Fee Section */}
+          {(() => {
+            const feeBreakdown = calculateLiveFee();
+            const trainingFee = feeBreakdown.sportsFeeWithMultiplier;
+            
+            if (feeBreakdown.multiplier <= 1) return null;
+            
+            return (
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-3">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                  Continuation / Renewal
+                </h4>
+                <div className="space-y-2 text-xs bg-slate-100 dark:bg-slate-800/50 p-3 rounded-lg">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Training Fee only:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      ₹{formatCurrency(trainingFee)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 italic mt-1">
+                    Registration Fee and Additional Charges are one-time charges only for the first month.
+                  </p>
+                </div>
+              </div>
+            );
           })()}
 
         </div>
@@ -6626,70 +6651,6 @@ export default function StudentsPanel() {
 
           )}
 
-        </div>
-
-
-
-        {/* Footer Actions */}
-
-        <div className="mt-6 flex justify-end gap-3 border-t pt-4">
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700"
-            onClick={() => {
-              setShowAddStudentModal(false);
-              setSelectedSports([]);
-              setSportSearchQuery('');
-              setConvertEnquiryId(null);
-              setConvertEnquiry(null);
-            }}
-          >
-            Cancel
-          </button>
-          
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-300 rounded-md hover:bg-amber-100 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/50"
-            onClick={() => {
-              const draftData = {
-                ...form,
-                convertEnquiry,
-                enquiry_id: convertEnquiryId,
-                profile_photo: photoPreview,
-                selectedSports,
-                selectedKits,
-                payAdvance,
-                advanceAmount,
-                paymentMethod
-              };
-              localStorage.setItem('sams_draft_student_form', JSON.stringify(draftData));
-              setMessage({ text: 'Student profile draft saved successfully!', type: 'success' });
-              
-              setShowAddStudentModal(false);
-              setSelectedSports([]);
-              setSportSearchQuery('');
-            }}
-          >
-            💾 Save as Draft
-          </button>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 dark:bg-emerald-600 rounded-md hover:bg-emerald-700 dark:hover:bg-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-              </>
-            ) : (
-              'Save Student'
-            )}
-          </button>
         </div>
 
       </form>

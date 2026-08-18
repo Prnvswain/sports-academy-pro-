@@ -127,7 +127,8 @@ export const validate = (method) => {
         body('additional_charges').optional().isFloat({ min: 0 }).withMessage('Additional charges must be a valid number'),
         body('discount').optional().isFloat({ min: 0 }).withMessage('Discount must be a valid number'),
         body('blood_group')
-          .optional()
+          .notEmpty()
+          .withMessage('Blood group is required')
           .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
           .withMessage('Invalid blood group'),
         body('height')
@@ -146,10 +147,19 @@ export const validate = (method) => {
           .optional()
           .isIn(['paid', 'pending', 'partial', 'unpaid'])
           .withMessage('Invalid fees status'),
+        body('parent_name')
+          .notEmpty()
+          .withMessage('Parent name is required')
+          .isString()
+          .withMessage('Parent name must be a string'),
         body('parent_email')
           .isEmail()
           .withMessage('Valid parent email is required for attendance notifications'),
-        body('parent_phone').optional().isMobilePhone().withMessage('Invalid parent phone number'),
+        body('parent_phone')
+          .notEmpty()
+          .withMessage('Parent phone number is required')
+          .isMobilePhone()
+          .withMessage('Invalid parent phone number'),
         body('phone').optional().isMobilePhone().withMessage('Invalid phone number'),
       ];
 
