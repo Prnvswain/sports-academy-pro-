@@ -29,8 +29,16 @@ export default function AdminLogin() {
     setMessage({ text: '', type: '' });
     try {
       // Try regular admin login first
-      await adminLogin(form);
-      navigate('/admin/dashboard');
+      const response = await adminLogin(form);
+      
+      // Check if subscription is expired
+      if (response.subscription && response.subscription.expired) {
+        // Store subscription status in localStorage for the plan selection screen
+        localStorage.setItem('subscriptionStatus', JSON.stringify(response.subscription));
+        navigate('/admin/plan-selection');
+      } else {
+        navigate('/admin/dashboard');
+      }
     } catch (adminError) {
       // If regular admin login fails, try super admin login
       try {

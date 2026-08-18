@@ -189,6 +189,25 @@ export default function CoachesPanel() {
           type: 'success',
         });
       } else {
+        // Check Free Plan limit before creating coach
+        try {
+          const subStatus = await adminGet('/admin/subscription/status');
+          if (subStatus.success && subStatus.data) {
+            const { currentUsage, limits, plan } = subStatus.data;
+            if (plan === 'free' && currentUsage.coaches >= limits.maxCoaches) {
+              setMessage({
+                text: `Free Plan Limit Reached. Your Free Plan supports up to ${limits.maxCoaches} active coaches. Upgrade your plan to add more coaches.`,
+                type: 'error'
+              });
+              setSubmitting(false);
+              return;
+            }
+          }
+        } catch (subError) {
+          // If subscription check fails, proceed with the request (backend will enforce)
+          console.warn('Failed to check subscription status:', subError);
+        }
+
         const result = await adminPost('/admin/coaches', {
           name: form.name.trim(),
           email: form.email.trim(),

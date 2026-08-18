@@ -31,6 +31,7 @@ import EnquiriesPanel from './pages/admin/EnquiriesPanel';
 import GpsSettingsPanel from './pages/admin/GpsSettingsPanel';
 import AdminPlansPanel from './pages/admin/PlansPanel';
 import AdminSubscriptionPanel from './pages/admin/SubscriptionPanel';
+import PlanSelection from './pages/admin/PlanSelection';
 import AdminNotificationsPanel from './pages/admin/NotificationsPanel';
 import SettingsPanel from './pages/admin/SettingsPanel';
 import InventoryPage from './pages/admin/InventoryPage';
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/login/admin" element={<AdminLogin />} />
+          <Route path="/admin/plan-selection" element={<PlanSelection />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/public/intake-form" element={<IntakeForm />} />
           <Route path="/enquiry-form" element={<PublicEnquiryForm />} />

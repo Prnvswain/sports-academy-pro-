@@ -164,7 +164,11 @@ export default function AdminSubscriptionPanel() {
       {/* Current Subscription Status Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main status card */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 border border-emerald-500/30 p-6 rounded-2xl relative overflow-hidden shadow-lg">
+        <div className={`lg:col-span-2 border p-6 rounded-2xl relative overflow-hidden shadow-lg ${
+          details?.current_plan?.toLowerCase() === 'free' 
+            ? 'bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 border-slate-500/30'
+            : 'bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 border-emerald-500/30'
+        }`}>
           {/* Decorative blobs */}
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4 pointer-events-none" />
@@ -172,20 +176,26 @@ export default function AdminSubscriptionPanel() {
           <div className="relative z-10 flex justify-between items-start gap-4">
             <div>
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                details?.trial_status?.includes('Trial')
-                  ? 'bg-amber-400/20 text-amber-200 border border-amber-300/30'
-                  : 'bg-white/20 text-white border border-white/30'
+                details?.current_plan?.toLowerCase() === 'free'
+                  ? 'bg-slate-400/20 text-slate-200 border border-slate-300/30'
+                  : details?.trial_status?.includes('Trial')
+                    ? 'bg-amber-400/20 text-amber-200 border border-amber-300/30'
+                    : 'bg-white/20 text-white border border-white/30'
               }`}>
-                {details?.trial_status}
+                {details?.current_plan?.toLowerCase() === 'free' ? 'FREE PLAN' : details?.trial_status}
               </span>
-              <h2 className="text-3xl font-extrabold text-white mt-3">{details?.current_plan}</h2>
+              <h2 className="text-3xl font-extrabold text-white mt-3">
+                {details?.current_plan?.toLowerCase() === 'free' ? 'Free Plan' : details?.current_plan}
+              </h2>
               <p className="text-white/75 text-sm mt-1">
-                {details?.expiry_date 
-                  ? `Active subscription until ${new Date(details.expiry_date).toLocaleDateString()}`
-                  : 'Free Trial Plan. Limits applied.'}
+                {details?.current_plan?.toLowerCase() === 'free'
+                  ? 'Basic academy features with limited resources.'
+                  : details?.expiry_date 
+                    ? `Active subscription until ${new Date(details.expiry_date).toLocaleDateString()}`
+                    : 'Free Trial Plan. Limits applied.'}
               </p>
             </div>
-            {details?.days_remaining !== null && (
+            {details?.days_remaining !== null && details?.current_plan?.toLowerCase() !== 'free' && (
               <div className="text-right shrink-0">
                 <p className="text-4xl font-extrabold text-white tracking-tight">{details.days_remaining}</p>
                 <p className="text-xs font-bold text-white/70 uppercase tracking-wider mt-0.5">Days remaining</p>
@@ -227,9 +237,13 @@ export default function AdminSubscriptionPanel() {
         {/* Support Card / Actions */}
         <div className="bg-card border border-border p-6 rounded-2xl flex flex-col justify-between shadow-sm">
           <div className="space-y-3">
-            <h3 className="font-extrabold text-foreground text-lg">Limits Checklist</h3>
+            <h3 className="font-extrabold text-foreground text-lg">
+              {details?.current_plan?.toLowerCase() === 'free' ? 'Upgrade Available' : 'Limits Checklist'}
+            </h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              If your academy exceeds your active plan's student or coach limits, you won't be able to register new accounts. Upgrade your tier below for immediate access.
+              {details?.current_plan?.toLowerCase() === 'free'
+                ? 'Unlock higher limits and premium features by upgrading to a paid plan.'
+                : 'If your academy exceeds your active plan\'s student or coach limits, you won\'t be able to register new accounts. Upgrade your tier below for immediate access.'}
             </p>
             {details?.plan_features && (
               <ul className="space-y-1.5 text-xs text-muted-foreground">
@@ -246,9 +260,13 @@ export default function AdminSubscriptionPanel() {
               const el = document.getElementById('plans-grid');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="w-full mt-4 py-2.5 bg-surface-secondary hover:bg-border text-foreground font-semibold rounded-xl text-center transition-all border border-border"
+            className={`w-full mt-4 py-2.5 font-semibold rounded-xl text-center transition-all border ${
+              details?.current_plan?.toLowerCase() === 'free'
+                ? 'bg-lime-500 hover:bg-lime-600 text-white border-lime-500'
+                : 'bg-surface-secondary hover:bg-border text-foreground border-border'
+            }`}
           >
-            Upgrade Plan Tier
+            {details?.current_plan?.toLowerCase() === 'free' ? 'Upgrade Plan' : 'View Plans'}
           </button>
         </div>
       </div>

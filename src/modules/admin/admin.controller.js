@@ -704,6 +704,24 @@ export const getSubscriptionDetails = async (req, res, next) => {
   }
 };
 
+export const getSubscriptionStatus = async (req, res, next) => {
+  try {
+    const status = await adminService.getSubscriptionStatusWithCounts(req.user.academy_id);
+    res.json(successResponse('Subscription status retrieved', status));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const selectFreePlan = async (req, res, next) => {
+  try {
+    const result = await adminService.selectFreePlan(req.user.academy_id, req.body.selectedCoaches, req.body.selectedStudents);
+    res.json(successResponse('Free plan selected successfully', result));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getSuperAdminPlans = async (req, res, next) => {
   try {
     const plans = await adminService.getSuperAdminPlans();

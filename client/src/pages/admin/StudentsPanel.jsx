@@ -1629,6 +1629,25 @@ export default function StudentsPanel() {
 
       console.log('[handleSubmit] Request payload:', payload);
 
+      // Check Free Plan limit before creating student
+      try {
+        const subStatus = await adminGet('/admin/subscription/status');
+        if (subStatus.success && subStatus.data) {
+          const { currentUsage, limits, plan } = subStatus.data;
+          if (plan === 'free' && currentUsage.students >= limits.maxStudents) {
+            setMessage({
+              text: `Free Plan Limit Reached. Your Free Plan supports up to ${limits.maxStudents} active students. Upgrade your plan to add more students.`,
+              type: 'error'
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } catch (subError) {
+        // If subscription check fails, proceed with the request (backend will enforce)
+        console.warn('Failed to check subscription status:', subError);
+      }
+
       const result = await adminPost('/admin/students', payload);
 
       console.log('[handleSubmit] Response:', {

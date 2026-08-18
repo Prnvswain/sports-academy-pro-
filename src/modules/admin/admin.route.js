@@ -253,6 +253,8 @@ router.patch('/gps/sports/:sport_id/location', gpsController.updateSportLocation
 
 /* ─── PLATFORM SUBSCRIPTIONS ────────────────────────────────────────── */
 router.get('/subscription', adminController.getSubscriptionDetails);
+router.get('/subscription/status', adminController.getSubscriptionStatus);
+router.post('/subscription/select-free', adminController.selectFreePlan);
 router.get('/subscription/plans', adminController.getSuperAdminPlans);
 router.get('/subscription/payment-settings', adminController.getPaymentSettings);
 router.post('/subscription/purchase', adminController.purchaseSubscription);

@@ -9,7 +9,7 @@ const PLAN_DEFINITIONS = {
     label: 'Free',
     trialDays: 30,
     maxCoaches: 3,
-    maxStudents: 30
+    maxStudents: 10
   },
   pro: {
     id: 'pro',

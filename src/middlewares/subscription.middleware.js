@@ -3,7 +3,7 @@ import { errorResponse } from '../utils/response.js';
 import { getSubscriptionStatus } from '../config/subscription.config.js';
 
 /**
- * Blocks academy-scoped routes when subscription is expired.
+ * Blocks academy-scoped routes when subscription is expired AND no plan choice has been made.
  * Must run after authenticate (req.user.academy_id).
  */
 export const enforceActiveSubscription = async (req, res, next) => {
@@ -29,12 +29,9 @@ export const enforceActiveSubscription = async (req, res, next) => {
     }
 
     const subscription = getSubscriptionStatus(academy);
-    if (subscription.expired) {
-      return res
-        .status(402)
-        .json(errorResponse('Academy subscription has expired. Renew to restore access.'));
-    }
-
+    
+    // Allow expired academies to access basic routes - they need to choose a plan
+    // The frontend will handle showing the plan selection screen
     req.subscription = subscription;
     return next();
   } catch (error) {

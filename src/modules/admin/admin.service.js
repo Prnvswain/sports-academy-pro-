@@ -7612,7 +7612,7 @@ export const assertSubscriptionLimits = async (academyId, type) => {
   const planName = academy.subscription_plan || academy.subscription_tier;
   const activePlan = activePlans.find(p => p.id === planName || p.name === planName) || {
     teacher_limit: academy.subscription_tier === 'FREE' ? 3 : academy.subscription_tier === 'PRO' ? 6 : null,
-    student_limit: academy.subscription_tier === 'FREE' ? 30 : academy.subscription_tier === 'PRO' ? 80 : null
+    student_limit: academy.subscription_tier === 'FREE' ? 10 : academy.subscription_tier === 'PRO' ? 80 : null
   };
 
   if (type === 'coach') {
@@ -7642,6 +7642,159 @@ export const assertSubscriptionLimits = async (academyId, type) => {
   }
 };
 
+export const getSubscriptionStatusWithCounts = async (academy_id) => {
+  const academyId = parseInt(academy_id, 10);
+  
+  const academy = await prisma.academy.findUnique({
+    where: { academy_id: academyId }
+  });
+
+  if (!academy) {
+    throw new Error('Academy not found');
+  }
+
+  const { getSubscriptionStatus: getSubStatus } = await import('../../config/subscription.config.js');
+  const subscription = getSubStatus(academy);
+  
+  // Get current counts
+  const [activeCoaches, activeStudents, allCoaches, allStudents] = await Promise.all([
+    prisma.coach.count({
+      where: { academy_id: academyId, is_deleted: false, status: 'ACTIVE' }
+    }),
+    prisma.student.count({
+      where: { academy_id: academyId, is_deleted: false, status: 'ACTIVE' }
+    }),
+    prisma.coach.count({
+      where: { academy_id: academyId, is_deleted: false }
+    }),
+    prisma.student.count({
+      where: { academy_id: academyId, is_deleted: false }
+    })
+  ]);
+
+  return {
+    expired: subscription.expired,
+    plan: subscription.plan,
+    expiresAt: subscription.expiresAt,
+    daysLeft: subscription.daysLeft,
+    limits: subscription.limits,
+    currentUsage: {
+      coaches: activeCoaches,
+      students: activeStudents
+    },
+    totalRecords: {
+      coaches: allCoaches,
+      students: allStudents
+    },
+    needsSelection: subscription.expired && (allCoaches > 3 || allStudents > 10)
+  };
+};
+
+export const selectFreePlan = async (academy_id, selectedCoaches, selectedStudents) => {
+  const academyId = parseInt(academy_id, 10);
+
+  return await prisma.$transaction(async (tx) => {
+    const academy = await tx.academy.findUnique({
+      where: { academy_id: academyId }
+    });
+
+    if (!academy) {
+      const error = new Error('Academy not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Get all coaches and students for this academy
+    const [allCoaches, allStudents] = await Promise.all([
+      tx.coach.findMany({
+        where: { academy_id: academyId, is_deleted: false },
+        select: { coach_id: true, status: true }
+      }),
+      tx.student.findMany({
+        where: { academy_id: academyId, is_deleted: false },
+        select: { student_id: true, status: true }
+      })
+    ]);
+
+    // Validate selections
+    const selectedCoachIds = selectedCoaches || [];
+    const selectedStudentIds = selectedStudents || [];
+
+    if (selectedCoachIds.length > 3) {
+      const error = new Error('Cannot select more than 3 coaches for Free Plan');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (selectedStudentIds.length > 10) {
+      const error = new Error('Cannot select more than 10 students for Free Plan');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Validate that selected IDs belong to this academy
+    const validCoachIds = allCoaches.map(c => c.coach_id);
+    const validStudentIds = allStudents.map(s => s.student_id);
+
+    for (const coachId of selectedCoachIds) {
+      if (!validCoachIds.includes(parseInt(coachId, 10))) {
+        const error = new Error('Invalid coach selection');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    for (const studentId of selectedStudentIds) {
+      if (!validStudentIds.includes(parseInt(studentId, 10))) {
+        const error = new Error('Invalid student selection');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // Lock excess coaches
+    for (const coach of allCoaches) {
+      const isSelected = selectedCoachIds.includes(coach.coach_id);
+      if (!isSelected && coach.status === 'ACTIVE') {
+        await tx.coach.update({
+          where: { coach_id: coach.coach_id },
+          data: { status: 'INACTIVE' }
+        });
+      }
+    }
+
+    // Lock excess students
+    for (const student of allStudents) {
+      const isSelected = selectedStudentIds.includes(student.student_id);
+      if (!isSelected && student.status === 'ACTIVE') {
+        await tx.student.update({
+          where: { student_id: student.student_id },
+          data: { status: 'INACTIVE' }
+        });
+      }
+    }
+
+    // Update academy to free plan
+    await tx.academy.update({
+      where: { academy_id: academyId },
+      data: {
+        subscription_plan: 'free',
+        subscription_tier: 'FREE',
+        subscription_expires_at: null
+      }
+    });
+
+    return {
+      success: true,
+      message: 'Successfully moved to Free Plan',
+      selectedCoaches: selectedCoachIds.length,
+      selectedStudents: selectedStudentIds.length,
+      lockedCoaches: allCoaches.length - selectedCoachIds.length,
+      lockedStudents: allStudents.length - selectedStudentIds.length
+    };
+  });
+};
+
 export const getSubscriptionDetails = async (academy_id) => {
   const academyId = parseInt(academy_id, 10);
   
@@ -7669,7 +7822,7 @@ export const getSubscriptionDetails = async (academy_id) => {
   const activePlan = plans.find(p => p.id === academy.subscription_plan) || {
     name: academy.subscription_plan || academy.subscription_tier,
     teacher_limit: academy.subscription_tier === 'FREE' ? 3 : academy.subscription_tier === 'PRO' ? 6 : null,
-    student_limit: academy.subscription_tier === 'FREE' ? 30 : academy.subscription_tier === 'PRO' ? 80 : null,
+    student_limit: academy.subscription_tier === 'FREE' ? 10 : academy.subscription_tier === 'PRO' ? 80 : null,
     features: academy.subscription_tier === 'FREE' 
       ? ['Smart batch scheduling tracking', 'Automated email notification systems', 'Standard portal access support'] 
       : ['Advanced analytic dashboard data', 'Pending fee transaction metrics', 'Priority live support channels']
@@ -7790,16 +7943,55 @@ export const purchaseSubscription = async (academy_id, data, user_id, ip) => {
       subscriptionTier = 'PRO';
     }
 
-    await prisma.academy.update({
-      where: { academy_id: academyId },
-      data: {
-        subscription_plan: plan.id,
-        subscription_tier: subscriptionTier,
-        subscription_starts_at: new Date(),
-        subscription_expires_at: expiresAt,
-        status: 'ACTIVE'
-      }
-    });
+    // Reactivate all inactive coaches and students when upgrading from free plan
+    const previousTier = academy.subscription_tier;
+    if (previousTier === 'FREE' && subscriptionTier !== 'FREE') {
+      await prisma.$transaction(async (tx) => {
+        // Reactivate all inactive coaches
+        await tx.coach.updateMany({
+          where: { 
+            academy_id: academyId, 
+            is_deleted: false, 
+            status: 'INACTIVE' 
+          },
+          data: { status: 'ACTIVE' }
+        });
+
+        // Reactivate all inactive students
+        await tx.student.updateMany({
+          where: { 
+            academy_id: academyId, 
+            is_deleted: false, 
+            status: 'INACTIVE' 
+          },
+          data: { status: 'ACTIVE' }
+        });
+
+        // Update academy subscription
+        await tx.academy.update({
+          where: { academy_id: academyId },
+          data: {
+            subscription_plan: plan.id,
+            subscription_tier: subscriptionTier,
+            subscription_starts_at: new Date(),
+            subscription_expires_at: expiresAt,
+            status: 'ACTIVE'
+          }
+        });
+      });
+    } else {
+      // Normal update without reactivation
+      await prisma.academy.update({
+        where: { academy_id: academyId },
+        data: {
+          subscription_plan: plan.id,
+          subscription_tier: subscriptionTier,
+          subscription_starts_at: new Date(),
+          subscription_expires_at: expiresAt,
+          status: 'ACTIVE'
+        }
+      });
+    }
 
     await prisma.notification.create({
       data: {

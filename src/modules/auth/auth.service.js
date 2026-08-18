@@ -294,11 +294,6 @@ export const loginUser = async ({ email, password, ip }) => {
   }
 
   const subscription = getSubscriptionStatus(user.academy);
-  if (user.academy && subscription.expired) {
-    const error = new Error('Academy subscription has expired. Renew to restore access.');
-    error.statusCode = 402;
-    throw error;
-  }
 
   const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
@@ -330,6 +325,13 @@ export const loginUser = async ({ email, password, ip }) => {
       email: user.email,
       role: user.role,
       academy_id: user.academy_id
+    },
+    subscription: {
+      expired: subscription.expired,
+      plan: subscription.plan,
+      expiresAt: subscription.expiresAt,
+      daysLeft: subscription.daysLeft,
+      limits: subscription.limits
     }
   };
 };
