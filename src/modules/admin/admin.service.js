@@ -3329,6 +3329,8 @@ export const createStudent = async (academy_id, data) => {
   }
 
   const studentResult = await prisma.$transaction(async (tx) => {
+    const createdPlanFees = [];
+    const createdKitAssignments = [];
     if (primaryBatchId) {
       const batch = await tx.batch.findFirst({
         where: {
@@ -3415,6 +3417,24 @@ export const createStudent = async (academy_id, data) => {
       await tx.studentEnrollment.createMany({
         data: enrollmentData,
       });
+
+      // Create Fee entry for each enrollment (training fee, etc.)
+      for (const enrollment of enrollmentData) {
+        if (enrollment.final_fee > 0) {
+          const planName = durationPlan ? durationPlan.name : 'Custom Plan';
+          const planFee = await tx.fee.create({
+            data: {
+              academy_id: academyId,
+              student_id: student.student_id,
+              amount_due: enrollment.final_fee,
+              due_date: enrollment.next_due_date || planEndDate || new Date(),
+              status: 'PENDING',
+              description: `Initial Plan Enrollment (${planName}): ${enrollment.plan_start_date ? enrollment.plan_start_date.toLocaleDateString() : new Date().toLocaleDateString()} to ${enrollment.plan_end_date ? enrollment.plan_end_date.toLocaleDateString() : new Date().toLocaleDateString()}`
+            }
+          });
+          createdPlanFees.push(planFee);
+        }
+      }
     }
 
     // Link enquiry if enquiry_id is provided
@@ -3534,12 +3554,14 @@ export const createStudent = async (academy_id, data) => {
           where: { assignment_id: assignment.assignment_id },
           data: { fee_id: kitFee.fee_id }
         });
+
+        createdKitAssignments.push({ assignment, fee: kitFee });
       }
     }
 
-    // Advance Payment / Account Credit
-    if (data.advance_amount && parseFloat(data.advance_amount) > 0) {
-      const advanceAmt = parseFloat(data.advance_amount);
+    // Advance Payment / Account Credit allocation logic
+    const amountPaidNow = parseFloat(data.advance_amount || 0);
+    if (amountPaidNow > 0) {
       const year = new Date().getFullYear();
       const count = await tx.receipt.count({
         where: { academy_id: academyId, receipt_number: { startsWith: `REC-${year}` } }
@@ -3551,37 +3573,97 @@ export const createStudent = async (academy_id, data) => {
           receipt_number: receiptNumber,
           academy_id: academyId,
           student_id: student.student_id,
-          amount: advanceAmt,
+          amount: amountPaidNow,
           discount: 0,
           additional_charges: 0,
           payment_date: new Date(),
           method: data.payment_method || 'cash',
           status: 'COMPLETED',
-          remarks: 'Advance Payment (Added to Account Credit)',
+          remarks: 'Payment received during student creation',
           recorded_by: 'ADMIN',
           recorded_by_name: data.admin_user_name || 'Admin',
           created_by_user_id: data.created_by_user_id ? parseInt(data.created_by_user_id, 10) : null,
         }
       });
 
-      // Update student advance balance
-      await tx.student.update({
-        where: { student_id: student.student_id },
-        data: { advance_balance: { increment: advanceAmt } }
-      });
+      let remainingPayment = amountPaidNow;
 
-      // Create credit transaction
-      await tx.studentCreditTransaction.create({
-        data: {
-          student_id: student.student_id,
-          academy_id: academyId,
-          amount: advanceAmt,
-          type: 'ADD',
-          reason: 'Advance Payment during student creation',
-          reference_type: 'RECEIPT',
-          reference_id: receipt.receipt_id
+      // 1. Sequentially pay Plan Fees first
+      for (const fee of createdPlanFees) {
+        if (remainingPayment <= 0) break;
+        const due = parseFloat(fee.amount_due);
+        const payAmount = Math.min(remainingPayment, due);
+        remainingPayment -= payAmount;
+
+        const isFullyPaid = payAmount === due;
+        await tx.fee.update({
+          where: { fee_id: fee.fee_id },
+          data: {
+            status: isFullyPaid ? 'PAID' : 'PENDING',
+            paid_amount: payAmount,
+            paid_at: new Date()
+          }
+        });
+
+        // Update matching enrollment's paid_amount
+        const primaryEnrollment = await tx.studentEnrollment.findFirst({
+          where: { student_id: student.student_id, is_active: true }
+        });
+        if (primaryEnrollment) {
+          await tx.studentEnrollment.update({
+            where: { enrollment_id: primaryEnrollment.enrollment_id },
+            data: { paid_amount: { increment: payAmount } }
+          });
         }
-      });
+      }
+
+      // 2. Pay Kit Fees next
+      for (const kitAssItem of createdKitAssignments) {
+        if (remainingPayment <= 0) break;
+        const due = parseFloat(kitAssItem.assignment.total_amount);
+        const payAmount = Math.min(remainingPayment, due);
+        remainingPayment -= payAmount;
+
+        const isFullyPaid = payAmount === due;
+        await tx.fee.update({
+          where: { fee_id: kitAssItem.fee.fee_id },
+          data: {
+            status: isFullyPaid ? 'PAID' : 'PENDING',
+            paid_amount: payAmount,
+            paid_at: new Date()
+          }
+        });
+
+        if (isFullyPaid) {
+          await tx.sportsKitAssignment.update({
+            where: { assignment_id: kitAssItem.assignment.assignment_id },
+            data: { payment_status: 'PAID' }
+          });
+        }
+      }
+
+      // 3. Excess amount becomes Account Credit
+      const excessAmount = Math.max(0, remainingPayment);
+      if (excessAmount > 0) {
+        // Update student advance balance
+        await tx.student.update({
+          where: { student_id: student.student_id },
+          data: { advance_balance: { increment: excessAmount } }
+        });
+
+        // Create credit transaction
+        await tx.studentCreditTransaction.create({
+          data: {
+            student_id: student.student_id,
+            academy_id: academyId,
+            amount: excessAmount,
+            type: 'ADD',
+            reason: 'Excess advance payment during student creation',
+            reference_type: 'RECEIPT',
+            reference_id: receipt.receipt_id
+          }
+        });
+      }
     }
 
     return student;
@@ -4648,7 +4730,10 @@ export const getAllPayments = async (academy_id) =>
 
     },
 
-    orderBy: { payment_date: 'desc' },
+    orderBy: [
+      { payment_date: 'desc' },
+      { created_at: 'desc' }
+    ],
 
   });
 
@@ -5400,7 +5485,10 @@ export const getReceipts = async (academy_id) => {
       }
     },
 
-    orderBy: { payment_date: 'desc' },
+    orderBy: [
+      { payment_date: 'desc' },
+      { created_at: 'desc' }
+    ],
 
   });
 
@@ -5933,6 +6021,18 @@ export const createPayment = async (academy_id, data, admin_user_id = null) => {
     if (!assignment) {
       const error = new Error('Sports Kit assignment not found');
       error.statusCode = 404;
+      throw error;
+    }
+
+    if (assignment.student_id !== student.student_id) {
+      const error = new Error('Sports Kit assignment does not belong to this student');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (assignment.status !== 'ACTIVE') {
+      const error = new Error('Sports Kit assignment is inactive');
+      error.statusCode = 400;
       throw error;
     }
 

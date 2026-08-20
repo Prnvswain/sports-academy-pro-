@@ -69,21 +69,21 @@ export default function StandardModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className={`w-full ${sizeClasses[size]} max-h-[90vh] bg-white overflow-hidden rounded-[2rem] shadow-[0_10px_25px_rgba(0,0,0,0.12)] border border-[#EAEBF0] flex flex-col transition-colors duration-200 z-[1000]`}
+            className={`w-full ${sizeClasses[size]} max-h-[90vh] bg-white dark:bg-[#1A2234] overflow-hidden rounded-[2rem] shadow-[0_10px_25px_rgba(0,0,0,0.12)] border border-slate-100 dark:border-slate-800 flex flex-col transition-colors duration-200 z-[1000]`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Fixed Header */}
             {(title || showCloseButton) && (
-              <div className="flex items-center justify-between px-8 py-6 border-b border-[#EAEBF0] bg-[#FFFDF3] shrink-0">
+              <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#151C2C] shrink-0">
                 <div>
-                  {title && <h3 className="text-lg font-bold text-[#101625]">{title}</h3>}
-                  {subtitle && <p className="text-[10px] text-[#A4ABAF] font-bold mt-1 tracking-wide uppercase">{subtitle}</p>}
+                  {title && <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h3>}
+                  {subtitle && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1 tracking-wide uppercase">{subtitle}</p>}
                 </div>
                 {showCloseButton && (
                   <button
                     type="button"
                     onClick={onClose}
-                    className="p-2 rounded-xl bg-white shadow-sm border border-[#EAEBF0] text-[#A4ABAF] hover:bg-[#fcc93d] hover:text-[#101625] hover:border-transparent transition-all"
+                    className="p-2 rounded-xl bg-white dark:bg-[#1C2434] shadow-sm border border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-[#fcc93d] hover:text-[#101625] dark:hover:bg-[#fcc93d] dark:hover:text-[#101625] hover:border-transparent dark:hover:border-transparent transition-all"
                   >
                     <X size={16} />
                   </button>
@@ -98,7 +98,7 @@ export default function StandardModal({
 
             {/* Fixed Footer */}
             {footer && (
-              <div className="px-8 py-6 border-t border-[#EAEBF0] bg-white shrink-0">
+              <div className="px-8 py-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#151C2C] shrink-0">
                 {footer}
               </div>
             )}

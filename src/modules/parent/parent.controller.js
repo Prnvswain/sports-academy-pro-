@@ -98,26 +98,29 @@ export const getChildDetails = async (req, res, next) => {
       },
       include: {
         sport: true,
-        batch: true,
+        batch: { include: { sport: true, coaches: { include: { coach: true } } } },
         academy: true,
         enrollments: {
           where: { is_active: true },
           include: {
             duration_plan: true,
+            batch: { include: { sport: true, coaches: { include: { coach: true } } } },
+            sport: true,
+            coach: true,
           },
         },
-        studentAttendance: {
+        student_attendances: {
           orderBy: { date: 'desc' },
           take: 30,
         },
-        performanceScore: {
+        performance_scores: {
           include: {
             attribute: true,
           },
           orderBy: { scored_at: 'desc' },
           take: 20,
         },
-        dailyNotes: {
+        daily_notes: {
           orderBy: { note_date: 'desc' },
           take: 10,
         },
@@ -126,6 +129,14 @@ export const getChildDetails = async (req, res, next) => {
           take: 10,
         },
         fees: true,
+        sports_kit_assignments: {
+          where: { status: 'ACTIVE' },
+          include: {
+            kit: {
+              include: { sport: true },
+            },
+          },
+        },
       },
     });
 
@@ -165,12 +176,51 @@ export const getChildDetails = async (req, res, next) => {
       pending_fees = balance_outstanding;
     }
 
+    // Enrich sports kit assignments with paid/due amounts
+    const kitAssignments = await Promise.all((child.sports_kit_assignments || []).map(async ka => {
+      const kitReceipts = await prisma.receipt.findMany({
+        where: {
+          student_id: ka.student_id,
+          academy_id: ka.academy_id,
+          status: 'COMPLETED',
+          remarks: { contains: `[Assignment: ${ka.assignment_id}]` },
+        },
+      });
+      const kitReceiptTotal = kitReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+      const totalFee = parseFloat(ka.total_amount || ka.final_amount || 0);
+      return {
+        ...ka,
+        paid_amount: kitReceiptTotal,
+        due_amount: Math.max(0, totalFee - kitReceiptTotal),
+      };
+    }));
+
     const decoratedChild = {
       ...child,
+      sports_kit_assignments: kitAssignments,
       total_fees_assigned,
       total_fees_paid,
       pending_fees,
-      balance_outstanding
+      balance_outstanding,
+      plan: activeEnrollment ? {
+        name: activeEnrollment.duration_plan?.name || null,
+        duration_type: activeEnrollment.duration_plan?.duration_type || null,
+        duration: activeEnrollment.duration_plan?.duration || null,
+        start_date: activeEnrollment.plan_start_date || null,
+        end_date: activeEnrollment.plan_end_date || null,
+        final_fee: parseFloat(activeEnrollment.final_fee || 0),
+        paid_amount: parseFloat(activeEnrollment.paid_amount || 0),
+        remaining_days: activeEnrollment.plan_end_date
+          ? Math.max(0, Math.ceil((new Date(activeEnrollment.plan_end_date) - new Date()) / (1000 * 60 * 60 * 24)))
+          : null,
+        is_active: activeEnrollment.is_active,
+      } : null,
+      plan_start_date: activeEnrollment?.plan_start_date || null,
+      plan_expiry_date: activeEnrollment?.plan_end_date || null,
+      primary_coach: activeEnrollment?.batch?.coaches?.[0]?.coach
+        || activeEnrollment?.coach
+        || child.batch?.coaches?.[0]?.coach
+        || null,
     };
 
     return res.status(200).json(

@@ -242,6 +242,8 @@ export default function ParentDashboard() {
   const metrics = dashboardData?.metrics || { attendanceRate: 0, avgPerformanceScore: 0, pendingFees: 0, totalStudents: 0, recentNotes: [] };
   const currentStudent = activeStudent || {};
 
+  // Primary coach resolved after latestAssessment is available (see below)
+
   // Check if current student has an active session
   const studentActiveSession = activeSessions.find(s => s.batch_id === currentStudent.batch_id);
 
@@ -361,6 +363,11 @@ export default function ParentDashboard() {
   const latestAssessment = useMemo(() => {
     return perfData?.latestAssessment || null;
   }, [perfData]);
+
+  // Primary coach: from enriched student context, fall back to latest assessment coach
+  const primaryCoach = useMemo(() => {
+    return currentStudent.primary_coach || latestAssessment?.coach || null;
+  }, [currentStudent, latestAssessment]);
 
   const avgPerformance = useMemo(() => {
     return parseFloat(perfData?.overallAverage || metrics.avgPerformanceScore || 0);
@@ -1146,24 +1153,35 @@ export default function ParentDashboard() {
               
               <div className="space-y-3 pt-2 border-t border-border/40">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black">
-                    CH
-                  </div>
+                  {primaryCoach?.photo_url ? (
+                    <img src={primaryCoach.photo_url} alt={primaryCoach.name} className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-xs">
+                      {primaryCoach?.name ? primaryCoach.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'CH'}
+                    </div>
+                  )}
                   <div>
-                    <h4 className="text-xs font-black text-foreground">{latestAssessment?.coach?.name || 'Academy Coach'}</h4>
-                    <p className="text-[9px] text-muted-foreground font-semibold">Certified Sports Instructor</p>
+                    <h4 className="text-xs font-black text-foreground">{primaryCoach?.name || 'Academy Coach'}</h4>
+                    <p className="text-[9px] text-muted-foreground font-semibold">{primaryCoach?.specialization || 'Certified Sports Instructor'}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 pt-2 text-xs font-semibold text-foreground">
-                  <div className="flex items-center gap-2">
-                    <Mail size={13} className="text-primary" />
-                    <span>coach.academy@sams.com</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone size={13} className="text-primary" />
-                    <span>+91 98765 43210</span>
-                  </div>
+                  {primaryCoach?.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail size={13} className="text-primary" />
+                      <span>{primaryCoach.email}</span>
+                    </div>
+                  )}
+                  {primaryCoach?.phone_number && (
+                    <div className="flex items-center gap-2">
+                      <Phone size={13} className="text-primary" />
+                      <span>{primaryCoach.phone_number}</span>
+                    </div>
+                  )}
+                  {!primaryCoach?.email && !primaryCoach?.phone_number && (
+                    <p className="text-muted-foreground text-[11px]">Contact details not available. Please reach out to the academy directly.</p>
+                  )}
                   <div className="flex items-center gap-2">
                     <MapPin size={13} className="text-primary" />
                     <span className="truncate max-w-[200px]">{currentStudent.academy?.name || 'Main Court'}</span>

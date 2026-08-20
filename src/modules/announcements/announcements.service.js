@@ -503,7 +503,7 @@ export const getMyAnnouncements = async (user, filters = {}) => {
     recipientId = user.coach_id;
   } else if (user.role === 'PARENT') {
     recipientType = 'PARENT';
-    recipientId = user.parent_id;
+    recipientId = user.parent_id || user.id; // Parent JWT stores ID as 'id'
   }
 
   console.log('Recipient type:', recipientType);
@@ -604,7 +604,7 @@ export const markAsRead = async (user, announcement_id) => {
     recipientId = user.coach_id;
   } else if (user.role === 'PARENT') {
     recipientType = 'PARENT';
-    recipientId = user.parent_id;
+    recipientId = user.parent_id || user.id; // Parent JWT stores ID as 'id'
   }
 
   const readStatus = await prisma.announcementReadStatus.upsert({
@@ -651,7 +651,7 @@ export const markAllAsRead = async (user) => {
     recipientId = user.coach_id;
   } else if (user.role === 'PARENT') {
     recipientType = 'PARENT';
-    recipientId = user.parent_id;
+    recipientId = user.parent_id || user.id; // Parent JWT stores ID as 'id'
   }
 
   // Get all unread announcements for this recipient
@@ -711,7 +711,7 @@ export const getUnreadCount = async (user) => {
     recipientId = user.coach_id;
   } else if (user.role === 'PARENT') {
     recipientType = 'PARENT';
-    recipientId = user.parent_id;
+    recipientId = user.parent_id || user.id; // Parent JWT stores ID as 'id'
   } else {
     console.log('Unknown role:', user.role);
     return { count: 0 };

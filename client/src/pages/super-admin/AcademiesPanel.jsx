@@ -73,7 +73,7 @@ export default function AcademiesPanel() {
     setDetailsLoading(true);
     setDetails(null);
     try {
-      const response = await superAdminGet(`/super-admin/academies/${academy.academy_id}/details`);
+      const response = await superAdminGet(`/super-admin/academies/${academy.academy_id}`);
       if (response?.success) {
         setDetails(response.data);
       }

@@ -102,7 +102,7 @@ export default function NotificationBell({ userRole }) {
         ]);
       } else if (userRole === 'PARENT') {
         [annRes, notRes] = await Promise.all([
-          parentGet('/parent/announcements/my/announcements?limit=10'),
+          parentGet('/parent/announcements?limit=10'),
           parentGet('/parent/notifications?limit=10')
         ]);
       }

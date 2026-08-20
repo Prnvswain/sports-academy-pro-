@@ -658,7 +658,7 @@ export const getKitAssignments = async (academy_id, query = {}) => {
     where.payment_status = query.payment_status;
   }
 
-  return await prisma.sportsKitAssignment.findMany({
+  const assignments = await prisma.sportsKitAssignment.findMany({
     where,
     include: {
       kit: {
@@ -676,6 +676,30 @@ export const getKitAssignments = async (academy_id, query = {}) => {
       issue_date: 'desc'
     }
   });
+
+  // Calculate paid_amount and due_amount dynamically by fetching receipts
+  const mappedAssignments = await Promise.all(assignments.map(async (assignment) => {
+    const receipts = await prisma.receipt.findMany({
+      where: {
+        student_id: assignment.student_id,
+        academy_id: academyId,
+        status: 'COMPLETED',
+        remarks: {
+          contains: `[Assignment: ${assignment.assignment_id}]`
+        }
+      }
+    });
+    const paid = receipts.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    const total = parseFloat(assignment.total_amount || 0);
+    const due = Math.max(0, total - paid);
+    return {
+      ...assignment,
+      paid_amount: paid,
+      due_amount: due
+    };
+  }));
+
+  return mappedAssignments;
 };
 
 // Get Dashboard Stats (Section 11)

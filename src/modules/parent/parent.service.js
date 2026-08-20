@@ -272,23 +272,34 @@ export const getParentChildren = async (parent_id) => {
         where: { is_deleted: false },
         include: {
           sport: true,
-          batch: true,
+          batch: { include: { sport: true, coaches: { include: { coach: true } } } },
+          academy: true,
           enrollments: {
             include: {
               duration_plan: true,
-              batch: {
-                include: {
-                  sport: true,
-                },
-              },
+              batch: { include: { sport: true, coaches: { include: { coach: true } } } },
               sport: true,
               coach: true,
             },
+            orderBy: { created_at: 'desc' },
+          },
+          student_attendances: {
+            orderBy: { date: 'desc' },
+            take: 30,
           },
           fees: true,
           receipts: {
-            where: { status: 'COMPLETED' }
-          }
+            where: { status: 'COMPLETED' },
+            orderBy: { payment_date: 'desc' },
+          },
+          sports_kit_assignments: {
+            where: { status: 'ACTIVE' },
+            include: {
+              kit: {
+                include: { sport: true },
+              },
+            },
+          },
         },
       },
     },
@@ -296,7 +307,7 @@ export const getParentChildren = async (parent_id) => {
 
   if (!parent) return [];
 
-  return parent.students.map(student => {
+  return Promise.all(parent.students.map(async student => {
     const seenEnrollments = new Set();
     const uniqueEnrollments = [];
     (student.enrollments || []).forEach(e => {
@@ -334,15 +345,63 @@ export const getParentChildren = async (parent_id) => {
       pending_fees = balance_outstanding;
     }
 
+    // Compute active plan summary from most recent active enrollment
+    const activeEnrollment = student.enrollments.find(e => e.is_active) || null;
+    const planSummary = activeEnrollment ? {
+      name: activeEnrollment.duration_plan?.name || null,
+      duration_type: activeEnrollment.duration_plan?.duration_type || null,
+      duration: activeEnrollment.duration_plan?.duration || null,
+      start_date: activeEnrollment.plan_start_date || null,
+      end_date: activeEnrollment.plan_end_date || null,
+      final_fee: parseFloat(activeEnrollment.final_fee || 0),
+      paid_amount: parseFloat(activeEnrollment.paid_amount || 0),
+      remaining_days: activeEnrollment.plan_end_date
+        ? Math.max(0, Math.ceil((new Date(activeEnrollment.plan_end_date) - new Date()) / (1000 * 60 * 60 * 24)))
+        : null,
+      is_active: activeEnrollment.is_active,
+    } : null;
+
+    // Compute primary coach: from active enrollment's batch coach, then enrollment coach, then student's batch coach
+    const primaryCoach = activeEnrollment?.batch?.coaches?.[0]?.coach
+      || activeEnrollment?.coach
+      || student.batch?.coaches?.[0]?.coach
+      || null;
+
+    // Compute sports kit fee summary — receipts stored with remarks containing [Assignment: id]
+    const kitAssignments = await Promise.all((student.sports_kit_assignments || []).map(async ka => {
+      const kitReceipts = await prisma.receipt.findMany({
+        where: {
+          student_id: ka.student_id,
+          academy_id: ka.academy_id,
+          status: 'COMPLETED',
+          remarks: { contains: `[Assignment: ${ka.assignment_id}]` },
+        },
+      });
+      const kitReceiptTotal = kitReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+      const totalFee = parseFloat(ka.total_amount || ka.final_amount || 0);
+      return {
+        ...ka,
+        paid_amount: kitReceiptTotal,
+        due_amount: Math.max(0, totalFee - kitReceiptTotal),
+      };
+    }));
+
     return {
       ...student,
+      sports_kit_assignments: kitAssignments,
       total_fees_assigned,
       total_fees_paid,
       pending_fees,
-      balance_outstanding
+      balance_outstanding,
+      plan: planSummary,
+      plan_start_date: planSummary?.start_date || null,
+      plan_expiry_date: planSummary?.end_date || null,
+      primary_coach: primaryCoach,
     };
-  });
+  }));
 };
+
+
 
 export const getParentPayments = async (parent_id, academy_id, student_id = null) => {
   const parentId = parseInt(parent_id, 10);
@@ -607,12 +666,18 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
 
   const cycleStart = new Date(activeEnrollment.created_at.getTime() - 5000);
 
-  // Payment validation: Check if payment amount exceeds remaining fee
-  const studentLedger = await prisma.receipt.aggregate({
+  // Payment validation: use enrollment final_fee and paid_amount as the authoritative source.
+  // The Fee table rows may not always exist (e.g. admin skipped fee record creation),
+  // so we fall back to the enrollment's own final_fee/paid_amount fields.
+  const enrollmentFinalFee = parseFloat(activeEnrollment.final_fee || 0);
+  const enrollmentPaidAmount = parseFloat(activeEnrollment.paid_amount || 0);
+
+  // Also sum PENDING_VERIFICATION receipts so parents can't submit duplicate unverified payments
+  const pendingReceiptsAgg = await prisma.receipt.aggregate({
     where: {
       student_id: studentId,
       academy_id: academyId,
-      status: { in: ['COMPLETED', 'PAID', 'APPROVED'] },
+      status: 'PENDING_VERIFICATION',
       created_at: { gte: cycleStart },
       OR: [
         { remarks: null },
@@ -621,32 +686,22 @@ export const recordParentPayment = async (parent_id, academy_id, payload) => {
     },
     _sum: { amount: true }
   });
+  const totalPendingVerification = parseFloat(pendingReceiptsAgg._sum.amount || 0);
 
-  const totalPaid = studentLedger._sum.amount || 0;
-  
-  // Get total fees assigned from student's active cycle
-  const cycleFeesAgg = await prisma.fee.aggregate({
-    where: {
-      student_id: studentId,
-      academy_id: academyId,
-      created_at: { gte: cycleStart }
-    },
-    _sum: { amount_due: true }
-  });
-  const totalFeesAssigned = cycleFeesAgg._sum.amount_due || 0;
+  // Remaining = final_fee - already paid - pending verification amounts
+  const effectivePaid = enrollmentPaidAmount + totalPendingVerification;
+  const remainingFee = Math.max(0, enrollmentFinalFee - effectivePaid);
 
-  const remainingFee = Math.max(0, totalFeesAssigned - totalPaid);
-
-  // Check if payment exceeds remaining fee
-  if (Math.round(amount * 100) / 100 > Math.round(remainingFee * 100) / 100) {
-    const error = new Error('Payment amount cannot exceed the remaining fee.');
+  // Check if student is already fully paid (or has pending payments covering the balance)
+  if (remainingFee <= 0) {
+    const error = new Error('Student has already paid all fees (or has pending payments under review). No further payments can be accepted.');
     error.statusCode = 400;
     throw error;
   }
 
-  // Check if student is already fully paid
-  if (remainingFee <= 0) {
-    const error = new Error('Student has already paid all fees. No further payments can be accepted.');
+  // Check if payment exceeds remaining fee
+  if (Math.round(amount * 100) / 100 > Math.round(remainingFee * 100) / 100) {
+    const error = new Error(`Payment amount ₹${amount} exceeds the outstanding balance of ₹${remainingFee.toFixed(2)}.`);
     error.statusCode = 400;
     throw error;
   }
@@ -746,12 +801,15 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
         where: { is_deleted: false },
         include: {
           sport: true,
-          batch: true,
+          batch: { include: { sport: true, coaches: { include: { coach: true } } } },
           academy: true,
           enrollments: {
             where: { is_active: true },
             include: {
               duration_plan: true,
+              batch: { include: { sport: true, coaches: { include: { coach: true } } } },
+              sport: true,
+              coach: true,
             },
           },
           student_attendances: {
@@ -783,13 +841,16 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
     throw new Error('Parent not found');
   }
 
-  // Filter students if studentId is provided
+  // Strictly filter to requested student — never expose other parent's children
   let filteredStudents = parent.students;
   if (studentId) {
-    filteredStudents = parent.students.filter((s) => s.student_id === studentId);
-    if (filteredStudents.length === 0) {
-      // If specific student not found, use first student as fallback
-      filteredStudents = parent.students;
+    const matched = parent.students.filter((s) => s.student_id === studentId);
+    // Only use matched if the student actually belongs to this parent
+    if (matched.length > 0) {
+      filteredStudents = matched;
+    } else {
+      // studentId was specified but doesn't belong to this parent — return empty metrics
+      filteredStudents = [];
     }
   }
 
@@ -839,6 +900,7 @@ export const getParentDashboardData = async (parent_id, studentId = null) => {
     },
   };
 };
+
 
 export const getParentSportsKits = async (parent_id, academy_id) => {
   const parentId = parseInt(parent_id, 10);

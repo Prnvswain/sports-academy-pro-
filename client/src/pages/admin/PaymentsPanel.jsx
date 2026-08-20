@@ -831,10 +831,21 @@ export default function AccountsPanel() {
     return true;
   });
 
-  const totalPages = Math.ceil(filteredPayments.length / recordsPerPage);
+  const sortedFilteredPayments = [...filteredPayments].sort((a, b) => {
+    const dateA = new Date(a.payment_date || a.date || 0);
+    const dateB = new Date(b.payment_date || b.date || 0);
+    if (dateB - dateA !== 0) {
+      return dateB - dateA;
+    }
+    const idA = a.receipt_id || a.id || 0;
+    const idB = b.receipt_id || b.id || 0;
+    return idB - idA;
+  });
+
+  const totalPages = Math.ceil(sortedFilteredPayments.length / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
-  const paginatedPayments = filteredPayments.slice(startIndex, endIndex);
+  const paginatedPayments = sortedFilteredPayments.slice(startIndex, endIndex);
 
   const getPageNumbers = () => {
     const pages = [];
@@ -1481,7 +1492,7 @@ export default function AccountsPanel() {
               })()}
 
               {/* Comprehensive Fee Breakdown - Premium Card */}
-              {form.student_id && (
+              {form.student_id && paymentType === 'training' && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1912,41 +1923,77 @@ export default function AccountsPanel() {
                           <Clock className="w-3.5 h-3.5 animate-spin" /> Loading kits...
                         </div>
                       ) : studentKits.length > 0 ? (
-                        <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                           {studentKits.map((kit) => {
-                            const unpaidAmt = parseFloat(kit.due_amount || 0);
+                            const totalFee = parseFloat(kit.total_amount || 0);
+                            const paidAmount = parseFloat(kit.paid_amount || 0);
+                            const pendingAmount = parseFloat(kit.due_amount || 0);
                             const isSelected = selectedKitAssignment?.assignment_id === kit.assignment_id;
+                            const status = pendingAmount === 0 ? 'PAID' : (paidAmount > 0 ? 'PARTIALLY PAID' : 'UNPAID');
+
                             return (
                               <div
                                 key={kit.assignment_id}
-                                onClick={() => {
-                                  if (unpaidAmt > 0) {
-                                    setSelectedKitAssignment(kit);
-                                    setNewKitId('');
-                                    setKitPaymentAmount(unpaidAmt.toFixed(2));
-                                  }
-                                }}
-                                className={`p-2.5 rounded-xl border text-[11px] transition-all flex justify-between items-center cursor-pointer ${isSelected
-                                  ? 'bg-[#84cc16]/10 border-[#84cc16] shadow-sm'
-                                  : unpaidAmt > 0
-                                    ? 'bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-955/15 dark:hover:bg-amber-955/25 border-amber-200/50 dark:border-amber-900/30'
-                                    : 'bg-slate-50/50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-800 opacity-70'
+                                className={`p-3 rounded-xl border transition-all flex flex-col gap-2 ${isSelected
+                                  ? 'bg-[#84cc16]/5 border-[#84cc16] shadow-sm'
+                                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                                   }`}
                               >
-                                <div className="space-y-0.5">
-                                  <div className="font-bold text-slate-800 dark:text-slate-200">{kit.kit?.name} (Qty: {kit.quantity})</div>
-                                  <div className="text-[10px] text-slate-400">Sport: {kit.kit?.sport?.name || '—'} · Date: {new Date(kit.issue_date).toLocaleDateString()}</div>
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-1">
+                                    <div className="font-bold text-slate-850 dark:text-slate-200 text-xs">
+                                      {kit.kit?.name} × {kit.quantity}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                                      Assigned: {new Date(kit.issue_date || kit.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </div>
+                                  </div>
+                                  <div className={`text-[9px] font-black px-2 py-0.5 rounded-full ${pendingAmount === 0
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                    : paidAmount > 0
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/40 dark:text-amber-450'
+                                      : 'bg-rose-100 text-rose-800 dark:bg-rose-955/45 dark:text-rose-400'
+                                    }`}>
+                                    {status}
+                                  </div>
                                 </div>
-                                <div className="text-right space-y-0.5">
-                                  <div className="font-bold">Total: ₹{parseFloat(kit.total_amount || 0).toFixed(0)}</div>
-                                  <div className="text-[10px] font-semibold text-amber-600">Pending: ₹{unpaidAmt.toFixed(0)}</div>
+                                <div className="flex justify-between items-end border-t border-slate-100 dark:border-slate-800/80 pt-2 text-[11px] font-bold">
+                                  <div className="grid grid-cols-3 gap-3 text-slate-550 dark:text-slate-400 font-semibold">
+                                    <div>
+                                      <div className="text-[9px] text-slate-400">Total</div>
+                                      <div className="text-slate-850 dark:text-slate-200">₹{totalFee.toFixed(0)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[9px] text-slate-400">Paid</div>
+                                      <div className="text-emerald-600">₹{paidAmount.toFixed(0)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[9px] text-slate-400">Pending</div>
+                                      <div className="text-amber-600">₹{pendingAmount.toFixed(0)}</div>
+                                    </div>
+                                  </div>
+                                  {pendingAmount > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedKitAssignment(kit);
+                                        setNewKitId('');
+                                        setKitPaymentAmount(pendingAmount.toString());
+                                      }}
+                                      className="px-2.5 py-1 bg-[#84cc16] hover:bg-[#84cc16]/90 text-white text-[10px] font-black rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      Pay ₹{pendingAmount.toFixed(0)}
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 py-1">PAID</span>
+                                  )}
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                       ) : (
-                        <p className="text-[11px] text-slate-400 italic py-1">No kits currently assigned to this student.</p>
+                        <p className="text-[11px] text-slate-455 dark:text-slate-400 italic py-1">No kits currently assigned to this student.</p>
                       )}
                     </div>
 
@@ -2082,11 +2129,20 @@ export default function AccountsPanel() {
                           <input
                             type="number"
                             min="0"
+                            max={selectedKitAssignment ? parseFloat(selectedKitAssignment.due_amount) : undefined}
                             step="0.01"
                             placeholder="Enter payment amount"
                             className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:border-[#84cc16] text-xs"
                             value={kitPaymentAmount}
-                            onChange={(e) => setKitPaymentAmount(e.target.value)}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              const maxVal = selectedKitAssignment ? parseFloat(selectedKitAssignment.due_amount || 0) : Infinity;
+                              if (val > maxVal) {
+                                setKitPaymentAmount(maxVal.toString());
+                              } else {
+                                setKitPaymentAmount(e.target.value);
+                              }
+                            }}
                             required
                           />
                           <span className="text-[10px] text-slate-400 mt-1 block">Partial payments are allowed. Unpaid amount will remain as pending dues.</span>
@@ -2287,7 +2343,7 @@ export default function AccountsPanel() {
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{studentName}</span>
                                     <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>
-                                    <span className={`text-[9px] font-bold ${isKit ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{isKit ? 'Kit' : 'Training'}</span>
+                                    <span className={`text-[9px] font-bold ${isKit ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{isKit ? 'Sports Kit' : 'Training'}</span>
                                     {payment?.method && (
                                       <>
                                         <span className="text-slate-300 dark:text-slate-600 text-[10px]">•</span>

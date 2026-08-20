@@ -682,113 +682,86 @@ export default function StudentsPanel() {
 
 
     switch (field) {
-
       case 'firstName':
-
       case 'lastName':
-
         if (!value || value.trim() === '') {
-
-          error = 'This field is required';
-
+          error = 'This field is required.';
         }
-
         break;
 
       case 'parent_email':
-
         if (!value || value.trim() === '') {
-
-          error = 'Parent email is required';
-
+          error = 'This field is required.';
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-
           error = 'Enter a valid email address';
-
         }
-
         break;
 
       case 'phone':
-
         if (!value || value.trim() === '') {
-          error = 'Phone number is required';
+          error = 'This field is required.';
         } else if (!/^[0-9]{10}$/.test(value)) {
           error = 'Phone number must be 10 digits';
         }
-
-        break;
-
-      case 'parent_phone':
-
-        if (value && !/^[0-9]{10}$/.test(value)) {
-          error = 'Phone number must be 10 digits';
-        }
-
         break;
 
       case 'gender':
         if (!value || value.trim() === '') {
-          error = 'Gender is required';
+          error = 'This field is required.';
         }
         break;
 
       case 'blood_group':
         if (!value || value.trim() === '') {
-          error = 'Blood group is required';
+          error = 'This field is required.';
         }
         break;
 
       case 'parent_name':
         if (!value || value.trim() === '') {
-          error = 'Parent name is required';
+          error = 'This field is required.';
         }
         break;
 
       case 'parent_phone':
         if (!value || value.trim() === '') {
-          error = 'Parent phone number is required';
+          error = 'This field is required.';
         } else if (!/^[0-9]{10}$/.test(value)) {
           error = 'Phone number must be 10 digits';
         }
         break;
 
-      case 'dob':
-
-        if (!value) {
-
-          error = 'Date of birth is required';
-
-        } else {
-
-          const birthDate = new Date(value);
-
-          const today = new Date();
-
-          if (birthDate > today) {
-
-            error = 'Date of birth cannot be in the future';
-
-          } else {
-
-            const age = calculateAgeFromDOB(value);
-
-            if (age < 1 || age > 100) {
-
-              error = 'Age must be between 1 and 100';
-
-            }
-
-          }
-
+      case 'duration_plan_id':
+        if (!value || String(value).trim() === '') {
+          error = 'This field is required.';
         }
+        break;
 
+      case 'batch_ids':
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          error = 'This field is required.';
+        }
+        break;
+
+      case 'dob':
+        if (!value) {
+          error = 'This field is required.';
+        } else {
+          const birthDate = new Date(value);
+          const today = new Date();
+          if (birthDate > today) {
+            error = 'Date of birth cannot be in the future';
+          } else {
+            const age = calculateAgeFromDOB(value);
+            if (age < 1 || age > 100) {
+              error = 'Age must be between 1 and 100';
+            }
+          }
+        }
         break;
 
       default:
-
         break;
-
     }
 
 
@@ -1058,7 +1031,17 @@ export default function StudentsPanel() {
 
 
 
-      setDurationPlans(plansRes.data || []);
+      const rawPlans = plansRes.data || [];
+      const sortedPlans = [...rawPlans].sort((a, b) => {
+        const typePriority = { 'DAYS': 1, 'MONTHS': 2 };
+        const priorityA = typePriority[(a.duration_type || '').toUpperCase()] || 99;
+        const priorityB = typePriority[(b.duration_type || '').toUpperCase()] || 99;
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+        return Number(a.duration || 0) - Number(b.duration || 0);
+      });
+      setDurationPlans(sortedPlans);
 
     } catch (error) {
 
@@ -1489,37 +1472,22 @@ export default function StudentsPanel() {
     const sportsFeeWithMultiplier = totalSportsFee * (isNaN(multiplier) ? 1 : multiplier);
 
     const registrationFee = parseFloat(form?.registration_fee || form?.registrationFee || 0) || 0;
-
-    const manualCharges = parseFloat(form?.additional_charges || form?.additionalCharges || 0) || 0;
-
-    const additionalCharges = manualCharges + kitTotal;
-
+    const additionalCharges = parseFloat(form?.additional_charges || form?.additionalCharges || 0) || 0;
+    const sportsKitFee = kitTotal || 0;
     const discount = parseFloat(form?.discount || 0) || 0;
 
-
-
-    const finalFee = sportsFeeWithMultiplier + registrationFee + additionalCharges - discount;
-
-
+    const finalFee = sportsFeeWithMultiplier + registrationFee + additionalCharges + sportsKitFee - discount;
 
     return {
-
       totalSportsFee,
-
       multiplier,
-
       sportsFeeWithMultiplier,
-
       registrationFee,
-
       additionalCharges,
-
+      sportsKitFee,
       discount,
-
       finalFee,
-
     };
-
   };
 
 
@@ -1547,44 +1515,26 @@ export default function StudentsPanel() {
 
 
     if (!selectedSports || selectedSports.length === 0) {
-
-      setFieldError('sport_ids', 'Please select at least one sport');
-
+      setFieldError('sport_ids', 'This field is required.');
       isValid = false;
-
     }
-
-
 
     // Validate required fields (use | to avoid short-circuiting so all errors are shown)
-
     const isFirstNameValid = validateField('firstName', form.firstName);
-
     const isLastNameValid = validateField('lastName', form.lastName);
-
     const isParentEmailValid = validateField('parent_email', form.parent_email);
-
     const isDobValid = validateField('dob', form.dob);
-
     const isGenderValid = validateField('gender', form.gender);
-
     const isPhoneValid = validateField('phone', form.phone);
-
     const isBloodGroupValid = validateField('blood_group', form.blood_group);
-
     const isParentNameValid = validateField('parent_name', form.parent_name);
-
     const isParentPhoneValid = validateField('parent_phone', form.parent_phone);
+    const isDurationPlanValid = validateField('duration_plan_id', form.duration_plan_id);
+    const isBatchValid = validateField('batch_ids', form.batch_ids);
 
-
-
-    if (!isFirstNameValid || !isLastNameValid || !isParentEmailValid || !isDobValid || !isGenderValid || !isPhoneValid || !isBloodGroupValid || !isParentNameValid || !isParentPhoneValid) {
-
+    if (!isFirstNameValid || !isLastNameValid || !isParentEmailValid || !isDobValid || !isGenderValid || !isPhoneValid || !isBloodGroupValid || !isParentNameValid || !isParentPhoneValid || !isDurationPlanValid || !isBatchValid) {
       isValid = false;
-
     }
-
-
 
     if (!isValid) {
       setIsSubmitting(false);
@@ -1623,7 +1573,7 @@ export default function StudentsPanel() {
 
     try {
       const feeBreakdown = calculateLiveFee();
-      const fullName = `${form.firstName} ${form.middleName} ${form.lastName}`.trim();
+      const fullName = `${form.firstName || ''} ${form.middleName || ''} ${form.lastName || ''}`.trim();
 
       // Handle profile photo - convert to base64 if file is selected
       let profilePhotoData = null;
@@ -1647,19 +1597,19 @@ export default function StudentsPanel() {
 
       const payload = {
         name: fullName,
-        first_name: form.firstName.trim() || undefined,
-        middle_name: form.middleName.trim() || undefined,
-        last_name: form.lastName.trim() || undefined,
-        phone: form.phone.trim() || undefined,
+        first_name: (form.firstName || '').trim() || undefined,
+        middle_name: (form.middleName || '').trim() || undefined,
+        last_name: (form.lastName || '').trim() || undefined,
+        phone: (form.phone || '').trim() || undefined,
         dob: form.dob,
         age: calculateAgeFromDOB(form.dob),
         gender: form.gender,
         blood_group: form.bloodGroup || form.blood_group || undefined,
         height: form.height ? parseFloat(form.height) : undefined,
         weight: form.weight ? parseFloat(form.weight) : undefined,
-        parent_name: form.parent_name.trim() || undefined,
-        parent_email: form.parent_email.trim(),
-        parent_phone: form.parent_phone.trim() || undefined,
+        parent_name: (form.parent_name || '').trim() || undefined,
+        parent_email: (form.parent_email || '').trim(),
+        parent_phone: (form.parent_phone || '').trim() || undefined,
         profile_photo: profilePhotoData,
         sport_ids: selectedSports.map((id) => parseInt(id, 10)),
         batch_ids: batchIdsValue,
@@ -4995,6 +4945,7 @@ export default function StudentsPanel() {
       </button>
       <button
         type="submit"
+        form="add-student-form"
         disabled={isSubmitting}
         className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-bold transition flex items-center justify-center gap-2"
       >
@@ -5013,7 +4964,7 @@ export default function StudentsPanel() {
     </div>
   }
 >
-  <form onSubmit={handleSubmit}>
+  <form id="add-student-form" onSubmit={handleSubmit}>
         {convertEnquiry && (
           <div className="mb-6 rounded-xl border border-purple-100 bg-purple-50/40 p-4 dark:border-purple-900/40 dark:bg-purple-950/10">
             <div className="flex items-center justify-between pb-3 border-b border-purple-100 dark:border-purple-900/30">
@@ -5122,7 +5073,7 @@ export default function StudentsPanel() {
 
           <div>
             <label className="label" htmlFor="middleName">
-              Middle Name (Optional)
+              Middle Name
             </label>
             <input
               id="middleName"
@@ -5178,90 +5129,86 @@ export default function StudentsPanel() {
         </div>
 
         {/* Profile Photo */}
-
         <div className="mb-4 mt-4">
-
           <label className="label" htmlFor="profilePhoto">
-
             Profile Photo (Optional)
-
           </label>
-
-          <input
-
-            id="profilePhoto"
-
-            name="profile_photo"
-
-            type="file"
-
-            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-
-            className="input-field"
-
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                const allowedTypes = [
-                  'image/jpeg',
-                  'image/jpg',
-                  'image/png',
-                  'image/gif',
-                  'image/webp',
-                ];
-                if (!allowedTypes.includes(file.type)) {
-                  setFieldError(
-                    'profile_photo',
-                    'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-                  );
-                  setPhotoPreview(null);
-                  e.target.value = '';
-                  return;
-                }
-                if (file.size > 5 * 1024 * 1024) {
-                  alert('File size exceeds the 5MB limit. Please choose a smaller file.');
-                  setPhotoPreview(null);
-                  e.target.value = '';
-                  return;
-                }
-                clearFieldError('profile_photo');
-                setForm({ ...form, profile_photo: file });
-
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                  setPhotoPreview(ev.target.result);
-                };
-                reader.readAsDataURL(file);
-              }
-            }}
-          />
-
-          <p className="text-muted mt-1 text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
-
-          {photoPreview && (
-            <div className="mt-2.5 flex items-center gap-3">
-              <div className="relative w-16 h-16 rounded-full border-2 border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-sm">
+          <div className="flex items-center gap-4 mt-2">
+            <div className="w-16 h-16 rounded-full border-2 border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-sm shrink-0">
+              {photoPreview ? (
                 <img
                   src={photoPreview}
                   alt="Profile Preview"
                   className="w-full h-full object-cover"
                 />
-              </div>
-              <button
-                type="button"
-                className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-955/20 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                onClick={() => {
-                  setPhotoPreview(null);
-                  setForm({ ...form, profile_photo: null });
-                  const fileInput = document.getElementById('profilePhoto');
-                  if (fileInput) fileInput.value = '';
-                }}
-              >
-                Remove Photo
-              </button>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                  <Camera size={24} />
+                </div>
+              )}
             </div>
-          )}
+            <div className="flex-1 space-y-2">
+              <input
+                id="profilePhoto"
+                name="profile_photo"
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                className="input-field py-1"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const allowedTypes = [
+                      'image/jpeg',
+                      'image/jpg',
+                      'image/png',
+                      'image/gif',
+                      'image/webp',
+                    ];
+                    if (!allowedTypes.includes(file.type)) {
+                      setFieldError(
+                        'profile_photo',
+                        'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                      );
+                      setPhotoPreview(null);
+                      e.target.value = '';
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert('File size exceeds the 5MB limit. Please choose a smaller file.');
+                      setPhotoPreview(null);
+                      e.target.value = '';
+                      return;
+                    }
+                    clearFieldError('profile_photo');
+                    setForm({ ...form, profile_photo: file });
 
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      setPhotoPreview(ev.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-muted text-xs">Accepts JPEG, PNG, GIF, WebP (max 5MB)</p>
+                {photoPreview && (
+                  <button
+                    type="button"
+                    className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-955/20 px-2 py-1 rounded border border-red-200 dark:border-red-900/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setPhotoPreview(null);
+                      setForm({ ...form, profile_photo: null });
+                      const fileInput = document.getElementById('profilePhoto');
+                      if (fileInput) fileInput.value = '';
+                    }}
+                  >
+                    Remove Photo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
           {fieldErrors.profile_photo && (
             <p className="mt-1 text-xs text-red-500">{fieldErrors.profile_photo}</p>
           )}
@@ -5403,53 +5350,29 @@ export default function StudentsPanel() {
           </div>
 
           <div>
-
             <label className="label" htmlFor="studentHeight">
-
-              HEIGHT (cm)
-
+              Height (cm)
             </label>
-
             <input
-
               id="studentHeight"
-
               name="height"
-
               type="number"
-
               step="0.1"
-
               min="0"
-
               className="input-field"
-
               value={form.height}
-
               onChange={updateField}
-
               placeholder="Optional"
-
             />
-
           </div>
 
           <div>
-
             <label className="label" htmlFor="studentWeight">
-
-              WEIGHT (kg)
-
+              Weight (kg)
             </label>
-
             <input
-
               id="studentWeight"
-
               name="weight"
-
-              type="number"
-
               step="0.1"
 
               min="0"
@@ -5922,92 +5845,63 @@ export default function StudentsPanel() {
         <div className="grid gap-4 sm:grid-cols-2">
 
           <div>
-
             <label className="label" htmlFor="durationPlan">
-
-              Duration Plan
-
+              Duration Plan <span className="text-red-500">*</span>
             </label>
-
             <select
-
               id="durationPlan"
-
               name="duration_plan_id"
-
-              className="input-field"
-
+              className={`input-field ${fieldErrors.duration_plan_id ? 'border-red-500' : ''}`}
               value={form.duration_plan_id}
-
-              onChange={updateField}
-
+              onChange={(e) => {
+                updateField(e);
+                clearFieldError('duration_plan_id');
+              }}
             >
-
               <option value="">Select plan…</option>
-
               {(durationPlans || []).map((p) => (
-
                 <option key={p.plan_id || p.id} value={p.plan_id || p.id}>
-
                   {p.name || p.plan_name} ({p.duration_type === 'DAYS' ? `${p.duration} Days` : `${p.duration} Month${p.duration > 1 ? 's' : ''}`})
-
                 </option>
-
               ))}
-
             </select>
-
+            {fieldErrors.duration_plan_id && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.duration_plan_id}</p>
+            )}
           </div>
 
-
-
           <div>
-
             <label className="label" htmlFor="studentBatch">
-
-              Batch Assignment
-
+              Batch Assignment <span className="text-red-500">*</span>
             </label>
-
             <select
-
               id="studentBatch"
-
-              className="input-field"
-
+              className={`input-field ${fieldErrors.batch_ids ? 'border-red-500' : ''}`}
               value=""
-
-              onChange={(e) => e.target.value && handleBatchSelect(e.target.value)}
-
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBatchSelect(e.target.value);
+                  clearFieldError('batch_ids');
+                }
+              }}
               disabled={selectedSports.length === 0}
-
             >
-
               <option value="">
-
                 {selectedSports.length === 0
-
                   ? 'Select sport first…'
-
                   : 'Select batch…'}
-
               </option>
-
               {(availableBatches || [])
-
                 .filter(b => selectedSports.includes(b.sport_id))
-
                 .map((b) => (
-
                   <option key={b.batch_id} value={b.batch_id}>
-
                     {b.name || b.batch_name}
-
                   </option>
-
                 ))}
-
             </select>
+            {fieldErrors.batch_ids && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.batch_ids}</p>
+            )}
 
             
 
@@ -6351,21 +6245,17 @@ export default function StudentsPanel() {
 
               className="input-field"
 
-              value={(parseFloat(form.additional_charges || 0) + kitTotal) || ''}
+              value={form.additional_charges || ''}
 
               onChange={(e) => {
 
                 const val = e.target.value;
 
-                const parsedVal = parseFloat(val) || 0;
-
-                const manual = Math.max(0, parsedVal - kitTotal);
-
                 setForm(prev => ({
 
                   ...prev,
 
-                  additional_charges: val === '' ? '' : manual
+                  additional_charges: val === '' ? '' : parseFloat(val) || 0
 
                 }));
 
@@ -6428,16 +6318,18 @@ export default function StudentsPanel() {
             const trainingFee = feeBreakdown.sportsFeeWithMultiplier;
             const regFee = feeBreakdown.registrationFee;
             const addFee = feeBreakdown.additionalCharges;
+            const kitFee = feeBreakdown.sportsKitFee;
             const discount = feeBreakdown.discount;
             const firstMonthTotal = feeBreakdown.finalFee;
             const advPay = payAdvance ? (parseFloat(advanceAmount) || 0) : 0;
-            const accountCredit = advPay;
+            const appliedToFee = Math.min(advPay, firstMonthTotal);
+            const accountCredit = Math.max(0, advPay - firstMonthTotal);
             const remainingDue = Math.max(0, firstMonthTotal - advPay);
 
             return (
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                  <span>Training Fee (1× Plan):</span>
+                  <span>Training Fee:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     ₹{formatCurrency(trainingFee)}
                   </span>
@@ -6445,7 +6337,7 @@ export default function StudentsPanel() {
 
                 {regFee > 0 && (
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                    <span>Registration Fee (one-time):</span>
+                    <span>Registration Fee:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
                       ₹{formatCurrency(regFee)}
                     </span>
@@ -6460,6 +6352,13 @@ export default function StudentsPanel() {
                     </span>
                   </div>
                 )}
+
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Sports Kit Fee:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    ₹{formatCurrency(kitFee)}
+                  </span>
+                </div>
 
                 {discount > 0 && (
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
@@ -6483,12 +6382,20 @@ export default function StudentsPanel() {
                         ₹{formatCurrency(advPay)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-indigo-600 dark:text-indigo-400">
-                      <span>Account Credit Added:</span>
-                      <span className="font-semibold">
-                        ₹{formatCurrency(accountCredit)}
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>Applied to Current Fee:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        ₹{formatCurrency(appliedToFee)}
                       </span>
                     </div>
+                    {accountCredit > 0 && (
+                      <div className="flex justify-between text-indigo-600 dark:text-indigo-400">
+                        <span>Advance Credit Created:</span>
+                        <span className="font-semibold">
+                          ₹{formatCurrency(accountCredit)}
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -6507,7 +6414,7 @@ export default function StudentsPanel() {
             const feeBreakdown = calculateLiveFee();
             const trainingFee = feeBreakdown.sportsFeeWithMultiplier;
             
-            if (feeBreakdown.multiplier <= 1) return null;
+            if (trainingFee <= 0) return null;
             
             return (
               <div className="border-t border-slate-200 dark:border-slate-800 pt-3">
@@ -6522,7 +6429,7 @@ export default function StudentsPanel() {
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 italic mt-1">
-                    Registration Fee and Additional Charges are one-time charges only for the first month.
+                    Registration Fee, Additional Charges, and Sports Kit Fee are one-time charges and are excluded from renewal.
                   </p>
                 </div>
               </div>
