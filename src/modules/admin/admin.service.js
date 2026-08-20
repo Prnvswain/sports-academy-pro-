@@ -827,6 +827,9 @@ export const getStudentDetails = async (academy_id, student_id) => {
 
       },
 
+      // Newest enrollment_id first so deduplication on the frontend keeps the most-recent record
+      orderBy: { enrollment_id: 'desc' },
+
     }),
 
     prisma.dailyStudentNote
@@ -3976,45 +3979,78 @@ export const updateStudent = async (academy_id, student_id, data) => {
         const planStartDate = new Date();
         const planEndDate = new Date(planStartDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-        await prisma.studentEnrollment.create({
-
-          data: {
-
+        // Guard: skip creating a new enrollment if an equivalent inactive one already exists
+        // for the same student + sport + plan. This prevents accumulating functionally-duplicate
+        // DB rows every time the Edit Student form is saved without genuinely changing the plan.
+        const existingIdenticalInactive = await prisma.studentEnrollment.findFirst({
+          where: {
             academy_id: parsedAcademyId,
-
             student_id: parsedStudentId,
-
             sport_id: sportId,
-
             duration_plan_id: durationPlanId,
-
-            registration_fee: 0,
-
-            sports_fee: 0,
-
-            additional_charges: 0,
-
-            discount: 0,
-
-            final_fee: finalFee,
-
-            paid_amount: 0,
-
-            plan_start_date: planStartDate,
-
-            plan_end_date: planEndDate,
-
-            next_due_date: planEndDate,
-
-            is_active: true,
-
-            coach_id: null,
-
-            batch_id: nextBatchId,
-
+            is_active: false,
+            // Only skip when both dates are within a 2-minute window of the new values,
+            // i.e. the record was created moments ago (same edit-save cycle duplicates).
+            plan_start_date: {
+              gte: new Date(planStartDate.getTime() - 2 * 60 * 1000),
+              lte: new Date(planStartDate.getTime() + 2 * 60 * 1000),
+            },
           },
-
+          orderBy: { enrollment_id: 'desc' },
         });
+
+        if (existingIdenticalInactive) {
+          // Re-activate the most-recent matching inactive record instead of creating a new one
+          await prisma.studentEnrollment.update({
+            where: { enrollment_id: existingIdenticalInactive.enrollment_id },
+            data: {
+              is_active: true,
+              batch_id: nextBatchId,
+              plan_end_date: planEndDate,
+              next_due_date: planEndDate,
+            },
+          });
+        } else {
+          await prisma.studentEnrollment.create({
+
+            data: {
+
+              academy_id: parsedAcademyId,
+
+              student_id: parsedStudentId,
+
+              sport_id: sportId,
+
+              duration_plan_id: durationPlanId,
+
+              registration_fee: 0,
+
+              sports_fee: 0,
+
+              additional_charges: 0,
+
+              discount: 0,
+
+              final_fee: finalFee,
+
+              paid_amount: 0,
+
+              plan_start_date: planStartDate,
+
+              plan_end_date: planEndDate,
+
+              next_due_date: planEndDate,
+
+              is_active: true,
+
+              coach_id: null,
+
+              batch_id: nextBatchId,
+
+            },
+
+          });
+        }
 
       }
 

@@ -292,9 +292,16 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
     currentCyclePaid = cycleReceipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
   }
 
+  const kitPending = (studentData?.kitAssignments || []).reduce(
+    (sum, a) => sum + parseFloat(a.due_amount || 0),
+    0
+  );
+
   const balanceInfo = {
     amountPaid: currentCyclePaid,
-    balanceDue: Math.max(0, totalComputedFee - currentCyclePaid)
+    balanceDue: Math.max(0, totalComputedFee - currentCyclePaid) + kitPending,
+    trainingBalanceDue: Math.max(0, totalComputedFee - currentCyclePaid),
+    kitBalanceDue: kitPending
   };
 
   const durationPlanName = getPlanName(latestEnrollment);
@@ -527,7 +534,153 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
 
       </div>
 
+      {/* ── Sports Kit Account ────────────────────────────────────── */}
+      {(() => {
+        const kitAssignments = studentData?.kitAssignments || [];
+        if (kitAssignments.length === 0) return null;
 
+        const totalKitAssigned = kitAssignments.length;
+        const totalItems = kitAssignments.reduce((sum, a) => sum + (a.quantity || 1), 0);
+        const totalKitFee = kitAssignments.reduce((sum, a) => sum + parseFloat(a.total_amount || 0), 0);
+        const kitAmountPaid = kitAssignments.reduce((sum, a) => sum + parseFloat(a.paid_amount || 0), 0);
+        const kitAmountPending = kitAssignments.reduce((sum, a) => sum + parseFloat(a.due_amount || 0), 0);
+        const advanceBalance = parseFloat(studentRecord.advance_balance || studentData?.student?.advance_balance || 0);
+
+        return (
+          <div className="mt-4 rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/40 via-white to-slate-50 p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-5 h-5 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600">
+                <Package className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Sports Kit Account</span>
+            </div>
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 text-xs">
+              <div className="rounded-lg border border-slate-200 bg-white/70 p-2.5">
+                <span className="block font-semibold mb-0.5 text-[10px] text-slate-400">Total Kits Assigned</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  {totalKitAssigned} type{totalKitAssigned > 1 ? 's' : ''} ({totalItems} item{totalItems > 1 ? 's' : ''})
+                </span>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white/70 p-2.5">
+                <span className="block font-semibold mb-0.5 text-[10px] text-slate-400">Total Kit Fee</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">₹{formatCurrency(totalKitFee)}</span>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white/70 p-2.5">
+                <span className="block font-semibold mb-0.5 text-[10px] text-slate-400">Kit Amount Paid</span>
+                <span className="font-bold text-emerald-600">₹{formatCurrency(kitAmountPaid)}</span>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white/70 p-2.5">
+                <span className="block font-semibold mb-0.5 text-[10px] text-slate-400">Kit Amount Pending</span>
+                <span className={`font-bold ${kitAmountPending > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  ₹{formatCurrency(kitAmountPending)}
+                </span>
+              </div>
+            </div>
+            {advanceBalance > 0 && (
+              <div className="mt-2.5 flex items-center justify-between text-[11px] font-semibold text-indigo-650 bg-indigo-50/30 border border-indigo-100 rounded-lg px-2.5 py-1.5">
+                <span>Kit Credit / Advance Available:</span>
+                <span className="font-bold">₹{formatCurrency(advanceBalance)}</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+
+      {/* ── Plan Status ──────────────────────────────────────────── */}
+      {(() => {
+        // Pick the single ACTIVE enrollment; fall back to first enrollment if none active
+        const activePlan = (studentData?.enrollments || []).find(e => e.is_active) || null;
+
+        if (!activePlan) {
+          return (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <span className="text-xs text-slate-400 italic">No Active Plan</span>
+            </div>
+          );
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const startDate = activePlan.plan_start_date ? new Date(activePlan.plan_start_date) : null;
+        const endDate   = activePlan.plan_end_date   ? new Date(activePlan.plan_end_date)   : null;
+
+        // Calculate total plan days and days elapsed
+        const totalDays = (startDate && endDate)
+          ? Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)))
+          : (activePlan.duration_plan?.duration
+              ? (activePlan.duration_plan.duration_type === 'DAYS'
+                  ? activePlan.duration_plan.duration
+                  : activePlan.duration_plan.duration * 30)
+              : 0);
+
+        const daysUsed = startDate
+          ? Math.min(totalDays, Math.max(0, Math.round((today - startDate) / (1000 * 60 * 60 * 24))))
+          : 0;
+
+        const daysRemaining = Math.max(0, totalDays - daysUsed);
+        const isExpired     = endDate ? today > endDate : false;
+        const progressPct   = totalDays > 0 ? Math.min(100, Math.round((daysUsed / totalDays) * 100)) : 0;
+
+        const planName = activePlan.duration_plan?.name || 'Custom Plan';
+        const sportName = activePlan.sport?.name || '';
+
+        const fmtDate = (d) => {
+          if (!d) return '—';
+          return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+
+        return (
+          <div className="mt-4 rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 via-white to-slate-50 p-3 shadow-sm">
+
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">Plan Status</span>
+                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                  {planName}{sportName ? ` · ${sportName}` : ''}
+                </span>
+              </div>
+              {isExpired ? (
+                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase text-rose-600">
+                  Expired
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">
+                  Active
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div className="mb-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {daysUsed} / {totalDays} days used
+                </span>
+                <span className={`text-[11px] font-bold ${isExpired ? 'text-rose-600' : 'text-indigo-700'}`}>
+                  {isExpired ? '0 Days Remaining' : `${daysRemaining} Day${daysRemaining !== 1 ? 's' : ''} Remaining`}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={`h-full rounded-full transition-all ${isExpired ? 'bg-rose-400' : progressPct >= 75 ? 'bg-amber-400' : 'bg-indigo-500'}`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Date row */}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+              <span>{fmtDate(startDate)}</span>
+              <span className="text-slate-300">—</span>
+              <span className={isExpired ? 'text-rose-500 font-semibold' : 'text-slate-600 font-semibold'}>{fmtDate(endDate)}</span>
+            </div>
+
+          </div>
+        );
+      })()}
 
       <div className={`mt-4 rounded-xl border p-4 ${balanceInfo.balanceDue > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-600 text-white'}`}>
 
@@ -546,6 +699,14 @@ const renderFinancialLedgerSummary = (studentData, durationPlans = []) => {
           </span>
 
         </div>
+        {balanceInfo.kitBalanceDue > 0 && (
+          <div className={`mt-2.5 flex items-center justify-between text-[11px] font-semibold border-t pt-2.5 ${balanceInfo.balanceDue > 0 ? 'border-rose-200/60 text-rose-600' : 'border-emerald-500 text-white/90'}`}>
+            <span>Breakdown:</span>
+            <span>
+              ₹{formatCurrency(balanceInfo.trainingBalanceDue)} Training + ₹{formatCurrency(balanceInfo.kitBalanceDue)} Kit Fee
+            </span>
+          </div>
+        )}
 
       </div>
 
@@ -1575,7 +1736,11 @@ export default function StudentsPanel() {
       const feeBreakdown = calculateLiveFee();
       const fullName = `${form.firstName || ''} ${form.middleName || ''} ${form.lastName || ''}`.trim();
 
-      // Handle profile photo - convert to base64 if file is selected
+      // Handle profile photo:
+      // - Only convert File objects to base64 (uploaded by user in this session)
+      // - Plain string values (pre-filled URLs from enquiry) are intentionally excluded:
+      //   the backend copies enquiry.profile_photo into the new student record itself.
+      // - Sending a raw base64 data-URI that is >65KB crashes prisma.student.create().
       let profilePhotoData = null;
       if (form.profile_photo instanceof File) {
         profilePhotoData = await new Promise((resolve, reject) => {
@@ -1584,9 +1749,8 @@ export default function StudentsPanel() {
           reader.onerror = reject;
           reader.readAsDataURL(form.profile_photo);
         });
-      } else if (typeof form.profile_photo === 'string') {
-        profilePhotoData = form.profile_photo;
       }
+      // Note: typeof string case deliberately removed — do NOT pass through base64 strings
 
       let batchIdsValue = form.batch_ids ? form.batch_ids.map(id => parseInt(id, 10)) : [];
 
@@ -1970,6 +2134,9 @@ export default function StudentsPanel() {
 
 
 
+      // Sport and Duration Plan are intentionally excluded from this payload.
+      // These fields are managed via dedicated Renew / Change-Plan / Reactivate flows.
+      // Batch is editable here — it only moves the student between batches within their current sport.
       const payload = {
 
         name: editStudentForm.name,
@@ -1983,16 +2150,6 @@ export default function StudentsPanel() {
         phone: editStudentForm.phone,
 
         batch_id: editStudentForm.batch_id ? parseInt(editStudentForm.batch_id) : null,
-
-        sport_ids: editSelectedSports.length > 0 ? editSelectedSports : (editStudentForm.sport_id ? [parseInt(editStudentForm.sport_id)] : []),
-
-        sport_id: editStudentForm.sport_id ? parseInt(editStudentForm.sport_id) : null,
-
-        duration_plan_id: editStudentForm.duration_plan_id
-
-          ? parseInt(editStudentForm.duration_plan_id)
-
-          : null,
 
         age: editStudentForm.age ? parseInt(editStudentForm.age) : null,
 
@@ -2021,21 +2178,8 @@ export default function StudentsPanel() {
       
 
       // Update student details if modal is open
-
-      if (selectedStudent && selectedStudent.student_id === editStudentForm.student_id) {
-
-        try {
-
-          const detailsRes = await adminGet(`/admin/students/${editStudentForm.student_id}/details`);
-
-          setStudentDetails(detailsRes.data);
-
-        } catch (error) {
-
-          console.error('Failed to reload student details:', error);
-
-        }
-
+      if (selectedStudent && (selectedStudent.student_id === editStudentForm.student_id || selectedStudent.id === editStudentForm.student_id)) {
+        await refreshStudentDetails(editStudentForm.student_id);
       }
 
       
@@ -2050,22 +2194,12 @@ export default function StudentsPanel() {
 
             const updatedStudent = { ...student };
 
-            // Update batch from the new enrollment data
-
+            // Optimistically update the batch displayed in the student list
             if (editStudentForm.batch_id) {
-
               const batch = editAvailableBatches.find(b => b.batch_id === parseInt(editStudentForm.batch_id));
-
-              if (batch) {
-
-                updatedStudent.batch = batch;
-
-              }
-
+              if (batch) updatedStudent.batch = batch;
             } else {
-
               updatedStudent.batch = null;
-
             }
 
             return updatedStudent;
@@ -2310,8 +2444,7 @@ export default function StudentsPanel() {
       await adminPost(`/admin/students/${selectedStudent.student_id}/reactivate`, reactivateForm);
       setMessage({ text: 'Student reactivated successfully.', type: 'success' });
       setShowReactivateModal(false);
-      const details = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
-      setStudentDetails(details.data || details);
+      await refreshStudentDetails(selectedStudent.student_id);
       loadData();
       
       // Switch to Active Students tab to show the reactivated student
@@ -2329,8 +2462,7 @@ export default function StudentsPanel() {
       await adminPost(`/admin/students/${selectedStudent.student_id}/renew`, renewForm);
       setMessage({ text: 'Student plan renewed successfully.', type: 'success' });
       setShowRenewModal(false);
-      const details = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
-      setStudentDetails(details.data || details);
+      await refreshStudentDetails(selectedStudent.student_id);
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -2344,8 +2476,7 @@ export default function StudentsPanel() {
       await adminPost(`/admin/students/${selectedStudent.student_id}/change-plan`, changePlanForm);
       setMessage({ text: 'Student plan changed successfully.', type: 'success' });
       setShowChangePlanModal(false);
-      const details = await adminGet(`/admin/students/${selectedStudent.student_id}/details`);
-      setStudentDetails(details.data || details);
+      await refreshStudentDetails(selectedStudent.student_id);
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
@@ -2436,6 +2567,20 @@ export default function StudentsPanel() {
       loadData();
     } catch (error) {
       setMessage({ text: error.message, type: 'error' });
+    }
+  };
+
+
+
+  const refreshStudentDetails = async (studentId) => {
+    try {
+      const [detailsRes, kitsRes] = await Promise.all([
+        adminGet(`/admin/students/${studentId}/details`),
+        adminGet(`/admin/inventory/kits/assignments?student_id=${studentId}`)
+      ]);
+      setStudentDetails({ ...detailsRes.data, kitAssignments: kitsRes.data || [] });
+    } catch (error) {
+      console.error('Failed to refresh student details:', error);
     }
   };
 
@@ -4965,7 +5110,9 @@ export default function StudentsPanel() {
   }
 >
   <form id="add-student-form" onSubmit={handleSubmit}>
-        {convertEnquiry && (
+        {/* Disable the entire form while submission is in flight */}
+        <fieldset disabled={isSubmitting} style={{ border: 'none', padding: 0, margin: 0 }}>
+          {convertEnquiry && (
           <div className="mb-6 rounded-xl border border-purple-100 bg-purple-50/40 p-4 dark:border-purple-900/40 dark:bg-purple-950/10">
             <div className="flex items-center justify-between pb-3 border-b border-purple-100 dark:border-purple-900/30">
               <div className="flex items-center gap-2">
@@ -6560,6 +6707,8 @@ export default function StudentsPanel() {
 
         </div>
 
+        </fieldset>
+
       </form>
   </StandardModal>
 
@@ -6802,7 +6951,7 @@ export default function StudentsPanel() {
       >
             {/* Tab Navigation */}
             <div className="mb-4 flex gap-2 border-b">
-              {['profile', 'accounts', 'attendance', 'performance', 'notes', 'sports kits'].map((tab) => (
+              {['profile', 'accounts', 'attendance', 'performance', 'notes'].map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -8122,58 +8271,86 @@ export default function StudentsPanel() {
 
 
                     {/* Plan History Section */}
-                    {studentDetails.enrollments && studentDetails.enrollments.length > 0 && (
-                      <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-6">
-                        <h4 className="mb-4 font-extrabold text-foreground text-sm uppercase tracking-wider flex items-center gap-1.5">
-                          <History className="w-4 h-4 text-primary" />
-                          Plan History & Lifecycle
-                        </h4>
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                          {studentDetails.enrollments.map((enrollment) => {
-                            const isEnrollmentActive = enrollment.is_active;
-                            return (
-                              <div
-                                key={enrollment.enrollment_id}
-                                className={`rounded-xl border p-4 transition-all ${
-                                  isEnrollmentActive
-                                    ? 'bg-green-50/50 border-green-200 dark:bg-green-950/10 dark:border-green-800'
-                                    : 'bg-slate-50/50 border-slate-200 dark:bg-slate-900/10 dark:border-slate-800'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                                    {enrollment.duration_plan?.name || 'Custom Plan'}
-                                  </span>
-                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                    {studentDetails.enrollments && studentDetails.enrollments.length > 0 && (() => {
+                      // Deduplicate enrollment rows before rendering.
+                      // The DB may contain multiple inactive rows with identical business data
+                      // (same sport, plan, start/end dates) caused by repeated edit-saves.
+                      // We collapse them by a stable composite key, keeping the highest
+                      // enrollment_id (most recent record) for each unique key.
+                      // Rules preserved:
+                      //   - Different renewals (different period dates) → kept separate
+                      //   - Different sports → kept separate
+                      //   - Active vs Inactive same-key rows → kept separate
+                      const toDateKey = (d) => (d ? new Date(d).toISOString().split('T')[0] : 'null');
+                      const seen = new Map();
+                      for (const enrollment of studentDetails.enrollments) {
+                        const key = [
+                          enrollment.sport_id ?? 'ns',
+                          enrollment.duration_plan_id ?? 'np',
+                          toDateKey(enrollment.plan_start_date),
+                          toDateKey(enrollment.plan_end_date),
+                          enrollment.is_active ? '1' : '0',
+                        ].join('|');
+                        // API returns newest (highest enrollment_id) first; first-seen wins
+                        if (!seen.has(key)) {
+                          seen.set(key, enrollment);
+                        }
+                      }
+                      const dedupedEnrollments = Array.from(seen.values());
+
+                      return (
+                        <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-6">
+                          <h4 className="mb-4 font-extrabold text-foreground text-sm uppercase tracking-wider flex items-center gap-1.5">
+                            <History className="w-4 h-4 text-primary" />
+                            Plan History & Lifecycle
+                          </h4>
+                          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                            {dedupedEnrollments.map((enrollment) => {
+                              const isEnrollmentActive = enrollment.is_active;
+                              return (
+                                <div
+                                  key={enrollment.enrollment_id}
+                                  className={`rounded-xl border p-4 transition-all ${
                                     isEnrollmentActive
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                                  }`}>
-                                    {isEnrollmentActive ? 'Active' : 'Expired/Inactive'}
-                                  </span>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 text-xs text-slate-600 dark:text-slate-400">
-                                  <div>
-                                    <span className="text-slate-400 block font-semibold mb-0.5">Sport</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-300">{enrollment.sport?.name || '—'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-400 block font-semibold mb-0.5">Period</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-300">
-                                      {enrollment.plan_start_date ? new Date(enrollment.plan_start_date).toLocaleDateString() : '—'} - {enrollment.plan_end_date ? new Date(enrollment.plan_end_date).toLocaleDateString() : '—'}
+                                      ? 'bg-green-50/50 border-green-200 dark:bg-green-950/10 dark:border-green-800'
+                                      : 'bg-slate-50/50 border-slate-200 dark:bg-slate-900/10 dark:border-slate-800'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                      {enrollment.duration_plan?.name || 'Custom Plan'}
+                                    </span>
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                                      isEnrollmentActive
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                    }`}>
+                                      {isEnrollmentActive ? 'Active' : 'Expired/Inactive'}
                                     </span>
                                   </div>
-                                  <div>
-                                    <span className="text-slate-400 block font-semibold mb-0.5">Amount</span>
-                                    <span className="font-bold text-slate-700 dark:text-slate-300">₹{enrollment.final_fee}</span>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 text-xs text-slate-600 dark:text-slate-400">
+                                    <div>
+                                      <span className="text-slate-400 block font-semibold mb-0.5">Sport</span>
+                                      <span className="font-bold text-slate-700 dark:text-slate-300">{enrollment.sport?.name || '—'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 block font-semibold mb-0.5">Period</span>
+                                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                                        {enrollment.plan_start_date ? new Date(enrollment.plan_start_date).toLocaleDateString() : '—'} - {enrollment.plan_end_date ? new Date(enrollment.plan_end_date).toLocaleDateString() : '—'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 block font-semibold mb-0.5">Amount</span>
+                                      <span className="font-bold text-slate-700 dark:text-slate-300">₹{enrollment.final_fee}</span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                   </div>
                 )}
@@ -9549,357 +9726,116 @@ export default function StudentsPanel() {
 
             <hr className="my-2 border-slate-200" />
 
-
-
-            {/* 1. SEARCH & SELECT SPORT */}
-
-            <div className="relative">
-
-              <label className="label block text-sm font-medium text-slate-700 mb-1">
-
-                Search & Select Sport
-
-              </label>
-
-              <div className="relative">
-
-                <input
-
-                  type="text"
-
-                  className="input-field w-full p-2 pr-16 border rounded-md text-sm"
-
-                  placeholder={
-
-                    editStudentForm.sport_id
-
-                      ? sports?.find(s => (s.sport_id || s.id) == editStudentForm.sport_id)?.name || "Sport Selected"
-
-                      : "Type to search sport..."
-
-                  }
-
-                  value={sportSearchQuery || ''}
-
-                  onFocus={() => setIsSportsDropdownOpen(true)}
-
-                  onChange={(e) => {
-
-                    setSportSearchQuery(e.target.value);
-
-                    setIsSportsDropdownOpen(true);
-
-                  }}
-
-                  onClick={(e) => e.stopPropagation()}
-
-                />
-
-                {editStudentForm.sport_id && (
-
-                  <button
-
-                    type="button"
-
-                    className="absolute right-2 top-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-slate-200 transition-colors"
-
-                    onClick={() => {
-
-                      setEditStudentForm(prev => ({ ...prev, sport_id: '', batch_id: '' }));
-
-                      setSportSearchQuery('');
-
-                      setBatchSearchQuery('');
-
-                    }}
-
-                  >
-
-                    Clear
-
-                  </button>
-
-                )}
-
-              </div>
-
-
-
-              {/* Sports Dropdown */}
-
-              {isSportsDropdownOpen && (
-
-                <div 
-
-                  className="absolute left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
-
-                  onClick={(e) => e.stopPropagation()}
-
-                >
-
-                  {(() => {
-
-                    const query = (sportSearchQuery || '').toLowerCase();
-
-                    const filtered = sports?.filter(s => s.name?.toLowerCase().includes(query)) || [];
-
-                    
-
-                    if (filtered.length > 0) {
-
-                      return filtered.map((sport) => {
-
-                        const currentSportId = sport.sport_id || sport.id;
-
-                        const isSelected = editStudentForm.sport_id == currentSportId;
-
-                        return (
-
-                          <div
-
-                            key={currentSportId}
-
-                            className={`flex items-center justify-between rounded-md p-2 text-sm cursor-pointer hover:bg-slate-50 ${
-
-                              isSelected ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-700'
-
-                            }`}
-
-                            onClick={() => {
-
-                              setEditStudentForm(prev => ({ ...prev, sport_id: currentSportId, batch_id: '' }));
-
-                              setSportSearchQuery('');
-
-                              setBatchSearchQuery('');
-
-                              setIsSportsDropdownOpen(false);
-
-                            }}
-
-                          >
-
-                            <span>{sport.name}</span>
-
-                            {isSelected && <span className="text-emerald-600 text-xs">✓ Active</span>}
-
-                          </div>
-
-                        );
-
-                      });
-
-                    } else {
-
-                      return <p className="p-2 text-center text-xs italic text-slate-400">No sports found.</p>;
-
-                    }
-
-                  })()}
-
+            {/* Sport & Duration Plan — READ-ONLY in Edit mode.
+                 Use Renew / Change Plan / Reactivate flows to modify these. */}
+            {(() => {
+              const activeEnrollment = (studentDetails?.enrollments || []).find(e => e.is_active);
+              const displaySport =
+                activeEnrollment?.sport?.name ||
+                studentDetails?.student?.sport?.name ||
+                (editStudentForm.sport_id
+                  ? sports?.find(s => (s.sport_id || s.id) == editStudentForm.sport_id)?.name
+                  : null);
+              const displayPlan =
+                activeEnrollment?.duration_plan?.name ||
+                null;
+              return (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-3 space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Assignment Info <span className="normal-case font-normal text-slate-400">(sport &amp; plan are read-only — use Renew / Change Plan to modify)</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-1.5 text-xs">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">Sport:</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{displaySport || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-1.5 text-xs">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">Plan:</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{displayPlan || '—'}</span>
+                    </div>
+                  </div>
                 </div>
+              );
+            })()}
 
-              )}
-
-            </div>
-
-
-
-            {/* 2. SEARCH & SELECT BATCH */}
-
+            {/* Batch — editable: moves student between batches within their current sport */}
             <div className="relative">
 
               <label className="label block text-sm font-medium text-slate-700 mb-1">
-
-                Search & Assign Batch
-
+                Search &amp; Assign Batch
               </label>
 
               <div className="relative">
 
                 <input
-
                   type="text"
-
-                  className="input-field w-full p-2 pr-16 border rounded-md text-sm disabled:bg-slate-50 disabled:cursor-not-allowed"
-
+                  className="input-field w-full p-2 pr-16 border rounded-md text-sm"
                   placeholder={
-
-                    !editStudentForm.sport_id
-
-                      ? "Select a sport first..."
-
-                      : editStudentForm.batch_id
-
-                        ? editAvailableBatches?.find(b => b.batch_id == editStudentForm.batch_id)?.name || "Batch Assigned"
-
-                        : "Type to search batch..."
-
+                    editStudentForm.batch_id
+                      ? editAvailableBatches?.find(b => b.batch_id == editStudentForm.batch_id)?.name || 'Batch Assigned'
+                      : 'Type to search batch...'
                   }
-
                   value={batchSearchQuery || ''}
-
-                  disabled={!editStudentForm.sport_id}
-
                   onFocus={() => setIsBatchesDropdownOpen(true)}
-
                   onChange={(e) => {
-
                     setBatchSearchQuery(e.target.value);
-
                     setIsBatchesDropdownOpen(true);
-
                   }}
-
                   onClick={(e) => e.stopPropagation()}
-
                 />
 
                 {editStudentForm.batch_id && (
-
                   <button
-
                     type="button"
-
                     className="absolute right-2 top-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-slate-200 transition-colors"
-
                     onClick={() => {
-
                       setEditStudentForm(prev => ({ ...prev, batch_id: '' }));
-
                       setBatchSearchQuery('');
-
                     }}
-
                   >
-
                     Clear
-
                   </button>
-
                 )}
 
               </div>
 
-
-
               {/* Batches Dropdown */}
-
-              {isBatchesDropdownOpen && editStudentForm.sport_id && (
-
-                <div 
-
+              {isBatchesDropdownOpen && (
+                <div
                   className="absolute left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
-
                   onClick={(e) => e.stopPropagation()}
-
                 >
-
                   {(() => {
-
                     const query = (batchSearchQuery || '').toLowerCase();
-
                     const filteredBatches = (editAvailableBatches || [])
-
                       .filter(b => (b.name || b.batch_name || '').toLowerCase().includes(query));
 
-
-
                     if (filteredBatches.length > 0) {
-
                       return filteredBatches.map((batch) => {
-
                         const isSelected = editStudentForm.batch_id == batch.batch_id;
-
                         return (
-
                           <div
-
                             key={batch.batch_id}
-
                             className={`flex items-center justify-between rounded-md p-2 text-sm cursor-pointer hover:bg-slate-50 ${
-
                               isSelected ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-700'
-
                             }`}
-
                             onClick={() => {
-
                               setEditStudentForm(prev => ({ ...prev, batch_id: batch.batch_id }));
-
                               setBatchSearchQuery('');
-
                               setIsBatchesDropdownOpen(false);
-
                             }}
-
                           >
-
                             <span>{batch.name || batch.batch_name}</span>
-
                             {isSelected && <span className="text-emerald-600 text-xs">✓ Assigned</span>}
-
                           </div>
-
                         );
-
                       });
-
                     } else {
-
                       return <p className="p-2 text-center text-xs italic text-slate-400">No matching batches found.</p>;
-
                     }
-
                   })()}
-
                 </div>
-
               )}
-
-            </div>
-
-
-
-            {/* Duration Plan */}
-
-            <div>
-
-              <label className="label block text-sm font-medium text-slate-700 mb-1" htmlFor="editDurationPlan">
-
-                Duration Plan
-
-              </label>
-
-              <select
-
-                id="editDurationPlan"
-
-                className="input-field w-full p-2 border rounded-md bg-white text-sm"
-
-                value={editStudentForm.duration_plan_id || ''}
-
-                onChange={(e) =>
-
-                  setEditStudentForm({ ...editStudentForm, duration_plan_id: e.target.value })
-
-                }
-
-              >
-
-                <option value="">Select Duration Plan</option>
-
-                {(durationPlans || []).map((plan) => (
-
-                  <option key={plan.plan_id || plan.id} value={plan.plan_id || plan.id}>
-
-                    {plan.name} ({plan.duration_type === 'DAYS' ? `${plan.duration} Days` : `${plan.duration} Month${plan.duration > 1 ? 's' : ''}`})
-
-                  </option>
-
-                ))}
-
-              </select>
 
             </div>
 
